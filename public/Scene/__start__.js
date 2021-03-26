@@ -20,6 +20,9 @@
                             console.error(err);
                         }
 
+                        const sceneRoot = app.root.findByName('playcanvasparent');
+                        scene.root.reparent(sceneRoot);
+
                         app.start();
                     });
                 });
