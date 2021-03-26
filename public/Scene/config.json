@@ -2643,10 +2643,10 @@
       },
       "type": "script",
       "file": {
-        "filename": "Scene/__game-scripts.js",
-        "size": 1025,
-        "hash": "e19cd5bc388e582951312e9b285e0ed5",
-        "url": "Scene/__game-scripts.js"
+        "filename": "cube.js",
+        "size": 547,
+        "hash": "02b66bcf0e6de539ba5ed18ad4fb2b63",
+        "url": "Scene/files/assets/44966324/1/cube.js"
       },
       "region": "eu-west-1",
       "i18n": {},
@@ -2698,10 +2698,10 @@
       },
       "type": "script",
       "file": {
-        "filename": "Scene/__game-scripts.js",
-        "size": 1025,
-        "hash": "e19cd5bc388e582951312e9b285e0ed5",
-        "url": "Scene/__game-scripts.js"
+        "filename": "events.js",
+        "size": 741,
+        "hash": "e424a8191973f42a7d3fed14ccdfc287",
+        "url": "Scene/files/assets/44966332/1/events.js"
       },
       "region": "eu-west-1",
       "i18n": {},

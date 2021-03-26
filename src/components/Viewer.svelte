@@ -404,10 +404,19 @@
                     placeholder.name = 'playcanvasparent';
 
                     loadAdditionalScript(`${path}__settings__.js`, () => {
-                        loadAdditionalScript(`${path}__start__.js`, () => {
-                            // TODO: Find scene and add it to to placeholder
-                        });
+                        loadAdditionalScript(`${path}__start__.js`);
                     });
+
+/*
+                    // Usually, this should probably work...
+                    app.scenes.loadSceneHierarchy('Scene/1119478.json', function (err, loadedSceneRootEntity) {
+                        if (err) {
+                            console.error(err);
+                        } else {
+                            loadedSceneRootEntity.reparent(placeholder);
+                        }
+                    });
+*/
                 } else {
                     placeholder = createPlaceholder(record.content.keywords);
                 }
