@@ -59,6 +59,8 @@ export function disconnect() {
  * @param data      The data as Javascript types to send out. Will be stringified later
  */
 export function send(data) {
+    if (!instance) return;
+
     instance.select('event')(change, doc => {
         doc[data.event] = data.value;
     })
