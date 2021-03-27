@@ -144,9 +144,15 @@
      * Receives data from the application to be applied to current scene.
      */
     export function updateReceived(data) {
-        console.log('viewer update received');
+        // TODO: Receive list of events to fire from SCD
 
-        // TODO: Set the data to the respective objects
+        if ('setrotation' in data) {
+            app.fire('setrotation', data.setrotation);
+        }
+
+        if ('setcolor' in data) {
+            app.fire('setcolor', data.setcolor);
+        }
     }
 
 
@@ -407,6 +413,21 @@
                         loadAdditionalScript(`${path}__start__.js`);
                     });
 
+                    // TODO: Receive list of events to register to from SCD
+                    app.on('send:setrotation', (data) => {
+                        dispatch('broadcast', {
+                            event: 'setrotation',
+                            value: data
+                        });
+                    })
+
+                    app.on('send:setcolor', (data) => {
+                        dispatch('broadcast', {
+                            event: 'setcolor',
+                            value: data
+                        });
+                    })
+
 /*
                     // Usually, this should probably work...
                     app.scenes.loadSceneHierarchy('Scene/1119478.json', function (err, loadedSceneRootEntity) {
@@ -456,7 +477,7 @@
         font-weight: bold;
         text-align: center;
 
-        background: #FFFFFF 0% 0% no-repeat padding-box;
+        background: #FFFFFF 0 0 no-repeat padding-box;
 
         opacity: 0.7;
     }
