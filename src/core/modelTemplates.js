@@ -7,17 +7,29 @@
 
 import "@thirdparty/playcanvas.min.js";
 
+
 /**
  * Simple sample model to place for tests.
  *
+ * @param type  String      One of the supported object types
+ * @param color  Color      Playcanvas color object
  * @returns {Entity}
  */
-export function createModel() {
-    const cube = new pc.Entity();
-    cube.addComponent("model", {type: "box"});
-    cube.setLocalScale(0.1, 0.1, 0.1);
-    cube.setLocalPosition(-0.25, 0.0, 0.0);
-    return cube;
+export function createModel(type = 'box', color) {
+    const entity = new pc.Entity();
+    entity.addComponent("model", {type: type});
+    entity.setLocalScale(0.1, 0.1, 0.1);
+    entity.setLocalPosition(-0.25, 0.0, 0.0);
+
+    if (color) {
+        const material = new pc.StandardMaterial();
+        material.diffuse = color;
+        material.update();
+
+        entity.model.material = material;
+    }
+
+    return entity;
 }
 
 
@@ -30,8 +42,7 @@ export function createModel() {
  * @returns {Entity}
  */
 export function createPlaceholder(keywords) {
-    const placeholder = new pc.Entity();
-    placeholder.addComponent('model', {type: 'sphere'});
+    const placeholder = createModel('sphere');
     placeholder.setLocalScale(.5, .5, .5);
     return placeholder;
 }
@@ -40,51 +51,28 @@ export function createPlaceholder(keywords) {
 /**
  * Add axes at the zero point of the local coordinate system.
  *
- * @param app  Application      Playcanvas camera access point
- */
-export function addAxes(app) {
-    // TODO: add the objects in an entity and return them, don't add them here to the scene
-
-    // add something small at the positive X, Y, Z:
-    const objX = createObject("box", new pc.Color(1, 0, 0));
-    objX.setPosition(1, 0, 0);
-    app.root.addChild(objX);
-
-    const objY = createObject("sphere", new pc.Color(0, 1, 0));
-    objY.setPosition(0, 1, 0);
-    app.root.addChild(objY);
-
-    const objZ = createObject("cone", new pc.Color(0, 0, 1));
-    objZ.setPosition(0, 0, 1);
-    app.root.addChild(objZ);
-
-    const obj0 = createObject("box", new pc.Color(1, 0, 0));
-    obj0.setLocalScale(0.01, 0.01, 0.01);
-    obj0.setPosition(0, 0, 0);
-    app.root.addChild(obj0);
-}
-
-
-/**
- * Helper for 3D object creation.
- *
- * @param type  String      One of the supported object types
- * @param color  Color      Playcanvas color object
  * @returns {Entity}
  */
-function createObject(type, color) {
-    // TODO: use createModel instead
-
+export function createAxes() {
     const entity = new pc.Entity();
-    entity.addComponent("model", {type: type});
-    entity.setLocalScale(0.1, 0.1, 0.1);
 
-    if (color) {
-        const material = new pc.StandardMaterial();
-        material.diffuse = color;
-        material.update();
+    // add something small at the positive X, Y, Z:
+    const objX = createModel("box", new pc.Color(1, 0, 0));
+    objX.setPosition(1, 0, 0);
+    entity.addChild(objX);
 
-        entity.model.material = material;
-    }
+    const objY = createModel("sphere", new pc.Color(0, 1, 0));
+    objY.setPosition(0, 1, 0);
+    entity.addChild(objY);
+
+    const objZ = createModel("cone", new pc.Color(0, 0, 1));
+    objZ.setPosition(0, 0, 1);
+    entity.addChild(objZ);
+
+    const obj0 = createModel("box", new pc.Color(1, 0, 0));
+    obj0.setLocalScale(0.01, 0.01, 0.01);
+    obj0.setPosition(0, 0, 0);
+    entity.addChild(obj0);
+
     return entity;
 }

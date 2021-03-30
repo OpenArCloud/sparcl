@@ -21,7 +21,7 @@
         currentMarkerImageWidth, recentLocalisation,
         debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse} from '@src/stateStore';
     import { wait, ARMODES, debounce, loadAdditionalScript, removeAdditionalScripts } from "@core/common";
-    import { createModel, createPlaceholder, addAxes } from '@core/modelTemplates';
+    import { createModel, createPlaceholder, createAxes } from '@core/modelTemplates';
     import { calculateDistance, fakeLocationResult, calculateRotation } from '@core/locationTools';
 
     import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
@@ -59,8 +59,7 @@
     $: {
         if (firstPoseReceived) {
             if ($debug_showLocationAxis) {
-                // TODO: Don't provide app to function. Return objects and add them here to the scene
-                addAxes(app);
+                app.root.addChild(createAxes());
             }
         }
     }

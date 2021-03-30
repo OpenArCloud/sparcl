@@ -94,7 +94,6 @@ export const ssr = writable([]);
 export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
     let geoposeServices = [];
     for (let record of $ssr) {
-        // TODO: Check
         geoposeServices.concat(record.services
             .forEach(service => {
                 if(service.type === 'geopose')

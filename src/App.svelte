@@ -145,7 +145,6 @@
      * Initiate start of AR session
      */
     function startAr() {
-        // TODO: Start initialisation of the viewer
         shouldShowDashboard = false;
         showOutro = false;
 
