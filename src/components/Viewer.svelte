@@ -9,8 +9,9 @@
 <script>
     import { createEventDispatcher, onDestroy } from 'svelte';
 
-    import '@thirdparty/playcanvas.min.js';
     import {v4 as uuidv4} from 'uuid';
+
+    import webxr from '@core/engines/webxr';
 
     import { sendRequest, objectEndpoint, validateRequest } from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
@@ -24,7 +25,6 @@
     import { createModel, createPlaceholder, createAxes } from '@core/modelTemplates';
     import { calculateDistance, fakeLocationResult, calculateRotation } from '@core/locationTools';
 
-    import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
 
@@ -37,18 +37,14 @@
     const dispatch = createEventDispatcher();
 
     let canvas, overlay;
-    $: window.canvas = canvas;
-
-    let app;
+    let xrEngine, tdEngine;
 
     let doCaptureImage = false;
     let showFooter = false, firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
 
-    let xrRefSpace = null, gl = null, glBinding = null;
     let trackedImage, trackedImageObject;
     let poseFoundHeartbeat = null;
 
-    let loadPlaycanvasScene = false;
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -59,7 +55,7 @@
     $: {
         if (firstPoseReceived) {
             if ($debug_showLocationAxis) {
-                app.root.addChild(createAxes());
+                // todo app.root.addChild(createAxes());
             }
         }
     }
@@ -68,75 +64,14 @@
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
      */
-    export function startAr() {
-        showFooter = true;
+    export function startAr(thisWebxr, this3dEngine) {
+        xrEngine = thisWebxr;
+        tdEngine = this3dEngine;
 
-        app = window.app = new pc.Application(canvas, {
-            mouse: new pc.Mouse(canvas),
-            touch: new pc.TouchDevice(canvas),
-            elementInput: new pc.ElementInput(canvas),
-            graphicsDeviceOptions: {alpha: true}
-        });
+        // give the component some time to set itself up
+        wait(1000).then(() => showFooter = true);
 
-        app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
-        app.setCanvasResolution(pc.RESOLUTION_AUTO);
-        app.graphicsDevice.maxPixelRatio = window.devicePixelRatio;
-        app.start();
-
-        app.xr.on('start', () => {
-            message("Immersive AR session has started");
-        });
-
-        app.xr.on('update', (frame) => {
-            onUpdate(frame);
-        })
-
-        app.xr.on('end', () => {
-            message("Immersive AR session has ended");
-
-            app = null;
-            firstPoseReceived = false;
-            dispatch('arSessionEnded');
-        });
-
-        app.xr.on('available:' + pc.XRTYPE_AR, (available) => {
-            message("Immersive AR is " + (available ? 'available' : 'unavailable'));
-            if (available && !app.xr.active) {
-                const camera = setupEnvironment();
-                startSession(camera);
-            }
-        });
-
-        window.addEventListener("resize", () => {
-            if (app) app.resizeCanvas(canvas.width, canvas.height);
-        });
-    }
-
-    /**
-     * Set up the 3D environment as required according to the current real environment.*
-     */
-    function setupEnvironment() {
-        // TODO: Use environmental lighting?!
-
-        // create camera
-        const camera = new pc.Entity();
-        camera.addComponent('camera', {
-            clearColor: new pc.Color(0, 0, 0, 0),
-            farClip: 10000
-        });
-        app.root.addChild(camera);
-
-        const light = new pc.Entity();
-        light.addComponent("light", {
-            type: "spot",
-            range: 30
-        });
-        light.translate(0, 10, 0);
-        app.root.addChild(light);
-
-        app.scene.ambientLight = new pc.Color(0.5, 0.5, 0.5);
-
-        return camera.camera;
+        startSession();
     }
 
     /**
@@ -146,11 +81,11 @@
         // TODO: Receive list of events to fire from SCD
 
         if ('setrotation' in data) {
-            app.fire('setrotation', data.setrotation);
+            // todo app.fire('setrotation', data.setrotation);
         }
 
         if ('setcolor' in data) {
-            app.fire('setcolor', data.setcolor);
+            // todo app.fire('setcolor', data.setcolor);
         }
     }
 
@@ -158,69 +93,56 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    function startSession(camera) {
-        app.xr.domOverlay.root = overlay;
+    function startSession() {
+        let startResult;
 
         if (activeArMode === ARMODES.oscp) {
-            camera.startXr(pc.XRTYPE_AR, pc.XRSPACE_LOCALFLOOR, {
+            startResult = xrEngine.startOscpSession(canvas, handleOscp, {
                 requiredFeatures: ['dom-overlay', 'camera-access'],
-                callback: onXRSessionStartedOSCP
-            });
+                domOverlay: {root: overlay}
+            })
         } else if (activeArMode === ARMODES.marker) {
-            setupMarkers()
-                .then(() => camera.startXr(pc.XRTYPE_AR, pc.XRSPACE_LOCALFLOOR, {
-                        requiredFeatures: ['image-tracking'],
-                        imageTracking: true,
-                        callback: onXRSessionStartedMarker
-                    }
-                ));
+            loadDefaultMarker()
+                .then((bitmap) => {
+                    startResult = xrEngine.startMarkerSession(canvas, handleMarker, {
+                        requiredFeatures: ['dom-overlay', 'image-tracking'],
+                        domOverlay: {root: overlay},
+                        trackedImages: [{
+                            image: bitmap,
+                            widthInMeters: $currentMarkerImageWidth
+                        }]
+                    })
+                });
+        }
+
+        if (startResult) {
+            startResult
+                .then(() => {
+                    xrEngine.setSessionEndedCallback(onSessionEnded);
+                })
+                .catch(error => {
+                    message("WebXR Immersive AR failed to start: " + error.message);
+                    throw new Error(error.message);
+                });
+        } else {
+            message('AR session was started with unknown mode');
+            throw new Error('AR session was started with unknown mode');
         }
     }
 
     /**
      * Load marker and configure marker tracking.
      */
-    function setupMarkers() {
+    function loadDefaultMarker() {
         return fetch(`/media/${$currentMarkerImage}`)
             .then(response => response.blob())
-            .then(blob => {
-                trackedImage = app.xr.imageTracking.add(blob, $currentMarkerImageWidth);
-            })
+            .then(blob => createImageBitmap(blob))
             .catch(error => console.log(error));
     }
 
-    /**
-     * Executed when XRSession was successfully created for AR mode 'marker'.
-     */
-    function onXRSessionStartedMarker(error) {
-        if (error) {
-            message("WebXR Immersive AR failed to start: " + error.message);
-            throw new Error(error.message);
-        }
-
-        app.xr.session.requestReferenceSpace('local').then((refSpace) => {
-            xrRefSpace = refSpace;
-        });
-    }
-
-    /**
-     * Executed when XRSession was successfully created for AR mode 'oscp'.
-     */
-    function onXRSessionStartedOSCP(error) {
-        if (error) {
-            message("WebXR Immersive AR failed to start: " + error.message);
-            throw new Error(error.message);
-        }
-
-        gl = canvas.getContext('webgl2', {xrCompatible: true}); // NOTE: preserveDrawingBuffer: true seems to have no effect
-        glBinding = new XRWebGLBinding(app.xr.session, gl);
-
-        app.xr.session.updateRenderState({baseLayer: new XRWebGLLayer(app.xr.session, gl)});
-        app.xr.session.requestReferenceSpace('local').then((refSpace) => {
-            xrRefSpace = refSpace;
-        });
-
-        initCameraCaptureScene(gl);
+    function onSessionEnded() {
+        firstPoseReceived = false;
+        dispatch('arSessionEnded');
     }
 
     /**
@@ -229,26 +151,6 @@
     function startLocalisation() {
         doCaptureImage = true;
         isLocalizing = true;
-    }
-
-    /**
-     * Animation loop.
-     *
-     * @param frame
-     */
-    function onUpdate(frame) {
-        const localPose = frame.getViewerPose(xrRefSpace);
-
-        if (localPose) {
-            handlePoseHeartbeat();
-
-            if (activeArMode === ARMODES.oscp) {
-                firstPoseReceived = true;
-                handlePose(localPose, frame);
-            } else if (activeArMode === ARMODES.marker) {
-                handleMarker();
-            }
-        }
     }
 
     /**
@@ -267,11 +169,13 @@
     /**
      * Handles update loop when marker mode is used.
      */
-    function handleMarker() {
+    function handleMarker(time, frame, localpose, trackedImage) {
+        handlePoseHeartbeat();
+
         if (trackedImage && trackedImage.tracking) {
             if (!trackedImageObject) {
                 trackedImageObject = createModel();
-                app.root.addChild(trackedImageObject);
+                // todo app.root.addChild(trackedImageObject);
             }
 
             trackedImageObject.setPosition(trackedImage.getPosition());
@@ -285,24 +189,19 @@
      * @param localPose The pose of the device as reported by the XRFrame
      * @param frame     The XRFrame provided to the update loop
      */
-    function handlePose(localPose, frame) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, app.xr.session.renderState.baseLayer.framebuffer);
+    function handleOscp(time, frame, localPose) {
+        handlePoseHeartbeat();
+
+        firstPoseReceived = true;
 
         // TODO: Correctly handle multiple views. No need to localize twice for glasses.
         for (let view of localPose.views) {
-            let viewport = app.xr.session.renderState.baseLayer.getViewport(view);
-            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+            let viewport = xrEngine.setViewportForView(view);
 
-            // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
-            // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
-
-            // We want to capture the camera image, however, it is not directly available here,
-            // but only as a GPU texture. We draw something textured with the camera image at every frame,
-            // so that the texture is kept in GPU memory. We can then capture it below.
+            // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
             if (!isLocalized) {
-                cameraTexture = glBinding.getCameraImage(frame, view);
-                drawCameraCaptureScene(gl, cameraTexture);
+                cameraTexture = xrEngine.getCameraTexture(frame, view);
             }
 
             if (doCaptureImage) {
@@ -310,10 +209,10 @@
 
                 // TODO: try to queue the camera capture code on XRSession.requestAnimationFrame()
 
-                const image = createImageFromTexture(gl, cameraTexture, viewport.width, viewport.height);
+                const image = xrEngine.getCameraImageFromTexture(cameraTexture, viewport.width, viewport.height);
 
+                // Append captured camera image to body to verify if it was captured correctly
                 if ($debug_appendCameraImage) {
-                    // DEBUG: verify if the image was captured correctly
                     const img = new Image();
                     img.src = image;
                     document.body.appendChild(img);
@@ -391,9 +290,9 @@
         console.log('Number of content items received: ', scr.length);
 
         scr.forEach(record => {
-            const container = new pc.Entity();
-            container.setPosition(localPosition.x, localPosition.y, localPosition.z);
-            app.root.addChild(container);
+            // todo const container = new pc.Entity();
+            // container.setPosition(localPosition.x, localPosition.y, localPosition.z);
+            // app.root.addChild(container);
 
             // Augmented City special path for the GeoPose. Should be just 'record.content.geopose'
             const objectPose = record.content.geopose.pose;
@@ -405,6 +304,8 @@
                 if (record.content.custom_data.sticker_type === 'other' &&
                         record.content.custom_data.sticker_subtype === 'Playcanvas') {
                     const path = record.content.custom_data.path;
+/*
+                    // todo
                     placeholder = new pc.Entity();
                     placeholder.name = 'playcanvasparent';
 
@@ -426,22 +327,12 @@
                             value: data
                         });
                     })
-
-/*
-                    // Usually, this should probably work...
-                    app.scenes.loadSceneHierarchy('Scene/1119478.json', function (err, loadedSceneRootEntity) {
-                        if (err) {
-                            console.error(err);
-                        } else {
-                            loadedSceneRootEntity.reparent(placeholder);
-                        }
-                    });
 */
                 } else {
                     placeholder = createPlaceholder(record.content.keywords);
                 }
 
-                container.addChild(placeholder);
+                // todo container.addChild(placeholder);
 
                 const contentPosition = calculateDistance(globalPose, objectPose);
                 placeholder.setPosition(contentPosition.x + localPosition.x,
@@ -449,7 +340,7 @@
                                         contentPosition.z + localPosition.z);
 
                 const rotation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
-                container.setRotation(rotation[0], rotation[1], rotation[2], rotation[3]);
+                // todo container.setRotation(rotation[0], rotation[1], rotation[2], rotation[3]);
             }
         })
     }
