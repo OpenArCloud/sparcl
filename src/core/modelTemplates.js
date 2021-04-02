@@ -5,8 +5,6 @@
 
 /* Provides models for generic content, provided by the content discovery */
 
-import "@thirdparty/playcanvas.min.js";
-
 
 /**
  * Simple sample model to place for tests.

@@ -9,6 +9,9 @@
 <script>
     import {onMount, tick} from "svelte";
 
+    import webxr from '@core/engines/webxr';
+    import claygl from '@core/engines/claygl';
+
     import {getServicesAtLocation} from 'ssd-access';
 
     import {ARMODES} from '@src/core/common'
@@ -148,7 +151,7 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        tick().then(() => viewer.startAr());
+        tick().then(() => viewer.startAr(new webxr(), new claygl()));
     }
 
     /**
@@ -255,14 +258,17 @@
         {/if}
         </div>
     </aside>
-
-    {:else if showAr}
-        <Viewer bind:this={viewer} activeArMode="{activeArMode}"
-                on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
     {/if}
+
 {:else}
     <!-- Just for development to verify some internal values -->
     <h1>Headless Mode</h1>
     <pre>{JSON.stringify(currentSharedValues, null, 2)}</pre>
 {/if}
 </main>
+
+{#if showAr}
+<Viewer bind:this={viewer} activeArMode="{activeArMode}"
+        on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{/if}
+
