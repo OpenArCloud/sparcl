@@ -108,30 +108,3 @@ export function debounce(func, timeout = 300){
         timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
 }
-
-/**
- * Add additional scripts to the html header needed to import scenes.
- *
- * @param url  String       The URL of the script to load
- * @param loadedCallback  Function      Callback to run when script was successfully loaded
- */
-export function loadAdditionalScript(url, loadedCallback) {
-    // TODO: Implement as promise
-    const newScript = document.createElement("script");
-    newScript.class = 'additionalscript';
-    newScript.onerror = (error) => console.log(error);
-
-    if (loadedCallback) { newScript.onload = loadedCallback; }
-
-    document.head.appendChild(newScript);
-    newScript.src = url;
-}
-
-/**
- * Remove previously added scripts.
- */
-export function removeAdditionalScripts() {
-    const additionalScripts = document.querySelectorAll('.additionalscript');
-    additionalScripts.forEach((scriptElement) => scriptElement.remove());
-}
-
