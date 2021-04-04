@@ -10,7 +10,7 @@
     import {onMount, tick} from "svelte";
 
     import webxr from '@core/engines/webxr';
-    import claygl from '@core/engines/claygl';
+    import claygl from '@core/engines/ogl';
 
     import {getServicesAtLocation} from 'ssd-access';
 

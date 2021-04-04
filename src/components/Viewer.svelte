@@ -7,11 +7,9 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import { createEventDispatcher } from 'svelte';
 
     import {v4 as uuidv4} from 'uuid';
-
-    import webxr from '@core/engines/webxr';
 
     import { sendRequest, objectEndpoint, validateRequest } from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
@@ -21,8 +19,7 @@
     import { initialLocation, availableContentServices, currentMarkerImage,
         currentMarkerImageWidth, recentLocalisation,
         debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse} from '@src/stateStore';
-    import { wait, ARMODES, debounce, loadAdditionalScript, removeAdditionalScripts } from "@core/common";
-    import { createModel, createPlaceholder, createAxes } from '@core/modelTemplates';
+    import { wait, ARMODES, debounce } from "@core/common";
     import { calculateDistance, fakeLocationResult, calculateRotation } from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
@@ -119,10 +116,12 @@
             startResult
                 .then(() => {
                     xrEngine.setSessionEndedCallback(onSessionEnded);
+
+                    tdEngine.init();
                 })
                 .catch(error => {
-                    message("WebXR Immersive AR failed to start: " + error.message);
-                    throw new Error(error.message);
+                    message("WebXR Immersive AR failed to start: " + error);
+                    throw new Error(error);
                 });
         } else {
             message('AR session was started with unknown mode');
@@ -132,6 +131,8 @@
 
     /**
      * Load marker and configure marker tracking.
+     *
+     * In the future, markers can be provided by the user or SCD.
      */
     function loadDefaultMarker() {
         return fetch(`/media/${$currentMarkerImage}`)
@@ -174,12 +175,12 @@
 
         if (trackedImage && trackedImage.tracking) {
             if (!trackedImageObject) {
-                trackedImageObject = createModel();
-                // todo app.root.addChild(trackedImageObject);
+                // todo trackedImageObject = createModel();
+                // app.root.addChild(trackedImageObject);
             }
 
-            trackedImageObject.setPosition(trackedImage.getPosition());
-            trackedImageObject.setRotation(trackedImage.getRotation());
+            // todo trackedImageObject.setPosition(trackedImage.getPosition());
+            // trackedImageObject.setRotation(trackedImage.getRotation());
         }
     }
 
@@ -194,9 +195,12 @@
 
         firstPoseReceived = true;
 
-        // TODO: Correctly handle multiple views. No need to localize twice for glasses.
-        for (let view of localPose.views) {
+        // TODO: Correctly handle multiple views.
+        if (localPose.views.length > 0) {
+            const view = localPose.views[0];
             let viewport = xrEngine.setViewportForView(view);
+
+            tdEngine.render(localPose);
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
@@ -206,8 +210,6 @@
 
             if (doCaptureImage) {
                 doCaptureImage = false;
-
-                // TODO: try to queue the camera capture code on XRSession.requestAnimationFrame()
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, viewport.width, viewport.height);
 
@@ -290,10 +292,6 @@
         console.log('Number of content items received: ', scr.length);
 
         scr.forEach(record => {
-            // todo const container = new pc.Entity();
-            // container.setPosition(localPosition.x, localPosition.y, localPosition.z);
-            // app.root.addChild(container);
-
             // Augmented City special path for the GeoPose. Should be just 'record.content.geopose'
             const objectPose = record.content.geopose.pose;
 
@@ -301,53 +299,24 @@
             if (record.content.type === 'placeholder') {
                 let placeholder;
 
+                // Augmented City proprietary structure
                 if (record.content.custom_data.sticker_type === 'other' &&
-                        record.content.custom_data.sticker_subtype === 'Playcanvas') {
+                        record.content.custom_data.sticker_subtype === 'scene') {
                     const path = record.content.custom_data.path;
-/*
-                    // todo
-                    placeholder = new pc.Entity();
-                    placeholder.name = 'playcanvasparent';
 
-                    loadAdditionalScript(`${path}__settings__.js`, () => {
-                        loadAdditionalScript(`${path}__start__.js`);
-                    });
-
-                    // TODO: Receive list of events to register to from SCD
-                    app.on('send:setrotation', (data) => {
-                        dispatch('broadcast', {
-                            event: 'setrotation',
-                            value: data
-                        });
-                    })
-
-                    app.on('send:setcolor', (data) => {
-                        dispatch('broadcast', {
-                            event: 'setcolor',
-                            value: data
-                        });
-                    })
-*/
+                    // TODO: Handle iframe for external scenes
+                    // TODO: Receive list of events to register to from SCD and register them here
                 } else {
-                    placeholder = createPlaceholder(record.content.keywords);
+                    const position = calculateDistance(globalPose, objectPose);
+                    const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
+
+                    tdEngine.createPlaceholder(record.content.keywords, position, orientation);
+
+                    // TODO: Anchor placeholder for better visual stability?!
                 }
-
-                // todo container.addChild(placeholder);
-
-                const contentPosition = calculateDistance(globalPose, objectPose);
-                placeholder.setPosition(contentPosition.x + localPosition.x,
-                                        contentPosition.y + localPosition.y,
-                                        contentPosition.z + localPosition.z);
-
-                const rotation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
-                // todo container.setRotation(rotation[0], rotation[1], rotation[2], rotation[3]);
             }
         })
     }
-
-    onDestroy(() => {
-        removeAdditionalScripts()
-    })
 </script>
 
 
@@ -370,6 +339,12 @@
         background: #FFFFFF 0 0 no-repeat padding-box;
 
         opacity: 0.7;
+    }
+
+    canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
     }
 
     #trackinglostindicator {
