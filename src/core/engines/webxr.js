@@ -15,7 +15,6 @@ export default class webxr {
     startOscpSession(canvas, callback, options) {
         oscpFrameCallback = callback;
 
-        // TODO: Verify that session doesn't leak out
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
                 this._initSession(canvas, result);
@@ -94,7 +93,7 @@ export default class webxr {
         this.session.addEventListener('end', this.onSessionEnded);
 
         this.session.updateRenderState({ baseLayer: new XRWebGLLayer(this.session, gl) });
-        this.session.requestReferenceSpace('local').then((result) => {
+        this.session.requestReferenceSpace('local-floor').then((result) => {
             refSpace = result;
             this.session.requestAnimationFrame(this._onFrameUpdate);
         });

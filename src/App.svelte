@@ -10,7 +10,7 @@
     import {onMount, tick} from "svelte";
 
     import webxr from '@core/engines/webxr';
-    import claygl from '@core/engines/ogl';
+    import ogl from '@core/engines/ogl/ogl';
 
     import {getServicesAtLocation} from 'ssd-access';
 
@@ -151,7 +151,7 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        tick().then(() => viewer.startAr(new webxr(), new claygl()));
+        tick().then(() => viewer.startAr(new webxr(), new ogl()));
     }
 
     /**

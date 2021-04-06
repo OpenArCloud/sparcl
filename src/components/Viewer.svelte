@@ -6,8 +6,9 @@
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
+
 <script>
-    import { createEventDispatcher } from 'svelte';
+    import { createEventDispatcher, onDestroy } from 'svelte';
 
     import {v4 as uuidv4} from 'uuid';
 
@@ -52,10 +53,15 @@
     $: {
         if (firstPoseReceived) {
             if ($debug_showLocationAxis) {
-                // todo app.root.addChild(createAxes());
+                tdEngine.addAxes();
             }
         }
     }
+
+
+    onDestroy(() => {
+        tdEngine.stop();
+    })
 
 
     /**
@@ -65,7 +71,7 @@
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
-        // give the component some time to set itself up
+        // give the component some time to set up itself
         wait(1000).then(() => showFooter = true);
 
         startSession();
@@ -95,7 +101,7 @@
 
         if (activeArMode === ARMODES.oscp) {
             startResult = xrEngine.startOscpSession(canvas, handleOscp, {
-                requiredFeatures: ['dom-overlay', 'camera-access'],
+                requiredFeatures: ['dom-overlay', 'camera-access', 'local-floor'],
                 domOverlay: {root: overlay}
             })
         } else if (activeArMode === ARMODES.marker) {
@@ -116,7 +122,6 @@
             startResult
                 .then(() => {
                     xrEngine.setSessionEndedCallback(onSessionEnded);
-
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -133,6 +138,7 @@
      * Load marker and configure marker tracking.
      *
      * In the future, markers can be provided by the user or SCD.
+     * Leaving this function here for now, as the marker system needs some bigger rework anyway.
      */
     function loadDefaultMarker() {
         return fetch(`/media/${$currentMarkerImage}`)
@@ -187,6 +193,8 @@
     /**
      * Handles update loop when AR Cloud mode is used.
      *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
      * @param localPose The pose of the device as reported by the XRFrame
      * @param frame     The XRFrame provided to the update loop
      */
@@ -195,9 +203,8 @@
 
         firstPoseReceived = true;
 
-        // TODO: Correctly handle multiple views.
-        if (localPose.views.length > 0) {
-            const view = localPose.views[0];
+        // TODO: Correctly handle multiple views and the localisation correctly
+        for (let view of localPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
             tdEngine.render(localPose);
@@ -310,7 +317,7 @@
                     const position = calculateDistance(globalPose, objectPose);
                     const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
 
-                    tdEngine.createPlaceholder(record.content.keywords, position, orientation);
+                    tdEngine.addPlaceholder(record.content.keywords, position, orientation);
 
                     // TODO: Anchor placeholder for better visual stability?!
                 }
