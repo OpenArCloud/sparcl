@@ -105,6 +105,13 @@ export function getDefaultPlaceholder(gl) {
 }
 
 
+export function getDefaultMarkerObject(gl) {
+    const object = createModel(gl, PRIMITIVES.box, [1, 1, 0]);
+    object.scale.set(0.5);
+    return object;
+}
+
+
 /**
  * Add axes at the zero point of the local coordinate system.
  *
@@ -131,7 +138,7 @@ export function getAxes(gl) {
 
     const zero = createModel(gl,PRIMITIVES.box, [1, 0, 0]);
     zAxis.position.set(0, 0, 0);
-    zero.scale.set(0.1);
+    zero.scale.set(0.05);
     zero.setParent(container);
 
     return container;

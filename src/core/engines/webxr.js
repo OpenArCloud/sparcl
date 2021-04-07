@@ -8,7 +8,7 @@ import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture 
 
 let endedCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
 
-let refSpace, gl;
+let floorSpaceReference, localSpaceReference, gl;
 
 
 export default class webxr {
@@ -35,11 +35,15 @@ export default class webxr {
             })
             .then(scores => {
                 // Simplified handling for a single marker image
-                if (scores.length !== 0 && scores[0] === 'untrackable') {
+                if (scores.length > 0) {
                     // When marker image provided by user or server, inform user that marker can't be tracked
-                    console.log('Marker untrackable');
+                    console.log('Marker score: ', scores[0]);
                 }
             });
+    }
+
+    setViewPort() {
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     }
 
     setViewportForView(view) {
@@ -91,12 +95,15 @@ export default class webxr {
         gl = canvas.getContext('webgl2', { xrCompatible: true });
 
         this.session.addEventListener('end', this.onSessionEnded);
-
         this.session.updateRenderState({ baseLayer: new XRWebGLLayer(this.session, gl) });
-        this.session.requestReferenceSpace('local-floor').then((result) => {
-            refSpace = result;
-            this.session.requestAnimationFrame(this._onFrameUpdate);
-        });
+
+        Promise.all(
+            [this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')])
+            .then((values => {
+                floorSpaceReference = values[0];
+                localSpaceReference = values[1];
+                this.session.requestAnimationFrame(this._onFrameUpdate);
+            }));
     }
 
     _onFrameUpdate(time, frame) {
@@ -105,31 +112,19 @@ export default class webxr {
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
 
-        const localPose = frame.getViewerPose(refSpace);
+        const floorPose = frame.getViewerPose(floorSpaceReference);
 
-        if (localPose) {
+        if (floorPose) {
             if (oscpFrameCallback) {
-                oscpFrameCallback(time, frame, localPose);
+                oscpFrameCallback(time, frame, floorPose);
             }
 
             if (markerFrameCallback) {
                 const results = frame.getImageTrackingResults();
-                for (const result of results) {
-                    // The result's index is the image's position in the trackedImages array specified at session creation
-                    const imageIndex = result.index;
-
-                    // Get the pose of the image relative to a reference space.
-                    const pose = frame.getPose(result.imageSpace, referenceSpace);
-
-                    const state = result.trackingState;
-
-                    if (state === "tracked") {
-                        HighlightImage(imageIndex, pose);
-                    } else if (state === "emulated") {
-                        FadeImage(imageIndex, pose);
-                    }
+                if (results.length > 0) {
+                    const localPose = frame.getPose(results[0].imageSpace, localSpaceReference);
+                    markerFrameCallback(time, frame, localPose, results[0]);
                 }
-                markerFrameCallback(time, frame, localPose, /*trackedImage*/);
             }
         }
     }

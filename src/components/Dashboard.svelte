@@ -175,7 +175,7 @@
     <dt>AR mode</dt>
     <dd>
         <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
-               disabled="{$availableGeoPoseServices.length === 0  || null}"/>
+               class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
         <label for="armodeoscp">{ARMODES.oscp}</label>
     </dd>
     <dd>
@@ -190,7 +190,8 @@
 
 <dl>
     <dt>GeoPose Server</dt>
-    <dd class="select"><select bind:value={$selectedGeoPoseService} disabled="{$availableGeoPoseServices.length < 2  || null}">
+    <dd class="select"><select bind:value={$selectedGeoPoseService}
+                               class:disabled="{$availableGeoPoseServices.length < 2  || null}">
         {#if $availableGeoPoseServices.length === 0}
             <option>None</option>
         {:else}
@@ -206,12 +207,13 @@
     <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
 <!--    TODO: Values aren't displayed for some reason. Fix. -->
 <!--    <dt>at</dt>-->
-<!--    <dd><pre>{JSON.stringify($recentLocalisation.localpose, null, 2)}</pre></dd>-->
+<!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
 </dl>
 
 <dl>
     <dt>Content Server</dt>
-    <dd class="select"><select bind:value={$selectedContentService} disabled="{$availableContentServices.length < 2  || null}">
+    <dd class="select"><select bind:value={$selectedContentService}
+                               class:disabled="{$availableContentServices.length < 2  || null}">
         {#if $availableContentServices.length === 0}
             <option>None</option>
         {:else}
@@ -224,7 +226,8 @@
 
 <dl>
     <dt>P2P Service</dt>
-    <dd class="select"><select bind:value={$selectedP2pService} disabled="{$availableP2pServices.length < 2  || null}">
+    <dd class="select"><select bind:value={$selectedP2pService}
+                               class:disabled="{$availableP2pServices.length < 2  || null}">
         {#if $availableP2pServices.length === 0}
             <option>None</option>
         {:else}
