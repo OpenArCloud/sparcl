@@ -3,9 +3,10 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Renderer, Camera, Transform, Program, Mesh, Plane, Sphere, Box, Cylinder, Orbit, Quat} from 'ogl';
+import { Renderer, Camera, Transform } from 'ogl';
 
-import { createModel, getDefaultPlaceholder, getAxes } from '@core/engines/ogl/modelTemplates';
+import { getDefaultPlaceholder,  getAxes } from '@core/engines/ogl/modelTemplates';
+import {getDefaultMarkerObject} from "./modelTemplates";
 
 
 let scene, camera, renderer, gl;
@@ -48,6 +49,18 @@ export default class ogl {
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
+    }
+
+    addMarkerObject() {
+        const object = getDefaultMarkerObject(gl);
+        object.setParent(scene);
+
+        return object;
+    }
+
+    updateMarkerObjectPosition(object, position, orientation) {
+        object.position.set(position.x, position.y, position.z);
+        object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
 
     addAxes() {

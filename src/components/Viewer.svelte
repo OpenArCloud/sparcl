@@ -8,20 +8,19 @@
 -->
 
 <script>
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import {createEventDispatcher, onDestroy} from 'svelte';
 
     import {v4 as uuidv4} from 'uuid';
 
-    import { sendRequest, objectEndpoint, validateRequest } from 'gpp-access';
+    import {objectEndpoint, sendRequest, validateRequest} from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
-    import { IMAGEFORMAT } from 'gpp-access/GppGlobals.js';
+    import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { initialLocation, availableContentServices, currentMarkerImage,
-        currentMarkerImageWidth, recentLocalisation,
-        debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse} from '@src/stateStore';
-    import { wait, ARMODES, debounce } from "@core/common";
-    import { calculateDistance, fakeLocationResult, calculateRotation } from '@core/locationTools';
+    import { availableContentServices, currentMarkerImage, currentMarkerImageWidth, debug_appendCameraImage,
+        debug_showLocationAxis, debug_useLocalServerResponse, initialLocation, recentLocalisation} from '@src/stateStore';
+    import {ARMODES, debounce, wait} from "@core/common";
+    import {calculateDistance, calculateRotation, fakeLocationResult} from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -40,7 +39,7 @@
     let doCaptureImage = false;
     let showFooter = false, firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
 
-    let trackedImage, trackedImageObject;
+    let trackedImageObject;
     let poseFoundHeartbeat = null;
 
 
@@ -96,30 +95,28 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    function startSession() {
-        let startResult;
+    async function startSession() {
+        let promise;
 
         if (activeArMode === ARMODES.oscp) {
-            startResult = xrEngine.startOscpSession(canvas, handleOscp, {
+            promise = xrEngine.startOscpSession(canvas, handleOscp, {
                 requiredFeatures: ['dom-overlay', 'camera-access', 'local-floor'],
                 domOverlay: {root: overlay}
             })
         } else if (activeArMode === ARMODES.marker) {
-            loadDefaultMarker()
-                .then((bitmap) => {
-                    startResult = xrEngine.startMarkerSession(canvas, handleMarker, {
-                        requiredFeatures: ['dom-overlay', 'image-tracking'],
-                        domOverlay: {root: overlay},
-                        trackedImages: [{
-                            image: bitmap,
-                            widthInMeters: $currentMarkerImageWidth
-                        }]
-                    })
-                });
+            const bitmap = await loadDefaultMarker();
+            promise = xrEngine.startMarkerSession(canvas, handleMarker, {
+                requiredFeatures: ['dom-overlay', 'image-tracking', 'local-floor'],
+                domOverlay: {root: overlay},
+                trackedImages: [{
+                    image: bitmap,
+                    widthInMeters: $currentMarkerImageWidth
+                }]
+            })
         }
 
-        if (startResult) {
-            startResult
+        if (promise) {
+            promise
                 .then(() => {
                     xrEngine.setSessionEndedCallback(onSessionEnded);
                     tdEngine.init();
@@ -140,11 +137,10 @@
      * In the future, markers can be provided by the user or SCD.
      * Leaving this function here for now, as the marker system needs some bigger rework anyway.
      */
-    function loadDefaultMarker() {
-        return fetch(`/media/${$currentMarkerImage}`)
-            .then(response => response.blob())
-            .then(blob => createImageBitmap(blob))
-            .catch(error => console.log(error));
+    async function loadDefaultMarker() {
+        const response = await fetch(`/media/${$currentMarkerImage}`);
+        const blob = await response.blob();
+        return await createImageBitmap(blob);
     }
 
     function onSessionEnded() {
@@ -176,18 +172,24 @@
     /**
      * Handles update loop when marker mode is used.
      */
-    function handleMarker(time, frame, localpose, trackedImage) {
+    function handleMarker(time, frame, localPose, trackedImage) {
         handlePoseHeartbeat();
 
-        if (trackedImage && trackedImage.tracking) {
+        firstPoseReceived = true;
+        xrEngine.setViewPort();
+
+        if (trackedImage && trackedImage.trackingState === 'tracked') {
             if (!trackedImageObject) {
-                // todo trackedImageObject = createModel();
-                // app.root.addChild(trackedImageObject);
+                trackedImageObject = tdEngine.addMarkerObject();
             }
 
-            // todo trackedImageObject.setPosition(trackedImage.getPosition());
-            // trackedImageObject.setRotation(trackedImage.getRotation());
+            const position = localPose.transform.position;
+            const orientation = localPose.transform.orientation;
+
+            tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
         }
+
+        tdEngine.render(localPose);
     }
 
     /**
@@ -195,19 +197,19 @@
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
-     * @param localPose The pose of the device as reported by the XRFrame
+     * @param floorPose The pose of the device as reported by the XRFrame
      * @param frame     The XRFrame provided to the update loop
      */
-    function handleOscp(time, frame, localPose) {
+    function handleOscp(time, frame, floorPose) {
         handlePoseHeartbeat();
 
         firstPoseReceived = true;
 
         // TODO: Correctly handle multiple views and the localisation correctly
-        for (let view of localPose.views) {
+        for (let view of floorPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
-            tdEngine.render(localPose);
+            tdEngine.render(floorPose);
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
@@ -227,13 +229,13 @@
                     document.body.appendChild(img);
                 }
 
-                localize(localPose, image, viewport.width, viewport.height)
+                localize(image, viewport.width, viewport.height)
                     // When localisation didn't already provide content, needs to be requested here
                     .then(([geoPose, data]) => {
                         $recentLocalisation.geopose = geoPose;
-                        $recentLocalisation.localpose = localPose.transform;
+                        $recentLocalisation.floorpose = floorPose.transform;
 
-                        placeContent(localPose, geoPose, data);
+                        placeContent(floorPose, geoPose, data);
                     });
             }
         }
@@ -245,12 +247,11 @@
      * When request is successful, content reported from the content discovery server will be placed. When
      * request is unsuccessful, user is offered to localize again or use a marker image as an alternative.
      *
-     * @param localPose  XRPose      Pose of the device as reported by the XRFrame
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
      */
-    function localize(localPose, image, width, height) {
+    function localize(image, width, height) {
         return new Promise((resolve, reject) => {
             if (!$debug_useLocalServerResponse) {
                 const geoPoseRequest = new GeoPoseRequest(uuidv4())
@@ -294,7 +295,6 @@
      * @param scr  SCR Spatial      Content Record with the result from the server request
      */
     function placeContent(localPose, globalPose, scr) {
-        const localPosition = localPose.transform.position;
 
         console.log('Number of content items received: ', scr.length);
 
@@ -304,12 +304,9 @@
 
             // Difficult to generalize, because there are no types defined yet.
             if (record.content.type === 'placeholder') {
-                let placeholder;
-
                 // Augmented City proprietary structure
                 if (record.content.custom_data.sticker_type === 'other' &&
                         record.content.custom_data.sticker_subtype === 'scene') {
-                    const path = record.content.custom_data.path;
 
                     // TODO: Handle iframe for external scenes
                     // TODO: Receive list of events to register to from SCD and register them here
