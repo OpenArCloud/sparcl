@@ -3,16 +3,20 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import { Renderer, Camera, Transform } from 'ogl';
+import {Renderer, Camera, Transform, Raycast, Vec2, Vec3} from 'ogl';
 
-import { getDefaultPlaceholder,  getAxes } from '@core/engines/ogl/modelTemplates';
-import {getDefaultMarkerObject} from "./modelTemplates";
+import { getDefaultPlaceholder, getExperiencePlaceholder, getAxes } from '@core/engines/ogl/modelTemplates';
+import { getDefaultMarkerObject, createWaitingProgram } from "./modelTemplates";
 
 
 let scene, camera, renderer, gl;
+let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
 
 
 export default class ogl {
+    /**
+     * Initialize ogl for use with WebXR.
+     */
     init() {
         renderer = new Renderer({
             alpha: true,
@@ -29,6 +33,8 @@ export default class ogl {
 
         window.addEventListener('resize', () => this.resize(gl), false);
         this.resize();
+
+        document.addEventListener('click', this._handleEvent);
     }
 
     /**
@@ -51,6 +57,18 @@ export default class ogl {
         placeholder.setParent(scene);
     }
 
+    addExperiencePlaceholder(position, orientation) {
+        const placeholder = getExperiencePlaceholder(gl);
+
+        placeholder.position.set(position.x, position.y, position.z);
+        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.setParent(scene);
+
+        updateHandlers[placeholder.id] = () => placeholder.rotation.y += .01;
+
+        return placeholder;
+    }
+
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
@@ -69,22 +87,66 @@ export default class ogl {
         axes.setParent(scene);
     }
 
+    addClickEvent(model, handler) {
+        eventHandlers[model.id] = {
+            model, handler
+        };
+    }
+
+    getExternalCameraPose(floorPose) {
+        return {
+            // TODO: Calculate correctly
+            position: floorPose.transform.position,
+            rotation: floorPose.transform.orientation
+        }
+    }
+
+    setWaiting(model) {
+        model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
+        uniforms.time[model.id] = model;
+    }
+
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.perspective({aspect: gl.canvas.width / gl.canvas.height});
+    }
+
+    remove(model) {
+        scene.removeChild(model);
+
+        delete updateHandlers[model.id];
+        delete eventHandlers[model.id];
     }
 
     stop() {
         window.removeEventListener('resize', this.resize, false);
     }
 
-    render(pose) {
+    render(time, pose) {
         const position = pose.transform.position;
         const orientation = pose.transform.orientation;
 
         camera.position.set(position.x, position.y -.1, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
+        Object.values(updateHandlers).forEach(handler => handler());
+        uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
+
         renderer.render({scene, camera});
+    }
+
+    _handleEvent(event) {
+        const mouse = new Vec2();
+        mouse.set(2.0 * (event.x / renderer.width) - 1.0, 2.0 * (1.0 - event.y / renderer.height) - 1.0)
+
+        const raycast = new Raycast(gl);
+        raycast.castMouse(camera, mouse);
+
+        const eventMeshes = Object.values(eventHandlers).map(handler => handler.model);
+        const hits = raycast.intersectBounds(eventMeshes);
+
+        hits.forEach((hit) => {
+            eventHandlers[hit.id].handler();
+        })
     }
 }

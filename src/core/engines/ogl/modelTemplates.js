@@ -16,36 +16,72 @@ export const PRIMITIVES = {
     cone: 'cone'
 }
 
+
 // TODO: Allow to set attributes from SCD, or even load shaders
-const vertex = /* glsl */ `
-                attribute vec3 position;
-                attribute vec3 normal;
-                
-                uniform mat4 modelViewMatrix;
-                uniform mat4 projectionMatrix;
-                uniform mat3 normalMatrix;
+const defaultVertex = /* glsl */ `
+    attribute vec3 position;
+    attribute vec3 normal;
+    
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    uniform mat3 normalMatrix;
 
-                varying vec3 vNormal;
+    varying vec3 vNormal;
 
-                void main() {
-                    vNormal = normalize(normalMatrix * normal);
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-                }
-            `;
-const fragment = /* glsl */ `
-                precision highp float;
-                
-                varying vec3 vNormal;
-                
-                uniform vec3 uColor;
+    void main() {
+        vNormal = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+const defaultFragment = /* glsl */ `
+    precision highp float;
+    
+    varying vec3 vNormal;
+    
+    uniform vec3 uColor;
 
-                void main() {
-                    vec3 normal = normalize(vNormal);
-                    float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
-                    gl_FragColor.rgb = uColor + lighting * 0.1;
-                    gl_FragColor.a = 1.0;
-                }
-            `;
+    void main() {
+        vec3 normal = normalize(vNormal);
+        float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
+        gl_FragColor.rgb = uColor + lighting * 0.1;
+        gl_FragColor.a = 1.0;
+    }
+`;
+const waitingFragment = /* glsl */ `
+    precision highp float;
+    
+    varying vec3 vNormal;
+    
+    uniform vec3 uColor;
+    uniform vec3 uAltColor;
+    uniform float uTime;
+
+    void main() {
+        vec3 normal = normalize(vNormal);
+        float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
+        
+        gl_FragColor.rgb = smoothstep(uColor, uAltColor, vec3(sin(uTime))) + lighting * 0.1;
+        gl_FragColor.a = 1.0;
+    }
+`;
+
+export let createDefaultProgram = (gl, color) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: defaultFragment,
+    uniforms: {
+        uColor: {value: new Color(...color)}
+    }
+})
+
+export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: waitingFragment,
+    uniforms: {
+        uColor: {value: new Color(...color)},
+        uAltColor: {value: new Color(...altColor)},
+        uTime: {value: 0.0}
+    }
+})
 
 
 /**
@@ -53,7 +89,7 @@ const fragment = /* glsl */ `
  *
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @param type  String      One of the supported object types
- * @param color  Color      Playcanvas color object
+ * @param color  Color      Color array
  * @returns {Mesh}
  */
 export function createModel(gl, type = PRIMITIVES.box, color = [0.2, 0.8, 1.0]) {
@@ -78,13 +114,7 @@ export function createModel(gl, type = PRIMITIVES.box, color = [0.2, 0.8, 1.0]) 
             geometry = new Box(gl);
     }
 
-    const program = new Program(gl, {
-        vertex,
-        fragment,
-        uniforms: {
-            uColor: { value: new Color(...color)  }
-        }
-    });
+    const program = createDefaultProgram(gl, color);
 
     return new Mesh(gl, { geometry: geometry, program });
 }
@@ -105,6 +135,19 @@ export function getDefaultPlaceholder(gl) {
 }
 
 
+export function getExperiencePlaceholder(gl) {
+    const placeholder = createModel(gl, PRIMITIVES.box, [1, 1, 0]);
+    placeholder.scale.set(.5);
+    return placeholder;
+}
+
+
+/**
+ * Used when no specific object was declared for a marker.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+ */
 export function getDefaultMarkerObject(gl) {
     const object = createModel(gl, PRIMITIVES.box, [1, 1, 0]);
     object.scale.set(0.5);

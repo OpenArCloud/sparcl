@@ -166,7 +166,7 @@ export const fakeLocationResult = {
                 "custom_data": {
                     "path": "/Scene/",
                     "sticker_id": 25532,
-                    "sticker_subtype": "Playcanvas",
+                    "sticker_subtype": "Scene",
                     "sticker_text": "Picker",
                     "sticker_type": "other"
                 },
@@ -333,17 +333,6 @@ export function calculateEulerRotation(localisationQuaternion, localQuaternion) 
     getEuler(euler, diff);
     return euler;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 /**
