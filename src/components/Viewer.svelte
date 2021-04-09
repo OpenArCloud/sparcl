@@ -33,11 +33,12 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let canvas, overlay;
+    let canvas, overlay, externalContent, closeExperience;
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let showFooter = false, firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
+    let showFooter = false, experienceLoaded = false;
+    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
 
     let trackedImageObject;
     let poseFoundHeartbeat = null;
@@ -143,6 +144,9 @@
         return await createImageBitmap(blob);
     }
 
+    /**
+     * Let's the app know that the XRSession was closed.
+     */
     function onSessionEnded() {
         firstPoseReceived = false;
         dispatch('arSessionEnded');
@@ -209,7 +213,10 @@
         for (let view of floorPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
-            tdEngine.render(floorPose);
+            tdEngine.render(time, floorPose);
+            if (experienceLoaded === true) {
+                externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(floorPose), '*');
+            }
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
@@ -304,22 +311,46 @@
 
             // Difficult to generalize, because there are no types defined yet.
             if (record.content.type === 'placeholder') {
+                const position = calculateDistance(globalPose, objectPose);
+                const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
+
                 // Augmented City proprietary structure
                 if (record.content.custom_data.sticker_type === 'other' &&
-                        record.content.custom_data.sticker_subtype === 'scene') {
+                        record.content.custom_data.sticker_subtype === 'Scene') {
 
-                    // TODO: Handle iframe for external scenes
                     // TODO: Receive list of events to register to from SCD and register them here
+
+                    // TODO: Get url from SCR and set it on the iframe
+                    const placeholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                    tdEngine.addClickEvent(placeholder,
+                        () => experienceLoadHandler(placeholder, position, orientation));
                 } else {
-                    const position = calculateDistance(globalPose, objectPose);
-                    const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
-
                     tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-
-                    // TODO: Anchor placeholder for better visual stability?!
                 }
+
+                // TODO: Anchor placeholder for better visual stability?!
             }
         })
+    }
+
+    function experienceLoadHandler(placeholder, position, orientation) {
+        tdEngine.setWaiting(placeholder);
+
+        externalContent.src = '/testing/threejs.html';
+        window.addEventListener('message', () => {
+            // TODO: verify type and source
+            tdEngine.remove(placeholder);
+            experienceLoaded = true;
+
+            closeExperience.addEventListener('click', () => {
+                experienceLoaded = false;
+                externalContent.src = '';
+
+                const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                tdEngine.addClickEvent(nextPlaceholder,
+                    () => experienceLoadHandler(nextPlaceholder, position, orientation));
+            }, { once: true})
+        }, { once: true });
     }
 </script>
 
@@ -345,10 +376,21 @@
         opacity: 0.7;
     }
 
-    canvas {
+    canvas, iframe {
         position: absolute;
         top: 0;
         left: 0;
+        width: 100vw;
+        height: 100vh;
+    }
+
+    iframe {
+        background-color: transparent;
+    }
+
+    #experienceclose {
+        position: absolute;
+        margin: 10px;
     }
 
     #trackinglostindicator {
@@ -363,12 +405,20 @@
 
         border-radius: 50%;
     }
+
+    .hidden {
+        display: none;
+    }
 </style>
 
 
 <canvas id='application' bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
+    <iframe class:hidden={!experienceLoaded} sandbox="allow-scripts" bind:this={externalContent} src=""></iframe>
+    <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
+         bind:this={closeExperience} />
+
     <!--  Space for UI elements  -->
     {#if showFooter}
         <footer>
