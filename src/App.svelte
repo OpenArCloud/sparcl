@@ -231,6 +231,15 @@
         height: 40px;
         opacity: 1;
     }
+
+    #showdashboard {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 50px;
+        height: 50px;
+        z-index: 100;
+    }
 </style>
 
 
@@ -272,3 +281,4 @@
         on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {/if}
 
+<div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

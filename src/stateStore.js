@@ -33,7 +33,7 @@ export const arIsAvailable = readable(false, (set) => {
  *
  * @type {boolean}  true when dashboard should be shown, false otherwise
  */
-const storedShowDashboard = true;  // localStorage.getItem('showdashboard') !== 'false';
+const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
 export const showDashboard = writable(storedShowDashboard);
 showDashboard.subscribe(value => {
     localStorage.setItem('showdashboard', value === true ? 'true' : 'false');
@@ -45,7 +45,7 @@ showDashboard.subscribe(value => {
  *
  * @type {boolean}  true when the intro was already seen, false otherwise
  */
-const storedHasIntroSeen = false;  // localStorage.getItem('hasintroseen') === 'true';
+const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
 hasIntroSeen.subscribe(value => {
     localStorage.setItem('hasintroseen', value === true ? 'true' : 'false');
