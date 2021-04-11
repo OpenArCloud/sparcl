@@ -45,7 +45,7 @@ showDashboard.subscribe(value => {
  *
  * @type {boolean}  true when the intro was already seen, false otherwise
  */
-const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
+const storedHasIntroSeen = false; // localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
 hasIntroSeen.subscribe(value => {
     localStorage.setItem('hasintroseen', value === true ? 'true' : 'false');

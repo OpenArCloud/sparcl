@@ -6,7 +6,7 @@
 /* Provides models for generic content, provided by the content discovery */
 
 
-import { Box, Color, Cylinder, Mesh, Plane, Program, Sphere, Transform } from 'ogl';
+import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'ogl';
 
 export const PRIMITIVES = {
     box: 'box',
@@ -38,13 +38,13 @@ const defaultFragment = /* glsl */ `
     
     varying vec3 vNormal;
     
-    uniform vec3 uColor;
+    uniform vec4 uColor;
 
     void main() {
         vec3 normal = normalize(vNormal);
         float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
-        gl_FragColor.rgb = uColor + lighting * 0.1;
-        gl_FragColor.a = 1.0;
+        gl_FragColor.rgb = uColor.rgb + lighting * 0.1;
+        gl_FragColor.a = uColor.a;
     }
 `;
 const waitingFragment = /* glsl */ `
@@ -52,24 +52,25 @@ const waitingFragment = /* glsl */ `
     
     varying vec3 vNormal;
     
-    uniform vec3 uColor;
-    uniform vec3 uAltColor;
+    uniform vec4 uColor;
+    uniform vec4 uAltColor;
     uniform float uTime;
 
     void main() {
         vec3 normal = normalize(vNormal);
         float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
         
-        gl_FragColor.rgb = smoothstep(uColor, uAltColor, vec3(sin(uTime))) + lighting * 0.1;
-        gl_FragColor.a = 1.0;
+        gl_FragColor.rgb = smoothstep(uColor.rgb, uAltColor.rgb, vec3(sin(uTime))) + lighting * 0.1;
+        gl_FragColor.a = uColor.a;
     }
 `;
 
-export let createDefaultProgram = (gl, color) => new Program(gl, {
+export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
     vertex: defaultVertex,
     fragment: defaultFragment,
+    transparent: transparent,
     uniforms: {
-        uColor: {value: new Color(...color)}
+        uColor: {value: new Vec4(...color)}
     }
 })
 
@@ -77,8 +78,8 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
     vertex: defaultVertex,
     fragment: waitingFragment,
     uniforms: {
-        uColor: {value: new Color(...color)},
-        uAltColor: {value: new Color(...altColor)},
+        uColor: {value: new Vec4(...color)},
+        uAltColor: {value: new Vec4(...altColor)},
         uTime: {value: 0.0}
     }
 })
@@ -90,9 +91,11 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @param type  String      One of the supported object types
  * @param color  Color      Color array
+ * @param translucent  Boolean      true to draw translucent according to alpha value in color
  * @returns {Mesh}
  */
-export function createModel(gl, type = PRIMITIVES.box, color = [0.2, 0.8, 1.0]) {
+export function createModel(gl, type = PRIMITIVES.box,
+                            color = [0.2, 0.8, 1.0, 1.0], translucent = false) {
     let geometry;
 
     switch (type) {
@@ -114,7 +117,7 @@ export function createModel(gl, type = PRIMITIVES.box, color = [0.2, 0.8, 1.0]) 
             geometry = new Box(gl);
     }
 
-    const program = createDefaultProgram(gl, color);
+    const program = createDefaultProgram(gl, color, translucent);
 
     return new Mesh(gl, { geometry: geometry, program });
 }
@@ -136,7 +139,7 @@ export function getDefaultPlaceholder(gl) {
 
 
 export function getExperiencePlaceholder(gl) {
-    const placeholder = createModel(gl, PRIMITIVES.box, [1, 1, 0]);
+    const placeholder = createModel(gl, PRIMITIVES.box, [1, 1, 0, 1]);
     placeholder.scale.set(.5);
     return placeholder;
 }
@@ -164,25 +167,29 @@ export function getAxes(gl) {
     const container = new Transform();
 
     // add something small at the positive X, Y, Z:
-    const xAxis = createModel(gl, PRIMITIVES.box, [1, 0, 0]);
-    xAxis.position.set( 1, 0, 0);
+    const xAxis = createModel(gl, PRIMITIVES.box, [1, 0, 0, 1]);
+    xAxis.position.set( 1, 0.05, 0);
     xAxis.scale.set(0.1);
     xAxis.setParent(container);
 
-    const yAxis = createModel(gl,PRIMITIVES.sphere, [0, 1, 0]);
+    const yAxis = createModel(gl,PRIMITIVES.sphere, [0, 1, 0, 1]);
     yAxis.position.set(0, 1, 0);
     yAxis.scale.set(0.1);
     yAxis.setParent(container);
 
-    const zAxis = createModel(gl,PRIMITIVES.cone, [0, 0, 1]);
-    zAxis.position.set(0, 0, 1);
+    const zAxis = createModel(gl,PRIMITIVES.cone, [0, 0, 1, 1]);
+    zAxis.position.set(0, 0.05, 1);
     zAxis.scale.set(0.1);
     zAxis.setParent(container);
 
-    const zero = createModel(gl,PRIMITIVES.box, [1, 0, 0]);
-    zAxis.position.set(0, 0, 0);
+    const zero = createModel(gl,PRIMITIVES.box, [1, 0, 0, 1]);
     zero.scale.set(0.05);
     zero.setParent(container);
+
+    const xzPlane = createModel(gl, PRIMITIVES.plane, [1, 1, 1, 0.5], true)
+    xzPlane.rotation.x = (-Math.PI / 2);
+    xzPlane.position.set(0.5, 0, 0.5);
+    xzPlane.setParent(container);
 
     return container;
 }

@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Renderer, Camera, Transform, Raycast, Vec2, Vec3} from 'ogl';
+import {Renderer, Camera, Transform, Raycast, Vec2, Mat4 } from 'ogl';
 
 import { getDefaultPlaceholder, getExperiencePlaceholder, getAxes } from '@core/engines/ogl/modelTemplates';
 import { getDefaultMarkerObject, createWaitingProgram } from "./modelTemplates";
@@ -20,8 +20,9 @@ export default class ogl {
     init() {
         renderer = new Renderer({
             alpha: true,
-            webgl: 2,
-            canvas: document.querySelector('#application')
+            canvas: document.querySelector('#application'),
+            dpr: 2,
+            webgl: 2
         });
 
         gl = renderer.gl;
@@ -41,9 +42,8 @@ export default class ogl {
      * Set up the 3D environment as required according to the current real environment.*
      */
     setupEnvironment(gl) {
-        camera = new Camera(gl, {fov: 35});
-        camera.position.set(0, 1, 7);
-        camera.lookAt([0, 0, 0]);
+        camera = new Camera(gl);
+        camera.position.set(0, 0, 0);
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -126,7 +126,7 @@ export default class ogl {
         const position = pose.transform.position;
         const orientation = pose.transform.orientation;
 
-        camera.position.set(position.x, position.y -.1, position.z);
+        camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
         Object.values(updateHandlers).forEach(handler => handler());
