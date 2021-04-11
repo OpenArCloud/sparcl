@@ -10,6 +10,8 @@
 <script>
     import { createEventDispatcher } from 'svelte';
 
+    import { Swipeable, Screen, Controls } from 'buhrmi';
+
     import { hasIntroSeen, arIsAvailable } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage,
         startedOkLabel } from '@src/contentStore';
@@ -41,15 +43,39 @@
         font-size: 25px;
         text-transform: uppercase;
     }
+
+    :global(.swipeable)  {
+        position: relative;
+        height: 300px !important;
+        overflow-x: hidden;
+    }
+
+    :global(.prev), :global(.next) {
+        display: none;
+    }
 </style>
 
 
-<h3>{$hasIntroSeen ? $infoGreeting : $introGreeting}</h3>
-<div>{@html $hasIntroSeen ? $info : $intro}</div>
-<div>{@html $arIsAvailable ? $arOkMessage : $noArMessage}</div>
+{#if $hasIntroSeen}
+    <h3>{$infoGreeting}</h3>
+    <div>{@html $info}</div>
+{:else}
+    <Swipeable>
+        <Screen>
+            <h3>{$introGreeting}</h3>
+            <div>{@html $intro}</div>
+        </Screen>
+        <Screen>
+            <h4>Location access required.</h4>
+            <button on:click={dispatch('requestLocation')}>Allow</button>
+        </Screen>
+        <Screen>
+            <div>{@html $arIsAvailable ? $arOkMessage : $noArMessage}</div>
+            {#if withOkFooter}
+                <button on:click={() => dispatch('okAction')}>{$startedOkLabel}</button>
+            {/if}
+        </Screen>
 
-{#if withOkFooter}
-<footer>
-    <button on:click={() => dispatch('okAction')}>{$startedOkLabel}</button>
-</footer>
+        <Controls />
+    </Swipeable>
 {/if}
