@@ -12,7 +12,7 @@
 
     import { Swipeable, Screen, Controls } from 'buhrmi';
 
-    import { hasIntroSeen, arIsAvailable } from '@src/stateStore';
+    import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage,
         startedOkLabel } from '@src/contentStore';
 
@@ -59,23 +59,30 @@
 {#if $hasIntroSeen}
     <h3>{$infoGreeting}</h3>
     <div>{@html $info}</div>
-{:else}
+{:else if $arIsAvailable}
     <Swipeable>
         <Screen>
             <h3>{$introGreeting}</h3>
             <div>{@html $intro}</div>
         </Screen>
         <Screen>
+            {#if !$isLocationAccessAllowed}
             <h4>Location access required.</h4>
-            <button on:click={dispatch('requestLocation')}>Allow</button>
+            <p>It is needed to define the initial area for localisation.</p>
+            <button on:click={() => dispatch('requestLocation')}>Allow</button>
+            {:else}
+            <h4>Location access granted.</h4>
+            {/if}
         </Screen>
         <Screen>
-            <div>{@html $arIsAvailable ? $arOkMessage : $noArMessage}</div>
+            <div>{@html $arOkMessage}</div>
             {#if withOkFooter}
-                <button on:click={() => dispatch('okAction')}>{$startedOkLabel}</button>
+                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>{$startedOkLabel}</button>
             {/if}
         </Screen>
 
         <Controls />
     </Swipeable>
+{:else}
+    <div>{@html $noArMessage}</div>
 {/if}

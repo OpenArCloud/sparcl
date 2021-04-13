@@ -14,8 +14,8 @@
 
     import {getServicesAtLocation} from 'ssd-access';
 
-    import {ARMODES} from '@src/core/common'
-    import {getCurrentLocation} from '@src/core/locationTools'
+    import { ARMODES } from '@src/core/common'
+    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools'
     import * as P2p from '@src/core/p2pnetwork'
 
     import Dashboard from '@components/Dashboard.svelte';
@@ -26,7 +26,7 @@
     import MarkerOverlay from "@components/dom-overlays/MarkerOverlay.svelte";
 
     import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, arMode, allowP2pNetwork,
-        availableP2pServices } from './stateStore';
+        availableP2pServices, isLocationAccessAllowed } from './stateStore';
 
 
     let showWelcome, showOutro, showMarkerInfo;
@@ -48,7 +48,7 @@
      * Will be called everytime the value in arIsAvailable changes
      */
     $: {
-        if ($arIsAvailable) {
+        if ($arIsAvailable && $isLocationAccessAllowed) {
             getCurrentLocation()
                 .then((currentLocation) => {
                     $initialLocation = currentLocation;
@@ -177,6 +177,14 @@
     function handleBroadcast(event) {
         P2p.send(event.detail);
     }
+
+    /**
+     * Triggers location access. Don't need to handle the result here, as it will be caught in the
+     * {@link isLocationAccessAllowed} store.
+     */
+    function requestLocationAccess() {
+        navigator.geolocation.getCurrentPosition(() => {}, null, locationAccessOptions);
+    }
 </script>
 
 
@@ -262,7 +270,8 @@
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable && activeArMode !== ARMODES.auto}" on:okAction={closeIntro} />
+            <WelcomeOverlay withOkFooter="{$arIsAvailable && activeArMode !== ARMODES.auto}"
+                            on:okAction={closeIntro} on:requestLocation={requestLocationAccess} />
 
         {:else if showOutro}
             <OutroOverlay on:okAction={closeIntro} />

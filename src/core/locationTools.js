@@ -218,6 +218,11 @@ export const fakeLocationResult = {
     ]
 }
 
+export const locationAccessOptions = {
+    enableHighAccuracy: false,
+    maximumAge: 0
+}
+
 
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
@@ -256,10 +261,7 @@ export function getCurrentLocation() {
             }, (error) => {
                 console.log(`Location request failed: ${error}`)
                 reject(error);
-            }, {
-                enableHighAccuracy: false,
-                maximumAge: 0
-            });
+            }, locationAccessOptions);
         } else {
             reject('Location is not available');
         }
