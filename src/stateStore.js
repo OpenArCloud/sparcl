@@ -28,6 +28,22 @@ export const arIsAvailable = readable(false, (set) => {
 });
 
 
+export const isLocationAccessAllowed = readable(false, (set) => {
+    let currentResult;
+    const stateResult = (state) => state === 'granted';
+
+    navigator.permissions.query({name:'geolocation'})
+        .then((result) => {
+            currentResult = result;
+
+            set(stateResult(result.state));
+            result.onchange = () => set(stateResult(result.state));
+        });
+
+    return () => { if (currentResult) currentResult.onchange = undefined; }
+})
+
+
 /**
  * Reads and stores the setting whether or not to display the dashboard persistently.
  *
