@@ -1,0 +1,5 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target" : { "namespace": "android_app", "package_name": "app.sparcl.twa",
+      "sha256_cert_fingerprints": ["D6:2D:4A:D9:4A:37:B4:9C:CE:5F:43:7C:3D:17:4A:9F:25:52:8D:35:2E:FE:59:E6:0A:38:E2:1F:46:51:AD:AE"] }
+    }]
