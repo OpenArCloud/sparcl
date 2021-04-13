@@ -113,6 +113,11 @@
 
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
+
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load',
+                    () => navigator.serviceWorker.register('/service-worker.js'));
+            }
         }
     })
 
@@ -244,7 +249,7 @@
 
 
 <header>
-    <img id="logo" src="/media/OARC_Logo_without_BG.png" />
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>
