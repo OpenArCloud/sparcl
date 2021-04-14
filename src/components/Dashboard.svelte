@@ -20,15 +20,30 @@
     import { ARMODES } from '@core/common';
 
 
+    let isCreatorMode;
+
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+
+    $: {
+        $arMode = isCreatorMode ? ARMODES.creator : ARMODES.auto;
+    }
 </script>
 
 
 <style>
-    h2 {
+    h2, summary {
         margin-top: 60px;
+        margin-bottom: 15px;
         color: var(--theme-highlight);
+
+
+        font-size: 1.5em;
+        font-weight: bold;
+    }
+
+    legend h4 {
+        margin-bottom: 0;
     }
 
     button {
@@ -106,9 +121,19 @@
         border: 0;
     }
 
+    dl.radio.connected {
+        margin-top: 7px;
+    }
+
     dd.select {
         border: 0;
         padding: 0;
+    }
+
+    fieldset {
+        margin: 0;
+        padding: 0;
+        border: 0;
     }
 
     input[type=checkbox] {
@@ -129,6 +154,10 @@
 
         background: var(--theme-color) 0 0 no-repeat padding-box;
 
+    }
+
+    select:disabled {
+        background: #8e9ca9 0 0 no-repeat padding-box;
     }
 
     pre {
@@ -153,127 +182,138 @@
 
 <button on:click={() => dispatch('okClicked')}>Go immersive</button>
 
+<details>
+    <summary>Application state</summary>
 
-<h2>Application state</h2>
+    <div>
+        <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
+        <label for="showagain">Show Dashboard next time</label>
+    </div>
 
-<div>
-    <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
-    <label for="showagain">Show Dashboard next time</label>
-</div>
+    <dl>
+        <dt>H3Index</dt>
+        <dd>{$initialLocation.h3Index}</dd>
+        <dt>Country</dt>
+        <dd>{$initialLocation.countryCode}</dd>
+        <dt>OSCP Region</dt>
+        <!--  TODO: Might make sense to do some validation here  -->
+        <dd class="list"><input list="supported-countries" bind:value={$initialLocation.regionCode} /></dd>
+    </dl>
 
-<dl>
-    <dt>H3Index</dt>
-    <dd>{$initialLocation.h3Index}</dd>
-    <dt>Country</dt>
-    <dd>{$initialLocation.countryCode}</dd>
-    <dt>OSCP Region</dt>
-    <!--  TODO: Might make sense to do some validation here  -->
-    <dd class="list"><input list="supported-countries" bind:value={$initialLocation.regionCode} /></dd>
-</dl>
+    <fieldset disabled="{$arMode === ARMODES.creator}">
+        <legend>
+            <h4>AR mode</h4>
+            <input id="armodecreator" type="checkbox" bind:checked="{isCreatorMode}" />
+            <label for="armodecreator">{ARMODES.creator}</label>
+        </legend>
 
-<dl class="radio">
-    <dt>AR mode</dt>
-    <dd>
-        <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
-               class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
-        <label for="armodeoscp">{ARMODES.oscp}</label>
-    </dd>
-    <dd>
-        <input id="armodemarker" type="radio" bind:group={$arMode} value="{ARMODES.marker}" />
-        <label for="armodemarker">{ARMODES.marker}</label>
-    </dd>
-    <dd>
-        <input id="armodeauto" type="radio" bind:group={$arMode} value="{ARMODES.auto}" />
-        <label for="armodeauto">{ARMODES.auto}</label>
-    </dd>
-</dl>
+        <dl class="radio connected">
+            <dd>
+                <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
+                       class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
+                <label for="armodeoscp">{ARMODES.oscp}</label>
+            </dd>
+            <dd>
+                <input id="armodemarker" type="radio" bind:group={$arMode} value="{ARMODES.marker}" />
+                <label for="armodemarker">{ARMODES.marker}</label>
+            </dd>
+            <dd>
+                <input id="armodeauto" type="radio" bind:group={$arMode} value="{ARMODES.auto}" />
+                <label for="armodeauto">{ARMODES.auto}</label>
+            </dd>
+        </dl>
 
-<dl>
-    <dt>GeoPose Server</dt>
-    <dd class="select"><select bind:value={$selectedGeoPoseService}
-                               class:disabled="{$availableGeoPoseServices.length < 2  || null}">
-        {#if $availableGeoPoseServices.length === 0}
-            <option>None</option>
-        {:else}
-            {#each $availableGeoPoseServices as service}
-                <option value={service}>{service.title}</option>
-            {/each}
-        {/if}
-    </select></dd>
-</dl>
+        <dl>
+            <dt>GeoPose Server</dt>
+            <dd class="select"><select bind:value={$selectedGeoPoseService}
+                                       class:disabled="{$availableGeoPoseServices.length < 2  || null}">
+                {#if $availableGeoPoseServices.length === 0}
+                    <option>None</option>
+                {:else}
+                    {#each $availableGeoPoseServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                {/if}
+            </select></dd>
+        </dl>
 
-<dl>
-    <dt>Recent GeoPose</dt>
-    <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
-<!--    TODO: Values aren't displayed for some reason. Fix. -->
-<!--    <dt>at</dt>-->
-<!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
-</dl>
+        <dl>
+            <dt>Recent GeoPose</dt>
+            <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
+        <!--    TODO: Values aren't displayed for some reason. Fix. -->
+        <!--    <dt>at</dt>-->
+        <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
+        </dl>
 
-<dl>
-    <dt>Content Server</dt>
-    <dd class="select"><select bind:value={$selectedContentService}
-                               class:disabled="{$availableContentServices.length < 2  || null}">
-        {#if $availableContentServices.length === 0}
-            <option>None</option>
-        {:else}
-            {#each $availableContentServices as service}
-                <option value={service}>{service.title}</option>
-            {/each}
-        {/if}
-    </select></dd>
-</dl>
+        <dl>
+            <dt>Content Server</dt>
+            <dd class="select"><select bind:value={$selectedContentService}
+                                       class:disabled="{$availableContentServices.length < 2  || null}">
+                {#if $availableContentServices.length === 0}
+                    <option>None</option>
+                {:else}
+                    {#each $availableContentServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                {/if}
+            </select></dd>
+        </dl>
 
-<dl>
-    <dt>P2P Service</dt>
-    <dd class="select"><select bind:value={$selectedP2pService}
-                               class:disabled="{$availableP2pServices.length < 2  || null}">
-        {#if $availableP2pServices.length === 0}
-            <option>None</option>
-        {:else}
-            {#each $availableP2pServices as service}
-                <option value={service}>{service.title}</option>
-            {/each}
-        {/if}
-    </select></dd>
-</dl>
+        <dl>
+            <dt>P2P Service</dt>
+            <dd class="select"><select bind:value={$selectedP2pService}
+                                       class:disabled="{$availableP2pServices.length < 2  || null}">
+                {#if $availableP2pServices.length === 0}
+                    <option>None</option>
+                {:else}
+                    {#each $availableP2pServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                {/if}
+            </select></dd>
+        </dl>
 
-<dl>
-    <dt>Marker image</dt>
-    <dd>{$currentMarkerImage}</dd>
-    <dt>Width</dt>
-    <dd class="unitinput"><input type="number" bind:value={$currentMarkerImageWidth} />m</dd>
-</dl>
+        <dl>
+            <dt>Marker image</dt>
+            <dd>{$currentMarkerImage}</dd>
+            <dt>Width</dt>
+            <dd class="unitinput"><input type="number" bind:value={$currentMarkerImageWidth} />m</dd>
+        </dl>
+    </fieldset>
+</details>
 
-<h2>Multiplayer</h2>
-<div>
-    <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
-    <label for="allowP2p">Connect to p2p network</label>
-</div>
+<details open>
+    <summary>Multiplayer</summary>
+    <div>
+        <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
+        <label for="allowP2p">Connect to p2p network</label>
+    </div>
 
-<dl>
-    <dt>Connection status</dt>
-    <dd>{$p2pNetworkState}</dd>
-</dl>
+    <dl>
+        <dt>Connection status</dt>
+        <dd>{$p2pNetworkState}</dd>
+    </dl>
+</details>
 
 
 
-<h2>Debug settings</h2>
+<details open>
+    <summary>Debug settings</summary>
+    <div>
+        <input id="appendcameraimage" type="checkbox" bind:checked={$debug_appendCameraImage} />
+        <label for="appendcameraimage">Append captured image</label>
+    </div>
 
-<div>
-    <input id="appendcameraimage" type="checkbox" bind:checked={$debug_appendCameraImage} />
-    <label for="appendcameraimage">Append captured image</label>
-</div>
+    <div>
+        <input id="showlocationaxis" type="checkbox" bind:checked={$debug_showLocationAxis} />
+        <label for="showlocationaxis">Show local zero point markers</label>
+    </div>
 
-<div>
-    <input id="showlocationaxis" type="checkbox" bind:checked={$debug_showLocationAxis} />
-    <label for="showlocationaxis">Show local zero point markers</label>
-</div>
-
-<div>
-    <input id="uselocalserverresponse" type="checkbox" bind:checked={$debug_useLocalServerResponse} />
-    <label for="uselocalserverresponse">Use local server response</label>
-</div>
+    <div>
+        <input id="uselocalserverresponse" type="checkbox" bind:checked={$debug_useLocalServerResponse} />
+        <label for="uselocalserverresponse">Use local server response</label>
+    </div>
+</details>
 
 
 {@html supportedCountries}

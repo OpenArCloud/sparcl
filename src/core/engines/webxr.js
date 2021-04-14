@@ -6,12 +6,21 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
 
 
-let endedCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
+let endedCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
 
 let floorSpaceReference, localSpaceReference, gl;
 
 
 export default class webxr {
+    startCreativeSession(canvas, callback, options) {
+        creativeFrameCallback = callback;
+
+        return navigator.xr.requestSession('immersive-ar', options)
+            .then((result) => {
+                this._initSession(canvas, result);
+            })
+    }
+
     startOscpSession(canvas, callback, options) {
         oscpFrameCallback = callback;
 
@@ -70,6 +79,13 @@ export default class webxr {
         return createImageFromTexture(gl, texture, width, height);
     }
 
+    getExternalCameraPose(floorPose) {
+        return {
+            projection: floorPose.cameraViews[0].projectionMatrix,
+            camerapose: floorPose.cameraViews[0].transform.matrix
+        }
+    }
+
     onEndSession(session) {
         session.end();
     }
@@ -115,6 +131,10 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
+            if (creativeFrameCallback) {
+                creativeFrameCallback(time, frame, floorPose);
+            }
+
             if (oscpFrameCallback) {
                 oscpFrameCallback(time, frame, floorPose);
             }

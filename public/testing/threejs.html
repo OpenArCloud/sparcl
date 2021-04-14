@@ -127,9 +127,6 @@
 					animate();
 
 					window.parent.postMessage('experienceloaded', '*');
-					window.addEventListener('message', (event) => {
-						// TODO: Position camera
-					});
 				} );
 
 				renderer = new THREE.WebGLRenderer( { antialias: true, alpha: true } );
@@ -141,7 +138,17 @@
 
 				// camera
 				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 100 );
-				camera.position.set( - 1, 2, 3 );
+				camera.position.set( 0, 0, 0);
+
+				window.addEventListener('message', (event) => {
+					if (event.data && event.data.projection && event.data.camerapose) {
+						camera.projectionMatrix.fromArray(event.data.projection);
+						camera.matrix.fromArray(event.data.camerapose)
+						camera.updateMatrixWorld(true);
+
+						console.log('updated');
+					}
+				});
 
 				const controls = new OrbitControls( camera, renderer.domElement );
 				controls.enablePan = false;

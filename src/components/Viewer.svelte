@@ -18,7 +18,8 @@
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
     import { availableContentServices, currentMarkerImage, currentMarkerImageWidth, debug_appendCameraImage,
-        debug_showLocationAxis, debug_useLocalServerResponse, initialLocation, recentLocalisation} from '@src/stateStore';
+        debug_showLocationAxis, debug_useLocalServerResponse, initialLocation, recentLocalisation,
+        arMode } from '@src/stateStore';
     import {ARMODES, debounce, wait} from "@core/common";
     import {calculateDistance, calculateRotation, fakeLocationResult} from '@core/locationTools';
 
@@ -99,11 +100,16 @@
     async function startSession() {
         let promise;
 
-        if (activeArMode === ARMODES.oscp) {
+        if ($arMode === ARMODES.creator) {
+            promise = xrEngine.startCreativeSession(canvas, handleCreator, {
+                requiredFeatures: ['dom-overlay', 'local-floor'],
+                domOverlay: {root: overlay}
+            });
+        } else if (activeArMode === ARMODES.oscp) {
             promise = xrEngine.startOscpSession(canvas, handleOscp, {
                 requiredFeatures: ['dom-overlay', 'camera-access', 'local-floor'],
                 domOverlay: {root: overlay}
-            })
+            });
         } else if (activeArMode === ARMODES.marker) {
             const bitmap = await loadDefaultMarker();
             promise = xrEngine.startMarkerSession(canvas, handleMarker, {
@@ -113,7 +119,7 @@
                     image: bitmap,
                     widthInMeters: $currentMarkerImageWidth
                 }]
-            })
+            });
         }
 
         if (promise) {
@@ -174,7 +180,25 @@
     }
 
     /**
+     * Special mode for content creators.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame     The XRFrame provided to the update loop
+     * @param floorPose The pose of the device as reported by the XRFrame
+     */
+    function handleCreator(time, frame, floorPose) {
+
+    }
+
+    /**
      * Handles update loop when marker mode is used.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame     The XRFrame provided to the update loop
+     * @param localPose The pose relative to the center of the marker
+     * @param trackedImage
      */
     function handleMarker(time, frame, localPose, trackedImage) {
         handlePoseHeartbeat();
@@ -201,8 +225,8 @@
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
-     * @param floorPose The pose of the device as reported by the XRFrame
      * @param frame     The XRFrame provided to the update loop
+     * @param floorPose The pose of the device as reported by the XRFrame
      */
     function handleOscp(time, frame, floorPose) {
         handlePoseHeartbeat();
@@ -215,7 +239,7 @@
 
             tdEngine.render(time, floorPose);
             if (experienceLoaded === true) {
-                externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(floorPose), '*');
+                externalContent.contentWindow.postMessage(xrEngine.getExternalCameraPose(floorPose), '*');
             }
 
             // Currently necessary to keep camera image capture alive.
