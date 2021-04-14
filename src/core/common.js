@@ -81,7 +81,8 @@ export const SERVICE = {
 export const ARMODES = {
     auto: 'Auto',
     marker: 'Marker',
-    oscp: 'ARCloud'
+    oscp: 'ARCloud',
+    creator: 'Content creation'
 }
 
 /**

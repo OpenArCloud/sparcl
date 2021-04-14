@@ -93,14 +93,6 @@ export default class ogl {
         };
     }
 
-    getExternalCameraPose(floorPose) {
-        return {
-            // TODO: Calculate correctly
-            position: floorPose.transform.position,
-            rotation: floorPose.transform.orientation
-        }
-    }
-
     setWaiting(model) {
         model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
         uniforms.time[model.id] = model;
