@@ -360,7 +360,7 @@
     function experienceLoadHandler(placeholder, position, orientation) {
         tdEngine.setWaiting(placeholder);
 
-        externalContent.src = '/testing/threejs.html';
+        externalContent.src = 'https://clv.zappar.io/6817336933886541943/1.0.2/';       // '/testing/threejs.html';
         window.addEventListener('message', () => {
             // TODO: verify type and source
             tdEngine.remove(placeholder);
@@ -439,7 +439,7 @@
 <canvas id='application' bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe class:hidden={!experienceLoaded} sandbox="allow-scripts" bind:this={externalContent} src=""></iframe>
+    <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
          bind:this={closeExperience} />
 
