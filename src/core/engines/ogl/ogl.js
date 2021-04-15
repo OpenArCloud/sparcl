@@ -3,10 +3,10 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Renderer, Camera, Transform, Raycast, Vec2, Mat4 } from 'ogl';
+import {Camera, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import { getDefaultPlaceholder, getExperiencePlaceholder, getAxes } from '@core/engines/ogl/modelTemplates';
-import { getDefaultMarkerObject, createWaitingProgram } from "./modelTemplates";
+import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
+import {createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
 
 
 let scene, camera, renderer, gl;
@@ -91,6 +91,15 @@ export default class ogl {
         eventHandlers[model.id] = {
             model, handler
         };
+    }
+
+    getExternalCameraPose(view, experienceMatrix) {
+        const cameraMatrix = experienceMatrix.inverse().multiply(view.transform.matrix);
+
+        return {
+            projection: view.projectionMatrix,
+            camerapose: cameraMatrix
+        }
     }
 
     setWaiting(model) {

@@ -79,13 +79,6 @@ export default class webxr {
         return createImageFromTexture(gl, texture, width, height);
     }
 
-    getExternalCameraPose(floorPose) {
-        return {
-            projection: floorPose.cameraViews[0].projectionMatrix,
-            camerapose: floorPose.cameraViews[0].transform.matrix
-        }
-    }
-
     onEndSession(session) {
         session.end();
     }

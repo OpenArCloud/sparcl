@@ -38,7 +38,7 @@
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let showFooter = false, experienceLoaded = false;
+    let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
 
     let trackedImageObject;
@@ -233,13 +233,13 @@
 
         firstPoseReceived = true;
 
-        // TODO: Correctly handle multiple views and the localisation correctly
+        // TODO: Handle multiple views and the localisation correctly
         for (let view of floorPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
-            tdEngine.render(time, floorPose);
             if (experienceLoaded === true) {
-                externalContent.contentWindow.postMessage(xrEngine.getExternalCameraPose(floorPose), '*');
+                externalContent.contentWindow.postMessage(
+                    tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
             }
 
             // Currently necessary to keep camera image capture alive.
@@ -269,6 +269,8 @@
                         placeContent(floorPose, geoPose, data);
                     });
             }
+
+            tdEngine.render(time, floorPose);
         }
     }
 
@@ -344,10 +346,10 @@
 
                     // TODO: Receive list of events to register to from SCD and register them here
 
-                    // TODO: Get url from SCR and set it on the iframe
+                    const experienceUrl = record.content.custom_data.path;
                     const placeholder = tdEngine.addExperiencePlaceholder(position, orientation);
                     tdEngine.addClickEvent(placeholder,
-                        () => experienceLoadHandler(placeholder, position, orientation));
+                        () => experienceLoadHandler(placeholder, position, orientation, experienceUrl));
                 } else {
                     tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                 }
@@ -357,23 +359,26 @@
         })
     }
 
-    function experienceLoadHandler(placeholder, position, orientation) {
+    function experienceLoadHandler(placeholder, position, orientation, url) {
         tdEngine.setWaiting(placeholder);
 
-        externalContent.src = 'https://clv.zappar.io/6817336933886541943/1.0.2/';       // '/testing/threejs.html';
-        window.addEventListener('message', () => {
-            // TODO: verify type and source
-            tdEngine.remove(placeholder);
-            experienceLoaded = true;
+        externalContent.src = url;
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'loaded') {
+                tdEngine.remove(placeholder);
+                experienceLoaded = true;
+                experienceMatrix = placeholder.matrix;
 
-            closeExperience.addEventListener('click', () => {
-                experienceLoaded = false;
-                externalContent.src = '';
+                closeExperience.addEventListener('click', () => {
+                    experienceLoaded = false;
+                    experienceMatrix = null;
+                    externalContent.src = '';
 
-                const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                tdEngine.addClickEvent(nextPlaceholder,
-                    () => experienceLoadHandler(nextPlaceholder, position, orientation));
-            }, { once: true})
+                    const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                    tdEngine.addClickEvent(nextPlaceholder,
+                        () => experienceLoadHandler(nextPlaceholder, position, orientation, url));
+                }, {once: true})
+            }
         }, { once: true });
     }
 </script>
