@@ -86,6 +86,26 @@ export const ARMODES = {
 }
 
 /**
+ * Available types creatable with sparcl.
+ *
+ * placeholder: Generated content defined in app
+ * model: 3D model in glb or gltf format
+ * scene: WebGL scene exported from game engines like Godot or created using frameworks like threejs
+ *
+ * @type {{model: string, placeholder: string, scene: string}}
+ */
+export const CREATIONTYPES = {
+    placeholder: "Placeholder",
+    model: 'Model',
+    scene: 'Scene'
+}
+
+export const PLACEHOLDERSHAPES = {
+    pole: "Pole",
+    sign: "Sign"
+}
+
+/**
  * Utility function used to delay the execution of the next expression delay milliseconds.
  *
  * @param delay

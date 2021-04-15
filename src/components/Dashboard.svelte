@@ -14,16 +14,17 @@
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
-        debug_showLocationAxis, debug_useLocalServerResponse, allowP2pNetwork, p2pNetworkState
-        } from '@src/stateStore';
+        debug_showLocationAxis, debug_useLocalServerResponse, allowP2pNetwork, p2pNetworkState,
+        creatorModeSettings } from '@src/stateStore';
 
-    import { ARMODES } from '@core/common';
+    import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
 
     let isCreatorMode;
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+
 
     $: {
         $arMode = isCreatorMode ? ARMODES.creator : ARMODES.auto;
@@ -123,6 +124,7 @@
 
     dl.radio.connected {
         margin-top: 7px;
+        margin-bottom: 30px;
     }
 
     dd.select {
@@ -200,86 +202,114 @@
         <dd class="list"><input list="supported-countries" bind:value={$initialLocation.regionCode} /></dd>
     </dl>
 
-    <fieldset disabled="{$arMode === ARMODES.creator}">
-        <legend>
-            <h4>AR mode</h4>
-            <input id="armodecreator" type="checkbox" bind:checked="{isCreatorMode}" />
-            <label for="armodecreator">{ARMODES.creator}</label>
-        </legend>
+    <div>
+        <h4>AR mode</h4>
+        <input id="armodecreator" type="checkbox" bind:checked="{isCreatorMode}" />
+        <label for="armodecreator">{ARMODES.creator}</label>
+    </div>
 
-        <dl class="radio connected">
-            <dd>
-                <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
-                       class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
-                <label for="armodeoscp">{ARMODES.oscp}</label>
-            </dd>
-            <dd>
-                <input id="armodemarker" type="radio" bind:group={$arMode} value="{ARMODES.marker}" />
-                <label for="armodemarker">{ARMODES.marker}</label>
-            </dd>
-            <dd>
-                <input id="armodeauto" type="radio" bind:group={$arMode} value="{ARMODES.auto}" />
-                <label for="armodeauto">{ARMODES.auto}</label>
-            </dd>
-        </dl>
+    {#if $arMode !== ARMODES.creator}
+    <dl class="radio connected">
+        <dd>
+            <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
+                   class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
+            <label for="armodeoscp">{ARMODES.oscp}</label>
+        </dd>
+        <dd>
+            <input id="armodemarker" type="radio" bind:group={$arMode} value="{ARMODES.marker}" />
+            <label for="armodemarker">{ARMODES.marker}</label>
+        </dd>
+        <dd>
+            <input id="armodeauto" type="radio" bind:group={$arMode} value="{ARMODES.auto}" />
+            <label for="armodeauto">{ARMODES.auto}</label>
+        </dd>
+    </dl>
+    {/if}
 
-        <dl>
-            <dt>GeoPose Server</dt>
-            <dd class="select"><select bind:value={$selectedGeoPoseService}
-                                       class:disabled="{$availableGeoPoseServices.length < 2  || null}">
-                {#if $availableGeoPoseServices.length === 0}
-                    <option>None</option>
-                {:else}
-                    {#each $availableGeoPoseServices as service}
-                        <option value={service}>{service.title}</option>
-                    {/each}
-                {/if}
-            </select></dd>
-        </dl>
+    {#if $arMode === ARMODES.auto || $arMode === ARMODES.oscp}
+    <dl>
+        <dt>GeoPose Server</dt>
+        <dd class="select"><select bind:value={$selectedGeoPoseService}
+                                   class:disabled="{$availableGeoPoseServices.length < 2  || null}">
+            {#if $availableGeoPoseServices.length === 0}
+                <option>None</option>
+            {:else}
+                {#each $availableGeoPoseServices as service}
+                    <option value={service}>{service.title}</option>
+                {/each}
+            {/if}
+        </select></dd>
+    </dl>
 
-        <dl>
-            <dt>Recent GeoPose</dt>
-            <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
-        <!--    TODO: Values aren't displayed for some reason. Fix. -->
-        <!--    <dt>at</dt>-->
-        <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
-        </dl>
+    <dl>
+        <dt>Recent GeoPose</dt>
+        <dd class="autoheight"><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
+    <!--    TODO: Values aren't displayed for some reason. Fix. -->
+    <!--    <dt>at</dt>-->
+    <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
+    </dl>
 
-        <dl>
-            <dt>Content Server</dt>
-            <dd class="select"><select bind:value={$selectedContentService}
-                                       class:disabled="{$availableContentServices.length < 2  || null}">
-                {#if $availableContentServices.length === 0}
-                    <option>None</option>
-                {:else}
-                    {#each $availableContentServices as service}
-                        <option value={service}>{service.title}</option>
-                    {/each}
-                {/if}
-            </select></dd>
-        </dl>
+    <dl>
+        <dt>Content Server</dt>
+        <dd class="select"><select bind:value={$selectedContentService}
+                                   class:disabled="{$availableContentServices.length < 2  || null}">
+            {#if $availableContentServices.length === 0}
+                <option>None</option>
+            {:else}
+                {#each $availableContentServices as service}
+                    <option value={service}>{service.title}</option>
+                {/each}
+            {/if}
+        </select></dd>
+    </dl>
 
-        <dl>
-            <dt>P2P Service</dt>
-            <dd class="select"><select bind:value={$selectedP2pService}
-                                       class:disabled="{$availableP2pServices.length < 2  || null}">
-                {#if $availableP2pServices.length === 0}
-                    <option>None</option>
-                {:else}
-                    {#each $availableP2pServices as service}
-                        <option value={service}>{service.title}</option>
-                    {/each}
-                {/if}
-            </select></dd>
-        </dl>
+    <dl>
+        <dt>P2P Service</dt>
+        <dd class="select"><select bind:value={$selectedP2pService}
+                                   class:disabled="{$availableP2pServices.length < 2  || null}">
+            {#if $availableP2pServices.length === 0}
+                <option>None</option>
+            {:else}
+                {#each $availableP2pServices as service}
+                    <option value={service}>{service.title}</option>
+                {/each}
+            {/if}
+        </select></dd>
+    </dl>
+    {/if}
 
-        <dl>
-            <dt>Marker image</dt>
-            <dd>{$currentMarkerImage}</dd>
-            <dt>Width</dt>
-            <dd class="unitinput"><input type="number" bind:value={$currentMarkerImageWidth} />m</dd>
-        </dl>
-    </fieldset>
+    {#if $arMode === ARMODES.auto || $arMode === ARMODES.marker}
+    <dl>
+        <dt>Marker image</dt>
+        <dd>{$currentMarkerImage}</dd>
+        <dt>Width</dt>
+        <dd class="unitinput"><input type="number" bind:value={$currentMarkerImageWidth} />m</dd>
+    </dl>
+    {/if}
+
+    {#if $arMode === ARMODES.creator}
+    <dl>
+        <dd class="select"><select bind:value={$creatorModeSettings.type}>
+            {#each Object.values(CREATIONTYPES) as type}
+            <option value="{type}">{type}</option>
+            {/each}
+        </select></dd>
+
+        {#if $creatorModeSettings.type === CREATIONTYPES.placeholder}
+        <dd class="select">
+            <select bind:value={$creatorModeSettings.shape}>
+                {#each Object.values(PLACEHOLDERSHAPES) as shape}
+                <option value="{shape}">{shape}</option>
+                {/each}
+            </select>
+        </dd>
+        {:else if $creatorModeSettings.type === CREATIONTYPES.model}
+        <dd class="list">url</dd>
+        {:else}
+        <dd class="list">url</dd>
+        {/if}
+    </dl>
+    {/if}
 </details>
 
 <details open>

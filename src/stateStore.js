@@ -10,7 +10,7 @@
 
 import { readable, writable, derived } from 'svelte/store';
 
-import { LOCATIONINFO, SERVICE, ARMODES } from "./core/common.js";
+import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
 
 /**
@@ -79,6 +79,17 @@ arMode.subscribe(value => {
     localStorage.setItem('storedarmode', value);
 })
 
+/**
+ * Available settings for creator mode.
+ *
+ * @type {Writable<{shape: string, style: [], type: string, url: string}>}
+ */
+export const creatorModeSettings = writable({
+    type: CREATIONTYPES.placeholder,
+    shape: PLACEHOLDERSHAPES.pole,
+    style: [],
+    url: ''
+})
 
 /**
  * The rough location of the device when the application was started.

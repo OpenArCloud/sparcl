@@ -164,7 +164,7 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "/Scene/",
+                    "path": "https://clv.zappar.io/6817336933886541943/",
                     "sticker_id": 25532,
                     "sticker_subtype": "Scene",
                     "sticker_text": "Picker",
