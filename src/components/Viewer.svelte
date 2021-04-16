@@ -191,6 +191,7 @@
         handlePoseHeartbeat();
 
         firstPoseReceived = true;
+        showFooter = false;
 
 
         if (!creatorObject) {
@@ -487,6 +488,8 @@
                         on:startLocalisation={startLocalisation} />
             {:else if activeArMode === ARMODES.marker}
                 <ArMarkerOverlay />
+            {:else if activeArMode === ARMODES.creator}
+
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
