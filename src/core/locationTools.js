@@ -164,7 +164,8 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "https://clv.zappar.io/6817336933886541943/",
+                    // "path": "https://clv.zappar.io/6966846783932362010/1.0.12/",  // Unity
+                    "path": "https://clv.zappar.io/6817336933886541943/",  // threejs
                     "sticker_id": 25532,
                     "sticker_subtype": "Scene",
                     "sticker_text": "Picker",
