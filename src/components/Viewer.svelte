@@ -19,8 +19,8 @@
 
     import { availableContentServices, currentMarkerImage, currentMarkerImageWidth, debug_appendCameraImage,
         debug_showLocationAxis, debug_useLocalServerResponse, initialLocation, recentLocalisation,
-        arMode } from '@src/stateStore';
-    import {ARMODES, debounce, wait} from "@core/common";
+        arMode, creatorModeSettings } from '@src/stateStore';
+    import { ARMODES, debounce, wait, CREATIONTYPES, PLACEHOLDERSHAPES } from "@core/common";
     import {calculateDistance, calculateRotation, fakeLocationResult} from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
@@ -41,7 +41,7 @@
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
 
-    let trackedImageObject;
+    let trackedImageObject, creatorObject;
     let poseFoundHeartbeat = null;
 
 
@@ -188,7 +188,38 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     function handleCreator(time, frame, floorPose) {
+        handlePoseHeartbeat();
 
+        firstPoseReceived = true;
+
+
+        if (!creatorObject) {
+            const position = {x: 0, y: 0, z: -4};
+            const orientation = {x: 0, y: 0, z: 0, w: 1};
+
+            if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
+                creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
+            } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
+                creatorObject = tdEngine.addModel($creatorModeSettings.url, position, orientation);
+            } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
+                creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
+                tdEngine.addClickEvent(creatorObject,
+                    () => experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.url));
+            } else {
+                console.log('unknown creator type');
+            }
+        }
+
+        for (let view of floorPose.views) {
+            let viewport = xrEngine.setViewportForView(view);
+
+            if (experienceLoaded === true) {
+                externalContent.contentWindow.postMessage(
+                    tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            }
+        }
+
+        tdEngine.render(time, floorPose, floorPose.views[0]);
     }
 
     /**
@@ -270,7 +301,7 @@
                     });
             }
 
-            tdEngine.render(time, floorPose);
+            tdEngine.render(time, floorPose, view);
         }
     }
 

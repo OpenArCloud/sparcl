@@ -84,11 +84,16 @@ arMode.subscribe(value => {
  *
  * @type {Writable<{shape: string, style: [], type: string, url: string}>}
  */
-export const creatorModeSettings = writable({
+const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings'));
+export const creatorModeSettings = writable(storedCreatorModeSettings || {
     type: CREATIONTYPES.placeholder,
     shape: PLACEHOLDERSHAPES.pole,
     style: [],
-    url: ''
+    modelurl: '',
+    sceneurl: ''
+});
+creatorModeSettings.subscribe(value => {
+    localStorage.setItem('creatormodesettings', JSON.stringify(value))
 })
 
 /**

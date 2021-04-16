@@ -100,6 +100,11 @@ export const CREATIONTYPES = {
     scene: 'Scene'
 }
 
+/**
+ * Supported shapes for placeholder content types.
+ *
+ * @type {{sign: string, pole: string}}
+ */
 export const PLACEHOLDERSHAPES = {
     pole: "Pole",
     sign: "Sign"

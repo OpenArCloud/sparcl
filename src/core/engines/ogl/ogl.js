@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
 import {createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
@@ -21,7 +21,7 @@ export default class ogl {
         renderer = new Renderer({
             alpha: true,
             canvas: document.querySelector('#application'),
-            dpr: 2,
+            dpr: window.devicePixelRatio,
             webgl: 2
         });
 
@@ -55,6 +55,24 @@ export default class ogl {
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
+    }
+
+    addModel(url, position, orientation) {
+        const gltfScene = new Transform();
+        gltfScene.position.set(position.x, position.y, position.z);
+        gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        gltfScene.setParent(scene);
+
+        GLTFLoader.load(gl, url)
+            .then(gltf => {
+                const s = gltf.scene || gltf.scenes[0];
+                s.forEach(root => {
+                    root.setParent(gltfScene);
+                });
+            });
+
+        scene.updateMatrixWorld();
+        return gltfScene;
     }
 
     addExperiencePlaceholder(position, orientation) {
@@ -94,7 +112,8 @@ export default class ogl {
     }
 
     getExternalCameraPose(view, experienceMatrix) {
-        const cameraMatrix = experienceMatrix.inverse().multiply(view.transform.matrix);
+        const cameraMatrix = new Mat4();
+        cameraMatrix.copy(experienceMatrix).inverse().multiply(view.transform.matrix);
 
         return {
             projection: view.projectionMatrix,
@@ -123,9 +142,9 @@ export default class ogl {
         window.removeEventListener('resize', this.resize, false);
     }
 
-    render(time, pose) {
-        const position = pose.transform.position;
-        const orientation = pose.transform.orientation;
+    render(time, pose, view) {
+        const position = view.transform.position;
+        const orientation = view.transform.orientation;
 
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
