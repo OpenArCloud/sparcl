@@ -200,11 +200,11 @@
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObject = tdEngine.addModel($creatorModeSettings.url, position, orientation);
+                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
                 tdEngine.addClickEvent(creatorObject,
-                    () => experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.url));
+                    () => experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');
             }
