@@ -110,7 +110,7 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "https://cdn.glitch.com/4a3f0153-a37d-4bed-85a1-2947db59ee77%2FDuck.glb?v=1618662321578",
+                    "path": "/media/models/Duck.glb",
                     "sticker_id": 25523,
                     "sticker_subtype": "gltf",
                     "sticker_text": "first",
@@ -132,8 +132,8 @@ export const fakeLocationResult = {
                     "pose": {
                         "altitude": -0.8568757176399231,
                         "ellipsoidHeight": -1,
-                        "latitude": 48.756132830613595,
-                        "longitude": 8.545662319589079,
+                        "latitude": 48.7560834514246,
+                        "longitude": 8.545731127889324,
                         "quaternion": [
                             0.030575819204840073,
                             -0.8192063719687788,
@@ -187,8 +187,8 @@ export const fakeLocationResult = {
                     "pose": {
                         "altitude": -0.4542122185230255,
                         "ellipsoidHeight": -1,
-                        "latitude": 48.756139054833376,
-                        "longitude": 8.54566221566234,
+                        "latitude": 48.756132830613595,
+                        "longitude": 8.545662319589079,
                         "quaternion": [
                             -0.11061927770517868,
                             -0.5654197985215716,
