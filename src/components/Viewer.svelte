@@ -201,7 +201,7 @@
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
+                creatorObject = tdEngine.addModel(position, orientation, $creatorModeSettings.modelurl);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
                 tdEngine.addClickEvent(creatorObject,
@@ -212,7 +212,7 @@
         }
 
         for (let view of floorPose.views) {
-            let viewport = xrEngine.setViewportForView(view);
+            xrEngine.setViewportForView(view);
 
             if (experienceLoaded === true) {
                 externalContent.contentWindow.postMessage(
@@ -373,15 +373,21 @@
                 const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
 
                 // Augmented City proprietary structure
-                if (record.content.custom_data.sticker_type === 'other' &&
-                        record.content.custom_data.sticker_subtype === 'Scene') {
+                if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
+                    const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                    const url = record.content.custom_data.path;
 
                     // TODO: Receive list of events to register to from SCD and register them here
 
-                    const experienceUrl = record.content.custom_data.path;
-                    const placeholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                    tdEngine.addClickEvent(placeholder,
-                        () => experienceLoadHandler(placeholder, position, orientation, experienceUrl));
+                    switch (subtype) {
+                        case 'scene':
+                            const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                            tdEngine.addClickEvent(experiencePlaceholder,
+                                () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                            break;
+                        case 'gltf':
+                            tdEngine.addModel(position, orientation, url)
+                    }
                 } else {
                     tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                 }

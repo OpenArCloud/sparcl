@@ -57,7 +57,7 @@ export default class ogl {
         placeholder.setParent(scene);
     }
 
-    addModel(url, position, orientation) {
+    addModel(position, orientation, url) {
         const gltfScene = new Transform();
         gltfScene.position.set(position.x, position.y, position.z);
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
@@ -146,6 +146,7 @@ export default class ogl {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
+        camera.projectionMatrix.copy(view.projectionMatrix);
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 

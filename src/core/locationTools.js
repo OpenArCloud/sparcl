@@ -110,11 +110,11 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "",
+                    "path": "https://cdn.glitch.com/4a3f0153-a37d-4bed-85a1-2947db59ee77%2FDuck.glb?v=1618662321578",
                     "sticker_id": 25523,
-                    "sticker_subtype": "hit",
+                    "sticker_subtype": "gltf",
                     "sticker_text": "first",
-                    "sticker_type": "place"
+                    "sticker_type": "other"
                 },
                 "description": "",
                 "geopose": {
@@ -167,7 +167,7 @@ export const fakeLocationResult = {
                     // "path": "https://clv.zappar.io/6966846783932362010/1.0.12/",  // Unity
                     "path": "https://clv.zappar.io/6817336933886541943/",  // threejs
                     "sticker_id": 25532,
-                    "sticker_subtype": "Scene",
+                    "sticker_subtype": "scene",
                     "sticker_text": "Picker",
                     "sticker_type": "other"
                 },
