@@ -102,18 +102,18 @@
 
         if ($arMode === ARMODES.creator) {
             promise = xrEngine.startCreativeSession(canvas, handleCreator, {
-                requiredFeatures: ['dom-overlay', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
         } else if (activeArMode === ARMODES.oscp) {
             promise = xrEngine.startOscpSession(canvas, handleOscp, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
         } else if (activeArMode === ARMODES.marker) {
             const bitmap = await loadDefaultMarker();
             promise = xrEngine.startMarkerSession(canvas, handleMarker, {
-                requiredFeatures: ['dom-overlay', 'image-tracking', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay},
                 trackedImages: [{
                     image: bitmap,

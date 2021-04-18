@@ -15,7 +15,7 @@
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
         debug_showLocationAxis, debug_useLocalServerResponse, allowP2pNetwork, p2pNetworkState,
-        creatorModeSettings } from '@src/stateStore';
+        creatorModeSettings, dashboardDetail } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
@@ -196,7 +196,7 @@
 
 <button on:click={() => dispatch('okClicked')}>Go immersive</button>
 
-<details>
+<details bind:open="{$dashboardDetail.state}">
     <summary>Application state</summary>
 
     <div>
@@ -325,7 +325,7 @@
     {/if}
 </details>
 
-<details open>
+<details bind:open="{$dashboardDetail.multiplayer}">
     <summary>Multiplayer</summary>
     <div>
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
@@ -340,7 +340,7 @@
 
 
 
-<details open>
+<details bind:open="{$dashboardDetail.debug}">
     <summary>Debug settings</summary>
     <div>
         <input id="appendcameraimage" type="checkbox" bind:checked={$debug_appendCameraImage} />

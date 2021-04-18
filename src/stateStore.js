@@ -61,7 +61,7 @@ showDashboard.subscribe(value => {
  *
  * @type {boolean}  true when the intro was already seen, false otherwise
  */
-const storedHasIntroSeen = false; // localStorage.getItem('hasintroseen') === 'true';
+const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
 hasIntroSeen.subscribe(value => {
     localStorage.setItem('hasintroseen', value === true ? 'true' : 'false');
@@ -272,4 +272,11 @@ const storedDebug_useLocalServerResponse = localStorage.getItem('debug_useLocalS
 export const debug_useLocalServerResponse = writable(storedDebug_useLocalServerResponse);
 debug_useLocalServerResponse.subscribe(value => {
     localStorage.setItem('debug_useLocalServerResponse', value === true ? 'true' : 'false');
+})
+
+const storedDashboardDetail = JSON.parse(localStorage.getItem('dashboardDetail')) ||
+                                                            { state: false, multiplayer: true, debug: true };
+export const dashboardDetail = writable(storedDashboardDetail);
+dashboardDetail.subscribe(value => {
+    localStorage.setItem('dashboardDetail', JSON.stringify(value));
 })
