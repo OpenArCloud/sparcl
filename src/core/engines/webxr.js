@@ -135,8 +135,8 @@ export default class webxr {
             if (markerFrameCallback) {
                 const results = frame.getImageTrackingResults();
                 if (results.length > 0) {
-                    const localPose = frame.getPose(results[0].imageSpace, localSpaceReference);
-                    markerFrameCallback(time, frame, localPose, results[0]);
+                    const localPose = frame.getPose(results[0].imageSpace, floorSpaceReference);
+                    markerFrameCallback(time, frame, floorPose, localPose, results[0]);
                 }
             }
         }

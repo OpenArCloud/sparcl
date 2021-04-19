@@ -232,7 +232,7 @@
      * @param localPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function handleMarker(time, frame, localPose, trackedImage) {
+    function handleMarker(time, frame, floorPose, localPose, trackedImage) {
         handlePoseHeartbeat();
 
         firstPoseReceived = true;
@@ -245,11 +245,10 @@
 
             const position = localPose.transform.position;
             const orientation = localPose.transform.orientation;
-
             tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
         }
 
-        tdEngine.render(localPose);
+        tdEngine.render(time, floorPose, floorPose.views[0]);
     }
 
     /**

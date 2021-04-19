@@ -152,8 +152,8 @@ export function getExperiencePlaceholder(gl) {
  * @returns {Mesh}
  */
 export function getDefaultMarkerObject(gl) {
-    const object = createModel(gl, PRIMITIVES.box, [1, 1, 0]);
-    object.scale.set(0.5);
+    const object = createModel(gl, PRIMITIVES.box, [.5, 1, 0]);
+    object.scale.set(0.1);
     return object;
 }
 
