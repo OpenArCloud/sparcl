@@ -13,10 +13,11 @@
     import { Swipeable, Screen, Controls } from 'buhrmi';
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed } from '@src/stateStore';
-    import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage,
+    import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage, dashboardOkLabel,
         startedOkLabel } from '@src/contentStore';
 
     export let withOkFooter = true;
+    export let shouldShowDashboard;
 
 
     // Used to dispatch events to parent
@@ -59,6 +60,11 @@
 {#if $hasIntroSeen}
     <h3>{$infoGreeting}</h3>
     <div>{@html $info}</div>
+    {#if withOkFooter}
+        <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
+            {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+        </button>
+    {/if}
 {:else if $arIsAvailable}
     <Swipeable>
         <Screen>
@@ -77,7 +83,9 @@
         <Screen>
             <div>{@html $arOkMessage}</div>
             {#if withOkFooter}
-                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>{$startedOkLabel}</button>
+                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
+                    {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+                </button>
             {/if}
         </Screen>
 

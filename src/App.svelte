@@ -271,6 +271,7 @@
         <div id="frame">
         {#if showWelcome}
             <WelcomeOverlay withOkFooter="{$arIsAvailable && activeArMode !== ARMODES.auto}"
+                            shouldShowDashboard="{shouldShowDashboard}"
                             on:okAction={closeIntro} on:requestLocation={requestLocationAccess} />
 
         {:else if showOutro}

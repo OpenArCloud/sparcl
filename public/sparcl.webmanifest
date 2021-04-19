@@ -21,7 +21,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "/media/icons/icon_x192_w.jpg",
+      "src": "/media/icons/icon_x192_w.png",
       "type": "image/png",
       "sizes": "192x192"
     },
@@ -44,7 +44,7 @@
       "purpose": "maskable"
     },
     {
-      "src": "/media/icons/icon_x512_w.jpg",
+      "src": "/media/icons/icon_x512_w.png",
       "type": "image/png",
       "sizes": "512x512"
     }
@@ -58,11 +58,26 @@
   "scope": "/",
   "theme_color": "#2E4458",
   "description": "Experience AR Cloud content near you",
+  "categories": ["entertainment", "lifestyle", "productivity", "arcloud"],
   "prefer_related_applications": true,
   "related_applications": [
     {
       "platform": "play",
       "id": "app.sparcl.twa"
     }
-  ]
+  ],
+  "shortcuts": [
+      {
+        "name": "Open Dashboard",
+        "short_name": "Dashboard",
+        "description": "View the dashboard for additional settings",
+        "url": "?dashboard=true"
+      },
+      {
+        "name": "Use Creation Mode",
+        "short_name": "Creation",
+        "description": "Use content from server on local network",
+        "url": "/?creation=true"
+      }
+    ]
 }

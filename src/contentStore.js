@@ -86,6 +86,12 @@ export const doitOkLabel = readable('', (set) => {
     return () => set('');
 });
 
+// OK-Button label of the overlay to close it and display the dashboard
+export const dashboardOkLabel = readable('', (set) => {
+    set('Goto Dashboard');
+    return () => set('');
+})
+
 // Button label in DOM-overlay to start localisation
 export const localizeLabel = readable('', (set) => {
     set('Localize');
