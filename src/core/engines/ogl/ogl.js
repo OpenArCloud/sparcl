@@ -121,6 +121,10 @@ export default class ogl {
         }
     }
 
+    getRootScene() {
+        return scene;
+    }
+
     setWaiting(model) {
         model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
         uniforms.time[model.id] = model;

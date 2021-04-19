@@ -96,6 +96,27 @@ export default class webxr {
         }
     }
 
+    createRootAnchor(frame, root) {
+        frame.createAnchor(new XRRigidTransform(), floorSpaceReference)
+            .then((anchor) => {
+                anchor.context = {root: root};
+                return anchor;
+            })
+            .catch((error) => {
+                console.error("Anchor failed to create.");
+            });
+    }
+
+    handleAnchors(frame) {
+        frame.trackedAnchors.forEach(anchor => {
+            const anchorPose = frame.getPose(anchor.anchorSpace, floorSpaceReference);
+            if(anchorPose) {
+                // TODO: create ogl style matrix
+                // anchor.context.root.matrix = anchorPose.transform.matrix;
+            }
+        });
+    }
+
     _initSession(canvas, result) {
         this.session = result;
 

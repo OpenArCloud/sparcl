@@ -17,11 +17,11 @@
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { availableContentServices, currentMarkerImage, currentMarkerImageWidth, debug_appendCameraImage,
-        debug_showLocationAxis, debug_useLocalServerResponse, initialLocation, recentLocalisation,
-        arMode, creatorModeSettings } from '@src/stateStore';
-    import { ARMODES, debounce, wait, CREATIONTYPES, PLACEHOLDERSHAPES } from "@core/common";
-    import {calculateDistance, calculateRotation, fakeLocationResult} from '@core/locationTools';
+    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage currentMarkerImageWidth,
+        debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse, initialLocation,
+        recentLocalisation } from '@src/stateStore';
+    import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
+    import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -46,18 +46,6 @@
 
 
     // TODO: Setup event target array, based on info received from SCD
-
-
-    /**
-     * Setup default content of scene that should be created when WebXR reports the first successful pose
-     */
-    $: {
-        if (firstPoseReceived) {
-            if ($debug_showLocationAxis) {
-                tdEngine.addAxes();
-            }
-        }
-    }
 
 
     onDestroy(() => {
@@ -190,9 +178,19 @@
     function handleCreator(time, frame, floorPose) {
         handlePoseHeartbeat();
 
-        firstPoseReceived = true;
         showFooter = false;
 
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+
+            xrEngine.createRootAnchor(frame, tdEngine.getRootScene());
+
+            if ($debug_showLocationAxis) {
+                tdEngine.addAxes();
+            }
+        }
+
+        xrEngine.handleAnchors(frame);
 
         if (!creatorObject) {
             const position = {x: 0, y: 0, z: -4};
@@ -229,6 +227,7 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
+     * @param floorPose  The pose relative to the floor
      * @param localPose The pose relative to the center of the marker
      * @param trackedImage
      */
@@ -236,6 +235,8 @@
         handlePoseHeartbeat();
 
         firstPoseReceived = true;
+        showFooter = false;
+
         xrEngine.setViewPort();
 
         if (trackedImage && trackedImage.trackingState === 'tracked') {
@@ -262,7 +263,13 @@
     function handleOscp(time, frame, floorPose) {
         handlePoseHeartbeat();
 
-        firstPoseReceived = true;
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+
+            if ($debug_showLocationAxis) {
+                tdEngine.addAxes();
+            }
+        }
 
         // TODO: Handle multiple views and the localisation correctly
         for (let view of floorPose.views) {
