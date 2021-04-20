@@ -20,7 +20,7 @@ export const introGreeting = readable('', (set) =>{
 
 export const intro = readable('', (set) => {
     set(`
-        <div>Message, shown only the first time the app is started.</div>
+        <div>Let's get started.</div>
     `);
 
     return () => set('');
@@ -32,9 +32,7 @@ export const outroGreeting = readable('', (set) => {
     return () => set('');
 })
 export const outro = readable('', (set) => {
-    set(`
-        <div>How has it been? Feel free to start again</div>
-    `);
+    set(`How has it been? <br />Feel free to start again`);
 
     return () => set('');
 });
@@ -45,7 +43,7 @@ export const infoGreeting = readable('', (set) => {
     return () => set('');
 })
 export const info = readable('', (set) => {
-    set(`<p>Glad to see you again</p>`);
+    set(`Glad to see you again`);
     return () => set('');
 });
 

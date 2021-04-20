@@ -223,7 +223,7 @@
     }
 
     #frame {
-        width: calc(100vw - 3 * var(--ui-margin));
+        width: calc(100vw - 2 * var(--ui-margin));
         max-width: var(--ui-max-width);
         max-height: var(--ui-max-height);
 
@@ -231,7 +231,6 @@
 
         box-shadow: 0 3px 6px #00000029;
         border: 2px solid var(--theme-color);
-        padding: var(--ui-margin);
 
         background-color: white;
     }

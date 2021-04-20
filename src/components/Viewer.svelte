@@ -17,7 +17,7 @@
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage currentMarkerImageWidth,
+    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
         debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse, initialLocation,
         recentLocalisation } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";

@@ -19,7 +19,8 @@
 
 <style>
     h3 {
-        margin-top: 0;
+        margin-top: 100px;
+        margin-bottom: 5px;
 
         font-size: 30px;
         color: var(--theme-highlight);
@@ -37,12 +38,19 @@
         font-size: 25px;
         text-transform: uppercase;
     }
+
+    p {
+        margin-top: 0;
+        margin-bottom: 65px;
+    }
 </style>
 
 
-<h3>{$outroGreeting}</h3>
-<div>{@html $outro}</div>
+<div class="swipeable">
+    <h3>{$outroGreeting}</h3>
+    <p>{@html $outro}</p>
 
-<footer>
-    <button on:click={() => dispatch('okAction')}>{$doitOkLabel}</button>
-</footer>
+    <footer>
+        <button on:click={() => dispatch('okAction')}>{$doitOkLabel}</button>
+    </footer>
+</div>
