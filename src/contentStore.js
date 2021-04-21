@@ -56,6 +56,14 @@ export const markerInfo = readable('', (set) => {
     return () => set('');
 })
 
+// Informs about unavailability of service coverage
+export const unavailableInfo = readable('', (set) => {
+    set(`
+        No service coverage available in your current area. 
+        Open Dashboard to select developer or creator modes.
+    `)
+})
+
 
 
 // The device the app is running on is able to start an AR session

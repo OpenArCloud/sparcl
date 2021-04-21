@@ -121,8 +121,8 @@ export default class ogl {
         }
     }
 
-    getRootScene() {
-        return scene;
+    getRootSceneUpdater() {
+        return (matrix) => scene.matrix = new Mat4().fromArray(matrix);
     }
 
     setWaiting(model) {

@@ -23,7 +23,6 @@
 
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
-    import MarkerOverlay from "@components/dom-overlays/MarkerOverlay.svelte";
 
     import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, arMode, allowP2pNetwork,
         availableP2pServices, isLocationAccessAllowed } from './stateStore';
@@ -31,7 +30,7 @@
 
     let showWelcome, showOutro, showMarkerInfo;
     let dashboard, viewer;
-    let shouldShowDashboard, shouldShowMarkerInfo, activeArMode;
+    let shouldShowDashboard, shouldShowUnavailableInfo;
 
     let isHeadless = false;
     let currentSharedValues = {};
@@ -40,7 +39,7 @@
     /**
      * Reactive function to define if the AR viewer can be shown.
      */
-    $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !shouldShowMarkerInfo && !showOutro;
+    $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
 
     /**
      * Reactive function to setup AR modes.
@@ -55,16 +54,10 @@
                     return getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index)
                 })
                 .then(services => {
-                    if ($arMode === ARMODES.auto) {
-                        if (services.length !== 0) {
-                            $ssr = services;
-                            activeArMode = ARMODES.oscp;
-                        } else {
-                            activeArMode = ARMODES.marker
-                            shouldShowMarkerInfo = true;
-                        }
-                    } else {
-                        activeArMode = $arMode;
+                    $ssr = services;
+
+                    if (services.length === 0) {
+                        shouldShowUnavailableInfo = true;
                     }
                 })
                 .catch(error => {
@@ -130,23 +123,15 @@
      * When there are no discovery services available, another dialog is shown, informing the user about the marker
      * alternative.
      */
-    function closeIntro() {
+    function closeIntro(openDashboard) {
         $hasIntroSeen = true;
         showWelcome = false;
         showOutro = false;
-        showMarkerInfo = shouldShowMarkerInfo;
+        shouldShowDashboard = openDashboard || shouldShowDashboard
 
-        if (!shouldShowDashboard && !showMarkerInfo) {
+        if (!shouldShowDashboard) {
             startAr();
         }
-    }
-
-    /**
-     * Handles closing the dialog with information about how to use markers.
-     */
-    function closeMarker() {
-        shouldShowMarkerInfo = false;
-        closeIntro();
     }
 
     /**
@@ -265,19 +250,17 @@
         <Dashboard bind:this={dashboard} on:okClicked={startAr} />
     {/if}
 
-    {#if showWelcome || showOutro || shouldShowMarkerInfo }
+    {#if showWelcome || showOutro}
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable && activeArMode !== ARMODES.auto}"
-                            shouldShowDashboard="{shouldShowDashboard}"
-                            on:okAction={closeIntro} on:requestLocation={requestLocationAccess} />
+            <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
+                            on:okAction={() => closeIntro(false)}
+                            on:dashboardAction={() => closeIntro(true)}
+                            on:requestLocation={requestLocationAccess} />
 
         {:else if showOutro}
-            <OutroOverlay on:okAction={closeIntro} />
-
-        {:else if shouldShowMarkerInfo}
-            <MarkerOverlay on:okAction={closeMarker} />
+            <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
         {/if}
         </div>
     </aside>
@@ -291,8 +274,7 @@
 </main>
 
 {#if showAr}
-<Viewer bind:this={viewer} activeArMode="{activeArMode}"
-        on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+<Viewer bind:this={viewer} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

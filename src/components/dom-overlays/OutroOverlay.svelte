@@ -10,8 +10,9 @@
 <script>
     import { createEventDispatcher } from 'svelte';
 
-    import { outroGreeting, outro, doitOkLabel } from '@src/contentStore';
+    import { outroGreeting, outro, doitOkLabel, dashboardOkLabel } from '@src/contentStore';
 
+    export let shouldShowDashboard;
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -51,6 +52,8 @@
     <p>{@html $outro}</p>
 
     <footer>
-        <button on:click={() => dispatch('okAction')}>{$doitOkLabel}</button>
+        <button on:click={() => dispatch('okAction')}>
+            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
+        </button>
     </footer>
 </div>

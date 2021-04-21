@@ -18,15 +18,13 @@
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocationAxis, debug_useLocalServerResponse, initialLocation,
+        debug_appendCameraImage, debug_showLocationAxis, initialLocation,
         recentLocalisation } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
-
-    export let activeArMode;
 
 
     const message = (msg) => console.log(msg);
@@ -88,17 +86,22 @@
     async function startSession() {
         let promise;
 
-        if ($arMode === ARMODES.creator) {
+        if ($arMode === ARMODES.dev) {
+            promise = xrEngine.startDevSession(canvas, handleDevelopment, {
+                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
+                domOverlay: {root: overlay}
+            });
+        } else if ($arMode === ARMODES.creator) {
             promise = xrEngine.startCreativeSession(canvas, handleCreator, {
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
-        } else if (activeArMode === ARMODES.oscp) {
+        } else if ($arMode === ARMODES.oscp) {
             promise = xrEngine.startOscpSession(canvas, handleOscp, {
                 requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
-        } else if (activeArMode === ARMODES.marker) {
+        } else if ($arMode === ARMODES.marker) {
             const bitmap = await loadDefaultMarker();
             promise = xrEngine.startMarkerSession(canvas, handleMarker, {
                 requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
@@ -168,6 +171,46 @@
     }
 
     /**
+     * Special mode for sparcl development
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame     The XRFrame provided to the update loop
+     * @param floorPose     The pose of the device as reported by the XRFrame
+     */
+    function handleDevelopment(time, frame, floorPose) {
+        handlePoseHeartbeat();
+
+        xrEngine.setViewPort();
+
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+
+            xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
+
+            if ($debug_showLocationAxis) {
+                tdEngine.addAxes();
+            }
+
+            for (let view of floorPose.views) {
+                xrEngine.setViewportForView(view);
+
+                console.log('fake localisation');
+
+                isLocalized = true;
+                wait(1000).then(showFooter = false);
+
+                let geoPose = fakeLocationResult.geopose.pose;
+                let data = fakeLocationResult.scrs;
+                placeContent(floorPose, geoPose, data);
+            }
+        }
+
+        xrEngine.handleAnchors(frame);
+        tdEngine.render(time, floorPose, floorPose.views[0]);
+    }
+
+    /**
      * Special mode for content creators.
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
@@ -180,10 +223,12 @@
 
         showFooter = false;
 
+        xrEngine.setViewPort();
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
-            xrEngine.createRootAnchor(frame, tdEngine.getRootScene());
+            xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
             if ($debug_showLocationAxis) {
                 tdEngine.addAxes();
@@ -324,37 +369,29 @@
      */
     function localize(image, width, height) {
         return new Promise((resolve, reject) => {
-            if (!$debug_useLocalServerResponse) {
-                const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                    .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
-                    .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
+            const geoPoseRequest = new GeoPoseRequest(uuidv4())
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
-                // Services haven't implemented recent changes to the protocol yet
-                validateRequest(false);
+            // Services haven't implemented recent changes to the protocol yet
+            validateRequest(false);
 
-                sendRequest(`${$availableContentServices[0].url}/${objectEndpoint}`, JSON.stringify(geoPoseRequest))
-                    .then(data => {
-                        isLocalizing = false;
-                        isLocalized = true;
-                        wait(1000).then(() => showFooter = false);
+            sendRequest(`${$availableContentServices[0].url}/${objectEndpoint}`, JSON.stringify(geoPoseRequest))
+                .then(data => {
+                    isLocalizing = false;
+                    isLocalized = true;
+                    wait(1000).then(() => showFooter = false);
 
-                        if ('scrs' in data) {
-                            resolve([data.geopose.pose, data.scrs]);
-                        }
-                    })
-                    .catch(error => {
-                        // TODO: Offer marker alternative
-                        isLocalizing = false;
-                        console.error(error);
-                        reject(error);
-                    });
-            } else {
-                // Stored SCD response for development
-                console.log('fake localisation');
-                isLocalized = true;
-                wait(1000).then(showFooter = false);
-                resolve([fakeLocationResult.geopose.pose, fakeLocationResult.scrs])
-            }
+                    if ('scrs' in data) {
+                        resolve([data.geopose.pose, data.scrs]);
+                    }
+                })
+                .catch(error => {
+                    // TODO: Offer marker alternative
+                    isLocalizing = false;
+                    console.error(error);
+                    reject(error);
+                });
         });
     }
 
@@ -403,6 +440,14 @@
         })
     }
 
+    /**
+     * Handler to load and unload external experiences.
+     *
+     * @param placeholder  Model        The initial placeholder placed into the 3D scene
+     * @param position  Position        The position the experience should be placed
+     * @param orientation  Orientation      The orientation of the experience
+     * @param url  String       The URL to load the experience from
+     */
     function experienceLoadHandler(placeholder, position, orientation, url) {
         tdEngine.setWaiting(placeholder);
 
@@ -495,13 +540,15 @@
     <!--  Space for UI elements  -->
     {#if showFooter}
         <footer>
-            {#if activeArMode === ARMODES.oscp}
+            {#if $arMode === ARMODES.oscp}
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                         on:startLocalisation={startLocalisation} />
-            {:else if activeArMode === ARMODES.marker}
+            {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
-            {:else if activeArMode === ARMODES.creator}
-
+            {:else if $arMode === ARMODES.creator}
+                // TODO: Add creator mode ui
+            {:else if $arMode === ARMODES.dev}
+                // TODO: Add development mode ui
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>

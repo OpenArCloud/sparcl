@@ -263,17 +263,6 @@ debug_showLocationAxis.subscribe(value => {
     localStorage.setItem('debug_showLocationAxis', value === true ? 'true' : 'false');
 })
 
-/**
- * Use locally stored server response instead requesting it from the server.
- *
- * @type {Writable<boolean>}
- */
-const storedDebug_useLocalServerResponse = localStorage.getItem('debug_useLocalServerResponse') === 'true';
-export const debug_useLocalServerResponse = writable(storedDebug_useLocalServerResponse);
-debug_useLocalServerResponse.subscribe(value => {
-    localStorage.setItem('debug_useLocalServerResponse', value === true ? 'true' : 'false');
-})
-
 const storedDashboardDetail = JSON.parse(localStorage.getItem('dashboardDetail')) ||
                                                             { state: false, multiplayer: true, debug: true };
 export const dashboardDetail = writable(storedDashboardDetail);

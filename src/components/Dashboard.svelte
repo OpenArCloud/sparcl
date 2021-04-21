@@ -14,7 +14,7 @@
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
-        debug_showLocationAxis, debug_useLocalServerResponse, allowP2pNetwork, p2pNetworkState,
+        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState,
         creatorModeSettings, dashboardDetail } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -183,11 +183,6 @@
 
         padding: 0;
     }
-
-    .topdivider {
-        border-top: 2px solid black !important;
-        padding-top: 15px;
-    }
 </style>
 
 
@@ -222,16 +217,12 @@
             <label for="armodeoscp">{ARMODES.oscp}</label>
         </dd>
         <dd>
-            <input id="armodemarker" type="radio" bind:group={$arMode} value="{ARMODES.marker}" />
-            <label for="armodemarker">{ARMODES.marker}</label>
-        </dd>
-        <dd>
-            <input id="armodeauto" type="radio" bind:group={$arMode} value="{ARMODES.auto}" />
-            <label for="armodeauto">{ARMODES.auto}</label>
-        </dd>
-        <dd class="topdivider">
             <input id="armodecreator" type="radio" bind:group={$arMode} value="{ARMODES.creator}" />
             <label for="armodecreator">{ARMODES.creator}</label>
+        </dd>
+        <dd>
+            <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.dev}" />
+            <label for="armodedev">{ARMODES.dev}</label>
         </dd>
     </dl>
 
@@ -350,11 +341,6 @@
     <div>
         <input id="showlocationaxis" type="checkbox" bind:checked={$debug_showLocationAxis} />
         <label for="showlocationaxis">Show local zero point markers</label>
-    </div>
-
-    <div>
-        <input id="uselocalserverresponse" type="checkbox" bind:checked={$debug_useLocalServerResponse} />
-        <label for="uselocalserverresponse">Use local server response</label>
     </div>
 </details>
 

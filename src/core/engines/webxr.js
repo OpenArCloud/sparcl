@@ -6,12 +6,21 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
 
 
-let endedCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
+let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
 
 let floorSpaceReference, localSpaceReference, gl;
 
 
 export default class webxr {
+    startDevSession(canvas, callback, options) {
+        devFrameCallback = callback;
+
+        return navigator.xr.requestSession('immersive-ar', options)
+            .then((result) => {
+                this._initSession(canvas, result);
+            })
+    }
+
     startCreativeSession(canvas, callback, options) {
         creativeFrameCallback = callback;
 
@@ -96,10 +105,10 @@ export default class webxr {
         }
     }
 
-    createRootAnchor(frame, root) {
+    createRootAnchor(frame, rootUpdater) {
         frame.createAnchor(new XRRigidTransform(), floorSpaceReference)
             .then((anchor) => {
-                anchor.context = {root: root};
+                anchor.context = {rootUpdater: rootUpdater};
                 return anchor;
             })
             .catch((error) => {
@@ -111,8 +120,7 @@ export default class webxr {
         frame.trackedAnchors.forEach(anchor => {
             const anchorPose = frame.getPose(anchor.anchorSpace, floorSpaceReference);
             if(anchorPose) {
-                // TODO: create ogl style matrix
-                // anchor.context.root.matrix = anchorPose.transform.matrix;
+                anchor.context.rootUpdater(anchorPose.transform.matrix);
             }
         });
     }
@@ -145,6 +153,10 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
+            if (devFrameCallback) {
+                devFrameCallback(time, frame, floorPose);
+            }
+
             if (creativeFrameCallback) {
                 creativeFrameCallback(time, frame, floorPose);
             }

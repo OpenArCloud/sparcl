@@ -12,12 +12,14 @@
 
     import { Swipeable, Screen, Controls } from 'buhrmi';
 
-    import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed } from '@src/stateStore';
+    import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage, dashboardOkLabel,
-        startedOkLabel } from '@src/contentStore';
+        startedOkLabel, unavailableInfo } from '@src/contentStore';
+    import { ARMODES } from "@core/common";
 
     export let withOkFooter = true;
     export let shouldShowDashboard;
+    export let shouldShowUnavailableInfo;
 
 
     // Used to dispatch events to parent
@@ -130,12 +132,24 @@
             {/if}
         </Screen>
         <Screen>
+            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.dev && $arMode !== ARMODES.creator}
+            <h4>No services available</h4>
+            <div>{$unavailableInfo}</div>
+                {#if withOkFooter}
+                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('dashboardAction')}>
+                    {$dashboardOkLabel}
+                </button>
+                {/if}
+
+            {:else}
             <div>{@html $arOkMessage}</div>
             <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
-            {#if withOkFooter}
+                {#if withOkFooter}
                 <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                 </button>
+                {/if}
+
             {/if}
         </Screen>
 

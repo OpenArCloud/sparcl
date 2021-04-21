@@ -79,10 +79,10 @@ export const SERVICE = {
  * @type {{auto: string, oscp: string, marker: string}}
  */
 export const ARMODES = {
-    auto: 'Auto',
     marker: 'Marker',
-    oscp: 'ARCloud',
-    creator: 'Content creation'
+    oscp: 'OSCP',
+    creator: 'Content creation',
+    dev: 'Development'
 }
 
 /**
