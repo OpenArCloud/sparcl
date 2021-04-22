@@ -74,7 +74,7 @@ hasIntroSeen.subscribe(value => {
  * @type {string}
  */
 const storedArMode = localStorage.getItem('storedarmode');
-export const arMode = writable(storedArMode || ARMODES.auto);
+export const arMode = writable(storedArMode || ARMODES.oscp);
 arMode.subscribe(value => {
     localStorage.setItem('storedarmode', value);
 })

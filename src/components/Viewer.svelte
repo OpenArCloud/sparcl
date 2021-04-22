@@ -206,6 +206,11 @@
             }
         }
 
+        if (experienceLoaded === true) {
+            externalContent.contentWindow.postMessage(
+                tdEngine.getExternalCameraPose(floorPose.views[0], experienceMatrix), '*');
+        }
+
         xrEngine.handleAnchors(frame);
         tdEngine.render(time, floorPose, floorPose.views[0]);
     }
