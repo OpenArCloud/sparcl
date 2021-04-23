@@ -66,8 +66,12 @@ export default class webxr {
 
     setViewportForView(view) {
         const viewport = this.session.renderState.baseLayer.getViewport(view);
-        gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
 
+        if (viewport) {
+            gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+        } else {
+            this.setViewPort()
+        }
         return viewport;
     }
 
