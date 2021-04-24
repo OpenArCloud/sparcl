@@ -7,7 +7,8 @@ module.exports = {
   },
   plugins: [
       '@snowpack/plugin-svelte',
-      '@snowpack/plugin-dotenv'
+      '@snowpack/plugin-dotenv',
+      'snowpack-plugin-glslify'
     ],
   routes: [
     // {
@@ -34,6 +35,7 @@ module.exports = {
     '@components': './src/components',
     '@core': './src/core',
     '@public': './public',
+    '@shaders': './src/core/engines/ogl/shaders',
     '@src': './src',
     '@thirdparty': './src/third-party'
   }

@@ -8,62 +8,21 @@
 
 import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'ogl';
 
-export const PRIMITIVES = {
+import defaultFragment from '@shaders/defaultfragment.glsl';
+import defaultVertex from '@shaders/defaultvertex.glsl';
+import waitingFragment from '@shaders/waitingfragment.glsl';
+
+export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
     plane: 'plane',
     cylinder: 'cylinder',
     cone: 'cone'
-}
+});
 
 
-// TODO: Allow to set attributes from SCD, or even load shaders
-const defaultVertex = /* glsl */ `
-    attribute vec3 position;
-    attribute vec3 normal;
-    
-    uniform mat4 modelViewMatrix;
-    uniform mat4 projectionMatrix;
-    uniform mat3 normalMatrix;
+// TODO: Allow to set shader attributes from SCD
 
-    varying vec3 vNormal;
-
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-const defaultFragment = /* glsl */ `
-    precision highp float;
-    
-    varying vec3 vNormal;
-    
-    uniform vec4 uColor;
-
-    void main() {
-        vec3 normal = normalize(vNormal);
-        float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
-        gl_FragColor.rgb = uColor.rgb + lighting * 0.1;
-        gl_FragColor.a = uColor.a;
-    }
-`;
-const waitingFragment = /* glsl */ `
-    precision highp float;
-    
-    varying vec3 vNormal;
-    
-    uniform vec4 uColor;
-    uniform vec4 uAltColor;
-    uniform float uTime;
-
-    void main() {
-        vec3 normal = normalize(vNormal);
-        float lighting = dot(normal, normalize(vec3(-0.3, 0.8, 0.6)));
-        
-        gl_FragColor.rgb = smoothstep(uColor.rgb, uAltColor.rgb, vec3(sin(uTime))) + lighting * 0.1;
-        gl_FragColor.a = uColor.a;
-    }
-`;
 
 export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
     vertex: defaultVertex,

@@ -17,6 +17,8 @@
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
+    import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
+
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
         debug_appendCameraImage, debug_showLocationAxis, initialLocation,
         recentLocalisation } from '@src/stateStore';
@@ -437,7 +439,8 @@
                             tdEngine.addModel(position, orientation, url)
                     }
                 } else {
-                    tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                    const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                    handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                 }
 
                 // TODO: Anchor placeholder for better visual stability?!

@@ -55,6 +55,8 @@ export default class ogl {
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
+
+        return placeholder;
     }
 
     addModel(position, orientation, url) {
