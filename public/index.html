@@ -6,14 +6,39 @@
   <meta name="description" content="Prototype of a generic OSCP client app" />
   <meta name="theme-color" content="#33d636"/>
 
+  <link rel="preload" as="image" href="/media/OARC_Logo_without_BG.png" />
+
   <link rel="apple-touch-icon" href="/media/icons/icon_x192.png">
   <link rel="icon" href="/favicon.png" />
-
-  <link rel="stylesheet" href="index.css" />
 
   <link rel="manifest" href="/sparcl.webmanifest">
 
   <title>spARcl</title>
+
+  <style>
+    :root {
+      --theme-color: #2E4458;
+      --theme-highlight: #EB6138;
+
+      --ui-margin: 32px;
+      --ui-radius: 14px;
+      --ui-shadow: 5px 5px 10px 0 black;
+      --ui-max-width: 400px;
+      --ui-max-height: 600px;
+
+      --button-width: 293px;
+      --button-height: 49px;
+
+      --footer-top-margin: 30px;
+
+      --padding-text: 10px;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+    }
+  </style>
 </head>
 <body>
 <noscript>You need to enable JavaScript to run this app.</noscript>

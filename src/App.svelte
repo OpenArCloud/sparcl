@@ -9,14 +9,7 @@
 <script>
     import {onMount, tick} from "svelte";
 
-    import webxr from '@core/engines/webxr';
-    import ogl from '@core/engines/ogl/ogl';
-
-    import {getServicesAtLocation} from 'ssd-access';
-
-    import { ARMODES } from '@src/core/common'
     import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools'
-    import * as P2p from '@src/core/p2pnetwork'
 
     import Dashboard from '@components/Dashboard.svelte';
     import Viewer from '@components/Viewer.svelte';
@@ -34,6 +27,7 @@
 
     let isHeadless = false;
     let currentSharedValues = {};
+    let p2p;
 
 
     /**
@@ -48,22 +42,27 @@
      */
     $: {
         if ($arIsAvailable && $isLocationAccessAllowed) {
-            getCurrentLocation()
-                .then((currentLocation) => {
-                    $initialLocation = currentLocation;
-                    return getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index)
-                })
-                .then(services => {
-                    $ssr = services;
+            window.requestIdleCallback(() => {
+                getCurrentLocation()
+                    .then((currentLocation) => {
+                        $initialLocation = currentLocation;
+                        return import('ssd-access');
+                    })
+                    .then(ssdModule => {
+                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
+                    })
+                    .then(services => {
+                        $ssr = services;
 
-                    if (services.length === 0) {
-                        shouldShowUnavailableInfo = true;
-                    }
-                })
-                .catch(error => {
-                    // TODO: Inform user
-                    console.log(error);
-                });
+                        if (services.length === 0) {
+                            shouldShowUnavailableInfo = true;
+                        }
+                    })
+                    .catch(error => {
+                        // TODO: Inform user
+                        console.log(error);
+                    });
+            })
         }
     }
 
@@ -72,12 +71,18 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            const headlessPeerId = $availableP2pServices[0].description;
-            P2p.connect(headlessPeerId, false, (data) => {
-                viewer.updateReceived(data);
-            });
+            import('@src/core/p2pnetwork')
+                .then(p2pModule => {
+                    p2p = p2pModule;
+
+                    const headlessPeerId = $availableP2pServices[0].description;
+                    p2p.connect(headlessPeerId, false, (data) => {
+                        viewer?.updateReceived(data);
+                    });
+                });
         } else if (!isHeadless) {
-            P2p.disconnect();
+            p2p?.disconnect();
+            p2p = null;
         }
     }
 
@@ -93,11 +98,16 @@
             isHeadless = true;
             $allowP2pNetwork = true;
 
-            P2p.initialSetup();
-            P2p.connect(urlParams.get('peerid'), true, (data) => {
-                // Just for development
-                currentSharedValues = data;
-            });
+            import('@src/core/p2pnetwork')
+                .then(p2pModule => {
+                    p2p = p2pModule;
+
+                    p2pModule.initialSetup();
+                    p2pModule.connect(urlParams.get('peerid'), true, (data) => {
+                        // Just for development
+                        currentSharedValues = data;
+                    });
+                })
         } else {
             // Start as AR client
             // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
@@ -108,8 +118,7 @@
             shouldShowDashboard = $showDashboard;
 
             if ('serviceWorker' in navigator) {
-                window.addEventListener('load',
-                    () => navigator.serviceWorker.register('/service-worker.js'));
+                () => navigator.serviceWorker.register('/service-worker.js');
             }
         }
     })
@@ -137,11 +146,14 @@
     /**
      * Initiate start of AR session
      */
-    function startAr() {
+    async function startAr() {
         shouldShowDashboard = false;
         showOutro = false;
 
-        tick().then(() => viewer.startAr(new webxr(), new ogl()));
+        const ogl = await import('@core/engines/ogl/ogl');
+        const webxr = await import('@core/engines/webxr');
+
+        tick().then(() => viewer.startAr(new webxr.default(), new ogl.default()));
     }
 
     /**
@@ -160,7 +172,7 @@
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
     function handleBroadcast(event) {
-        P2p.send(event.detail);
+        p2p?.send(event.detail);
     }
 
     /**
