@@ -79,9 +79,35 @@ export const SERVICE = {
  * @type {{auto: string, oscp: string, marker: string}}
  */
 export const ARMODES = {
-    auto: 'Auto',
     marker: 'Marker',
-    oscp: 'ARCloud'
+    oscp: 'OSCP',
+    creator: 'Content creation',
+    dev: 'Development'
+}
+
+/**
+ * Available types creatable with sparcl.
+ *
+ * placeholder: Generated content defined in app
+ * model: 3D model in glb or gltf format
+ * scene: WebGL scene exported from game engines like Godot or created using frameworks like threejs
+ *
+ * @type {{model: string, placeholder: string, scene: string}}
+ */
+export const CREATIONTYPES = {
+    placeholder: "Placeholder",
+    model: 'Model',
+    scene: 'Scene'
+}
+
+/**
+ * Supported shapes for placeholder content types.
+ *
+ * @type {{sign: string, pole: string}}
+ */
+export const PLACEHOLDERSHAPES = {
+    pole: "Pole",
+    sign: "Sign"
 }
 
 /**
@@ -108,30 +134,3 @@ export function debounce(func, timeout = 300){
         timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
 }
-
-/**
- * Add additional scripts to the html header needed to import scenes.
- *
- * @param url  String       The URL of the script to load
- * @param loadedCallback  Function      Callback to run when script was successfully loaded
- */
-export function loadAdditionalScript(url, loadedCallback) {
-    // TODO: Implement as promise
-    const newScript = document.createElement("script");
-    newScript.class = 'additionalscript';
-    newScript.onerror = (error) => console.log(error);
-
-    if (loadedCallback) { newScript.onload = loadedCallback; }
-
-    document.head.appendChild(newScript);
-    newScript.src = url;
-}
-
-/**
- * Remove previously added scripts.
- */
-export function removeAdditionalScripts() {
-    const additionalScripts = document.querySelectorAll('.additionalscript');
-    additionalScripts.forEach((scriptElement) => scriptElement.remove());
-}
-

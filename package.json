@@ -30,10 +30,12 @@
     "@testing-library/svelte": "^3.0.0",
     "@web/test-runner": "^0.12.16",
     "esm": "^3.2.25",
-    "snowpack": "^3.0.13"
+    "snowpack": "^3.0.13",
+    "snowpack-plugin-glslify": "^1.0.0"
   },
   "dependencies": {
     "automerge": "^0.14.2",
+    "buhrmi": "^0.0.15",
     "chai": "^4.2.0",
     "geodesy": "^2.2.1",
     "gl-matrix": "^3.3.0",
@@ -41,6 +43,7 @@
     "h3-js": "^3.7.1",
     "mocha": "^8.2.1",
     "nyc": "^15.1.0",
+    "ogl": "^0.0.68",
     "peerjs": "^1.3.2",
     "perge": "^1.2.1",
     "ssd-access": "^0.1.0",

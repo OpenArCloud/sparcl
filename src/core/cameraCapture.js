@@ -27,8 +27,8 @@ export function initCameraCaptureScene(gl) {
     gl.shaderSource(vertShader, vertCode);
     gl.compileShader(vertShader);
 
-    // NOTE: we must explicitly use the camera texture in drawing, 
-    // otherwise uSampler gets optimized away, and the 
+    // NOTE: we must explicitly use the camera texture in drawing,
+    // otherwise uSampler gets optimized away, and the
     // camera texture gets destroyed before we could capture it.
     var fragCode =
     'uniform sampler2D uSampler;' +
@@ -38,9 +38,9 @@ export function initCameraCaptureScene(gl) {
     var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     gl.shaderSource(fragShader, fragCode);
     gl.compileShader(fragShader);
- 
+
     shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertShader); 
+    gl.attachShader(shaderProgram, vertShader);
     gl.attachShader(shaderProgram, fragShader);
     gl.linkProgram(shaderProgram);
 
@@ -55,9 +55,6 @@ export function initCameraCaptureScene(gl) {
 
 
 export function drawCameraCaptureScene(gl, cameraTexture) {
-
-    // We need to save the previous shader ID and restore it at the end, 
-    // otherwise PlayCanvas will cry
     const prevShaderId = gl.getParameter(gl.CURRENT_PROGRAM);
 
     gl.useProgram(shaderProgram);
@@ -187,9 +184,9 @@ async function readPixelsAsync(gl, x, y, w, h, format, type, dest) {
     gl.bufferData(gl.PIXEL_PACK_BUFFER, dest.byteLength, gl.STREAM_READ);
     gl.readPixels(x, y, w, h, format, type, 0);
     gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
-  
+
     await getBufferSubDataAsync(gl, gl.PIXEL_PACK_BUFFER, buf, 0, dest);
-  
+
     gl.deleteBuffer(buf);
     return dest;
 }

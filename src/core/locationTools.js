@@ -110,11 +110,11 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "",
+                    "path": "/media/models/Duck.glb",
                     "sticker_id": 25523,
-                    "sticker_subtype": "hit",
+                    "sticker_subtype": "gltf",
                     "sticker_text": "first",
-                    "sticker_type": "place"
+                    "sticker_type": "other"
                 },
                 "description": "",
                 "geopose": {
@@ -132,8 +132,8 @@ export const fakeLocationResult = {
                     "pose": {
                         "altitude": -0.8568757176399231,
                         "ellipsoidHeight": -1,
-                        "latitude": 48.756132830613595,
-                        "longitude": 8.545662319589079,
+                        "latitude": 48.7560834514246,
+                        "longitude": 8.545731127889324,
                         "quaternion": [
                             0.030575819204840073,
                             -0.8192063719687788,
@@ -164,9 +164,10 @@ export const fakeLocationResult = {
         {
             "content": {
                 "custom_data": {
-                    "path": "/Scene/",
+                    // "path": "https://clv.zappar.io/6966846783932362010/1.0.12/",  // Unity
+                    "path": "https://clv.zappar.io/6817336933886541943/",  // threejs
                     "sticker_id": 25532,
-                    "sticker_subtype": "Playcanvas",
+                    "sticker_subtype": "scene",
                     "sticker_text": "Picker",
                     "sticker_type": "other"
                 },
@@ -186,8 +187,8 @@ export const fakeLocationResult = {
                     "pose": {
                         "altitude": -0.4542122185230255,
                         "ellipsoidHeight": -1,
-                        "latitude": 48.756139054833376,
-                        "longitude": 8.54566221566234,
+                        "latitude": 48.756132830613595,
+                        "longitude": 8.545662319589079,
                         "quaternion": [
                             -0.11061927770517868,
                             -0.5654197985215716,
@@ -216,6 +217,11 @@ export const fakeLocationResult = {
             "type": "scr"
         }
     ]
+}
+
+export const locationAccessOptions = {
+    enableHighAccuracy: false,
+    maximumAge: 0
 }
 
 
@@ -256,10 +262,7 @@ export function getCurrentLocation() {
             }, (error) => {
                 console.log(`Location request failed: ${error}`)
                 reject(error);
-            }, {
-                enableHighAccuracy: false,
-                maximumAge: 0
-            });
+            }, locationAccessOptions);
         } else {
             reject('Location is not available');
         }
@@ -312,7 +315,7 @@ export function calculateRotation(localisationQuaternion, localQuaternion) {
 
     const norm = quat.create();
     quat.normalize(norm, diff);
-    return norm;
+    return {x:norm[0], y:norm[1], z:norm[2], w:[norm[3]]};
 }
 
 
@@ -333,17 +336,6 @@ export function calculateEulerRotation(localisationQuaternion, localQuaternion) 
     getEuler(euler, diff);
     return euler;
 }
-
-
-
-
-
-
-
-
-
-
-
 
 
 /**

@@ -9,35 +9,31 @@
 <script>
     import {onMount, tick} from "svelte";
 
-    import {getServicesAtLocation} from 'ssd-access';
-
-    import {ARMODES} from '@src/core/common'
-    import {getCurrentLocation} from '@src/core/locationTools'
-    import * as P2p from '@src/core/p2pnetwork'
+    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools'
 
     import Dashboard from '@components/Dashboard.svelte';
     import Viewer from '@components/Viewer.svelte';
 
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
-    import MarkerOverlay from "@components/dom-overlays/MarkerOverlay.svelte";
 
-    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, arMode, allowP2pNetwork,
-        availableP2pServices } from './stateStore';
+    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
+        availableP2pServices, isLocationAccessAllowed } from './stateStore';
 
 
-    let showWelcome, showOutro, showMarkerInfo;
+    let showWelcome, showOutro;
     let dashboard, viewer;
-    let shouldShowDashboard, shouldShowMarkerInfo, activeArMode;
+    let shouldShowDashboard, shouldShowUnavailableInfo;
 
     let isHeadless = false;
     let currentSharedValues = {};
+    let p2p;
 
 
     /**
      * Reactive function to define if the AR viewer can be shown.
      */
-    $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !shouldShowMarkerInfo && !showOutro;
+    $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
 
     /**
      * Reactive function to setup AR modes.
@@ -45,29 +41,28 @@
      * Will be called everytime the value in arIsAvailable changes
      */
     $: {
-        if ($arIsAvailable) {
-            getCurrentLocation()
-                .then((currentLocation) => {
-                    $initialLocation = currentLocation;
-                    return getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index)
-                })
-                .then(services => {
-                    if ($arMode === ARMODES.auto) {
-                        if (services.length !== 0) {
-                            $ssr = services;
-                            activeArMode = ARMODES.oscp;
-                        } else {
-                            activeArMode = ARMODES.marker
-                            shouldShowMarkerInfo = true;
+        if ($arIsAvailable && $isLocationAccessAllowed) {
+            window.requestIdleCallback(() => {
+                getCurrentLocation()
+                    .then((currentLocation) => {
+                        $initialLocation = currentLocation;
+                        return import('ssd-access');
+                    })
+                    .then(ssdModule => {
+                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
+                    })
+                    .then(services => {
+                        $ssr = services;
+
+                        if (services.length === 0) {
+                            shouldShowUnavailableInfo = true;
                         }
-                    } else {
-                        activeArMode = $arMode;
-                    }
-                })
-                .catch(error => {
-                    // TODO: Inform user
-                    console.log(error);
-                });
+                    })
+                    .catch(error => {
+                        // TODO: Inform user
+                        console.log(error);
+                    });
+            })
         }
     }
 
@@ -76,12 +71,18 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            const headlessPeerId = $availableP2pServices[0].description;
-            P2p.connect(headlessPeerId, false, (data) => {
-                viewer.updateReceived(data);
-            });
+            import('@src/core/p2pnetwork')
+                .then(p2pModule => {
+                    p2p = p2pModule;
+
+                    const headlessPeerId = $availableP2pServices[0].description;
+                    p2p.connect(headlessPeerId, false, (data) => {
+                        viewer?.updateReceived(data);
+                    });
+                });
         } else if (!isHeadless) {
-            P2p.disconnect();
+            p2p?.disconnect();
+            p2p = null;
         }
     }
 
@@ -97,11 +98,16 @@
             isHeadless = true;
             $allowP2pNetwork = true;
 
-            P2p.initialSetup();
-            P2p.connect(urlParams.get('peerid'), true, (data) => {
-                // Just for development
-                currentSharedValues = data;
-            });
+            import('@src/core/p2pnetwork')
+                .then(p2pModule => {
+                    p2p = p2pModule;
+
+                    p2pModule.initialSetup();
+                    p2pModule.connect(urlParams.get('peerid'), true, (data) => {
+                        // Just for development
+                        currentSharedValues = data;
+                    });
+                })
         } else {
             // Start as AR client
             // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
@@ -110,6 +116,10 @@
 
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
+
+            if ('serviceWorker' in navigator) {
+                () => navigator.serviceWorker.register('/service-worker.js');
+            }
         }
     })
 
@@ -122,33 +132,28 @@
      * When there are no discovery services available, another dialog is shown, informing the user about the marker
      * alternative.
      */
-    function closeIntro() {
+    function closeIntro(openDashboard) {
         $hasIntroSeen = true;
         showWelcome = false;
         showOutro = false;
-        showMarkerInfo = shouldShowMarkerInfo;
+        shouldShowDashboard = openDashboard || shouldShowDashboard
 
-        if (!shouldShowDashboard && !showMarkerInfo) {
+        if (!shouldShowDashboard) {
             startAr();
         }
     }
 
     /**
-     * Handles closing the dialog with information about how to use markers.
-     */
-    function closeMarker() {
-        shouldShowMarkerInfo = false;
-        closeIntro();
-    }
-
-    /**
      * Initiate start of AR session
      */
-    function startAr() {
+    async function startAr() {
         shouldShowDashboard = false;
         showOutro = false;
 
-        tick().then(() => viewer.startAr());
+        const ogl = await import('@core/engines/ogl/ogl');
+        const webxr = await import('@core/engines/webxr');
+
+        tick().then(() => viewer.startAr(new webxr.default(), new ogl.default()));
     }
 
     /**
@@ -167,7 +172,15 @@
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
     function handleBroadcast(event) {
-        P2p.send(event.detail);
+        p2p?.send(event.detail);
+    }
+
+    /**
+     * Triggers location access. Don't need to handle the result here, as it will be caught in the
+     * {@link isLocationAccessAllowed} store.
+     */
+    function requestLocationAccess() {
+        navigator.geolocation.getCurrentPosition(() => {}, null, locationAccessOptions);
     }
 </script>
 
@@ -179,7 +192,7 @@
 
         margin-bottom: 63px;
 
-        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0% 0% no-repeat padding-box;
+        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0 0 no-repeat padding-box;
     }
 
     main {
@@ -207,7 +220,7 @@
     }
 
     #frame {
-        width: calc(100vw - 3 * var(--ui-margin));
+        width: calc(100vw - 2 * var(--ui-margin));
         max-width: var(--ui-max-width);
         max-height: var(--ui-max-height);
 
@@ -215,7 +228,6 @@
 
         box-shadow: 0 3px 6px #00000029;
         border: 2px solid var(--theme-color);
-        padding: var(--ui-margin);
 
         background-color: white;
     }
@@ -228,11 +240,20 @@
         height: 40px;
         opacity: 1;
     }
+
+    #showdashboard {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 50px;
+        height: 50px;
+        z-index: 100;
+    }
 </style>
 
 
 <header>
-    <img id="logo" src="/media/OARC_Logo_without_BG.png" />
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>
@@ -241,28 +262,31 @@
         <Dashboard bind:this={dashboard} on:okClicked={startAr} />
     {/if}
 
-    {#if showWelcome || showOutro || shouldShowMarkerInfo }
+    {#if showWelcome || showOutro}
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable && activeArMode !== ARMODES.auto}" on:okAction={closeIntro} />
+            <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
+                            on:okAction={() => closeIntro(false)}
+                            on:dashboardAction={() => closeIntro(true)}
+                            on:requestLocation={requestLocationAccess} />
 
         {:else if showOutro}
-            <OutroOverlay on:okAction={closeIntro} />
-
-        {:else if shouldShowMarkerInfo}
-            <MarkerOverlay on:okAction={closeMarker} />
+            <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
         {/if}
         </div>
     </aside>
-
-    {:else if showAr}
-        <Viewer bind:this={viewer} activeArMode="{activeArMode}"
-                on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
     {/if}
+
 {:else}
     <!-- Just for development to verify some internal values -->
     <h1>Headless Mode</h1>
     <pre>{JSON.stringify(currentSharedValues, null, 2)}</pre>
 {/if}
 </main>
+
+{#if showAr}
+<Viewer bind:this={viewer} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{/if}
+
+<div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>
