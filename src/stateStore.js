@@ -10,7 +10,7 @@
 
 import { readable, writable, derived } from 'svelte/store';
 
-import { LOCATIONINFO, SERVICE, ARMODES, GEOPOSE, LOCALPOSE } from "./core/common.js";
+import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
 
 /**
@@ -28,12 +28,28 @@ export const arIsAvailable = readable(false, (set) => {
 });
 
 
+export const isLocationAccessAllowed = readable(false, (set) => {
+    let currentResult;
+    const stateResult = (state) => state === 'granted';
+
+    navigator.permissions.query({name:'geolocation'})
+        .then((result) => {
+            currentResult = result;
+
+            set(stateResult(result.state));
+            result.onchange = () => set(stateResult(result.state));
+        });
+
+    return () => { if (currentResult) currentResult.onchange = undefined; }
+})
+
+
 /**
  * Reads and stores the setting whether or not to display the dashboard persistently.
  *
  * @type {boolean}  true when dashboard should be shown, false otherwise
  */
-const storedShowDashboard = true;  // localStorage.getItem('showdashboard') !== 'false';
+const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
 export const showDashboard = writable(storedShowDashboard);
 showDashboard.subscribe(value => {
     localStorage.setItem('showdashboard', value === true ? 'true' : 'false');
@@ -45,7 +61,7 @@ showDashboard.subscribe(value => {
  *
  * @type {boolean}  true when the intro was already seen, false otherwise
  */
-const storedHasIntroSeen = false;  // localStorage.getItem('hasintroseen') === 'true';
+const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
 hasIntroSeen.subscribe(value => {
     localStorage.setItem('hasintroseen', value === true ? 'true' : 'false');
@@ -58,11 +74,27 @@ hasIntroSeen.subscribe(value => {
  * @type {string}
  */
 const storedArMode = localStorage.getItem('storedarmode');
-export const arMode = writable(storedArMode || ARMODES.auto);
+export const arMode = writable(storedArMode || ARMODES.oscp);
 arMode.subscribe(value => {
     localStorage.setItem('storedarmode', value);
 })
 
+/**
+ * Available settings for creator mode.
+ *
+ * @type {Writable<{shape: string, style: [], type: string, url: string}>}
+ */
+const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings'));
+export const creatorModeSettings = writable(storedCreatorModeSettings || {
+    type: CREATIONTYPES.placeholder,
+    shape: PLACEHOLDERSHAPES.pole,
+    style: [],
+    modelurl: '',
+    sceneurl: ''
+});
+creatorModeSettings.subscribe(value => {
+    localStorage.setItem('creatormodesettings', JSON.stringify(value))
+})
 
 /**
  * The rough location of the device when the application was started.
@@ -150,7 +182,7 @@ export const selectedGeoPoseService = writable('none');
 
 export const recentLocalisation = writable({
     geopose: {},
-    localpose: {}
+    floorpose: {}
 })
 
 
@@ -231,13 +263,9 @@ debug_showLocationAxis.subscribe(value => {
     localStorage.setItem('debug_showLocationAxis', value === true ? 'true' : 'false');
 })
 
-/**
- * Use locally stored server response instead requesting it from the server.
- *
- * @type {Writable<boolean>}
- */
-const storedDebug_useLocalServerResponse = localStorage.getItem('debug_useLocalServerResponse') === 'true';
-export const debug_useLocalServerResponse = writable(storedDebug_useLocalServerResponse);
-debug_useLocalServerResponse.subscribe(value => {
-    localStorage.setItem('debug_useLocalServerResponse', value === true ? 'true' : 'false');
+const storedDashboardDetail = JSON.parse(localStorage.getItem('dashboardDetail')) ||
+                                                            { state: false, multiplayer: true, debug: true };
+export const dashboardDetail = writable(storedDashboardDetail);
+dashboardDetail.subscribe(value => {
+    localStorage.setItem('dashboardDetail', JSON.stringify(value));
 })
