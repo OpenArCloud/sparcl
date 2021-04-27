@@ -17,11 +17,11 @@
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
 
-    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, arMode, allowP2pNetwork,
+    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
         availableP2pServices, isLocationAccessAllowed } from './stateStore';
 
 
-    let showWelcome, showOutro, showMarkerInfo;
+    let showWelcome, showOutro;
     let dashboard, viewer;
     let shouldShowDashboard, shouldShowUnavailableInfo;
 
@@ -192,7 +192,7 @@
 
         margin-bottom: 63px;
 
-        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0% 0% no-repeat padding-box;
+        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0 0 no-repeat padding-box;
     }
 
     main {
