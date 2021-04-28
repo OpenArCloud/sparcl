@@ -101,6 +101,12 @@ export const noArMessage = readable('', (set) => {
     return () => set('');
 });
 
+// SSD didn't return any services
+export const noservicesavailable = readable('', (set => {
+    set('No services available');
+    return () => set('');
+}))
+
 
 
 // OK-button label of the overlay / dialog
