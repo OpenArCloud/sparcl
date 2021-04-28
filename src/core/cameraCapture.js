@@ -2,6 +2,8 @@
 // This code draws a single pixel textured by the camera background at every frame,
 // in order to keep the camera texture in GPU memory, so that we can read it back.
 
+// TODO: Leftover code from camera access sample from Chromium site. Needs to be better adapted to our requirements.
+
 let shaderProgram = null;
 let vertexBuffer = null;
 let aCoordLoc = null;

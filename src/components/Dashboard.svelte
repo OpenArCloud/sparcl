@@ -5,6 +5,7 @@
 
 <!--
     This component displays the internals of the app, and allows to change them when possible.
+    Temporary until better UX is found for the settings.
 -->
 <script>
     import { createEventDispatcher } from 'svelte';
@@ -184,9 +185,6 @@
         padding: 0;
     }
 </style>
-
-
-<!-- TODO: Extract strings to contentStore -->
 
 
 <button on:click={() => dispatch('okClicked')}>Go immersive</button>

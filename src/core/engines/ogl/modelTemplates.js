@@ -12,6 +12,11 @@ import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 
+/**
+ * The supported WebGL primitives.
+ *
+ * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string}>}
+ */
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
@@ -20,10 +25,14 @@ export const PRIMITIVES = Object.freeze({
     cone: 'cone'
 });
 
-
-// TODO: Allow to set shader attributes from SCD
-
-
+/**
+ * General use GLSL program.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @param color  Color      Color array
+ * @param transparent  Boolean      true to draw translucent according to alpha value in color
+ * @returns {Program}
+ */
 export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
     vertex: defaultVertex,
     fragment: defaultFragment,
@@ -33,6 +42,14 @@ export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
     }
 })
 
+/**
+ * GLSL program used for objects offering an interactive feature.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @param color  Color      Color array
+ * @param altColor  Color       Alternative color for color animation
+ * @returns {Program}
+ */
 export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
     vertex: defaultVertex,
     fragment: waitingFragment,
@@ -97,6 +114,12 @@ export function getDefaultPlaceholder(gl) {
 }
 
 
+/**
+ * Generates a placeholder used for content of type scene.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+ */
 export function getExperiencePlaceholder(gl) {
     const placeholder = createModel(gl, PRIMITIVES.box, [1, 1, 0, 1]);
     placeholder.scale.set(.5);

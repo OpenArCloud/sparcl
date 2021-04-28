@@ -33,6 +33,11 @@ export const SSR = {
     timestamp: 0
 }
 
+/**
+ * Empty Spatial Content Record to initialize variables.
+ *
+ * @type {{id: string, type: string, content: {}, tenant: string, timestamp: number}}
+ */
 export const SCR = {
     id: '',
     type: '',
@@ -41,6 +46,11 @@ export const SCR = {
     timestamp: 0
 }
 
+/**
+ * Empty GeoPose object to initialize variables.
+ *
+ * @type {{quaternion: [], latitude: number, longitude: number, ellipsoidHeight: number}}
+ */
 export const GEOPOSE = {
     longitude: 0,
     latitude: 0,
@@ -48,6 +58,11 @@ export const GEOPOSE = {
     quaternion: []
 }
 
+/**
+ * Definition of the local pose properties.
+ *
+ * @type {{inverse: {}, transform: {w: number, x: number, y: number, z: number}, orientation: {w: number, x: number, y: number, z: number}, matrix: {}}}
+ */
 export const LOCALPOSE = {
     transform: {x: 0, y: 0, z: 0, w: 1},
     orientation: {x: 0, y: 0, z: 0, w: 0},

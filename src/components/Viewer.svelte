@@ -554,9 +554,9 @@
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else if $arMode === ARMODES.creator}
-                // TODO: Add creator mode ui
+                <!-- TODO: Add creator mode ui -->
             {:else if $arMode === ARMODES.dev}
-                // TODO: Add development mode ui
+                <!--TODO: Add development mode ui -->
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
