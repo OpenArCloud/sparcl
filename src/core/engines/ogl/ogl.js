@@ -13,6 +13,10 @@ let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
 
 
+/**
+ * Implementation of the 3D features required by sparcl using ogl.
+ * https://github.com/oframe/ogl
+ */
 export default class ogl {
     /**
      * Initialize ogl for use with WebXR.
@@ -49,6 +53,14 @@ export default class ogl {
         // TODO: Use environmental lighting?!
     }
 
+    /**
+     * Add a general placeholder to the scene.
+     *
+     * @param keywords  string[]        Defines the kind of placeholder to create
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @returns {Transform}
+     */
     addPlaceholder(keywords, position, orientation) {
         const placeholder = getDefaultPlaceholder(gl);
 
@@ -59,6 +71,14 @@ export default class ogl {
         return placeholder;
     }
 
+    /**
+     * Add 3D model of format gltf to the scene.
+     *
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param url  String       URL to load the model from
+     * @returns {Transform}
+     */
     addModel(position, orientation, url) {
         const gltfScene = new Transform();
         gltfScene.position.set(position.x, position.y, position.z);
@@ -77,6 +97,15 @@ export default class ogl {
         return gltfScene;
     }
 
+    /**
+     * Add placeholder for loadable scene.
+     *
+     * Indicates visually that the placeholder can load a scene.
+     *
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @returns {Transform}
+     */
     addExperiencePlaceholder(position, orientation) {
         const placeholder = getExperiencePlaceholder(gl);
 
@@ -89,6 +118,14 @@ export default class ogl {
         return placeholder;
     }
 
+    /**
+     * Add object to be placed on top of marker image.
+     *
+     * Used for some experiments before, not currently used.
+     * How to properly handle markers is undecided.
+     *
+     * @returns {Transform}
+     */
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
@@ -96,23 +133,48 @@ export default class ogl {
         return object;
     }
 
+    /**
+     * Updates the marker object according the provided position and orientation.
+     *
+     * Called when marker movement was detected, for example.
+     *
+     * @param object  Mesh      The marker object
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     */
     updateMarkerObjectPosition(object, position, orientation) {
         object.position.set(position.x, position.y, position.z);
         object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
 
+    /**
+     * Add x, y, z axes to visualize them during development.
+     */
     addAxes() {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
     }
 
+    /**
+     * Make the provided model clickable.
+     *
+     * @param model  Mesh       The model to make interactive
+     * @param handler  function     The function to execute after interaction
+     */
     addClickEvent(model, handler) {
         eventHandlers[model.id] = {
             model, handler
         };
     }
 
+    /**
+     * Calculates the camera pose to send to scenes loaded into the iframe.
+     *
+     * @param view  XRView      The current view
+     * @param experienceMatrix  Mat4        The matrix of the experience in WebR space
+     * @returns {{camerapose: Mat4, projection: Mat4}}
+     */
     getExternalCameraPose(view, experienceMatrix) {
         const cameraMatrix = new Mat4();
         cameraMatrix.copy(experienceMatrix).inverse().multiply(view.transform.matrix);
@@ -123,20 +185,42 @@ export default class ogl {
         }
     }
 
+    /**
+     * Allows to set the zero point of the scene.
+     *
+     * Used by WebXR when the WebXR anchor the scene is added to changes.
+     *
+     * @returns {function}
+     */
     getRootSceneUpdater() {
         return (matrix) => scene.matrix = new Mat4().fromArray(matrix);
     }
 
+    /**
+     * Adds a visual queue to the provided model to indicate its state.
+     *
+     * For example to indicate it is interactive.
+     *
+     * @param model     The model to change
+     */
     setWaiting(model) {
         model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
         uniforms.time[model.id] = model;
     }
 
+    /**
+     * Resize the canvas to full screen.
+     */
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
         camera.perspective({aspect: gl.canvas.width / gl.canvas.height});
     }
 
+    /**
+     * Removes the provided model from the scene and all the handlers it mit be registered with.
+     *
+     * @param model     The model to remove
+     */
     remove(model) {
         scene.removeChild(model);
 
@@ -144,10 +228,20 @@ export default class ogl {
         delete eventHandlers[model.id];
     }
 
+    /**
+     * 3D engine isn't needed anymore.
+     */
     stop() {
         window.removeEventListener('resize', this.resize, false);
     }
 
+    /**
+     * Render loop.
+     *
+     * @param time  Number      Provided by WebXR
+     * @param pose  XRPose      Provided by WebXR
+     * @param view  XRView      Provided by WebXR
+     */
     render(time, pose, view) {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
@@ -162,6 +256,14 @@ export default class ogl {
         renderer.render({scene, camera});
     }
 
+    /**
+     * @private
+     * Event handler for interactive objects.
+     *
+     * Handles currently mouse clicks / taps.
+     *
+     * @param event  Event      Javascript event object
+     */
     _handleEvent(event) {
         const mouse = new Vec2();
         mouse.set(2.0 * (event.x / renderer.width) - 1.0, 2.0 * (1.0 - event.y / renderer.height) - 1.0)

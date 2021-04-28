@@ -7,11 +7,21 @@ import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture 
 
 
 let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
-
 let floorSpaceReference, localSpaceReference, gl;
 
 
+/**
+ * WebXR implementation of the AR engine.
+ */
 export default class webxr {
+    /**
+     * Start specific session for development mode.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
     startDevSession(canvas, callback, options) {
         devFrameCallback = callback;
 
@@ -21,6 +31,14 @@ export default class webxr {
             })
     }
 
+    /**
+     * Start specific session for creative mode.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
     startCreativeSession(canvas, callback, options) {
         creativeFrameCallback = callback;
 
@@ -30,6 +48,14 @@ export default class webxr {
             })
     }
 
+    /**
+     * Setup regular use session.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
     startOscpSession(canvas, callback, options) {
         oscpFrameCallback = callback;
 
@@ -42,6 +68,14 @@ export default class webxr {
             })
     }
 
+    /**
+     * Setup specific session for marker handling.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
     startMarkerSession(canvas, callback, options) {
         markerFrameCallback = callback;
 
@@ -60,10 +94,19 @@ export default class webxr {
             });
     }
 
+    /**
+     * Set the default viewport of the WebGL context.
+     */
     setViewPort() {
         gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     }
 
+    /**
+     * Set the viewport according to provided view.
+     *
+     * @param view  XRView      The view to make the settings for
+     * @returns {XRViewport}
+     */
     setViewportForView(view) {
         const viewport = this.session.renderState.baseLayer.getViewport(view);
 
@@ -75,6 +118,15 @@ export default class webxr {
         return viewport;
     }
 
+    /**
+     * Current best effort to get the camera image from the WebXR session.
+     *
+     * The implementation has recently changed in Chromium. Will adapt when available for Chrome (beta).
+     *
+     * @param frame  XRFrame        The current frame to get the image for
+     * @param view  XRView      The view to use
+     * @returns {WebGLTexture}
+     */
     getCameraTexture(frame, view) {
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
         // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
@@ -88,18 +140,41 @@ export default class webxr {
         return cameraTexture;
     }
 
+    /**
+     * Convert WebGL texture to actual image to use for localisation.
+     *
+     * The implementation for camera access has recently changed in Chromium. Will adapt when available for Chrome (beta).
+     *
+     * @param texture  WebGLTexture     The texture to convert
+     * @param width  Number     Width of the texture
+     * @param height  Number        Height of the texture
+     * @returns {string}        base64 encoded image
+     */
     getCameraImageFromTexture(texture, width, height) {
         return createImageFromTexture(gl, texture, width, height);
     }
 
+    /**
+     * End provided session.
+     *
+     * @param session  XRSession        The session to end
+     */
     onEndSession(session) {
         session.end();
     }
 
+    /**
+     * Set callback to be called when a session ends.
+     *
+     * @param callback  function        The function to call
+     */
     setSessionEndedCallback(callback) {
         endedCallback = callback;
     }
 
+    /**
+     * Handler for session ended event. Used to clean up allocated memory and handler.
+     */
     onSessionEnded() {
         this.session = null;
         gl = null;
@@ -109,6 +184,12 @@ export default class webxr {
         }
     }
 
+    /**
+     * Create anchor for origin point of WebXR coordinate system to fix the 3D engine to it.
+     *
+     * @param frame  XRFrame        The current frame to base the anchor on
+     * @param rootUpdater  function     Callback into the 3D engine to adopt changes when anchor is moved
+     */
     createRootAnchor(frame, rootUpdater) {
         frame.createAnchor(new XRRigidTransform(), floorSpaceReference)
             .then((anchor) => {
@@ -120,15 +201,29 @@ export default class webxr {
             });
     }
 
+    /**
+     * Check if anchor has moved and trigger 3D engine to adapt to this change.
+     *
+     * Handles a single anchor right now. Needs to be extended when more anchors are used.
+     *
+     * @param frame  XRFrame        The current frame to get the image for
+     */
     handleAnchors(frame) {
         frame.trackedAnchors.forEach(anchor => {
             const anchorPose = frame.getPose(anchor.anchorSpace, floorSpaceReference);
-            if(anchorPose) {
+            if (anchorPose) {
                 anchor.context.rootUpdater(anchorPose.transform.matrix);
             }
         });
     }
 
+    /**
+     * @private
+     * Initializes a new session.
+     *
+     * @param canvas  Canvas        The canvas element to use
+     * @param result  XRSession     The session created by caller
+     */
     _initSession(canvas, result) {
         this.session = result;
 
@@ -148,6 +243,13 @@ export default class webxr {
             }));
     }
 
+    /**
+     * @private
+     * Animation loop for WebXR.
+     *
+     * @param time  DOMHighResTimeStamp      indicates the time at which the frame was scheduled for rendering
+     * @param frame  XRFrame        The frame to handle
+     */
     _onFrameUpdate(time, frame) {
         const session = frame.session;
         session.requestAnimationFrame(onFrameUpdate);

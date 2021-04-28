@@ -14,7 +14,8 @@
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage, dashboardOkLabel,
-        startedOkLabel, unavailableInfo } from '@src/contentStore';
+        startedOkLabel, unavailableInfo, locationaccessgranted, locationaccessrequired, locationaccessinfo,
+        noservicesavailable } from '@src/contentStore';
     import { ARMODES } from "@core/common";
 
     export let withOkFooter = true;
@@ -122,18 +123,18 @@
         </Screen>
         <Screen>
             {#if !$isLocationAccessAllowed}
-            <h4>Location access required.</h4>
-            <p>It is needed to define the <br/>initial area for localisation.</p>
+            <h4>{$locationaccessrequired}</h4>
+            <p>{@html $locationaccessinfo}</p>
             <img src="/media/overlay/marker.png" alt="location marker" />
             <button on:click={() => dispatch('requestLocation')}>Allow</button>
             {:else}
-            <h4 id="locationgranted">Location access granted.</h4>
+            <h4 id="locationgranted">{$locationaccessgranted}</h4>
             <img src="/media/overlay/marker.png" alt="location marker" />
             {/if}
         </Screen>
         <Screen>
             {#if shouldShowUnavailableInfo && $arMode !== ARMODES.dev && $arMode !== ARMODES.creator}
-            <h4>No services available</h4>
+            <h4>{$noservicesavailable}</h4>
             <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
                 <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('dashboardAction')}>

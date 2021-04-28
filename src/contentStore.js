@@ -18,6 +18,7 @@ export const introGreeting = readable('', (set) =>{
     return () => set('');
 })
 
+// Text shown on intro screen
 export const intro = readable('', (set) => {
     set(`
         <div>Let's get started.</div>
@@ -26,22 +27,26 @@ export const intro = readable('', (set) => {
     return () => set('');
 });
 
-// User returns from experience
+// Title of overlay when user returns to start screen
 export const outroGreeting = readable('', (set) => {
     set('Howdy');
     return () => set('');
 })
+
+// Text displayed when user returns to start screen
 export const outro = readable('', (set) => {
     set(`How has it been? <br />Feel free to start again`);
 
     return () => set('');
 });
 
-// Repeat user. General greeting with thanks for coming back
+// Title shown for repeat user on start screen
 export const infoGreeting = readable('', (set) => {
     set('Welcome back')
     return () => set('');
 })
+
+// Text shown for repeat user on start screen
 export const info = readable('', (set) => {
     set(`Glad to see you again`);
     return () => set('');
@@ -62,6 +67,24 @@ export const unavailableInfo = readable('', (set) => {
         No service coverage available in your current area. 
         Open Dashboard to select developer or creator modes.
     `)
+    return () => set('');
+})
+
+// Title of location access request screen
+export const locationaccessrequired = readable('', (set => {
+    set('Location access required.');
+    return () => set('');
+}))
+
+// Text of location access request when not granted
+export const locationaccessinfo = readable('', (set => {
+    set('It is needed to define the <br/>initial area for localisation.')
+}))
+
+// Text of location access request when granted
+export const locationaccessgranted = readable('', (set) => {
+    set('Location access granted.');
+    return () => set('');
 })
 
 

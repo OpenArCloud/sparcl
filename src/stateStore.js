@@ -27,7 +27,11 @@ export const arIsAvailable = readable(false, (set) => {
     return () => set(false);
 });
 
-
+/**
+ * Determines and keeps track of the state of the location permission.
+ *
+ * @type {Readable<boolean>}
+ */
 export const isLocationAccessAllowed = readable(false, (set) => {
     let currentResult;
     const stateResult = (state) => state === 'granted';
@@ -263,6 +267,11 @@ debug_showLocationAxis.subscribe(value => {
     localStorage.setItem('debug_showLocationAxis', value === true ? 'true' : 'false');
 })
 
+/**
+ * Keeps some state of the dashboard.
+ *
+ * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
+ */
 const storedDashboardDetail = JSON.parse(localStorage.getItem('dashboardDetail')) ||
                                                             { state: false, multiplayer: true, debug: true };
 export const dashboardDetail = writable(storedDashboardDetail);
