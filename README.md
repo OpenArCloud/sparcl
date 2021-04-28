@@ -1,4 +1,5 @@
 # SPatial AR CLoud `<viewer>` - spARcl
+(pronounced like sparkle)
 
 This application started as a technology preview for the IEEE VR 2021 workshop from the Open AR Cloud association. The ideas behind this preview have been received positively, so development will continue.
 
