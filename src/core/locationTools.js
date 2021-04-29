@@ -25,31 +25,32 @@ export const fakeLocationResult = {
             "orientation": -1,
             "position": -1
         },
-        "ecef": {
-            "quaternion": [
-                0.18475762942989385,
-                0.19376046404179365,
-                0.9382047195400572,
-                0.2193020865712806
-            ],
-            "x": 4166094.007979741,
-            "y": 626020.0970524579,
-            "z": 4772721.848253169
+        "ecefPose": {
+            "orientation": {
+               "w": 0.18475762942989385,
+               "x": 0.19376046404179365,
+               "y": 0.9382047195400572,
+               "z": 0.2193020865712806
+            },
+            "position": {
+                "x": 4166094.007979741,
+                "y": 626020.0970524579,
+                "z": 4772721.848253169
+           }
         },
         "id": "1adc076d-5a33-4f06-aacb-e8c2e94499b9",
         "pose": {
-            "altitude": 0.06582733851264133,
-            "ellipsoidHeight": -1,
+            "ellipsoidHeight": 0.06582733851264133,
             "latitude": 48.756115957414345,
             "longitude": 8.545640947400223,
-            "quaternion": [
-                0.13936200826179151,
-                0.33341690000800994,
-                0.06575967542722623,
-                -0.9301005679656341
-            ]
+            "quaternion": {
+                "w": 0.13936200826179151,
+                "x": 0.33341690000800994,
+                "y": 0.06575967542722623,
+                "z": -0.9301005679656341
+            }
         },
-        "timestamp": "Thu, 25 Mar 2021 13:05:31 GMT",
+        "timestamp": 1619696982027,
         "type": "geopose"
     },
     "scrs": [
@@ -60,51 +61,46 @@ export const fakeLocationResult = {
                     "sticker_id": 25519,
                     "sticker_subtype": "private",
                     "sticker_text": "parkplatz",
-                    "sticker_type": "place"
+                    "sticker_type": "place",
+                    "type": "INFOSTICKER"
                 },
                 "description": "",
+                "ecefPose": {
+                  "orientation": {
+                    "w": 0.2144326929635223,
+                    "x": 0.2953677415218236,
+                    "y": 0.14079545389219456,
+                    "z": 0.9203005800389348
+                  },
+                  "position": {
+                    "x": 4166093.058332518,
+                    "y": 626024.3768432491,
+                    "z": 4772720.764265804
+                  }
+                },
                 "geopose": {
-                    "ecef": {
-                        "quaternion": [
-                            0.2953677415218236,
-                            0.14079545389219456,
-                            0.9203005800389348,
-                            0.2144326929635223
-                        ],
-                        "x": 4166093.058332518,
-                        "y": 626024.3768432491,
-                        "z": 4772720.764265804
-                    },
-                    "pose": {
-                        "altitude": -0.9490814805030823,
-                        "ellipsoidHeight": -1,
-                        "latitude": 48.75611158077768,
-                        "longitude": 8.545700426348882,
-                        "quaternion": [
-                            0.03369506983713525,
-                            0.30602725114310314,
-                            0.010838757575863686,
-                            -0.9513645385238395
-                        ]
+                    "ellipsoidHeight": -0.9490814805030823,
+                    "latitude": 48.75611158077768,
+                    "longitude": 8.545700426348882,
+                    "quaternion": {
+                        "w": 0.03369506983713525,
+                        "x": 0.30602725114310314,
+                        "y": 0.010838757575863686,
+                        "z": -0.9513645385238395
                     }
                 },
                 "id": "25519",
                 "keywords": [
                     "place"
                 ],
-                "refs": [
-                    {
-                        "contentType": "",
-                        "url": ""
-                    }
-                ],
+                "refs": [],
                 "title": "parkplatz",
                 "type": "placeholder",
                 "url": ""
             },
             "id": "25519",
             "tenant": "AC",
-            "timestamp": "2021-03-25T13:05:31.956283",
+            "timestamp": 1619696982316,
             "type": "scr"
         },
         {
@@ -114,51 +110,46 @@ export const fakeLocationResult = {
                     "sticker_id": 25523,
                     "sticker_subtype": "gltf",
                     "sticker_text": "first",
-                    "sticker_type": "other"
+                    "sticker_type": "other",
+                    "type": "INFOSTICKER"
                 },
                 "description": "",
+                "ecefPose": {
+                  "orientation": {
+                    "w": 0.9258142512020657,
+                    "x": -0.21110588904593072,
+                    "y": -0.30515319928392165,
+                    "z": -0.071998616987224
+                  },
+                  "position": {
+                    "x": 4166091.551286406,
+                    "y": 626021.0190979425,
+                    "z": 4772723.052048196
+                  }
+                },
                 "geopose": {
-                    "ecef": {
-                        "quaternion": [
-                            -0.19756436724107565,
-                            0.31699256462651565,
-                            -0.4874473906608002,
-                            0.7892268850629169
-                        ],
-                        "x": 4166091.7777031483,
-                        "y": 626021.3510231776,
-                        "z": 4772722.391498527
-                    },
-                    "pose": {
-                        "altitude": -0.8568757176399231,
-                        "ellipsoidHeight": -1,
-                        "latitude": 48.7560834514246,
-                        "longitude": 8.545731127889324,
-                        "quaternion": [
-                            0.030575819204840073,
-                            -0.8192063719687788,
-                            -0.04386668473200756,
-                            -0.5710006596986791
-                        ]
+                    "ellipsoidHeight": -0.8568757176399231,
+                    "latitude": 48.7560834514246,
+                    "longitude": 8.545731127889324,
+                    "quaternion": {
+                       "w": 0.030575819204840073,
+                       "x":  -0.8192063719687788,
+                       "y": -0.04386668473200756,
+                       "z": -0.5710006596986791
                     }
                 },
                 "id": "25523",
                 "keywords": [
                     "place"
                 ],
-                "refs": [
-                    {
-                        "contentType": "",
-                        "url": ""
-                    }
-                ],
+                "refs": [],
                 "title": "first",
                 "type": "placeholder",
                 "url": ""
             },
             "id": "25523",
             "tenant": "AC",
-            "timestamp": "2021-03-25T13:05:32.246384",
+            "timestamp": 1619696982578,
             "type": "scr"
         },
         {
@@ -169,51 +160,46 @@ export const fakeLocationResult = {
                     "sticker_id": 25532,
                     "sticker_subtype": "scene",
                     "sticker_text": "Picker",
-                    "sticker_type": "other"
+                    "sticker_type": "other",
+                    "type": "INFOSTICKER"
                 },
                 "description": "",
+                "ecefPose": {
+                  "orientation": {
+                    "w": 0.8042543049156928,
+                    "x": -0.26127504256379713,
+                    "y": 0.21968396835100398,
+                    "z": -0.48646615422598155
+                  },
+                  "position": {
+                    "x": 4166092.0033649127,
+                    "y": 626021.3217525029,
+                    "z": 4772722.863883659
+                  }
+                },
                 "geopose": {
-                    "ecef": {
-                        "quaternion": [
-                            0.3997884862207025,
-                            -0.09861601172454185,
-                            0.6785433043553545,
-                            -0.6082951854415918
-                        ],
-                        "x": 4166091.526686034,
-                        "y": 626021.3055765239,
-                        "z": 4772723.150585335
-                    },
-                    "pose": {
-                        "altitude": -0.4542122185230255,
-                        "ellipsoidHeight": -1,
-                        "latitude": 48.756132830613595,
-                        "longitude": 8.545662319589079,
-                        "quaternion": [
-                            -0.11061927770517868,
-                            -0.5654197985215716,
-                            0.07686378041725367,
-                            -0.8137295534142641
-                        ]
+                    "ellipsoidHeight": -0.4542122185230255,
+                    "latitude": 48.756132830613595,
+                    "longitude": 8.545662319589079,
+                    "quaternion": {
+                        "w": -0.11061927770517868,
+                        "x": -0.5654197985215716,
+                        "y": 0.07686378041725367,
+                        "z": -0.8137295534142641
                     }
                 },
                 "id": "25532",
                 "keywords": [
                     "other"
                 ],
-                "refs": [
-                    {
-                        "contentType": "",
-                        "url": ""
-                    }
-                ],
+                "refs": [],
                 "title": "Picker",
                 "type": "placeholder",
                 "url": "/Scene/"
             },
             "id": "25532",
             "tenant": "AC",
-            "timestamp": "2021-03-25T13:05:32.543188",
+            "timestamp": 1619696982834,
             "type": "scr"
         }
     ]
@@ -304,7 +290,7 @@ export function calculateDistance(localisationPose, objectPose) {
  * @returns {{x, y, z, w}}
  */
 export function calculateRotation(localisationQuaternion, localQuaternion) {
-    const global = quat.fromValues(localisationQuaternion[0], localisationQuaternion[1], localisationQuaternion[2], localisationQuaternion[3]);
+    const global = quat.fromValues(localisationQuaternion.x, localisationQuaternion.y, localisationQuaternion.z, localisationQuaternion.w);
     const local = quat.fromValues(localQuaternion.x, localQuaternion.y, localQuaternion.z, localQuaternion.w);
 
     const localInv = quat.create();
