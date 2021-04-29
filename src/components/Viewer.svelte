@@ -414,8 +414,7 @@
         console.log('Number of content items received: ', scr.length);
 
         scr.forEach(record => {
-            // Augmented City special path for the GeoPose. Should be just 'record.content.geopose'
-            const objectPose = record.content.geopose.pose;
+            const objectPose = record.content.geopose;
 
             // Difficult to generalize, because there are no types defined yet.
             if (record.content.type === 'placeholder') {

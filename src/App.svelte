@@ -29,6 +29,9 @@
     let currentSharedValues = {};
     let p2p;
 
+    // TODO: Find solution for this quick fix to prevent continuous service requests.
+    let haveReceivedServices = false;
+
 
     /**
      * Reactive function to define if the AR viewer can be shown.
@@ -41,7 +44,7 @@
      * Will be called everytime the value in arIsAvailable changes
      */
     $: {
-        if ($arIsAvailable && $isLocationAccessAllowed) {
+        if ($arIsAvailable && $isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
                 getCurrentLocation()
                     .then((currentLocation) => {
@@ -52,6 +55,7 @@
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {
+                        haveReceivedServices = true;
                         $ssr = services;
 
                         if (services.length === 0) {
