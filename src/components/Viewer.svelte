@@ -40,6 +40,7 @@
     let doCaptureImage = false;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
+    let unableToStartSession = false;
 
     let trackedImageObject, creatorObject;
     let poseFoundHeartbeat = null;
@@ -122,8 +123,8 @@
                     tdEngine.init();
                 })
                 .catch(error => {
+                    unableToStartSession = true;
                     message("WebXR Immersive AR failed to start: " + error);
-                    throw new Error(error);
                 });
         } else {
             message('AR session was started with unknown mode');
@@ -547,7 +548,13 @@
     <!--  Space for UI elements  -->
     {#if showFooter}
         <footer>
-            {#if $arMode === ARMODES.oscp}
+            {#if unableToStartSession}
+                <h4>Couldn't start AR</h4>
+                <p>
+                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">
+                    experimental flags</a> to be enabled.
+                </p>
+            {:else if $arMode === ARMODES.oscp}
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                         on:startLocalisation={startLocalisation} />
             {:else if $arMode === ARMODES.marker}

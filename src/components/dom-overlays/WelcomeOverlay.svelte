@@ -58,9 +58,20 @@
         text-transform: uppercase;
     }
 
-    #locationgranted {
+    #locationgranted, #staysafe {
         margin-top: 80px;
         margin-bottom: 10px;
+    }
+
+    #flagswrapper {
+        padding: var(--ui-margin);
+
+        color: white;
+        background-color: var(--theme-background);
+    }
+
+    #flagswrapper a {
+        color: var(--theme-linkcolor);
     }
 
     #welcomewrapper {
@@ -93,7 +104,7 @@
         height: 369px !important;
 
         color: white;
-        background-color: #2A2C32;
+        background-color: var(--theme-background);
         overflow-x: hidden;
     }
 
@@ -121,6 +132,13 @@
                 <div>{@html $intro}</div>
             </div>
         </Screen>
+<!--
+        TODO: Needs some styling
+        <Screen>
+            <h4 id="staysafe">Stay safe</h4>
+            <p>Always be aware of your surroundings.</p>
+        </Screen>
+-->
         <Screen>
             {#if !$isLocationAccessAllowed}
             <h4>{$locationaccessrequired}</h4>
@@ -157,5 +175,11 @@
         <Controls />
     </Swipeable>
 {:else}
-    <div>{@html $noArMessage}</div>
+    <div id="flagswrapper">
+        <p>{@html $noArMessage}</p>
+        <p>
+            Chrome with <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">enabled WebXR incubation
+            features</a> on an <a href="https://developers.google.com/ar/devices">AR capable device</a> required.
+        </p>
+    </div>
 {/if}
