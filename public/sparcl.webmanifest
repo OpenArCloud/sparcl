@@ -59,7 +59,7 @@
   "theme_color": "#2E4458",
   "description": "Experience AR Cloud content near you",
   "categories": ["entertainment", "lifestyle", "productivity", "arcloud"],
-  "prefer_related_applications": true,
+  "prefer_related_applications": false,
   "related_applications": [
     {
       "platform": "play",
