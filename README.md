@@ -9,13 +9,15 @@ As additional functionality, the application implements data synchronisation usi
 
 Loads of ideas for additional base functionalities are available. All of this is easily available to AR scenes created with any 3D platform or game engine that exports to WebXR. Please check out the [documentation](https://openarcloud.github.io/sparcl/) for more detailed information.
 
+**Any Feedback, recommendations and contributions of any kind are very welcome**
+
+
 ## Access
 
 The app can be used / installed as:
 * [PWA](https://web.dev/progressive-web-apps/) from its [homepage](https://sparcl.app/)
 * [TWA](https://developer.chrome.com/docs/android/trusted-web-activity/overview/) from [Play store](https://play.google.com/store/apps/details?id=app.sparcl.twa)
 
-**Any Feedback, recommendations and contributions of any kind are very welcome**
 
 ## Development
 
