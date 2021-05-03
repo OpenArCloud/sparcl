@@ -87,17 +87,20 @@ export const SERVICE = {
 /**
  * Implemented AR modes of the client.
  *
- * auto: The client selects one of the modes, depending the availability of AR functionality and discovery services
- * oscp: Use discovery services for localisation and content discovery
  * marker: Use marker to define a reference point for content
+ * oscp: Use discovery services for localisation and content discovery
+ * creator: Allows easy placement of local 3D content. Should make using sparcl during content creation very easy
+ * dev: Places default content from a stored service response. Should speed up using sparcl during development
+ * test: Used for experimenting with features under development
  *
- * @type {{auto: string, oscp: string, marker: string}}
+ * @type {{creator: string, dev: string, test: string, oscp: string, marker: string}}
  */
 export const ARMODES = {
     marker: 'Marker',
     oscp: 'OSCP',
     creator: 'Content creation',
-    dev: 'Development'
+    dev: 'Development',
+    test: 'Testing'
 }
 
 /**

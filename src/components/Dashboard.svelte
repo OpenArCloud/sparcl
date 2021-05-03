@@ -16,9 +16,9 @@
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
         debug_showLocationAxis, allowP2pNetwork, p2pNetworkState,
-        creatorModeSettings, dashboardDetail } from '@src/stateStore';
+        creatorModeSettings, testModeSettings, dashboardDetail } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
+    import { ARMODES, CREATIONTYPES, TESTTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
 
     // Used to dispatch events to parent
@@ -222,9 +222,13 @@
             <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.dev}" />
             <label for="armodedev">{ARMODES.dev}</label>
         </dd>
+        <dd>
+            <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.test}" />
+            <label for="armodetest">{ARMODES.test}</label>
+        </dd>
     </dl>
 
-    {#if $arMode === ARMODES.auto || $arMode === ARMODES.oscp}
+    {#if $arMode === ARMODES.oscp}
     <dl>
         <dt><label for="geoposeServer">GeoPose Server</label></dt>
         <dd class="select"><select id="geoposeServer" bind:value={$selectedGeoPoseService}
@@ -276,7 +280,7 @@
     </dl>
     {/if}
 
-    {#if $arMode === ARMODES.auto || $arMode === ARMODES.marker}
+    {#if $arMode === ARMODES.marker}
     <dl>
         <dt>Marker image</dt>
         <dd>{$currentMarkerImage}</dd>
@@ -311,6 +315,17 @@
         <dd class="area"><textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea></dd>
         {/if}
     </dl>
+    {/if}
+
+    {#if $arMode === ARMODES.test}
+        <dl>
+            <dt><label for="testtype">Test Type</label></dt>
+            <dd class="select"><select id="testtype" bind:value={$testModeSettings.type}>
+                {#each Object.values(TESTTYPES) as type}
+                    <option value="{type}">{type}</option>
+                {/each}
+            </select></dd>
+        </dl>
     {/if}
 </details>
 
