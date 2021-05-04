@@ -91,16 +91,16 @@ export const SERVICE = {
  * oscp: Use discovery services for localisation and content discovery
  * creator: Allows easy placement of local 3D content. Should make using sparcl during content creation very easy
  * dev: Places default content from a stored service response. Should speed up using sparcl during development
- * test: Used for experimenting with features under development
+ * experiment: Used for experimenting with features under development
  *
- * @type {{creator: string, dev: string, test: string, oscp: string, marker: string}}
+ * @type {{creator: string, dev: string, experiment: string, oscp: string, marker: string}}
  */
 export const ARMODES = {
     marker: 'Marker',
     oscp: 'OSCP',
     creator: 'Content creation',
     dev: 'Development',
-    test: 'Testing'
+    experiment: 'Experiment'
 }
 
 /**
@@ -117,6 +117,15 @@ export const CREATIONTYPES = {
     model: 'Model',
     scene: 'Scene'
 }
+
+/**
+ * Experiments available for sparcl.
+ *
+ * @type {Readonly<{game: string}>}
+ */
+export const EXPERIMENTTYPES = Object.freeze({
+    game: 'Game'
+});
 
 /**
  * Supported shapes for placeholder content types.

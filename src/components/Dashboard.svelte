@@ -15,10 +15,10 @@
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
-        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState,
-        creatorModeSettings, testModeSettings, dashboardDetail } from '@src/stateStore';
+        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed,
+        creatorModeSettings, experimentModeSettings, dashboardDetail } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, TESTTYPES, PLACEHOLDERSHAPES } from '@core/common';
+    import { ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
 
     // Used to dispatch events to parent
@@ -198,6 +198,14 @@
     </div>
 
     <dl>
+        <dt>Location access</dt>
+        <dd>{$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</dd>
+        {#if !isLocationAccessAllowed}
+            <dd>Request access</dd>
+        {/if}
+    </dl>
+
+    <dl>
         <dt>H3Index</dt>
         <dd>{$initialLocation.h3Index}</dd>
         <dt>Country</dt>
@@ -223,8 +231,8 @@
             <label for="armodedev">{ARMODES.dev}</label>
         </dd>
         <dd>
-            <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.test}" />
-            <label for="armodetest">{ARMODES.test}</label>
+            <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.experiment}" />
+            <label for="armodetest">{ARMODES.experiment}</label>
         </dd>
     </dl>
 
@@ -317,11 +325,11 @@
     </dl>
     {/if}
 
-    {#if $arMode === ARMODES.test}
+    {#if $arMode === ARMODES.experiment}
         <dl>
-            <dt><label for="testtype">Test Type</label></dt>
-            <dd class="select"><select id="testtype" bind:value={$testModeSettings.type}>
-                {#each Object.values(TESTTYPES) as type}
+            <dt><label for="experimenttype">Type</label></dt>
+            <dd class="select"><select id="experimenttype" bind:value={$experimentModeSettings.type}>
+                {#each Object.values(EXPERIMENTTYPES) as type}
                     <option value="{type}">{type}</option>
                 {/each}
             </select></dd>

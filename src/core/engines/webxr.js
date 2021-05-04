@@ -6,7 +6,8 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
 
 
-let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
+let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
+    experimentFrameCallback, onFrameUpdate;
 let floorSpaceReference, localSpaceReference, gl;
 
 
@@ -14,6 +15,26 @@ let floorSpaceReference, localSpaceReference, gl;
  * WebXR implementation of the AR engine.
  */
 export default class webxr {
+    /**
+     * Start specific session for experiment mode.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
+    startExperimentSession(canvas, callback, options) {
+        experimentFrameCallback = callback;
+
+        return navigator.xr.requestSession('immersive-ar', options)
+            .then((result) => {
+                this._initSession(canvas, result);
+
+                this.glBinding = new XRWebGLBinding(result, gl);
+                initCameraCaptureScene(gl);
+            })
+    }
+
     /**
      * Start specific session for development mode.
      *

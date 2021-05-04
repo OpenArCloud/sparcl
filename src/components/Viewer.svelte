@@ -89,7 +89,12 @@
     async function startSession() {
         let promise;
 
-        if ($arMode === ARMODES.dev) {
+        if ($arMode === ARMODES.experiment) {
+            promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
+                requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
+                domOverlay: {root: overlay}
+            })
+        } else if ($arMode === ARMODES.dev) {
             promise = xrEngine.startDevSession(canvas, handleDevelopment, {
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
@@ -171,6 +176,10 @@
         }
 
         poseFoundHeartbeat();
+    }
+
+    function handleExperiment(time, frame, floorPose) {
+        tdEngine.render(time, floorPose, floorPose.views[0]);
     }
 
     /**
@@ -563,6 +572,8 @@
                 <!-- TODO: Add creator mode ui -->
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
+            {:else if $arMode === ARMODES.experiment}
+                <!--TODO: Add experiment mode ui -->
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
