@@ -70,6 +70,12 @@ export const unavailableInfo = readable('', (set) => {
     return () => set('');
 })
 
+// Label for button to request location access
+export const allowLocationLabel = readable('', (set => {
+    set('Allow location');
+    return () => set('');
+}))
+
 // Title of location access request screen
 export const locationaccessrequired = readable('', (set => {
     set('Location access required.');
