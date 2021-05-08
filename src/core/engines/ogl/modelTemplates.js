@@ -143,6 +143,7 @@ export function getDefaultMarkerObject(gl) {
 /**
  * Add axes at the zero point of the local coordinate system.
  *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @returns {Transform}
  */
 export function getAxes(gl) {
@@ -174,4 +175,20 @@ export function getAxes(gl) {
     xzPlane.setParent(container);
 
     return container;
+}
+
+/**
+ * Reticle used for hit testing.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+ */
+export function getReticle(gl) {
+    const placeholder = new Sphere(gl, {
+        radius: 0.3,
+        thetaLength: Math.PI / 2
+    });
+
+    const program = createDefaultProgram(gl, [1, 1, 1, 1], false);
+    return new Mesh(gl, { geometry: placeholder, program });
 }

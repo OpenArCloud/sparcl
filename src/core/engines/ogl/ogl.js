@@ -134,6 +134,15 @@ export default class ogl {
     }
 
     /**
+     * Add reticle to display successful hit test location.
+     *
+     * @returns {Transform}
+     */
+    addReticle() {
+        return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+    }
+
+    /**
      * Updates the marker object according the provided position and orientation.
      *
      * Called when marker movement was detected, for example.
@@ -145,6 +154,18 @@ export default class ogl {
     updateMarkerObjectPosition(object, position, orientation) {
         object.position.set(position.x, position.y, position.z);
         object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+    }
+
+    /**
+     * Update the position of the reticle to the provided position and orientation.
+     *
+     * @param reticle  Transform        The reticle to display
+     * @param position  Ved3       The position to move the reticle to
+     * @param orientation  Quaternion       The rotation to apply to the reticle
+     */
+    updateReticlePosition(reticle, position, orientation) {
+        reticle.position.set(position.x, position.y, position.z);
+        reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
 
     /**

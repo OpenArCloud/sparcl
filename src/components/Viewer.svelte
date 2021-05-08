@@ -42,7 +42,7 @@
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
     let unableToStartSession = false;
 
-    let trackedImageObject, creatorObject;
+    let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
 
@@ -178,7 +178,27 @@
         poseFoundHeartbeat();
     }
 
-    function handleExperiment(time, frame, floorPose) {
+    /**
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame  XRFrame        The XRFrame provided to the update loop
+     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param reticlePose  XRPose       The pose for the reticle
+     */
+    function handleExperiment(time, frame, floorPose, reticlePose) {
+        handlePoseHeartbeat();
+
+        xrEngine.setViewPort();
+
+        if (!reticle) {
+            reticle = tdEngine.addReticle();
+        }
+
+        const position = reticlePose.transform.position;
+        const orientation = reticlePose.transform.orientation;
+        tdEngine.updateReticlePosition(reticle, position, orientation);
+
         tdEngine.render(time, floorPose, floorPose.views[0]);
     }
 

@@ -8,7 +8,7 @@ import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture 
 
 let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
     experimentFrameCallback, onFrameUpdate;
-let floorSpaceReference, localSpaceReference, gl;
+let floorSpaceReference, localSpaceReference, hitTestSource, gl;
 
 
 /**
@@ -29,6 +29,10 @@ export default class webxr {
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
                 this._initSession(canvas, result);
+
+                result.requestReferenceSpace('viewer')
+                    .then(refSpace => result.requestHitTestSource({ space: refSpace }))
+                    .then(source => hitTestSource = source);
 
                 this.glBinding = new XRWebGLBinding(result, gl);
                 initCameraCaptureScene(gl);
@@ -181,6 +185,11 @@ export default class webxr {
      * @param session  XRSession        The session to end
      */
     onEndSession(session) {
+        if (hitTestSource) {
+            hitTestSource.cancel();
+            hitTestSource = null;
+        }
+
         session.end();
     }
 
@@ -280,6 +289,16 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
+            if (experimentFrameCallback) {
+                if (hitTestSource) {
+                    const hitTestResults = frame.getHitTestResults(hitTestSource);
+                    if (hitTestResults.length > 0) {
+                        const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                        experimentFrameCallback(time, frame, floorPose, reticlePose);
+                    }
+                }
+            }
+
             if (devFrameCallback) {
                 devFrameCallback(time, frame, floorPose);
             }
