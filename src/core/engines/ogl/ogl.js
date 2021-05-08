@@ -11,6 +11,7 @@ import {createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
 
 let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
+let experimentTapHandler = null;
 
 
 /**
@@ -230,6 +231,17 @@ export default class ogl {
     }
 
     /**
+     * Registers a general tap handler. Gets called when no hits where found for a tap.
+     *
+     * Currently exclusively for experiments. Don't use otherwise.
+     *
+     * @param callback  Function        The function to call
+     */
+    setExperimentTapHandler(callback) {
+        experimentTapHandler = callback;
+    }
+
+    /**
      * Resize the canvas to full screen.
      */
     resize() {
@@ -254,6 +266,7 @@ export default class ogl {
      */
     stop() {
         window.removeEventListener('resize', this.resize, false);
+        experimentTapHandler = null;
     }
 
     /**
@@ -281,7 +294,8 @@ export default class ogl {
      * @private
      * Event handler for interactive objects.
      *
-     * Handles currently mouse clicks / taps.
+     * Handles currently taps on 3D objects.
+     * Handles temporarily also taps on floor.
      *
      * @param event  Event      Javascript event object
      */
@@ -298,5 +312,9 @@ export default class ogl {
         hits.forEach((hit) => {
             eventHandlers[hit.id].handler();
         })
+
+        if (hits.length === 0 && experimentTapHandler) {
+            experimentTapHandler(event);
+        }
     }
 }

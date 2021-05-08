@@ -20,13 +20,14 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocationAxis, initialLocation,
+        debug_appendCameraImage, debug_showLocationAxis, initialLocation, experimentModeSettings,
         recentLocalisation } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
+    import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
 
 
     const message = (msg) => console.log(msg);
@@ -34,13 +35,13 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let canvas, overlay, externalContent, closeExperience;
+    let canvas, overlay, externalContent, closeExperience, experimentOverlay;
     let xrEngine, tdEngine;
 
-    let doCaptureImage = false;
+    let doCaptureImage = false, doExperimentAutoPlacement;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
-    let unableToStartSession = false;
+    let unableToStartSession = false, experimentIntervallId = null;
 
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
@@ -94,6 +95,8 @@
                 requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
+
+            tdEngine.setExperimentTapHandler(experimentTapHandler);
         } else if ($arMode === ARMODES.dev) {
             promise = xrEngine.startDevSession(canvas, handleDevelopment, {
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
@@ -179,14 +182,17 @@
     }
 
     /**
+     * Special mode for experiments.
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      * @param reticlePose  XRPose       The pose for the reticle
+     * @param frameDuration  integer        The duration of the previous frame
+     * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function handleExperiment(time, frame, floorPose, reticlePose) {
+    function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
         handlePoseHeartbeat();
 
         xrEngine.setViewPort();
@@ -199,7 +205,37 @@
         const orientation = reticlePose.transform.orientation;
         tdEngine.updateReticlePosition(reticle, position, orientation);
 
+        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+
         tdEngine.render(time, floorPose, floorPose.views[0]);
+    }
+
+    /**
+     * There might be the case that a tap handler for off object taps. This is the place to handle that.
+     *
+     * Not meant for other usage than that.
+     *
+     * @param event  Event      The Javascript event object
+     * @param auto  boolean     true when called from automatic placement interval
+     */
+    function experimentTapHandler(event, auto = false) {
+        if (reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+            tdEngine.addPlaceholder('', reticle.position, reticle.quaternion);
+            experimentOverlay.objectPlaced();
+        }
+    }
+
+    /**
+     * Toggle automatic placement of placeholders for experiment mode.
+     */
+    function toggleExperimentalPlacement() {
+        doExperimentAutoPlacement = !doExperimentAutoPlacement;
+
+        if (doExperimentAutoPlacement) {
+            experimentIntervallId = setInterval(() => experimentTapHandler(null, true), 1000);
+        } else {
+            clearInterval(experimentIntervallId);
+        }
     }
 
     /**
@@ -593,7 +629,7 @@
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
-                <!--TODO: Add experiment mode ui -->
+                <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>

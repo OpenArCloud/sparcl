@@ -334,6 +334,37 @@
                 {/each}
             </select></dd>
         </dl>
+
+        {#if $experimentModeSettings.type === EXPERIMENTTYPES.game}
+            <dl class="radio">
+                <dt>Add placeholders</dt>
+                <dd>
+                    <input id="addmanually" type="radio"
+                           bind:group={$experimentModeSettings.game.add} value="manually" />
+                    <label for="addmanually">Manually</label>
+                </dd>
+                <dd>
+                    <input id="addautomatically" type="radio"
+                           bind:group={$experimentModeSettings.game.add} value="automatically" />
+                    <label for="addautomatically">Automatically</label>
+                </dd>
+
+                <dt>Keep elements</dt>
+                <dd>
+                    <input id="keepall" type="radio" bind:group={$experimentModeSettings.game.keep} value="all" />
+                    <label for="keepall">All</label>
+                </dd>
+                <dd>
+                    <input id="keepupto" type="radio" bind:group={$experimentModeSettings.game.keep} value="upto" />
+                    <label for="keepupto">Up to 20m</label>
+                </dd>
+
+                <dt>
+                    <input id="showstats" type="checkbox" bind:checked={$experimentModeSettings.game.showstats} />
+                    <label for="showstats">Show stats</label>
+                </dt>
+            </dl>
+        {/if}
     {/if}
 </details>
 

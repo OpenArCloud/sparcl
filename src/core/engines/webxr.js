@@ -10,6 +10,11 @@ let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, m
     experimentFrameCallback, onFrameUpdate;
 let floorSpaceReference, localSpaceReference, hitTestSource, gl;
 
+let previousTime = performance.now();
+let slowCount = 0;
+let maxSlow = 10;
+let maximumFrameTime = 1000/30; // 30 FPS
+
 
 /**
  * WebXR implementation of the AR engine.
@@ -227,7 +232,7 @@ export default class webxr {
                 return anchor;
             })
             .catch((error) => {
-                console.error("Anchor failed to create.");
+                console.error("Anchor failed to create: ", error);
             });
     }
 
@@ -291,10 +296,21 @@ export default class webxr {
         if (floorPose) {
             if (experimentFrameCallback) {
                 if (hitTestSource) {
+                    const t = performance.now();
+                    const elapsed = t - previousTime;
+                    previousTime = t;
+
+                    if (elapsed < maximumFrameTime || slowCount < maxSlow) {
+                        if (elapsed > maximumFrameTime) {
+                            slowCount++;
+                        }
+                    }
+
                     const hitTestResults = frame.getHitTestResults(hitTestSource);
                     if (hitTestResults.length > 0) {
                         const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-                        experimentFrameCallback(time, frame, floorPose, reticlePose);
+                        const roundedElapsed = Math.round((elapsed + Number.EPSILON) * 100) / 100
+                        experimentFrameCallback(time, frame, floorPose, reticlePose, roundedElapsed, slowCount > maxSlow);
                     }
                 }
             }

@@ -107,7 +107,12 @@ creatorModeSettings.subscribe(value => {
  */
 const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings'));
 export const experimentModeSettings = writable(storedExperimentModeSettings || {
-    type: EXPERIMENTTYPES.game
+    type: EXPERIMENTTYPES.game,
+    game: {
+        "add": "manually",
+        "keep": "all",
+        "showstats": true
+    }
 })
 experimentModeSettings.subscribe(value => {
     localStorage.setItem('experimentmodesettings', JSON.stringify(value));
