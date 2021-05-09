@@ -84,8 +84,13 @@ function updateReceived() {
  * @param peerId  String        The peer ID to register with on the signaling server
  */
 function setupPerge(peerId) {
+
+    // NOTE: https://peerjs.com/peerserver.html
+    // If you DON'T specify 'host' and 'key' options, you will automatically connect to PeerServer Cloud service. 
     const peer = new Peer(peerId, {
-        host:'peerjs-server.herokuapp.com', secure:true, port:443
+        //host:'peerjs-server.herokuapp.com',
+        //port:443,
+        //secure:true
     })
 
     instance = new Perge(peerId, {
