@@ -38,3 +38,4 @@ There is an unfortunate problem with peerjs. Open the `node_modules\peerjs\dist\
 window.global = window; 
 var parcelRequire;
 ```
+Another workaround is posted [here](https://github.com/peers/peerjs/issues/753)
