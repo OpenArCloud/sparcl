@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Perge from 'perge';
 import Automerge, {change} from 'automerge'
 import Peer from 'peerjs';
-
+import { p2pNetworkState } from '@src/stateStore';
 
 let instance;
 const docSet = new Automerge.DocSet();
@@ -120,28 +120,38 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         console.log('Connection to the PeerServer established. Peer ID ' + id);
 
         if (!isHeadless) {
-            console.log('Connecting to headless');
+            let msg = 'Connecting to headless';
+            console.log(msg);
+            p2pNetworkState.set(msg);
             instance.connect(headlessPeerId);
         }
     });
 
     // Emitted when a new data connection is established from a remote peer.
     instance.peer.on('connection', (connection) => {
-        console.log('Connection established with remote peer: ' + connection.peer);
+        let msg = 'Connection established with remote peer: ' + connection.peer;
+        console.log(msg);
+        p2pNetworkState.set(msg);
     });
 
     // Errors on the peer are almost always fatal and will destroy the peer.
     instance.peer.on('error', (error) => {
-        console.error('Error:' + error)
+        let msg = 'Error:' + error;
+        console.error(msg);
+        p2pNetworkState.set(msg);
     })
 
     // Emitted when the peer is disconnected from the signalling server
     instance.peer.on('disconnected', () => {
-        console.log('Disconnected from PeerServer')
+        let msg = 'Disconnected from PeerServer';
+        console.log(msg);
+        p2pNetworkState.set(msg);
     });
 
     // Emitted when the peer is destroyed and can no longer accept or create any new connections
     instance.peer.on('close', () => {
-        console.log('Connection closed.');
+        let msg = "Connection closed";
+        console.log(msg);
+        p2pNetworkState.set(msg);
     });
 }

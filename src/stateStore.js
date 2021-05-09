@@ -258,7 +258,7 @@ allowP2pNetwork.subscribe(value => {
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('none');
+export const p2pNetworkState = writable('not connected');
 
 
 
