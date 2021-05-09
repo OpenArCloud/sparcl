@@ -25,6 +25,7 @@
     let dashboard, viewer;
     let shouldShowDashboard, shouldShowUnavailableInfo;
 
+    let isLocationAccessRefused = false;
     let isHeadless = false;
     let currentSharedValues = {};
     let p2p;
@@ -188,7 +189,9 @@
      * {@link isLocationAccessAllowed} store.
      */
     function requestLocationAccess() {
-        navigator.geolocation.getCurrentPosition(() => {}, null, locationAccessOptions);
+        navigator.geolocation.getCurrentPosition(() => {}, (error) => {
+            isLocationAccessRefused = true;
+        }, locationAccessOptions);
     }
 </script>
 
@@ -275,6 +278,7 @@
         <div id="frame">
         {#if showWelcome}
             <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
+                            {isLocationAccessRefused}
                             on:okAction={() => closeIntro(false)}
                             on:dashboardAction={() => closeIntro(true)}
                             on:requestLocation={requestLocationAccess} />

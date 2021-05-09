@@ -11,6 +11,14 @@ Loads of ideas for additional base functionalities are available. All of this is
 
 **Any Feedback, recommendations and contributions of any kind are very welcome**
 
+
+## Access
+
+The app can be used / installed as:
+* [PWA](https://web.dev/progressive-web-apps/) from its [homepage](https://sparcl.app/)
+* [TWA](https://developer.chrome.com/docs/android/trusted-web-activity/overview/) from [Play store](https://play.google.com/store/apps/details?id=app.sparcl.twa)
+
+
 ## Development
 
 npm needs to be installed, because dependencies are handled with it. 

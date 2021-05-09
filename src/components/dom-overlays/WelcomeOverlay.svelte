@@ -14,13 +14,14 @@
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage, dashboardOkLabel,
-        startedOkLabel, unavailableInfo, locationaccessgranted, locationaccessrequired, locationaccessinfo,
-        noservicesavailable } from '@src/contentStore';
+        startedOkLabel, unavailableInfo, allowLocationLabel, locationaccessgranted, locationaccessrequired,
+        locationaccessinfo, noservicesavailable } from '@src/contentStore';
     import { ARMODES } from "@core/common";
 
     export let withOkFooter = true;
     export let shouldShowDashboard;
     export let shouldShowUnavailableInfo;
+    export let isLocationAccessRefused = false;
 
 
     // Used to dispatch events to parent
@@ -29,6 +30,10 @@
 
 
 <style>
+    a {
+        color: var(--theme-linkcolor);
+    }
+
     h3 {
         margin-top: 30px;
         margin-bottom: 5px;
@@ -94,9 +99,9 @@
         margin-top: 97px;
     }
 
-    #welcomebackwrapper p {
+    .subheader {
         margin-top: 0;
-        margin-bottom: 115px
+        margin-bottom: 100px
     }
 
     :global(.swipeable)  {
@@ -117,11 +122,28 @@
 {#if $hasIntroSeen}
     <div class="swipeable" id="welcomebackwrapper">
         <h3>{$infoGreeting}</h3>
-        <p>{$info}</p>
+        <p class="subheader">{$info}</p>
+        {#if isLocationAccessRefused}
+            <p>
+                Location access was refused. See
+                <a href="https://openarcloud.github.io/sparcl/help/locationaccess.html">help</a> for more info
+            </p>
+        {:else if !$isLocationAccessAllowed}
+            <p>{$locationaccessrequired}</p>
+        {:else}
+            <p>{$locationaccessgranted}</p>
+        {/if}
+
         {#if withOkFooter}
+            {#if !$isLocationAccessAllowed}
+            <button disabled="{isLocationAccessRefused}" on:click={() => dispatch('requestLocation')}>
+                {$allowLocationLabel}
+            </button>
+            {:else}
             <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
                 {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
             </button>
+            {/if}
         {/if}
     </div>
 {:else if $arIsAvailable}
@@ -144,7 +166,7 @@
             <h4>{$locationaccessrequired}</h4>
             <p>{@html $locationaccessinfo}</p>
             <img src="/media/overlay/marker.png" alt="location marker" />
-            <button on:click={() => dispatch('requestLocation')}>Allow</button>
+            <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
             {:else}
             <h4 id="locationgranted">{$locationaccessgranted}</h4>
             <img src="/media/overlay/marker.png" alt="location marker" />
