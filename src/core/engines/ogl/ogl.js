@@ -4,7 +4,8 @@
 */
 
 import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
-import {getAxes, getDefaultPlaceholder, createRandomObject, getExperiencePlaceholder, createWaitingProgram, getDefaultMarkerObject} from '@core/engines/ogl/modelTemplates';
+import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
+    createWaitingProgram, createRandomObjectDescription, createModel,} from '@core/engines/ogl/modelTemplates';
 
 let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
@@ -145,10 +146,23 @@ export default class ogl {
      *
      * @param position  number{x, y, z}        3D position of the object
      * @param orientation  number{x, y, z, w}     Orientation of the object
-     * @returns {Transform}
+     * @returns {Mesh}
      */
     addRandomObject(position, orientation) {
-        let mesh = createRandomObject(gl);
+        let object_description = createRandomObjectDescription();
+        return addObject(position, orientation, object_description);
+    }
+
+    /**
+     * Create object with given properties at the given pose
+     *
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param object_description  {"shape": enum PRIMITIVES, "color": float[4], "scale": float or float[3]}
+     * @returns {Mesh}
+     */
+    addObject(position, orientation, object_description) {
+        const mesh = createModel(gl, object_description.shape, object_description.color, false, object_description.scale);
         mesh.position.set(position.x, position.y, position.z);
         mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         scene.addChild(mesh);

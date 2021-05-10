@@ -72,7 +72,7 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @returns {Mesh}
  */
 export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], translucent = false) {
+                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, scale = [1.0, 1.0, 1.0]) {
     let geometry;
 
     switch (type) {
@@ -95,8 +95,9 @@ export function createModel(gl, type = PRIMITIVES.box,
     }
 
     const program = createDefaultProgram(gl, color, translucent);
-
-    return new Mesh(gl, { geometry: geometry, program });
+    const mesh = new Mesh(gl, { geometry: geometry, program });
+    mesh.scale.set(scale);
+    return mesh; 
 }
 
 
@@ -114,19 +115,30 @@ export function getDefaultPlaceholder(gl) {
     return placeholder;
 }
 
+/** Creates properties struct with random shape (out of predefined shapes), color, scale
+ * @returns object_description = {color, shape, scale}
+*/
+export function createRandomObjectDescription() {
+    const kNumPrimitives = Object.keys(PRIMITIVES).length;
+    let shape_idx = Math.floor(Math.random() * kNumPrimitives);
+    let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
+    let color = [Math.random(), Math.random(), Math.random(), 1.0];
+    let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0
+    let object_description = { 
+        'color': color,
+        'shape': shape,
+        'scale': scale
+    };
+    return object_description
+}
 
 /** Creates a Mesh with random shape (out of predefined shapes) and random color and size
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @returns {Mesh}
 */
 export function createRandomObject(gl) {
-    const kNumPrimitives = Object.keys(PRIMITIVES).length;
-    let shape_idx = Math.floor(Math.random() * kNumPrimitives);
-    let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
-    let color = [Math.random(), Math.random(), Math.random(), 1.0];
-    const placeholder = createModel(gl, shape, color, false);
-    let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0
-    placeholder.scale.set(scale);
+    let object_description = createRandomObjectDescription();
+    const placeholder = createModel(gl, object_description.shape, object_description.color, false, object_description.scale);
     return placeholder;
 }
 

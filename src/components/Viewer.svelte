@@ -29,6 +29,9 @@
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
     import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
 
+    // TODO: this is specific to OGL engine, but we only need a generic object description structure
+    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates'; 
+
 
     const message = (msg) => console.log(msg);
 
@@ -220,7 +223,8 @@
      */
     function experimentTapHandler(event, auto = false) {
         if (reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
-            tdEngine.addRandomObject(reticle.position, reticle.quaternion);
+            let object_description = createRandomObjectDescription();
+            tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
             experimentOverlay.objectPlaced();
         }
     }
