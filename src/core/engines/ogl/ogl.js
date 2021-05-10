@@ -4,10 +4,7 @@
 */
 
 import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
-
-import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
-import {createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
-
+import {getAxes, getDefaultPlaceholder, createRandomObject, getExperiencePlaceholder, createWaitingProgram, getDefaultMarkerObject} from '@core/engines/ogl/modelTemplates';
 
 let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
@@ -141,6 +138,21 @@ export default class ogl {
      */
     addReticle() {
         return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+    }
+
+    /**
+     * Create object with random shape, color, size and add it to the scene at the given pose
+     *
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @returns {Transform}
+     */
+    addRandomObject(position, orientation) {
+        let mesh = createRandomObject(gl);
+        mesh.position.set(position.x, position.y, position.z);
+        mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        scene.addChild(mesh);
+        return mesh;
     }
 
     /**

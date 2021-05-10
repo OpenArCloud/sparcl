@@ -220,7 +220,7 @@
      */
     function experimentTapHandler(event, auto = false) {
         if (reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
-            tdEngine.addPlaceholder('', reticle.position, reticle.quaternion);
+            tdEngine.addRandomObject(reticle.position, reticle.quaternion);
             experimentOverlay.objectPlaced();
         }
     }
