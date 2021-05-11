@@ -21,7 +21,7 @@
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
         debug_appendCameraImage, debug_showLocationAxis, initialLocation, experimentModeSettings,
-        recentLocalisation } from '@src/stateStore';
+        recentLocalisation, peerIdStr } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
@@ -30,7 +30,7 @@
     import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
 
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
-    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates'; 
+    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
 
 
     const message = (msg) => console.log(msg);
@@ -424,7 +424,7 @@
                     // When localisation didn't already provide content, needs to be requested here
                     .then(([geoPose, data]) => {
                         $recentLocalisation.geopose = geoPose;
-                        $recentLocalisation.floorpose = floorPose.transform;
+                        $recentLocalisation.floorpose = floorPose;
 
                         placeContent(floorPose, geoPose, data);
                     });

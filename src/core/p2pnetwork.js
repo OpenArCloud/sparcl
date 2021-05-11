@@ -11,7 +11,7 @@ import { v4 as uuidv4 } from 'uuid';
 import Perge from 'perge';
 import Automerge, {change} from 'automerge'
 import Peer from 'peerjs';
-import { p2pNetworkState } from '@src/stateStore';
+import { p2pNetworkState, peerIdStr } from '@src/stateStore';
 
 let instance;
 const docSet = new Automerge.DocSet();
@@ -117,13 +117,21 @@ function setupPerge(peerId) {
 function setupPeerEvents(headlessPeerId, isHeadless) {
     //Emitted when a connection to the PeerServer is established.
     instance.peer.on('open', (id) => {
-        console.log('Connection to the PeerServer established. Peer ID ' + id);
+        let msg = 'Connection to the PeerServer established. Peer ID ' + id;
+        console.log(msg);
+        p2pNetworkState.set(msg)
+        peerIdStr.set(id);
 
         if (!isHeadless) {
-            let msg = 'Connecting to headless';
+            msg = 'Connecting to headless client';
             console.log(msg);
             p2pNetworkState.set(msg);
-            instance.connect(headlessPeerId);
+            let dataConnection = instance.connect(headlessPeerId);
+            if (dataConnection != null) {
+                msg = 'Connected to headless client.\nMy PeerId: ' + id;
+                console.log(msg);
+                p2pNetworkState.set(msg);
+            }
         }
     });
 
