@@ -74,15 +74,41 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(data) {
-        // TODO: Receive list of events to fire from SCD
-
-        if ('setrotation' in data) {
-            // todo app.fire('setrotation', data.setrotation);
+    export function updateReceived(events) {
+        // NOTE: sometimes multiple events are bundled!
+        console.log('Viewer event received:');
+        console.log(events);
+        
+        if ('message_broadcasted' in events) {
+            let data = events.message_broadcasted;
+            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('message' in data && 'sender' in data) {
+                    console.log("message from " + data.sender + ": \n  " + data.message);
+                }
+            }
         }
 
-        if ('setcolor' in data) {
-            // todo app.fire('setcolor', data.setcolor);
+        if ('object_created' in events) {
+            let data = events.object_created;
+            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                data = data.scr;
+                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                    let latestGlobalPose = $recentLocalisation.geopose;
+                    let latestLocalPose = $recentLocalisation.floorpose; // TODO: use the latest tracking pose
+                    placeContent(latestLocalPose, latestGlobalPose, [data]); // TODO: data must be wrapped into an array here, why?
+                }
+            }
+        }
+
+        // TODO: Receive list of events to fire from SCD
+        if ('setrotation' in events) {
+            //let data = events.setrotation;
+            // todo app.fire('setrotation', data);
+        }
+
+        if ('setcolor' in events) {
+            //let data = events.setcolor;
+            // todo app.fire('setcolor', data);
         }
     }
 
@@ -237,12 +263,86 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(event, auto = false) {
+
+        shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
+
         if (reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
             let object_description = createRandomObjectDescription();
             tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
+            shareObject(object_description, reticle.position, reticle.quaternion);
             experimentOverlay.objectPlaced();
         }
     }
+
+    function shareMessage(str) {
+        let message_body = {
+            "message": str,
+            "sender": $peerIdStr,
+            "timestamp": new Date().getTime()
+        }
+
+        dispatch('broadcast', {
+                event: 'message_broadcasted',
+                value: message_body
+            });
+    }
+
+    function shareObject(object_description, position, quaternion) {
+
+        // Now calculate the global pose of the reticle
+        let latestGlobalPose = $recentLocalisation.geopose;
+        let latestLocalPose = $recentLocalisation.floorpose;
+        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
+            console.log("There was no successful localization yet, cannot share object");
+            return;
+        }
+
+        //console.log("latestGlobalPose:");
+        //console.log(latestGlobalPose);
+        //console.log("latestLocalPose");
+        //console.log(latestLocalPose);
+
+        let geoPose = {
+            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
+            "longitude": latestGlobalPose.longitude,
+            "latitude": latestGlobalPose.latitude,
+            "ellipsoidHeight": latestGlobalPose.ellipsoidHeight,
+            "quaternion": { "x": 0, "y": 0, "z": 0, "w": 1 }
+        }
+        let content = {
+            "id": "",
+            "type": "", //high-level OSCP type
+            "title": "",
+            "refs": [],
+            "geopose": geoPose,
+            "object_description": object_description
+        }
+        let timestamp = new Date().getTime();
+
+        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        let scr = {
+            "content": content,
+            "id": "12345", //TODO: put peerID and a counter here  (objectsPlacedCount)
+            "tenant": "ISMAR2021demo",
+            "type": "scr-ephemeral",
+            "timestamp": timestamp
+        }
+
+        let message_body = {
+            "scr": scr,
+            "sender": $peerIdStr,
+            "timestamp": new Date().getTime()
+        }
+
+        // share over P2P network
+        // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
+        // and the value will be forwarded to the p2pnetwork.js
+        dispatch('broadcast', {
+                event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
+                value: message_body
+            });
+    }
+
 
     /**
      * Toggle automatic placement of placeholders for experiment mode.
@@ -528,6 +628,14 @@
                 }
 
                 // TODO: Anchor placeholder for better visual stability?!
+            }
+
+            if (record.tenant === 'ISMAR2021demo') {
+                console.log("ISMAR2021demo object received!")
+                let object_description = record.content.object_description;
+                // TODO: calculate the object placement properly
+                // now we simply place it wherever the localPose is.
+                tdEngine.addObject(localPose.transform.position, localPose.transform.orientation, object_description);
             }
         })
     }
