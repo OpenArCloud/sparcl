@@ -204,6 +204,21 @@
             reticle = tdEngine.addReticle();
         }
 
+        // perform fake localization. TODO: remove this
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+            for (let view of floorPose.views) {
+                console.log('fake localisation');
+                isLocalized = true;
+                wait(1000);
+                let geoPose = fakeLocationResult.geopose.pose;
+                let data = []; // WARNING: data (scr) must be an array. TODO: why?
+                $recentLocalisation.geopose = geoPose;
+                $recentLocalisation.floorpose = floorPose;
+                placeContent(floorPose, geoPose, data); 
+            }
+        }
+
         const position = reticlePose.transform.position;
         const orientation = reticlePose.transform.orientation;
         tdEngine.updateReticlePosition(reticle, position, orientation);
