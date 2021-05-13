@@ -516,7 +516,7 @@
                     });
             }
 
-            tdEngine.render(time, floorPose, view);
+            tdEngine.render(time, view);
         }
     }
 

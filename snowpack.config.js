@@ -10,15 +10,17 @@ module.exports = {
       '@snowpack/plugin-dotenv',
       'snowpack-plugin-glslify'
     ],
+/*
   routes: [
-    // {
-    //   "match": "routes",
-    //   "src": ".*",
-    //   "dest": "/index.html"
-    // }
+      {src: "/.well-known/!*", dest: "/well-known/!*"},
+      {src: ".*", dest: "/index.html"}
+  ],
+*/
+  exclude: [
+    '**/_*',
   ],
   optimize: {
-    // bundle: true,
+    bundle: true,
   },
   packageOptions: {
     // source: "remote"
