@@ -70,32 +70,37 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param type  String      One of the supported object types
  * @param color  Color      Color array
  * @param translucent  Boolean      true to draw translucent according to alpha value in color
+ * @param options  Object       Optional settings for created object
  * @returns {Mesh}
  */
 export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, scale = [1.0, 1.0, 1.0]) {
+                            color = [0.2, 0.8, 1.0, 1.0], 
+                            translucent = false, 
+                            options = {},
+                            scale = [1.0, 1.0, 1.0]) {
     let geometry;
 
     switch (type) {
         case PRIMITIVES.cone:
             geometry = new Cylinder(gl, {
-                radiusTop: 0
+                radiusTop: 0,
+                ...options
             });
             break;
         case PRIMITIVES.cylinder:
-            geometry = new Cylinder(gl);
+            geometry = new Cylinder(gl, options);
             break;
         case PRIMITIVES.plane:
-            geometry = new Plane(gl);
+            geometry = new Plane(gl, options);
             break;
         case PRIMITIVES.sphere:
-            geometry = new Sphere(gl);
+            geometry = new Sphere(gl, options);
             break;
         case PRIMITIVES.torus:
-            geometry = new Torus(gl);
+            geometry = new Torus(gl, options);
             break;
         default:
-            geometry = new Box(gl);
+            geometry = new Box(gl, options);
     }
 
     const program = createDefaultProgram(gl, color, translucent);
@@ -143,7 +148,7 @@ export function createRandomObjectDescription() {
 */
 export function createRandomObject(gl) {
     let object_description = createRandomObjectDescription();
-    const placeholder = createModel(gl, object_description.shape, object_description.color, false, object_description.scale);
+    const placeholder = createModel(gl, object_description.shape, object_description.color, false, {}, object_description.scale);
     return placeholder;
 }
 

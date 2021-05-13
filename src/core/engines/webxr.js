@@ -7,7 +7,7 @@ import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture 
 
 
 let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
-    experimentFrameCallback, onFrameUpdate;
+    experimentFrameCallback, noExperimentResultCallback, onFrameUpdate;
 let floorSpaceReference, localSpaceReference, hitTestSource, gl;
 
 let previousTime = performance.now();
@@ -199,12 +199,14 @@ export default class webxr {
     }
 
     /**
-     * Set callback to be called when a session ends.
+     * Set callbacks that should be called for certain situations.
      *
-     * @param callback  function        The function to call
+     * @param ended  function       The function to call when session ends
+     * @param noPose  function      The function to call when no pose was reported for experiment mode
      */
-    setSessionEndedCallback(callback) {
-        endedCallback = callback;
+    setCallbacks(ended, noPose) {
+        endedCallback = ended;
+        noExperimentResultCallback = noPose;
     }
 
     /**
@@ -294,24 +296,22 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
-            if (experimentFrameCallback) {
-                if (hitTestSource) {
-                    const t = performance.now();
-                    const elapsed = t - previousTime;
-                    previousTime = t;
+            if (experimentFrameCallback && hitTestSource) {
+                const t = performance.now();
+                const elapsed = t - previousTime;
+                previousTime = t;
 
-                    if (elapsed < maximumFrameTime || slowCount < maxSlow) {
-                        if (elapsed > maximumFrameTime) {
-                            slowCount++;
-                        }
-                    }
+                if (elapsed > maximumFrameTime) {
+                    slowCount = Math.max(slowCount++, maxSlow);
+                }
 
-                    const hitTestResults = frame.getHitTestResults(hitTestSource);
-                    if (hitTestResults.length > 0) {
-                        const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-                        const roundedElapsed = Math.round((elapsed + Number.EPSILON) * 100) / 100
-                        experimentFrameCallback(time, frame, floorPose, reticlePose, roundedElapsed, slowCount > maxSlow);
-                    }
+                const roundedElapsed = Math.ceil(elapsed);
+                const hitTestResults = frame.getHitTestResults(hitTestSource);
+                if (hitTestResults.length > 0) {
+                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                    experimentFrameCallback(time, frame, floorPose, reticlePose, roundedElapsed, slowCount >= maxSlow);
+                } else {
+                    noExperimentResultCallback(time, frame, floorPose, roundedElapsed, slowCount >= maxSlow)
                 }
             }
 

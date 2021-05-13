@@ -3,9 +3,10 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, Quat, Euler } from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
     createWaitingProgram, createRandomObjectDescription, createModel,} from '@core/engines/ogl/modelTemplates';
+
 
 let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
@@ -62,6 +63,25 @@ export default class ogl {
      */
     addPlaceholder(keywords, position, orientation) {
         const placeholder = getDefaultPlaceholder(gl);
+
+        placeholder.position.set(position.x, position.y, position.z);
+        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.setParent(scene);
+
+        return placeholder;
+    }
+
+    /**
+     * Create random object for experiments.
+     *
+     * @param shape  String      Defines the shape to create
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param options  Object       Defines additional options for the shape to add
+     */
+    addPlaceholderWithOptions(shape, position, orientation, options = {}) {
+        const placeholder = createModel(gl, shape,
+            [Math.random(), Math.random(), Math.random(), 1], false, options);
 
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
@@ -139,6 +159,11 @@ export default class ogl {
      */
     addReticle() {
         return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+    }
+
+    isHorizontal(object) {
+        const euler = new Euler().fromQuaternion(object.quaternion);
+        return Math.abs(euler.x) < Number.EPSILON;
     }
 
     /**
@@ -299,10 +324,9 @@ export default class ogl {
      * Render loop.
      *
      * @param time  Number      Provided by WebXR
-     * @param pose  XRPose      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-    render(time, pose, view) {
+    render(time, view) {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
