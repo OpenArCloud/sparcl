@@ -70,7 +70,7 @@ export function send(data) {
  * Called when an update was received over the network.
  */
 function updateReceived() {
-    console.log('Received', JSON.stringify(docSet.docs, null, 2));
+    //console.log('Received', JSON.stringify(docSet.docs, null, 2));
 
     if (updateFunction) {
         // TODO: There has to be a better way to get to the content of a doc

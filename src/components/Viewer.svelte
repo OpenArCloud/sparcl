@@ -320,9 +320,10 @@
         let timestamp = new Date().getTime();
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         let scr = {
             "content": content,
-            "id": "12345", //TODO: put peerID and a counter here  (objectsPlacedCount)
+            "id": object_id,
             "tenant": "ISMAR2021demo",
             "type": "scr-ephemeral",
             "timestamp": timestamp
@@ -608,7 +609,7 @@
 
                 // Augmented City proprietary structure
                 if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
-                    const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                    const subtype = record.content.custom_data.sticker_subtype.toLowerCase(); // TODO: sometimes empty, so undefined!
                     const url = record.content.custom_data.path;
 
                     // TODO: Receive list of events to register to from SCD and register them here
