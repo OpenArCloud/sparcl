@@ -73,9 +73,10 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param options  Object       Optional settings for created object
  * @returns {Mesh}
  */
-export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], 
-                            translucent = false, 
+export function createModel(gl,
+                            type = PRIMITIVES.box,
+                            color = [0.2, 0.8, 1.0, 1.0],
+                            translucent = false,
                             options = {},
                             scale = [1.0, 1.0, 1.0]) {
     let geometry;
@@ -134,10 +135,13 @@ export function createRandomObjectDescription() {
     let color = [Math.random(), Math.random(), Math.random(), 1.0];
     //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
     let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
-    let object_description = { 
+    let object_description = {
+        'version': 2,
         'color': color,
         'shape': shape,
-        'scale': scale
+        'scale': scale,
+        'transparent': false,
+        'options': {}
     };
     return object_description
 }
@@ -148,7 +152,7 @@ export function createRandomObjectDescription() {
 */
 export function createRandomObject(gl) {
     let object_description = createRandomObjectDescription();
-    const placeholder = createModel(gl, object_description.shape, object_description.color, false, {}, object_description.scale);
+    const placeholder = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
     return placeholder;
 }
 

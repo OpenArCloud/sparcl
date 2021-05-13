@@ -187,7 +187,9 @@ export default class ogl {
      * @returns {Mesh}
      */
     addObject(position, orientation, object_description) {
-        const mesh = createModel(gl, object_description.shape, object_description.color, false, object_description.scale);
+        const mesh = createModel(gl, object_description.shape, 
+                object_description.color, object_description.transparent,
+                object_description.options, object_description.scale);
         mesh.position.set(position.x, position.y, position.z);
         mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         scene.addChild(mesh);
