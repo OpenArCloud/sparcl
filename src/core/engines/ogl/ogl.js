@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, Quat, Euler } from 'ogl';
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
     createWaitingProgram, createRandomObjectDescription, createModel,} from '@core/engines/ogl/modelTemplates';
 
@@ -281,7 +281,7 @@ export default class ogl {
      * @param model     The model to remove
      */
     remove(model) {
-        scene.removeChild(model);
+        scene.removeChild(model); // TODO: this assumes that all objects are children of the root node!
 
         delete updateHandlers[model.id];
         delete eventHandlers[model.id];
@@ -343,4 +343,19 @@ export default class ogl {
             experimentTapHandler(event);
         }
     }
+}
+
+/**
+ * Returns an Euler angle representation of a quaternion.
+ *
+ * @param  {Vec3} out Euler angles, pitch-yaw-roll
+ * @param  {Quat} quat Quaternion
+ * @param  {string} order any permutation of XYZ
+ * @return {Vec3} out
+ */
+function getEulerAnglesOGL(out, quat, order = 'XYZ') {
+    let euler = Euler.fromQuaternion(quat, order = 'XYZ');
+    let vec3 = new Vec3();
+    euler.toArray(vec3);
+    return vec3;
 }

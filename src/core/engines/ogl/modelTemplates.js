@@ -6,7 +6,7 @@
 /* Provides models for generic content, provided by the content discovery */
 
 
-import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'ogl';
+import { Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4 } from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
@@ -16,14 +16,15 @@ import { randomInteger } from '@src/core/common';
 /**
  * The supported WebGL primitives.
  *
- * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string}>}
+ * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string, torus: string}>}
  */
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
     plane: 'plane',
     cylinder: 'cylinder',
-    cone: 'cone'
+    cone: 'cone',
+    torus: 'torus'
 });
 
 /**
@@ -90,6 +91,9 @@ export function createModel(gl, type = PRIMITIVES.box,
         case PRIMITIVES.sphere:
             geometry = new Sphere(gl);
             break;
+        case PRIMITIVES.torus:
+            geometry = new Torus(gl);
+            break;
         default:
             geometry = new Box(gl);
     }
@@ -123,7 +127,8 @@ export function createRandomObjectDescription() {
     let shape_idx = Math.floor(Math.random() * kNumPrimitives);
     let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
     let color = [Math.random(), Math.random(), Math.random(), 1.0];
-    let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0
+    //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
+    let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
     let object_description = { 
         'color': color,
         'shape': shape,
