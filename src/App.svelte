@@ -78,12 +78,16 @@
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
             import('@src/core/p2pnetwork')
                 .then(p2pModule => {
-                    p2p = p2pModule;
+                    if (!p2p) {
+                        p2p = p2pModule;
 
-                    const headlessPeerId = $availableP2pServices[0].description;
-                    p2p.connect(headlessPeerId, false, (data) => {
-                        viewer?.updateReceived(data);
-                    });
+                        const headlessPeerId = $availableP2pServices[0].properties
+                            .reduce((result, property) => result || property.type === 'peerid' ? property.value : null, null);
+
+                        if (headlessPeerId && !headlessPeerId?.empty) {
+                            p2p.connect(headlessPeerId, false, (data) => viewer?.updateReceived(data));
+                        }
+                    }
                 });
         } else if (!isHeadless) {
             p2p?.disconnect();

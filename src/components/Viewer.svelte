@@ -6,7 +6,6 @@
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
-
 <script>
     import {createEventDispatcher, onDestroy} from 'svelte';
 
@@ -20,13 +19,15 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocationAxis, initialLocation,
+        debug_appendCameraImage, debug_showLocationAxis, initialLocation, experimentModeSettings,
         recentLocalisation } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
+    import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
+    import {PRIMITIVES} from "../core/engines/ogl/modelTemplates";
 
 
     const message = (msg) => console.log(msg);
@@ -34,15 +35,15 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let canvas, overlay, externalContent, closeExperience;
+    let canvas, overlay, externalContent, closeExperience, experimentOverlay;
     let xrEngine, tdEngine;
 
-    let doCaptureImage = false;
+    let doCaptureImage = false, doExperimentAutoPlacement;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
-    let unableToStartSession = false;
+    let unableToStartSession = false, experimentIntervallId = null;
 
-    let trackedImageObject, creatorObject;
+    let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
 
@@ -89,7 +90,14 @@
     async function startSession() {
         let promise;
 
-        if ($arMode === ARMODES.dev) {
+        if ($arMode === ARMODES.experiment) {
+            promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
+                requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
+                domOverlay: {root: overlay}
+            })
+
+            tdEngine.setExperimentTapHandler(experimentTapHandler);
+        } else if ($arMode === ARMODES.dev) {
             promise = xrEngine.startDevSession(canvas, handleDevelopment, {
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
@@ -119,7 +127,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setSessionEndedCallback(onSessionEnded);
+                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -149,6 +157,12 @@
      */
     function onSessionEnded() {
         firstPoseReceived = false;
+
+        if (experimentIntervallId) {
+            clearInterval(experimentIntervallId);
+            experimentIntervallId = null;
+        }
+
         dispatch('arSessionEnded');
     }
 
@@ -171,6 +185,147 @@
         }
 
         poseFoundHeartbeat();
+    }
+
+    /**
+     * Special mode for experiments.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame  XRFrame        The XRFrame provided to the update loop
+     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param reticlePose  XRPose       The pose for the reticle
+     * @param frameDuration  integer        The duration of the previous frame
+     * @param passedMaxSlow  boolean        Max number of slow frames passed
+     */
+    function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
+        handlePoseHeartbeat();
+
+        xrEngine.setViewPort();
+
+        if (!reticle) {
+            reticle = tdEngine.addReticle();
+        }
+
+        const position = reticlePose.transform.position;
+        const orientation = reticlePose.transform.orientation;
+        tdEngine.updateReticlePosition(reticle, position, orientation);
+
+        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+
+        tdEngine.render(time, floorPose.views[0]);
+    }
+
+    /**
+     * Called when an AR feature used in experiment mode doesn't return a result.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame  XRFrame        The XRFrame provided to the update loop
+     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param frameDuration  integer        The duration of the previous frame
+     * @param passedMaxSlow  boolean        Max number of slow frames passed
+     */
+    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+        tdEngine.render(time, floorPose.views[0]);
+    }
+
+    /**
+     * There might be the case that a tap handler for off object taps. This is the place to handle that.
+     *
+     * Not meant for other usage than that.
+     *
+     * @param event  Event      The Javascript event object
+     * @param auto  boolean     true when called from automatic placement interval
+     */
+    function experimentTapHandler(event, auto = false) {
+        if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+            const index = Math.floor(Math.random() * 5);
+            const shape = Object.values(PRIMITIVES)[index];
+
+            const options = {attributes: {}};
+            const isHorizontal = tdEngine.isHorizontal(reticle);
+
+            let offsetY = 0, offsetZ = 0;
+
+            switch (shape) {
+                case PRIMITIVES.box:
+                    if (isHorizontal) {
+                        options.width = 0.3;
+                        options.depth = 0.3;
+                        options.height = 2;
+
+                        offsetY = 1;
+                    } else {
+                        options.width = 2;
+                        options.depth = 0.1;
+                        options.height = 0.3;
+
+                        offsetZ = -0.05;
+                    }
+                        break;
+
+                case PRIMITIVES.plane:
+                    if (isHorizontal) {
+                        options.width = 0.5;
+                        options.height = 1;
+                    } else {
+                        options.width = 2;
+                        options.height = 1;
+                    }
+                    break;
+
+                case PRIMITIVES.sphere:
+                        options.thetaLength = Math.PI / 2;
+                    break;
+
+                case PRIMITIVES.cylinder:
+                    if (isHorizontal) {
+                        options.radiusTop = 0.3;
+                        options.radiusBottom = 0.3;
+                        options.height = 2;
+
+                        offsetY = 1;
+                    } else {
+                        options.radiusTop = 0.5;
+                        options.radiusBottom = 0.5;
+                        options.height = 0.1;
+
+                        offsetZ = -0.05;
+                    }
+                    break;
+
+                case PRIMITIVES.cone:
+                    options.radiusBottom = 0.3;
+                    options.height = 0.5;
+
+                    offsetY = 0.25;
+                    offsetZ = -0.25;
+                    break;
+            }
+
+            const scale = 1;
+            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, options);
+            placeholder.scale.set(scale);
+            placeholder.position.y += offsetY * scale;
+            placeholder.position.z += offsetZ * scale;
+
+            experimentOverlay.objectPlaced();
+        }
+    }
+
+    /**
+     * Toggle automatic placement of placeholders for experiment mode.
+     */
+    function toggleExperimentalPlacement() {
+        doExperimentAutoPlacement = !doExperimentAutoPlacement;
+
+        if (doExperimentAutoPlacement) {
+            experimentIntervallId = setInterval(() => experimentTapHandler(null, true), 1000);
+        } else {
+            clearInterval(experimentIntervallId);
+        }
     }
 
     /**
@@ -215,7 +370,7 @@
         }
 
         xrEngine.handleAnchors(frame);
-        tdEngine.render(time, floorPose, floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -271,7 +426,7 @@
             }
         }
 
-        tdEngine.render(time, floorPose, floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -302,7 +457,7 @@
             tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
         }
 
-        tdEngine.render(time, floorPose, floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -361,7 +516,7 @@
                     });
             }
 
-            tdEngine.render(time, floorPose, view);
+            tdEngine.render(time, view);
         }
     }
 
@@ -481,6 +636,7 @@
 </script>
 
 
+
 <style>
     aside footer {
         position: absolute;
@@ -563,6 +719,8 @@
                 <!-- TODO: Add creator mode ui -->
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
+            {:else if $arMode === ARMODES.experiment}
+                <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>

@@ -3,14 +3,15 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import {Camera, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
-import {createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
+import {createModel, createWaitingProgram, getDefaultMarkerObject} from "./modelTemplates";
 
 
 let scene, camera, renderer, gl;
 let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
+let experimentTapHandler = null;
 
 
 /**
@@ -63,6 +64,25 @@ export default class ogl {
      */
     addPlaceholder(keywords, position, orientation) {
         const placeholder = getDefaultPlaceholder(gl);
+
+        placeholder.position.set(position.x, position.y, position.z);
+        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.setParent(scene);
+
+        return placeholder;
+    }
+
+    /**
+     * Create random object for experiments.
+     *
+     * @param shape  String      Defines the shape to create
+     * @param position  number{x, y, z}        3D position of the placeholder
+     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param options  Object       Defines additional options for the shape to add
+     */
+    addPlaceholderWithOptions(shape, position, orientation, options = {}) {
+        const placeholder = createModel(gl, shape,
+            [Math.random(), Math.random(), Math.random(), 1], false, options);
 
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
@@ -134,6 +154,20 @@ export default class ogl {
     }
 
     /**
+     * Add reticle to display successful hit test location.
+     *
+     * @returns {Transform}
+     */
+    addReticle() {
+        return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+    }
+
+    isHorizontal(object) {
+        const euler = new Euler().fromQuaternion(object.quaternion);
+        return Math.abs(euler.x) < Number.EPSILON;
+    }
+
+    /**
      * Updates the marker object according the provided position and orientation.
      *
      * Called when marker movement was detected, for example.
@@ -145,6 +179,18 @@ export default class ogl {
     updateMarkerObjectPosition(object, position, orientation) {
         object.position.set(position.x, position.y, position.z);
         object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+    }
+
+    /**
+     * Update the position of the reticle to the provided position and orientation.
+     *
+     * @param reticle  Transform        The reticle to display
+     * @param position  Ved3       The position to move the reticle to
+     * @param orientation  Quaternion       The rotation to apply to the reticle
+     */
+    updateReticlePosition(reticle, position, orientation) {
+        reticle.position.set(position.x, position.y, position.z);
+        reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
 
     /**
@@ -209,6 +255,17 @@ export default class ogl {
     }
 
     /**
+     * Registers a general tap handler. Gets called when no hits where found for a tap.
+     *
+     * Currently exclusively for experiments. Don't use otherwise.
+     *
+     * @param callback  Function        The function to call
+     */
+    setExperimentTapHandler(callback) {
+        experimentTapHandler = callback;
+    }
+
+    /**
      * Resize the canvas to full screen.
      */
     resize() {
@@ -233,16 +290,16 @@ export default class ogl {
      */
     stop() {
         window.removeEventListener('resize', this.resize, false);
+        experimentTapHandler = null;
     }
 
     /**
      * Render loop.
      *
      * @param time  Number      Provided by WebXR
-     * @param pose  XRPose      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-    render(time, pose, view) {
+    render(time, view) {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
@@ -260,7 +317,8 @@ export default class ogl {
      * @private
      * Event handler for interactive objects.
      *
-     * Handles currently mouse clicks / taps.
+     * Handles currently taps on 3D objects.
+     * Handles temporarily also taps on floor.
      *
      * @param event  Event      Javascript event object
      */
@@ -277,5 +335,9 @@ export default class ogl {
         hits.forEach((hit) => {
             eventHandlers[hit.id].handler();
         })
+
+        if (hits.length === 0 && experimentTapHandler) {
+            experimentTapHandler(event);
+        }
     }
 }

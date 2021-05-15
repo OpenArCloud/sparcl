@@ -10,7 +10,7 @@
 
 import { readable, writable, derived } from 'svelte/store';
 
-import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
+import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
 
 /**
@@ -98,6 +98,24 @@ export const creatorModeSettings = writable(storedCreatorModeSettings || {
 });
 creatorModeSettings.subscribe(value => {
     localStorage.setItem('creatormodesettings', JSON.stringify(value))
+})
+
+/**
+ * Available settings for experiment mode.
+ *
+ * @type {Writable<{type: string}>}
+ */
+const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings'));
+export const experimentModeSettings = writable(storedExperimentModeSettings || {
+    type: EXPERIMENTTYPES.game,
+    game: {
+        "add": "manually",
+        "keep": "all",
+        "showstats": true
+    }
+})
+experimentModeSettings.subscribe(value => {
+    localStorage.setItem('experimentmodesettings', JSON.stringify(value));
 })
 
 /**

@@ -15,10 +15,10 @@
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
         availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
-        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState,
-        creatorModeSettings, dashboardDetail } from '@src/stateStore';
+        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed,
+        creatorModeSettings, experimentModeSettings, dashboardDetail } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
+    import { ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
 
     // Used to dispatch events to parent
@@ -198,6 +198,14 @@
     </div>
 
     <dl>
+        <dt>Location access</dt>
+        <dd>{$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</dd>
+        {#if !isLocationAccessAllowed}
+            <dd>Request access</dd>
+        {/if}
+    </dl>
+
+    <dl>
         <dt>H3Index</dt>
         <dd>{$initialLocation.h3Index}</dd>
         <dt>Country</dt>
@@ -222,9 +230,13 @@
             <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.dev}" />
             <label for="armodedev">{ARMODES.dev}</label>
         </dd>
+        <dd>
+            <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.experiment}" />
+            <label for="armodetest">{ARMODES.experiment}</label>
+        </dd>
     </dl>
 
-    {#if $arMode === ARMODES.auto || $arMode === ARMODES.oscp}
+    {#if $arMode === ARMODES.oscp}
     <dl>
         <dt><label for="geoposeServer">GeoPose Server</label></dt>
         <dd class="select"><select id="geoposeServer" bind:value={$selectedGeoPoseService}
@@ -276,7 +288,7 @@
     </dl>
     {/if}
 
-    {#if $arMode === ARMODES.auto || $arMode === ARMODES.marker}
+    {#if $arMode === ARMODES.marker}
     <dl>
         <dt>Marker image</dt>
         <dd>{$currentMarkerImage}</dd>
@@ -311,6 +323,48 @@
         <dd class="area"><textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea></dd>
         {/if}
     </dl>
+    {/if}
+
+    {#if $arMode === ARMODES.experiment}
+        <dl>
+            <dt><label for="experimenttype">Type</label></dt>
+            <dd class="select"><select id="experimenttype" bind:value={$experimentModeSettings.type}>
+                {#each Object.values(EXPERIMENTTYPES) as type}
+                    <option value="{type}">{type}</option>
+                {/each}
+            </select></dd>
+        </dl>
+
+        {#if $experimentModeSettings.type === EXPERIMENTTYPES.game}
+            <dl class="radio">
+                <dt>Add placeholders</dt>
+                <dd>
+                    <input id="addmanually" type="radio"
+                           bind:group={$experimentModeSettings.game.add} value="manually" />
+                    <label for="addmanually">Manually</label>
+                </dd>
+                <dd>
+                    <input id="addautomatically" type="radio"
+                           bind:group={$experimentModeSettings.game.add} value="automatically" />
+                    <label for="addautomatically">Automatically</label>
+                </dd>
+
+                <dt>Keep elements</dt>
+                <dd>
+                    <input id="keepall" type="radio" bind:group={$experimentModeSettings.game.keep} value="all" />
+                    <label for="keepall">All</label>
+                </dd>
+                <dd>
+                    <input id="keepupto" type="radio" bind:group={$experimentModeSettings.game.keep} value="upto" />
+                    <label for="keepupto">Up to 20m</label>
+                </dd>
+
+                <dt>
+                    <input id="showstats" type="checkbox" bind:checked={$experimentModeSettings.game.showstats} />
+                    <label for="showstats">Show stats</label>
+                </dt>
+            </dl>
+        {/if}
     {/if}
 </details>
 
