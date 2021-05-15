@@ -68,29 +68,31 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param type  String      One of the supported object types
  * @param color  Color      Color array
  * @param translucent  Boolean      true to draw translucent according to alpha value in color
+ * @param options  Object       Optional settings for created object
  * @returns {Mesh}
  */
 export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], translucent = false) {
+                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}) {
     let geometry;
 
     switch (type) {
         case PRIMITIVES.cone:
             geometry = new Cylinder(gl, {
-                radiusTop: 0
+                radiusTop: 0,
+                ...options
             });
             break;
         case PRIMITIVES.cylinder:
-            geometry = new Cylinder(gl);
+            geometry = new Cylinder(gl, options);
             break;
         case PRIMITIVES.plane:
-            geometry = new Plane(gl);
+            geometry = new Plane(gl, options);
             break;
         case PRIMITIVES.sphere:
-            geometry = new Sphere(gl);
+            geometry = new Sphere(gl, options);
             break;
         default:
-            geometry = new Box(gl);
+            geometry = new Box(gl, options);
     }
 
     const program = createDefaultProgram(gl, color, translucent);
@@ -143,6 +145,7 @@ export function getDefaultMarkerObject(gl) {
 /**
  * Add axes at the zero point of the local coordinate system.
  *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @returns {Transform}
  */
 export function getAxes(gl) {
@@ -174,4 +177,20 @@ export function getAxes(gl) {
     xzPlane.setParent(container);
 
     return container;
+}
+
+/**
+ * Reticle used for hit testing.
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+ */
+export function getReticle(gl) {
+    const placeholder = new Sphere(gl, {
+        radius: 0.3,
+        thetaLength: Math.PI / 2
+    });
+
+    const program = createDefaultProgram(gl, [1, 1, 1, 1], false);
+    return new Mesh(gl, { geometry: placeholder, program });
 }

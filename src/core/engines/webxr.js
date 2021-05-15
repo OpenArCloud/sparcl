@@ -6,14 +6,44 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
 
 
-let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback, onFrameUpdate;
-let floorSpaceReference, localSpaceReference, gl;
+let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
+    experimentFrameCallback, noExperimentResultCallback, onFrameUpdate;
+let floorSpaceReference, localSpaceReference, hitTestSource, gl;
+
+let previousTime = performance.now();
+let slowCount = 0;
+let maxSlow = 10;
+let maximumFrameTime = 1000/30; // 30 FPS
 
 
 /**
  * WebXR implementation of the AR engine.
  */
 export default class webxr {
+    /**
+     * Start specific session for experiment mode.
+     *
+     * @param canvas  Canvas        The element to use
+     * @param callback  function        Callback to call for every frame
+     * @param options  {}       Settings to use to setup the AR session
+     * @returns {Promise}
+     */
+    startExperimentSession(canvas, callback, options) {
+        experimentFrameCallback = callback;
+
+        return navigator.xr.requestSession('immersive-ar', options)
+            .then((result) => {
+                this._initSession(canvas, result);
+
+                result.requestReferenceSpace('viewer')
+                    .then(refSpace => result.requestHitTestSource({ space: refSpace }))
+                    .then(source => hitTestSource = source);
+
+                this.glBinding = new XRWebGLBinding(result, gl);
+                initCameraCaptureScene(gl);
+            })
+    }
+
     /**
      * Start specific session for development mode.
      *
@@ -160,16 +190,23 @@ export default class webxr {
      * @param session  XRSession        The session to end
      */
     onEndSession(session) {
+        if (hitTestSource) {
+            hitTestSource.cancel();
+            hitTestSource = null;
+        }
+
         session.end();
     }
 
     /**
-     * Set callback to be called when a session ends.
+     * Set callbacks that should be called for certain situations.
      *
-     * @param callback  function        The function to call
+     * @param ended  function       The function to call when session ends
+     * @param noPose  function      The function to call when no pose was reported for experiment mode
      */
-    setSessionEndedCallback(callback) {
-        endedCallback = callback;
+    setCallbacks(ended, noPose) {
+        endedCallback = ended;
+        noExperimentResultCallback = noPose;
     }
 
     /**
@@ -197,7 +234,7 @@ export default class webxr {
                 return anchor;
             })
             .catch((error) => {
-                console.error("Anchor failed to create.");
+                console.error("Anchor failed to create: ", error);
             });
     }
 
@@ -259,6 +296,25 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
+            if (experimentFrameCallback && hitTestSource) {
+                const t = performance.now();
+                const elapsed = t - previousTime;
+                previousTime = t;
+
+                if (elapsed > maximumFrameTime) {
+                    slowCount = Math.max(slowCount++, maxSlow);
+                }
+
+                const roundedElapsed = Math.ceil(elapsed);
+                const hitTestResults = frame.getHitTestResults(hitTestSource);
+                if (hitTestResults.length > 0) {
+                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                    experimentFrameCallback(time, frame, floorPose, reticlePose, roundedElapsed, slowCount >= maxSlow);
+                } else {
+                    noExperimentResultCallback(time, frame, floorPose, roundedElapsed, slowCount >= maxSlow)
+                }
+            }
+
             if (devFrameCallback) {
                 devFrameCallback(time, frame, floorPose);
             }

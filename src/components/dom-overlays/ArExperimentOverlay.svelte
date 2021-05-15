@@ -1,0 +1,54 @@
+<!--
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE for details)
+-->
+
+<!--
+    Content of the experiment overlay.
+-->
+
+<script>
+    import { createEventDispatcher } from 'svelte';
+
+    import { experimentModeSettings} from "@src/stateStore";
+
+
+    // Used to dispatch events to parent
+    const dispatch = createEventDispatcher();
+
+    let prevFrameTime = 0;
+    let hasPassedMaxSlow = false;
+    let objectsPlacedCount = 0;
+
+
+    /**
+     * Receives timing data from the WebGL frame.
+     *
+     * @param frameTime  integer        Duration of the previous frame
+     * @param passedMaxSlow  boolean        Max number of slow frames passed
+     */
+    export function setPerformanceValues(frameTime, passedMaxSlow) {
+        prevFrameTime = frameTime;
+        hasPassedMaxSlow = passedMaxSlow;
+    }
+
+    export function objectPlaced() {
+        objectsPlacedCount++;
+    }
+</script>
+
+
+<style>
+    button {
+        width: 265px;
+        height: var(--button-height);
+    }
+</style>
+
+
+{#if $experimentModeSettings.game.showstats}
+    <p>Objects placed: {objectsPlacedCount}</p>
+    <p>Frame time: {prevFrameTime}</p>
+    <p>Max slow passed: {hasPassedMaxSlow}</p>
+    <button on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+{/if}
