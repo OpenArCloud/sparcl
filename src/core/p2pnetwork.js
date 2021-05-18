@@ -8,7 +8,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import Perge from 'perge';
+import Perge from '@thirdparty/perge.modern';
 import Automerge, {change} from 'automerge'
 import Peer from 'peerjs';
 import { p2pNetworkState, peerIdStr } from '@src/stateStore';
