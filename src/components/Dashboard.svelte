@@ -337,6 +337,11 @@
 
         {#if $experimentModeSettings.type === EXPERIMENTTYPES.game}
             <dl class="radio">
+                <dt>Localisation</dt>
+                <dd>
+                    <input id="xlocalisation" type="checkbox" bind:checked={$experimentModeSettings.game.localisation} />
+                    <label for="xlocalisation">Required</label>
+                </dd>
                 <dt>Add placeholders</dt>
                 <dd>
                     <input id="addmanually" type="radio"

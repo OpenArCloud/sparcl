@@ -92,7 +92,7 @@
 
         if ($arMode === ARMODES.experiment) {
             promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
 
@@ -201,6 +201,9 @@
     function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
         handlePoseHeartbeat();
 
+        showFooter = $experimentModeSettings.game.showstats
+                || ($experimentModeSettings.game.localisation && !isLocalized);
+
         xrEngine.setViewPort();
 
         if (!reticle) {
@@ -211,9 +214,13 @@
         const orientation = reticlePose.transform.orientation;
         tdEngine.updateReticlePosition(reticle, position, orientation);
 
-        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
 
-        tdEngine.render(time, floorPose.views[0]);
+        if ($experimentModeSettings.game.localisation && !isLocalized) {
+            handleOscp(time, frame, floorPose);
+        } else {
+            tdEngine.render(time, floorPose.views[0]);
+        }
     }
 
     /**
@@ -227,7 +234,7 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
-        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -311,7 +318,7 @@
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
 
-            experimentOverlay.objectPlaced();
+            experimentOverlay?.objectPlaced();
         }
     }
 
@@ -720,7 +727,12 @@
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
+                {#if $experimentModeSettings.game.localisation && !isLocalized}
+                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
+                                on:startLocalisation={startLocalisation} />
+                {:else}
                 <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
+                {/if}
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
