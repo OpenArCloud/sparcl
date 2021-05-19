@@ -199,26 +199,26 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
-        handlePoseHeartbeat();
-
-        showFooter = $experimentModeSettings.game.showstats
-                || ($experimentModeSettings.game.localisation && !isLocalized);
-
-        xrEngine.setViewPort();
-
-        if (!reticle) {
-            reticle = tdEngine.addReticle();
-        }
-
-        const position = reticlePose.transform.position;
-        const orientation = reticlePose.transform.orientation;
-        tdEngine.updateReticlePosition(reticle, position, orientation);
-
-        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
-
         if ($experimentModeSettings.game.localisation && !isLocalized) {
             handleOscp(time, frame, floorPose);
         } else {
+            handlePoseHeartbeat();
+
+            showFooter = $experimentModeSettings.game.showstats
+                || ($experimentModeSettings.game.localisation && !isLocalized);
+
+            xrEngine.setViewPort();
+
+            if (!reticle) {
+                reticle = tdEngine.addReticle();
+            }
+
+            const position = reticlePose.transform.position;
+            const orientation = reticlePose.transform.orientation;
+            tdEngine.updateReticlePosition(reticle, position, orientation);
+
+            experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+
             tdEngine.render(time, floorPose.views[0]);
         }
     }
