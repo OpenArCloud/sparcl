@@ -8,7 +8,7 @@
 */
 
 
-import { readable, writable, derived } from 'svelte/store';
+import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
@@ -155,7 +155,7 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (geoposeServices.length > 0) {
+    if (geoposeServices.length > 0 && Object.keys(get(selectedGeoPoseService)).length === 0) {
         selectedGeoPoseService.set(geoposeServices[0]);
     }
 
@@ -178,9 +178,13 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (contentServices.length > 0) {
-        const id = contentServices[0].id;
-        selectedContentServices.set({id: {}});
+    if (contentServices.length > 0 && Object.keys(get(selectedContentServices)).length === 0) {
+        const id = contentServices[0].id
+        let selection = {};
+        selection[id] = {}
+        selection[id].isSelected = true;
+        selection[id].selectedTopic = 'history';    // TODO: get first topic from service
+        selectedContentServices.set(selection);
     }
 
     set(contentServices);
@@ -202,7 +206,7 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (p2pServices.length > 0) {
+    if (p2pServices.length > 0 && Object.keys(get(selectedP2pService)).length === 0) {
         selectedP2pService.set(p2pServices[0]);
     }
 

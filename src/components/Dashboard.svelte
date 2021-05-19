@@ -291,7 +291,8 @@
         <dt><label>Content Server</label></dt>
         {#each $availableContentServices as service}
         <dd>
-            <input type="checkbox" on:change={(event) => handleContentServiceSelection(event, service)} />
+            <input type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
+                   on:change={(event) => handleContentServiceSelection(event, service)} />
             <label>{service.title}</label>
 
             {#if service?.properties}
@@ -300,8 +301,9 @@
                     {#if property.type === 'topics'}
                         {#each property.value.split(',') as topic}
                         <li>
-                            <input id="contenttopic" type="radio" name="service.id"
+                            <input id="contenttopic" type="radio" name="{service.id}"
                                    disabled="{!$selectedContentServices[service.id]?.isSelected}"
+                                   checked="{$selectedContentServices[service.id]?.selectedTopic === topic}"
                                    on:change={(event) => handleContentServiceTopicSelection(event, service, topic)} />
                             <label for="contenttopic">{topic}</label>
                         </li>

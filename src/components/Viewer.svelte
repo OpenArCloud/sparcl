@@ -11,7 +11,7 @@
 
     import {v4 as uuidv4} from 'uuid';
 
-    import {objectEndpoint, sendRequest, validateRequest} from 'gpp-access';
+    import {sendRequest, validateRequest} from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
@@ -20,9 +20,10 @@
 
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
-    import { arMode, selectedGeoPoseService, selectedContentServices, creatorModeSettings, currentMarkerImage,
-        currentMarkerImageWidth, debug_appendCameraImage, debug_showLocationAxis, initialLocation,
-        experimentModeSettings, recentLocalisation } from '@src/stateStore';
+    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
+            debug_appendCameraImage, debug_showLocationAxis, experimentModeSettings, initialLocation, recentLocalisation,
+            selectedContentServices, selectedGeoPoseService
+        } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
@@ -509,14 +510,19 @@
                 }
 
                 localize(image, viewport.width, viewport.height)
-                    .then((geoPose) => {
+                    .then(([geoPose, scr]) => {
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose.transform;
 
-                        return getContent();
+                        // There are GeoPose services that return directly content
+                        if (scr) {
+                            return [scr];
+                        } else {
+                            return getContent();
+                        }
                     })
-                    .then((content) => {
-                        placeContent(floorPose, $recentLocalisation.geopose, content);
+                    .then(scrs => {
+                        placeContent(floorPose, $recentLocalisation.geopose, scrs);
                     })
             }
 
@@ -561,52 +567,61 @@
     }
 
     function getContent() {
-        // TODO: $selectedContentServices
-        // getContentAtLocation('history', $initialLocation.h3Index);
+        const servicePromises = $availableContentServices.reduce((result, service) => {
+            if ($selectedContentServices[service.id]?.isSelected) {
+                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+            }
+
+            return result
+        }, [])
+
+        return Promise.all(servicePromises);
     }
 
     /**
-     *  Places the content provided by a call to a Spacial Content Discovery server.
+     *  Places the content provided by a call to Spacial Content Discovery providers.
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
      * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
-     * @param scr  SCR Spatial      Content Record with the result from the server request
+     * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     function placeContent(localPose, globalPose, scr) {
 
         console.log('Number of content items received: ', scr.length);
 
-        scr.forEach(record => {
-            const objectPose = record.content.geopose;
+        scr.forEach(response => {
+            response.forEach(record => {
+                const objectPose = record.content.geopose;
 
-            // Difficult to generalize, because there are no types defined yet.
-            if (record.content.type === 'placeholder') {
-                const position = calculateDistance(globalPose, objectPose);
-                const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
+                // Difficult to generalize, because there are no types defined yet.
+                if (record.content.type === 'placeholder') {
+                    const position = calculateDistance(globalPose, objectPose);
+                    const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
 
-                // Augmented City proprietary structure
-                if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
-                    const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                    const url = record.content.custom_data.path;
+                    // Augmented City proprietary structure
+                    if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
+                        const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        const url = record.content.custom_data.path;
 
-                    // TODO: Receive list of events to register to from SCD and register them here
+                        // TODO: Receive list of events to register to from SCD and register them here
 
-                    switch (subtype) {
-                        case 'scene':
-                            const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                            tdEngine.addClickEvent(experiencePlaceholder,
-                                () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                            break;
-                        case 'gltf':
-                            tdEngine.addModel(position, orientation, url)
+                        switch (subtype) {
+                            case 'scene':
+                                const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                                tdEngine.addClickEvent(experiencePlaceholder,
+                                    () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                                break;
+                            case 'gltf':
+                                tdEngine.addModel(position, orientation, url)
+                        }
+                    } else {
+                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                        handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                } else {
-                    const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                    handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
-                }
 
-                // TODO: Anchor placeholder for better visual stability?!
-            }
+                    // TODO: Anchor placeholder for better visual stability?!
+                }
+            })
         })
     }
 
