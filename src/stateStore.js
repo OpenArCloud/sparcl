@@ -154,6 +154,11 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
                     geoposeServices.push(service);
             }));
     }
+
+    if (geoposeServices.length > 0) {
+        selectedGeoPoseService.set(geoposeServices[0]);
+    }
+
     set(geoposeServices);
 }, []);
 
@@ -172,6 +177,12 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
                     contentServices.push(service);
             }));
     }
+
+    if (contentServices.length > 0) {
+        const id = contentServices[0].id;
+        selectedContentServices.set({id: {}});
+    }
+
     set(contentServices);
 }, []);
 
@@ -190,6 +201,11 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
                     p2pServices.push(service);
             }));
     }
+
+    if (p2pServices.length > 0) {
+        selectedP2pService.set(p2pServices[0]);
+    }
+
     set(p2pServices);
 }, []);
 
@@ -197,24 +213,28 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
 /**
  * The one of the returned GeoPose service to be used for localisation.
  *
- * @type {Writable<SERVICE>}
+ * @type {Writable<>}
  */
-export const selectedGeoPoseService = writable('none');
+export const selectedGeoPoseService = writable({});
 
 
+/**
+ * Used to store the values of the most up to date localisation.
+ *
+ * @type {Writable<{floorpose: {}, geopose: {}}>}
+ */
 export const recentLocalisation = writable({
     geopose: {},
     floorpose: {}
 })
 
 
-
 /**
- * The one of the returned content services to be used to look for content around the current location.
+ * The ones of the received content services to be used to request content around the current location from.
  *
- * @type {Writable<SERVICE>}
+ * @type {}>}
  */
-export const selectedContentService = writable('none');
+export const selectedContentServices = writable({});
 
 
 /**

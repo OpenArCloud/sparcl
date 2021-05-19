@@ -16,11 +16,13 @@
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
+    import { getContentAtLocation } from 'scd-access';
+
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
-    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocationAxis, initialLocation, experimentModeSettings,
-        recentLocalisation } from '@src/stateStore';
+    import { arMode, selectedGeoPoseService, selectedContentServices, creatorModeSettings, currentMarkerImage,
+        currentMarkerImageWidth, debug_appendCameraImage, debug_showLocationAxis, initialLocation,
+        experimentModeSettings, recentLocalisation } from '@src/stateStore';
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
 
@@ -507,13 +509,15 @@
                 }
 
                 localize(image, viewport.width, viewport.height)
-                    // When localisation didn't already provide content, needs to be requested here
-                    .then(([geoPose, data]) => {
+                    .then((geoPose) => {
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose.transform;
 
-                        placeContent(floorPose, geoPose, data);
-                    });
+                        return getContent();
+                    })
+                    .then((content) => {
+                        placeContent(floorPose, $recentLocalisation.geopose, content);
+                    })
             }
 
             tdEngine.render(time, view);
@@ -539,23 +543,26 @@
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
 
-            sendRequest(`${$availableContentServices[0].url}/${objectEndpoint}`, JSON.stringify(geoPoseRequest))
+            sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
                 .then(data => {
                     isLocalizing = false;
                     isLocalized = true;
                     wait(1000).then(() => showFooter = false);
 
-                    if ('scrs' in data) {
-                        resolve([data.geopose.pose, data.scrs]);
-                    }
+                    resolve([data.geopose, data.scrs]);
                 })
                 .catch(error => {
-                    // TODO: Offer marker alternative
+                    // TODO: Inform user
                     isLocalizing = false;
                     console.error(error);
                     reject(error);
                 });
         });
+    }
+
+    function getContent() {
+        // TODO: $selectedContentServices
+        // getContentAtLocation('history', $initialLocation.h3Index);
     }
 
     /**
