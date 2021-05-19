@@ -40,11 +40,13 @@
 
     let doCaptureImage = false, doExperimentAutoPlacement;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
+    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false,hasLostTracking = false;
     let unableToStartSession = false, experimentIntervallId = null;
 
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
+
+    let receivedContentNames = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -205,7 +207,7 @@
             handlePoseHeartbeat();
 
             showFooter = $experimentModeSettings.game.showstats
-                || ($experimentModeSettings.game.localisation && !isLocalized);
+                || ($experimentModeSettings.game.localisation && !isLocalisationDone);
 
             xrEngine.setViewPort();
 
@@ -550,9 +552,16 @@
                 .then(data => {
                     isLocalizing = false;
                     isLocalized = true;
-                    wait(1000).then(() => showFooter = false);
+                    wait(2000).then(() => {
+                        showFooter = false;
+                        isLocalisationDone = true;
+                    });
 
                     if ('scrs' in data) {
+                        receivedContentNames = data.scrs.reduce((result, item) => {
+                            result.push(item.content.title);
+                            return result;
+                        }, []);
                         resolve([data.geopose.pose, data.scrs]);
                     }
                 })
@@ -727,9 +736,10 @@
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalized}
+                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                                 on:startLocalisation={startLocalisation} />
+                <p>{receivedContentNames.join()}</p>
                 {:else}
                 <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
                 {/if}
