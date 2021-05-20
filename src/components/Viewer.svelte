@@ -515,6 +515,7 @@
                         $recentLocalisation.floorpose = floorPose.transform;
 
                         // There are GeoPose services that return directly content
+                        // TODO: Request content even when there is already content provided from GeoPose call
                         if (scr) {
                             return [scr];
                         } else {
