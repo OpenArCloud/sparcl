@@ -13,7 +13,7 @@
     import { supportedCountries} from 'ssd-access';
 
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
-        availableP2pServices, selectedGeoPoseService, selectedContentService, selectedP2pService, arMode,
+        availableP2pServices, selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
         debug_showLocationAxis, allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed,
         creatorModeSettings, experimentModeSettings, dashboardDetail } from '@src/stateStore';
@@ -23,6 +23,18 @@
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+
+    function handleContentServiceSelection(event, service) {
+        if (!$selectedContentServices[service.id]) {
+            $selectedContentServices[service.id] = {};
+        }
+
+        $selectedContentServices[service.id].isSelected = event.target.checked;
+    }
+
+    function handleContentServiceTopicSelection(event, service, topic) {
+        $selectedContentServices[service.id].selectedTopic = topic;
+    }
 </script>
 
 
@@ -135,6 +147,23 @@
         margin-bottom: 30px;
     }
 
+    dl.nested dd {
+        display: block;
+        height: auto;
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+
+    dl.nested p {
+        margin: 0;
+    }
+
+    dl.nested ul {
+        margin: 0;
+        list-style: none;
+        padding: 0;
+    }
+
     dd.select {
         border: 0;
         padding: 0;
@@ -218,8 +247,7 @@
     <dl class="radio connected">
         <dt>AR mode</dt>
         <dd>
-            <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}"
-                   class:disabled="{$availableGeoPoseServices.length === 0  || null}"/>
+            <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}" />
             <label for="armodeoscp">{ARMODES.oscp}</label>
         </dd>
         <dd>
@@ -240,7 +268,7 @@
     <dl>
         <dt><label for="geoposeServer">GeoPose Server</label></dt>
         <dd class="select"><select id="geoposeServer" bind:value={$selectedGeoPoseService}
-                                   class:disabled="{$availableGeoPoseServices.length < 2  || null}">
+                                   disabled="{$availableGeoPoseServices.length < 2  || null}">
             {#if $availableGeoPoseServices.length === 0}
                 <option>None</option>
             {:else}
@@ -259,24 +287,41 @@
     <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
     </dl>
 
-    <dl>
-        <dt><label for="contentserver">Content Server</label></dt>
-        <dd class="select"><select id="contentserver" bind:value={$selectedContentService}
-                                   class:disabled="{$availableContentServices.length < 2  || null}">
-            {#if $availableContentServices.length === 0}
-                <option>None</option>
-            {:else}
-                {#each $availableContentServices as service}
-                    <option value={service}>{service.title}</option>
+    <dl class="nested">
+        <dt><label>Content Server</label></dt>
+        {#each $availableContentServices as service}
+        <dd>
+            <input type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
+                   on:change={(event) => handleContentServiceSelection(event, service)} />
+            <label>{service.title}</label>
+
+            {#if service?.properties}
+            <ul>
+                {#each service.properties as property}
+                    {#if property.type === 'topics'}
+                        {#each property.value.split(',') as topic}
+                        <li>
+                            <input id="contenttopic" type="radio" name="{service.id}"
+                                   disabled="{!$selectedContentServices[service.id]?.isSelected}"
+                                   checked="{$selectedContentServices[service.id]?.selectedTopic === topic}"
+                                   on:change={(event) => handleContentServiceTopicSelection(event, service, topic)} />
+                            <label for="contenttopic">{topic}</label>
+                        </li>
+                        {/each}
+                    {/if}
                 {/each}
+            </ul>
+            {:else}
+                <p>No Topics</p>
             {/if}
-        </select></dd>
+        </dd>
+        {/each}
     </dl>
 
     <dl>
         <dt><label for="p2pserver">P2P Service</label></dt>
         <dd class="select"><select id="p2pserver" bind:value={$selectedP2pService}
-                                   class:disabled="{$availableP2pServices.length < 2  || null}">
+                                   disabled="{$availableP2pServices.length < 2  || null}">
             {#if $availableP2pServices.length === 0}
                 <option>None</option>
             {:else}
