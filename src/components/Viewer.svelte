@@ -515,7 +515,7 @@
                         $recentLocalisation.floorpose = floorPose.transform;
 
                         // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call
+                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
                         if (scr) {
                             return [scr];
                         } else {
@@ -567,6 +567,9 @@
         });
     }
 
+    /**
+     * Request content from SCD available around the current location.
+     */
     function getContent() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
@@ -588,7 +591,7 @@
      */
     function placeContent(localPose, globalPose, scr) {
 
-        console.log('Number of content items received: ', scr.length);
+        console.log('Number of content items received: ', scr.reduce((result, record) => result += record.length, 0));
 
         scr.forEach(response => {
             response.forEach(record => {
