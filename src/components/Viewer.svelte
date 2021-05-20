@@ -555,7 +555,7 @@
                     isLocalized = true;
                     wait(1000).then(() => showFooter = false);
 
-                    resolve([data.geopose, data.scrs]);
+                    resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
@@ -599,7 +599,7 @@
                     const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
 
                     // Augmented City proprietary structure
-                    if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
+                    if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') {
                         const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
                         const url = record.content.custom_data.path;
 
