@@ -21,10 +21,10 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
-        selectedContentServices, selectedGeoPoseService
-    } from '@src/stateStore';
- 
+            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+            selectedContentServices, selectedGeoPoseService
+        } from '@src/stateStore';
+
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
     import { fakeLocationResult } from '@core/devTools';
 
@@ -77,6 +77,7 @@
      */
     export function updateReceived(data) {
         // TODO: Receive list of events to fire from SCD
+
         if ('setrotation' in data) {
             // todo app.fire('setrotation', data.setrotation);
         }
@@ -95,7 +96,6 @@
 
         if ($arMode === ARMODES.experiment) {
             promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                // TODO: use unbounded tracking
                 requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
@@ -113,7 +113,6 @@
             });
         } else if ($arMode === ARMODES.oscp) {
             promise = xrEngine.startOscpSession(canvas, handleOscp, {
-                // TODO: use unbounded tracking
                 requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
@@ -246,7 +245,6 @@
      */
     function experimentTapHandler(event, auto = false) {
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
-
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -637,8 +635,8 @@
 
                     // TODO: Anchor placeholder for better visual stability?!
                 }
-            });
-        });
+            })
+        })
 
         tdEngine.endSpatialContentRecords();
     }

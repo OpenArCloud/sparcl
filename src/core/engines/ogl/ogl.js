@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import { Camera, GLTFLoader, Mat4, Mat3, Raycast, Renderer, Transform, Vec2, Vec3, Quat, Euler } from 'ogl';
+import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2 } from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
     createWaitingProgram, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
@@ -293,8 +293,9 @@ export default class ogl {
      * @param model     The model to remove
      */
     remove(model) {
-        scene.removeChild(model); // TODO: this assumes that all objects are children of the root node!
-                                  // We should call something like model.parent.removeChild(model);
+        // TODO: this assumes that all objects are children of the root node!
+        // We should call something like model.parent.removeChild(model);
+        scene.removeChild(model);
 
         delete updateHandlers[model.id];
         delete eventHandlers[model.id];
@@ -364,7 +365,7 @@ export default class ogl {
      */
     beginSpatialContentRecords(localImagePose, globalImagePose) {
 
-        // NOTE: 
+        // NOTE:
         // The GeoPose location coordinates are in local tangent plane (LTP) approximation, in
         // East-North-Up (ENU) right-handed coordinate system
         // https://en.wikipedia.org/wiki/Local_tangent_plane_coordinates
@@ -460,7 +461,7 @@ export default class ogl {
         _geo2ArTransformNode.quaternion.set(deltaRotGeo2Ar[0], deltaRotGeo2Ar[1], deltaRotGeo2Ar[2], deltaRotGeo2Ar[3]); // from quat to Quat
         // translate to the camera position
         _geo2ArTransformNode.position.x = _geo2ArTransformNode.position.x + localImagePose.position.x;
-        _geo2ArTransformNode.position.y = _geo2ArTransformNode.position.y + localImagePose.position.y; 
+        _geo2ArTransformNode.position.y = _geo2ArTransformNode.position.y + localImagePose.position.y;
         _geo2ArTransformNode.position.z = _geo2ArTransformNode.position.z + localImagePose.position.z;
         _geo2ArTransformNode.updateMatrix();
         _geo2ArTransformNode.updateMatrixWorld(true);
@@ -541,15 +542,15 @@ export default class ogl {
      * Converts a GeoPose object into East-North-Up coordinate system (local tangent plane approximation)
      * @param {*} geoPose GeoPose to convert
      * @param {*} refGeoPose reference GeoPose
-     * @returns 
+     * @returns
      */
     geoPose_to_ENU(geoPose, refGeoPose) {
         let enuPosition = geodetic_to_enu(geoPose.latitude, geoPose.longitude, geoPose.ellipsoidHeight,
                         refGeoPose.latitude, refGeoPose.longitude, refGeoPose.ellipsoidHeight);
-        
+
         let enuPose = new Transform();
         enuPose.position.set(enuPosition.x, enuPosition.y, enuPosition.z);
-        enuPose.quaternion.set(geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w);    
+        enuPose.quaternion.set(geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w);
         enuPose.updateMatrix();
         return enuPose;
     }

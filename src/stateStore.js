@@ -285,6 +285,8 @@ allowP2pNetwork.subscribe(value => {
 export const p2pNetworkState = writable('none');
 
 
+
+
 /**
  * Appends the captured image used for localisation to the body an an image element.
  *

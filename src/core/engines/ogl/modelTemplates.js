@@ -71,8 +71,8 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param options  Object       Optional settings for created object
  * @returns {Mesh}
  */
- export function createModel(gl, type = PRIMITIVES.box,
-                             color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}) {
+export function createModel(gl, type = PRIMITIVES.box,
+                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}) {
     let geometry;
 
     switch (type) {
