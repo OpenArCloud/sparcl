@@ -12,11 +12,12 @@
 
     import { supportedCountries} from 'ssd-access';
 
-    import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices,
-        availableP2pServices, selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
-        currentMarkerImage, currentMarkerImageWidth, recentLocalisation, debug_appendCameraImage,
-        debug_showLocationAxis, allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed,
-        creatorModeSettings, experimentModeSettings, dashboardDetail } from '@src/stateStore';
+    import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices, availableP2pServices,
+        selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
+        currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
+        allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
+        creatorModeSettings, experimentModeSettings, debug_appendCameraImage, debug_showLocalAxes
+    } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
@@ -436,8 +437,8 @@
     </div>
 
     <div>
-        <input id="showlocationaxis" type="checkbox" bind:checked={$debug_showLocationAxis} />
-        <label for="showlocationaxis">Show local zero point markers</label>
+        <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
+        <label for="showlocalaxes">Show local coordinate axes</label>
     </div>
 </details>
 

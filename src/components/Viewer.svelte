@@ -21,11 +21,12 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocationAxis, experimentModeSettings, initialLocation, recentLocalisation,
-            selectedContentServices, selectedGeoPoseService
-        } from '@src/stateStore';
+        debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+        selectedContentServices, selectedGeoPoseService
+    } from '@src/stateStore';
+ 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
+    import { fakeLocationResult } from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -76,7 +77,6 @@
      */
     export function updateReceived(data) {
         // TODO: Receive list of events to fire from SCD
-
         if ('setrotation' in data) {
             // todo app.fire('setrotation', data.setrotation);
         }
@@ -95,6 +95,7 @@
 
         if ($arMode === ARMODES.experiment) {
             promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
+                // TODO: use unbounded tracking
                 requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
@@ -112,6 +113,7 @@
             });
         } else if ($arMode === ARMODES.oscp) {
             promise = xrEngine.startOscpSession(canvas, handleOscp, {
+                // TODO: use unbounded tracking
                 requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
@@ -244,6 +246,7 @@
      */
     function experimentTapHandler(event, auto = false) {
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -349,7 +352,7 @@
 
             xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
 
@@ -396,7 +399,7 @@
 
             xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
         }
@@ -477,7 +480,7 @@
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
         }
@@ -512,7 +515,7 @@
                 localize(image, viewport.width, viewport.height)
                     .then(([geoPose, scr]) => {
                         $recentLocalisation.geopose = geoPose;
-                        $recentLocalisation.floorpose = floorPose.transform;
+                        $recentLocalisation.floorpose = floorPose;
 
                         // There are GeoPose services that return directly content
                         // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
@@ -523,7 +526,7 @@
                         }
                     })
                     .then(scrs => {
-                        placeContent(floorPose, $recentLocalisation.geopose, scrs);
+                        placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
 
@@ -543,6 +546,7 @@
      */
     function localize(image, width, height) {
         return new Promise((resolve, reject) => {
+            //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
@@ -590,17 +594,25 @@
      * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     function placeContent(localPose, globalPose, scr) {
+        let localImagePose = localPose.transform
+        let globalImagePose = globalPose
+        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
         console.log('Number of content items received: ', scr.reduce((result, record) => result += record.length, 0));
 
         scr.forEach(response => {
             response.forEach(record => {
-                const objectPose = record.content.geopose;
+
+                // TODO: this method could handle any type of content:
+                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
                 if (record.content.type === 'placeholder') {
-                    const position = calculateDistance(globalPose, objectPose);
-                    const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
+
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    let position = localObjectPose.position;
+                    let orientation = localObjectPose.quaternion;
 
                     // Augmented City proprietary structure
                     if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') {
@@ -625,8 +637,10 @@
 
                     // TODO: Anchor placeholder for better visual stability?!
                 }
-            })
-        })
+            });
+        });
+
+        tdEngine.endSpatialContentRecords();
     }
 
     /**
