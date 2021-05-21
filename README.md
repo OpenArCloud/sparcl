@@ -31,11 +31,4 @@ Steps to setup the project:
 * Set up [remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/) with [port forwarding](https://developer.chrome.com/docs/devtools/remote-debugging/local-server/)
 
 * open Chrome on an AR capable device, enter `chrome://flags` and enable _WebXR Incubations_
-* enter the ULR shown in the terminal in the browser on the device 
-
-There is an unfortunate problem with peerjs. Open the `node_modules\peerjs\dist\peerjs.min.js` file and paste this to the top:
-```javascript
-window.global = window; 
-var parcelRequire;
-```
-Another workaround is posted [here](https://github.com/peers/peerjs/issues/753)
+* enter the ULR shown in the terminal in the browser on the device
