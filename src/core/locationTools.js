@@ -411,7 +411,7 @@ export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
     // OLD AugmentedCity API
     //const dz = objectGeoPose.altitude - cameraGeoPose.altitude;
     // NEW AugmentedCty API
-    const dz = objectGeoPose.ellipsoidHeight - cameraGeoPose.ellipsoidHeight;
+    let dz = objectGeoPose.ellipsoidHeight - cameraGeoPose.ellipsoidHeight;
     //console.log("dx: " + dx + ", dy: " + dy + ", dz: " + dz);
 
     // WARNING: AugmentedCity sometimes returns invalid height!
