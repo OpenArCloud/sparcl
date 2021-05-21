@@ -100,6 +100,36 @@ export function createModel(gl, type = PRIMITIVES.box,
     return new Mesh(gl, { geometry: geometry, program });
 }
 
+/**
+ * Creates a box with size X=0.1, Y=0.2, Z=0.3 and given color
+ *
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @param color  Color      Color array
+ * @returns {Mesh}
+ */
+export function createAxesBoxPlaceholder(gl, color, showaxes=true) {
+    const placeholder = createModel(gl, PRIMITIVES.box, color, true);
+    placeholder.scale.set(0.1, 0.2, 0.3);
+    if (!showaxes) {
+        return placeholder;
+    }
+    const xAxis = createModel(gl, PRIMITIVES.cone, [1.0, 0.0, 0.0, 0.7], true);
+    xAxis.position.set(1.0, 0.0, 0.0);
+    //xAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
+    xAxis.quaternion.set(0.0, 0.0, -0.7071, 0.7071);
+    placeholder.addChild(xAxis);
+    const yAxis = createModel(gl, PRIMITIVES.cone, [0.0, 1.0, 0.0, 0.7], true);
+    yAxis.position.set(0.0, 1.0, 0.0);
+    //yAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
+    yAxis.quaternion.set(0.0, 0.0, 0.0, 1.0);
+    placeholder.addChild(yAxis);
+    const zAxis = createModel(gl, PRIMITIVES.cone, [0.0, 0.0, 1.0, 0.7], true);
+    zAxis.position.set(0.0, 0.0, 1.0);
+    //zAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
+    zAxis.quaternion.set(0.7071, 0.0, 0.0, 0.7071);
+    placeholder.addChild(zAxis);
+    return placeholder;
+}
 
 /**
  * Creates a model for content type 'placeholder', based on optionally provided keywords.
