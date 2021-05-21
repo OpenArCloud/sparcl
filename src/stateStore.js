@@ -303,10 +303,10 @@ debug_appendCameraImage.subscribe(value => {
  *
  * @type {Writable<boolean>}
  */
-const storedDebug_showLocationAxis = localStorage.getItem('debug_showLocationAxis') === 'true';
-export const debug_showLocationAxis = writable(storedDebug_showLocationAxis);
-debug_showLocationAxis.subscribe(value => {
-    localStorage.setItem('debug_showLocationAxis', value === true ? 'true' : 'false');
+const storedDebug_showLocalAxes = localStorage.getItem('debug_showLocalAxes') === 'true';
+export const debug_showLocalAxes = writable(storedDebug_showLocalAxes);
+debug_showLocalAxes.subscribe(value => {
+    localStorage.setItem('debug_showLocalAxes', value === true ? 'true' : 'false');
 })
 
 /**
