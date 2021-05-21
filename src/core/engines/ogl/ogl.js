@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2 } from 'ogl';
+import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
     createWaitingProgram, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
@@ -11,8 +11,7 @@ import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMark
 import { convertGeo2WebVec3, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
 
-import { printQuat, printGlmQuat, printOglTransform, getEulerDegreesOgl } from '@core/devTools';
-import { quat, vec3 } from 'gl-matrix';
+import { quat } from 'gl-matrix';
 
 
 let scene, camera, renderer, gl;
@@ -120,7 +119,7 @@ export default class ogl {
                 s.forEach(root => {
                     root.setParent(gltfScene);
                 });
-            }).catch(error => {
+            }).catch(() => {
                 console.log("Unable to load model from URL: " + url);
                 console.log("Adding placeholder box instead");
                 let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false) // red
@@ -509,7 +508,7 @@ export default class ogl {
     }
 
     convertGeoPoseToLocalPose(geoPose) {
-        if (_geo2ArTransformNode == undefined) {
+        if (_geo2ArTransformNode === undefined) {
             throw "No localization has happened yet!";
         }
 
