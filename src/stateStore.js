@@ -8,7 +8,7 @@
 */
 
 
-import { readable, writable, derived } from 'svelte/store';
+import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
@@ -154,6 +154,11 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
                     geoposeServices.push(service);
             }));
     }
+
+    if (geoposeServices.length > 0 && Object.keys(get(selectedGeoPoseService)).length === 0) {
+        selectedGeoPoseService.set(geoposeServices[0]);
+    }
+
     set(geoposeServices);
 }, []);
 
@@ -172,6 +177,16 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
                     contentServices.push(service);
             }));
     }
+
+    if (contentServices.length > 0 && Object.keys(get(selectedContentServices)).length === 0) {
+        const id = contentServices[0].id
+        let selection = {};
+        selection[id] = {}
+        selection[id].isSelected = true;
+        selection[id].selectedTopic = 'history';    // TODO: get first topic from service
+        selectedContentServices.set(selection);
+    }
+
     set(contentServices);
 }, []);
 
@@ -190,6 +205,11 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
                     p2pServices.push(service);
             }));
     }
+
+    if (p2pServices.length > 0 && Object.keys(get(selectedP2pService)).length === 0) {
+        selectedP2pService.set(p2pServices[0]);
+    }
+
     set(p2pServices);
 }, []);
 
@@ -197,24 +217,28 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
 /**
  * The one of the returned GeoPose service to be used for localisation.
  *
- * @type {Writable<SERVICE>}
+ * @type {Writable<>}
  */
-export const selectedGeoPoseService = writable('none');
+export const selectedGeoPoseService = writable({});
 
 
+/**
+ * Used to store the values of the most up to date localisation.
+ *
+ * @type {Writable<{floorpose: {}, geopose: {}}>}
+ */
 export const recentLocalisation = writable({
     geopose: {},
     floorpose: {}
 })
 
 
-
 /**
- * The one of the returned content services to be used to look for content around the current location.
+ * The ones of the received content services to be used to request content around the current location from.
  *
- * @type {Writable<SERVICE>}
+ * @type {}>}
  */
-export const selectedContentService = writable('none');
+export const selectedContentServices = writable({});
 
 
 /**
@@ -279,10 +303,10 @@ debug_appendCameraImage.subscribe(value => {
  *
  * @type {Writable<boolean>}
  */
-const storedDebug_showLocationAxis = localStorage.getItem('debug_showLocationAxis') === 'true';
-export const debug_showLocationAxis = writable(storedDebug_showLocationAxis);
-debug_showLocationAxis.subscribe(value => {
-    localStorage.setItem('debug_showLocationAxis', value === true ? 'true' : 'false');
+const storedDebug_showLocalAxes = localStorage.getItem('debug_showLocalAxes') === 'true';
+export const debug_showLocalAxes = writable(storedDebug_showLocalAxes);
+debug_showLocalAxes.subscribe(value => {
+    localStorage.setItem('debug_showLocalAxes', value === true ? 'true' : 'false');
 })
 
 /**

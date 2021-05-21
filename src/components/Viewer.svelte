@@ -11,18 +11,22 @@
 
     import {v4 as uuidv4} from 'uuid';
 
-    import {objectEndpoint, sendRequest, validateRequest} from 'gpp-access';
+    import {sendRequest, validateRequest} from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
+    import { getContentAtLocation } from 'scd-access';
+
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-        debug_appendCameraImage, debug_showLocationAxis, initialLocation, experimentModeSettings,
-        recentLocalisation } from '@src/stateStore';
+            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+            selectedContentServices, selectedGeoPoseService
+        } from '@src/stateStore';
+
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { calculateDistance, calculateRotation, fakeLocationResult } from '@core/locationTools';
+    import { fakeLocationResult } from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -40,13 +44,11 @@
 
     let doCaptureImage = false, doExperimentAutoPlacement;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false,hasLostTracking = false;
+    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
     let unableToStartSession = false, experimentIntervallId = null;
 
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
-
-    let receivedContentNames = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -94,7 +96,7 @@
 
         if ($arMode === ARMODES.experiment) {
             promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
 
@@ -201,28 +203,21 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
-        if ($experimentModeSettings.game.localisation && !isLocalized) {
-            handleOscp(time, frame, floorPose);
-        } else {
-            handlePoseHeartbeat();
+        handlePoseHeartbeat();
 
-            showFooter = $experimentModeSettings.game.showstats
-                || ($experimentModeSettings.game.localisation && !isLocalisationDone);
+        xrEngine.setViewPort();
 
-            xrEngine.setViewPort();
-
-            if (!reticle) {
-                reticle = tdEngine.addReticle();
-            }
-
-            const position = reticlePose.transform.position;
-            const orientation = reticlePose.transform.orientation;
-            tdEngine.updateReticlePosition(reticle, position, orientation);
-
-            experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
-
-            tdEngine.render(time, floorPose.views[0]);
+        if (!reticle) {
+            reticle = tdEngine.addReticle();
         }
+
+        const position = reticlePose.transform.position;
+        const orientation = reticlePose.transform.orientation;
+        tdEngine.updateReticlePosition(reticle, position, orientation);
+
+        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -236,7 +231,7 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
-        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -320,7 +315,7 @@
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
 
-            experimentOverlay?.objectPlaced();
+            experimentOverlay.objectPlaced();
         }
     }
 
@@ -355,7 +350,7 @@
 
             xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
 
@@ -402,7 +397,7 @@
 
             xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
         }
@@ -483,7 +478,7 @@
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
-            if ($debug_showLocationAxis) {
+            if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
             }
         }
@@ -516,13 +511,21 @@
                 }
 
                 localize(image, viewport.width, viewport.height)
-                    // When localisation didn't already provide content, needs to be requested here
-                    .then(([geoPose, data]) => {
+                    .then(([geoPose, scr]) => {
                         $recentLocalisation.geopose = geoPose;
-                        $recentLocalisation.floorpose = floorPose.transform;
+                        $recentLocalisation.floorpose = floorPose;
 
-                        placeContent(floorPose, geoPose, data);
-                    });
+                        // There are GeoPose services that return directly content
+                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
+                        if (scr) {
+                            return [scr];
+                        } else {
+                            return getContent();
+                        }
+                    })
+                    .then(scrs => {
+                        placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
+                    })
             }
 
             tdEngine.render(time, view);
@@ -541,6 +544,7 @@
      */
     function localize(image, width, height) {
         return new Promise((resolve, reject) => {
+            //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
@@ -548,25 +552,16 @@
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
 
-            sendRequest(`${$availableContentServices[0].url}/${objectEndpoint}`, JSON.stringify(geoPoseRequest))
+            sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
                 .then(data => {
                     isLocalizing = false;
                     isLocalized = true;
-                    wait(2000).then(() => {
-                        showFooter = false;
-                        isLocalisationDone = true;
-                    });
+                    wait(1000).then(() => showFooter = false);
 
-                    if ('scrs' in data) {
-                        receivedContentNames = data.scrs.reduce((result, item) => {
-                            result.push(item.content.title);
-                            return result;
-                        }, []);
-                        resolve([data.geopose.pose, data.scrs]);
-                    }
+                    resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
-                    // TODO: Offer marker alternative
+                    // TODO: Inform user
                     isLocalizing = false;
                     console.error(error);
                     reject(error);
@@ -575,48 +570,75 @@
     }
 
     /**
-     *  Places the content provided by a call to a Spacial Content Discovery server.
+     * Request content from SCD available around the current location.
+     */
+    function getContent() {
+        const servicePromises = $availableContentServices.reduce((result, service) => {
+            if ($selectedContentServices[service.id]?.isSelected) {
+                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+            }
+
+            return result
+        }, [])
+
+        return Promise.all(servicePromises);
+    }
+
+    /**
+     *  Places the content provided by a call to Spacial Content Discovery providers.
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
      * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
-     * @param scr  SCR Spatial      Content Record with the result from the server request
+     * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     function placeContent(localPose, globalPose, scr) {
+        let localImagePose = localPose.transform
+        let globalImagePose = globalPose
+        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        console.log('Number of content items received: ', scr.length);
+        console.log('Number of content items received: ', scr.reduce((result, record) => result += record.length, 0));
 
-        scr.forEach(record => {
-            const objectPose = record.content.geopose;
+        scr.forEach(response => {
+            response.forEach(record => {
 
-            // Difficult to generalize, because there are no types defined yet.
-            if (record.content.type === 'placeholder') {
-                const position = calculateDistance(globalPose, objectPose);
-                const orientation = calculateRotation(globalPose.quaternion, localPose.transform.orientation);
+                // TODO: this method could handle any type of content:
+                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
-                // Augmented City proprietary structure
-                if (record.content.custom_data.sticker_type.toLowerCase() === 'other') {
-                    const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                    const url = record.content.custom_data.path;
+                // Difficult to generalize, because there are no types defined yet.
+                if (record.content.type === 'placeholder') {
 
-                    // TODO: Receive list of events to register to from SCD and register them here
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    let position = localObjectPose.position;
+                    let orientation = localObjectPose.quaternion;
 
-                    switch (subtype) {
-                        case 'scene':
-                            const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                            tdEngine.addClickEvent(experiencePlaceholder,
-                                () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                            break;
-                        case 'gltf':
-                            tdEngine.addModel(position, orientation, url)
+                    // Augmented City proprietary structure
+                    if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') {
+                        const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        const url = record.content.custom_data.path;
+
+                        // TODO: Receive list of events to register to from SCD and register them here
+
+                        switch (subtype) {
+                            case 'scene':
+                                const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                                tdEngine.addClickEvent(experiencePlaceholder,
+                                    () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                                break;
+                            case 'gltf':
+                                tdEngine.addModel(position, orientation, url)
+                        }
+                    } else {
+                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                        handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                } else {
-                    const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                    handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
-                }
 
-                // TODO: Anchor placeholder for better visual stability?!
-            }
+                    // TODO: Anchor placeholder for better visual stability?!
+                }
+            })
         })
+
+        tdEngine.endSpatialContentRecords();
     }
 
     /**
@@ -736,13 +758,7 @@
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
-                <p>{receivedContentNames.join()}</p>
-                {:else}
                 <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
-                {/if}
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
