@@ -46,11 +46,13 @@
 
     let doCaptureImage = false, doExperimentAutoPlacement;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, hasLostTracking = false;
+    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
     let unableToStartSession = false, experimentIntervallId = null;
 
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
+
+    let receivedContentNames = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -124,7 +126,7 @@
 
         if ($arMode === ARMODES.experiment) {
             promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'hit-test', 'local-floor'],
+                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
                 domOverlay: {root: overlay}
             })
 
@@ -231,36 +233,44 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
-        handlePoseHeartbeat();
+        if ($experimentModeSettings.game.localisation && !isLocalized) {
+            handleOscp(time, frame, floorPose);
+        } else {
+            handlePoseHeartbeat();
 
-        xrEngine.setViewPort();
+            showFooter = $experimentModeSettings.game.showstats
+                || ($experimentModeSettings.game.localisation && !isLocalisationDone);
 
-        if (!reticle) {
-            reticle = tdEngine.addReticle();
-        }
+            xrEngine.setViewPort();
 
-        // perform fake localization. TODO: remove this
-        if (firstPoseReceived === false) {
-            firstPoseReceived = true;
-            for (let view of floorPose.views) {
-                console.log('fake localisation');
-                isLocalized = true;
-                wait(1000);
-                let geoPose = fakeLocationResult4.geopose.pose;
-                let data = []; // WARNING: data (scr) must be an array. TODO: why?
-                $recentLocalisation.geopose = geoPose;
-                $recentLocalisation.floorpose = floorPose;
-                placeContent(floorPose, geoPose, data); 
+            /*
+            // perform fake localization. TODO: remove this
+            if (firstPoseReceived === false) {
+                firstPoseReceived = true;
+                for (let view of floorPose.views) {
+                    console.log('fake localisation');
+                    isLocalized = true;
+                    wait(1000);
+                    let geoPose = fakeLocationResult4.geopose.pose;
+                    let data = []; // WARNING: data (scr) must be an array. TODO: why?
+                    $recentLocalisation.geopose = geoPose;
+                    $recentLocalisation.floorpose = floorPose;
+                    placeContent(floorPose, geoPose, data); 
+                }
             }
+            */
+
+            if (!reticle) {
+                reticle = tdEngine.addReticle();
+            }
+            const position = reticlePose.transform.position;
+            const orientation = reticlePose.transform.orientation;
+            tdEngine.updateReticlePosition(reticle, position, orientation);
+
+            experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+
+            tdEngine.render(time, floorPose.views[0]);
         }
-
-        const position = reticlePose.transform.position;
-        const orientation = reticlePose.transform.orientation;
-        tdEngine.updateReticlePosition(reticle, position, orientation);
-
-        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
-
-        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -274,7 +284,7 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
-        experimentOverlay.setPerformanceValues(frameDuration, passedMaxSlow);
+        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -367,7 +377,7 @@
             //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
             shareObject(object_description, reticle.position, reticle.quaternion);
 
-            experimentOverlay.objectPlaced();
+            experimentOverlay?.objectPlaced();
         }
     }
 
@@ -680,7 +690,10 @@
                 .then(data => {
                     isLocalizing = false;
                     isLocalized = true;
-                    wait(1000).then(() => showFooter = false);
+                    wait(4000).then(() => {
+                        showFooter = false;
+                        isLocalisationDone = true;
+                    });
 
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
@@ -718,12 +731,15 @@
     function placeContent(localPose, globalPose, scr) {
         let localImagePose = localPose.transform
         let globalImagePose = globalPose
+
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        console.log('Number of content items received: ', scr.reduce((result, record) => result += record.length, 0));
-
+        receivedContentNames = [];
         scr.forEach(response => {
+            console.log('Number of content items received: ', response.length);
+
             response.forEach(record => {
+                receivedContentNames.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -891,7 +907,13 @@
             {:else if $arMode === ARMODES.dev}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
+                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
+                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
+                                on:startLocalisation={startLocalisation} />
+                <p>{receivedContentNames.join()}</p>
+                {:else}
                 <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
+                {/if}
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
