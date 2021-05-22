@@ -9,7 +9,7 @@ import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMark
     createWaitingProgram, createRandomObjectDescription, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
-         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
+         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees } from '@core/locationTools';
 
 import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
 
@@ -58,7 +58,7 @@ export default class ogl {
      * Set up the 3D environment as required according to the current real environment.*
      */
     setupEnvironment(gl) {
-        camera = new Camera(gl, 0.1, 1000, 45, 1); // TODO: match FoV of the real camera. is there WebXR API for that?
+        camera = new Camera(gl);
         camera.position.set(0, 0, 0);
 
         // TODO: Add light
@@ -234,7 +234,7 @@ export default class ogl {
      * @param position  Ved3       The position to move the reticle to
      * @param orientation  Quaternion       The rotation to apply to the reticle
      */
-    updateReticlePosition(reticle, position, orientation) {
+    updateReticlePose(reticle, position, orientation) {
         reticle.position.set(position.x, position.y, position.z);
         reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
@@ -316,7 +316,7 @@ export default class ogl {
      */
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.perspective({aspect: gl.canvas.width / gl.canvas.height});
+        camera.perspective({aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000});
     }
 
     /**
@@ -578,7 +578,7 @@ export default class ogl {
         if (_ar2GeoTransformNode === undefined) {
             throw "No localization has happened yet!";
         }
-
+/*
         // TODO: return proper geopose, not only the global camera pose
         console.log("WARNING: returning fake geoPose");
         let geoPose = {
@@ -591,6 +591,56 @@ export default class ogl {
                 "y": _globalImagePose.quaternion.y,
                 "z": _globalImagePose.quaternion.z,
                 "w": _globalImagePose.quaternion.w
+            }
+        }
+        return geoPose;
+*/
+
+        let localPose = new Transform();
+        localPose.position = position;
+        localPose.quaternion = quaternion;
+        localPose.updateMatrix();
+        _ar2GeoTransformNode.addChild(localPose);
+        _ar2GeoTransformNode.updateMatrixWorld();
+
+        let localENUPose = new Transform();
+        localENUPose.matrix = localPose.worldMatrix;
+        localENUPose.decompose();
+        _ar2GeoTransformNode.removeChild(localPose);
+
+        //TODO: swap orientation axes
+        //let localENUQuaternion = quat.fromValues(localENUPose.quaternion.x, localENUPose.quaternion.y, localENUPose.quaternion.z, localENUPose.quaternion.w);
+        //localENUQuaternion = convertWeb2GeoQuat(localENUQuaternion);
+        //localENUPose.quaternion.set(localENUQuaternion[0], localENUQuaternion[1], localENUQuaternion[2], localENUQuaternion[3]);
+
+
+        let localEnuPosition = vec3.fromValues(
+                localENUPose.position.x,
+                localENUPose.position.y,
+                localENUPose.position.z);
+        localEnuPosition = convertWeb2GeoVec3(localEnuPosition);
+
+        let dE = localEnuPosition[0];
+        let dN = localEnuPosition[1];
+        let dU = localEnuPosition[2];
+
+        //TODO: do proper conversion here!
+        // See https://www.movable-type.co.uk/scripts/latlong.html
+        const R = 6371009; // Earth radius (assuming a sphere)
+        let dLon = toDegrees(Math.atan2(dE, R));
+        let dLat = toDegrees(Math.atan2(dN, R));
+        let dHeight = dU;
+        let refGeoPose = _globalImagePose;
+
+        let geoPose = {
+            "longitude": refGeoPose.longitude + dLon,
+            "latitude": refGeoPose.latitude + dLat,
+            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
+            "quaternion": {
+                "x": localENUPose.quaternion.x,
+                "y": localENUPose.quaternion.y,
+                "z": localENUPose.quaternion.z,
+                "w": localENUPose.quaternion.w
             }
         }
         return geoPose;

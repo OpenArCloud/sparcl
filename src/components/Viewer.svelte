@@ -265,7 +265,7 @@
             }
             const position = reticlePose.transform.position;
             const orientation = reticlePose.transform.orientation;
-            tdEngine.updateReticlePosition(reticle, position, orientation);
+            tdEngine.updateReticlePose(reticle, position, orientation);
 
             experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
 
