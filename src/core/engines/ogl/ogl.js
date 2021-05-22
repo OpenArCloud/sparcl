@@ -8,10 +8,12 @@ import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} fro
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
     createWaitingProgram, createRandomObjectDescription, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
 
-import { convertGeo2WebVec3, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
+import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
 
-import { quat } from 'gl-matrix';
+import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
+
+import { quat, vec3 } from 'gl-matrix';
 
 
 let scene, camera, renderer, gl;
@@ -503,6 +505,9 @@ export default class ogl {
         _ar2GeoTransformNode.matrix.inverse(_geo2ArTransformNode.matrix);
         _ar2GeoTransformNode.decompose();
         _ar2GeoTransformNode.updateMatrixWorld(true);
+
+        printOglTransform("_geo2ArTransformNode", _geo2ArTransformNode);
+        printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
     }
 
     /**
@@ -521,9 +526,9 @@ export default class ogl {
         object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
         // set the objects' orientation as in the GeoPose response, that is already in ENU
         object.quaternion.set(globalObjectPose.quaternion.x,
-                                   globalObjectPose.quaternion.y,
-                                   globalObjectPose.quaternion.z,
-                                   globalObjectPose.quaternion.w);
+                              globalObjectPose.quaternion.y,
+                              globalObjectPose.quaternion.z,
+                              globalObjectPose.quaternion.w);
 
         // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
         _geo2ArTransformNode.addChild(object);
@@ -567,6 +572,28 @@ export default class ogl {
         return localPose;
     }
 
+    convertLocalPoseToGeoPose(position, quaternion) {
+        if (_ar2GeoTransformNode === undefined) {
+            throw "No localization has happened yet!";
+        }
+
+        // TODO: return proper geopose, not only the global camera pose
+        console.log("WARNING: returning fake geoPose");
+        let geoPose = {
+            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
+            "longitude": _globalImagePose.longitude,
+            "latitude": _globalImagePose.latitude,
+            "ellipsoidHeight": _globalImagePose.ellipsoidHeight,
+            "quaternion": {
+                "x": _globalImagePose.quaternion.x,
+                "y": _globalImagePose.quaternion.y,
+                "z": _globalImagePose.quaternion.z,
+                "w": _globalImagePose.quaternion.w
+            }
+        }
+        return geoPose;
+    }
+	
     /**
      * Converts a GeoPose object into East-North-Up coordinate system (local tangent plane approximation)
      * @param {*} geoPose GeoPose to convert

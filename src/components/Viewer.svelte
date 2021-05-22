@@ -25,7 +25,7 @@
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { fakeLocationResult } from '@core/devTools';
+    import { fakeLocationResult4, printOglTransform} from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -84,23 +84,23 @@
         
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
-            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 if ('message' in data && 'sender' in data) {
                     console.log("message from " + data.sender + ": \n  " + data.message);
                 }
-            }
+//            }
         }
 
         if ('object_created' in events) {
             let data = events.object_created;
-            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
                     let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose; // TODO: use the latest tracking pose
-                    placeContent(latestLocalPose, latestGlobalPose, [data]); // TODO: data must be wrapped into an array here, why?
+                    let latestLocalPose = $recentLocalisation.floorpose;
+                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
                 }
-            }
+//            }
         }
 
         // TODO: Receive list of events to fire from SCD
@@ -246,7 +246,7 @@
                 console.log('fake localisation');
                 isLocalized = true;
                 wait(1000);
-                let geoPose = fakeLocationResult.geopose.pose;
+                let geoPose = fakeLocationResult4.geopose.pose;
                 let data = []; // WARNING: data (scr) must be an array. TODO: why?
                 $recentLocalisation.geopose = geoPose;
                 $recentLocalisation.floorpose = floorPose;
@@ -287,9 +287,6 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(event, auto = false) {
-
-            
-
 
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
             /*
@@ -367,7 +364,7 @@
             
             shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
             let object_description = createRandomObjectDescription();
-            tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
+            //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
             shareObject(object_description, reticle.position, reticle.quaternion);
 
             experimentOverlay.objectPlaced();
@@ -389,7 +386,6 @@
 
     function shareObject(object_description, position, quaternion) {
 
-        // Now calculate the global pose of the reticle
         let latestGlobalPose = $recentLocalisation.geopose;
         let latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
@@ -397,18 +393,20 @@
             return;
         }
 
-        //console.log("latestGlobalPose:");
-        //console.log(latestGlobalPose);
-        //console.log("latestLocalPose");
-        //console.log(latestLocalPose);
-
+        // Now calculate the global pose of the reticle
+        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
-            "longitude": latestGlobalPose.longitude,
-            "latitude": latestGlobalPose.latitude,
-            "ellipsoidHeight": latestGlobalPose.ellipsoidHeight,
-            "quaternion": { "x": 0, "y": 0, "z": 0, "w": 1 }
+            "longitude": globalObjectPose.longitude,
+            "latitude": globalObjectPose.latitude,
+            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "quaternion": {
+                "x": globalObjectPose.quaternion.x,
+                "y": globalObjectPose.quaternion.y,
+                "z": globalObjectPose.quaternion.z,
+                "w": globalObjectPose.quaternion.w
+            }
         }
+
         let content = {
             "id": "",
             "type": "", //high-level OSCP type
@@ -488,8 +486,8 @@
                 isLocalized = true;
                 wait(1000).then(showFooter = false);
 
-                let geoPose = fakeLocationResult.geopose.pose;
-                let data = fakeLocationResult.scrs;
+                let geoPose = fakeLocationResult4.geopose.pose;
+                let data = fakeLocationResult4.scrs;
                 placeContent(floorPose, geoPose, data);
             }
         }
@@ -762,9 +760,10 @@
                 if (record.tenant === 'ISMAR2021demo') {
                     console.log("ISMAR2021demo object received!")
                     let object_description = record.content.object_description;
-                    // TODO: calculate the object placement properly
-                    // now we simply place it wherever the localPose is.
-                    tdEngine.addObject(localPose.transform.position, localPose.transform.orientation, object_description);
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    printOglTransform("localObjectPose", localObjectPose);
+                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
                 // TODO: Anchor placeholder for better visual stability?!
