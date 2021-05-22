@@ -21,6 +21,7 @@ let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
 let _geo2ArTransformNode;
 let _ar2GeoTransformNode;
 let _globalImagePose;
+let _localImagePose;
 let experimentTapHandler = null;
 
 
@@ -57,7 +58,7 @@ export default class ogl {
      * Set up the 3D environment as required according to the current real environment.*
      */
     setupEnvironment(gl) {
-        camera = new Camera(gl);
+        camera = new Camera(gl, 0.1, 1000, 45, 1); // TODO: match FoV of the real camera. is there WebXR API for that?
         camera.position.set(0, 0, 0);
 
         // TODO: Add light
@@ -487,6 +488,7 @@ export default class ogl {
         quat.invert(deltaRotGeo2Ar, deltaRotAr2Geo);
 
         _globalImagePose = globalImagePose;
+        _localImagePose = localImagePose;
 
         // rotate around the origin by the rotation that brings the Geo system to the WebXR system
         _geo2ArTransformNode.quaternion.set(deltaRotGeo2Ar[0], deltaRotGeo2Ar[1], deltaRotGeo2Ar[2], deltaRotGeo2Ar[3]); // from quat to Quat
