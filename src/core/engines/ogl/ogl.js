@@ -611,18 +611,3 @@ export default class ogl {
         return enuPose;
     }
 }
-
-/**
- * Returns an Euler angle representation of a quaternion.
- *
- * @param  {Vec3} out Euler angles, pitch-yaw-roll
- * @param  {Quat} quat Quaternion
- * @param  {string} order any permutation of XYZ
- * @return {Vec3} out
- */
-function getEulerAnglesOGL(out, quat, order = 'XYZ') {
-    let euler = Euler.fromQuaternion(quat, order = 'XYZ');
-    let vec3 = new Vec3();
-    euler.toArray(vec3);
-    return vec3;
-}
