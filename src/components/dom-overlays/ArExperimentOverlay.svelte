@@ -40,8 +40,16 @@
 
 <style>
     button {
-        width: 265px;
         height: var(--button-height);
+    }
+    .prime {
+        width: 200px;
+    }
+    .secondary {
+        width: 50px;
+    }
+    .secondary img {
+        width: 20px;
     }
 </style>
 
@@ -50,5 +58,10 @@
     <p>Objects placed: {objectsPlacedCount}</p>
     <p>Frame time: {prevFrameTime}</p>
     <p>Max slow passed: {hasPassedMaxSlow}</p>
-    <button on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+    {#if $experimentModeSettings.game.localisation}
+    <button class="secondary" on:click={() => dispatch('relocalize')}>
+        <img src="/media/refresh.svg" />
+    </button>
+    {/if}
 {/if}
