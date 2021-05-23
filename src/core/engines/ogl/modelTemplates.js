@@ -11,6 +11,8 @@ import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'og
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
+import barberFragment from '@shaders/barberfragment.glsl';
+
 
 /**
  * The supported WebGL primitives.

@@ -267,6 +267,10 @@ export default class ogl {
         uniforms.time[model.id] = model;
     }
 
+    setBarberProgram(model) {
+
+    }
+
     /**
      * Registers a general tap handler. Gets called when no hits where found for a tap.
      *

@@ -300,6 +300,8 @@
                         options.height = 2;
 
                         offsetY = 1;
+
+                        tdEngine.setBarberProgram();
                     } else {
                         options.radiusTop = 0.5;
                         options.radiusBottom = 0.5;
@@ -582,6 +584,16 @@
     }
 
     /**
+     * Show ui for localisation again.
+     */
+    function relocalize() {
+        isLocalized = false;
+        isLocalisationDone = false;
+        receivedContentNames = [];
+        showFooter = true;
+    }
+
+    /**
      * Request content from SCD available around the current location.
      */
     function getContent() {
@@ -778,7 +790,9 @@
                                 on:startLocalisation={startLocalisation} />
                 <p>{receivedContentNames.join()}</p>
                 {:else}
-                <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
+                <ArExperimentOverlay bind:this={experimentOverlay}
+                                     on:toggleAutoPlacement={toggleExperimentalPlacement}
+                                     on:relocalize={relocalize}/>
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>
