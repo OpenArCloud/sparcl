@@ -98,6 +98,7 @@
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                    experimentOverlay?.objectReceived();
                     let latestGlobalPose = $recentLocalisation.geopose;
                     let latestLocalPose = $recentLocalisation.floorpose;
                     placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
@@ -420,7 +421,7 @@
         let content = {
             "id": "",
             "type": "", //high-level OSCP type
-            "title": "",
+            "title": object_description.shape,
             "refs": [],
             "geopose": geoPose,
             "object_description": object_description
@@ -734,7 +735,7 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = [];
+        receivedContentNames = ["New objects(s):\n"];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
@@ -781,6 +782,8 @@
                     printOglTransform("localObjectPose", localObjectPose);
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
+
+                wait(3000).then(() => receivedContentNames = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
 
@@ -908,10 +911,11 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
+                <p>{receivedContentNames.join()}</p>
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                                 on:startLocalisation={startLocalisation} />
-                <p>{receivedContentNames.join()}</p>
                 {:else}
+                <p>{receivedContentNames.join()}</p>
                 <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
                 {/if}
             {:else}

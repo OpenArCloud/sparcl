@@ -21,7 +21,7 @@ import { randomInteger } from '@src/core/common';
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
-    plane: 'plane',
+//    plane: 'plane', // TODO: disabled for ISMAR demo
     cylinder: 'cylinder',
     cone: 'cone',
     torus: 'torus'

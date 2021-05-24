@@ -19,6 +19,7 @@
     let prevFrameTime = 0;
     let hasPassedMaxSlow = false;
     let objectsPlacedCount = 0;
+    let objectsReceivedCount = 0;
 
 
     /**
@@ -35,6 +36,10 @@
     export function objectPlaced() {
         objectsPlacedCount++;
     }
+
+    export function objectReceived() {
+        objectsReceivedCount++;
+    }
 </script>
 
 
@@ -48,7 +53,9 @@
 
 {#if $experimentModeSettings.game.showstats}
     <p>Objects placed: {objectsPlacedCount}</p>
-    <p>Frame time: {prevFrameTime}</p>
-    <p>Max slow passed: {hasPassedMaxSlow}</p>
+    <!--<p>Objects received: {objectsReceivedCount}</p>-->
+    <p>ISMAR 2021 demo</p>
+    <!--<p>Frame time: {prevFrameTime}</p>-->
+    <!--<p>Max slow passed: {hasPassedMaxSlow}</p>-->
     <button on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
 {/if}
