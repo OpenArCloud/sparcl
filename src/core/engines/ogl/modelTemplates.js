@@ -12,6 +12,10 @@ import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 import barberFragment from '@shaders/barberfragment.glsl';
+import dotFragment from '@shaders/dotfragment.glsl';
+import colorfulFragment from '@shaders/colorfulfragment.glsl';
+import columnFragment from '@shaders/columnfragment.glsl';
+import voronoiFragment from '@shaders/voronoifragment.glsl';
 
 
 /**
@@ -58,6 +62,46 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
     uniforms: {
         uColor: {value: new Vec4(...color)},
         uAltColor: {value: new Vec4(...altColor)},
+        uTime: {value: 0.0}
+    }
+})
+
+export let createBarberProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: barberFragment,
+    uniforms: {
+        uTime: {value: 0.0}
+    }
+})
+
+export let createDotProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: dotFragment,
+    uniforms: {
+        uTime: {value: 0.0}
+    }
+})
+
+export let createColorfulProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: colorfulFragment,
+    uniforms: {
+        uTime: {value: 0.0}
+    }
+})
+
+export let createColumnProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: columnFragment,
+    uniforms: {
+        uTime: {value: 0.0}
+    }
+})
+
+export let createVoronoiProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: voronoiFragment,
+    uniforms: {
         uTime: {value: 0.0}
     }
 })
