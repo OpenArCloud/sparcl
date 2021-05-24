@@ -261,6 +261,7 @@
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
             let offsetY = 0, offsetZ = 0;
+            let fragmentShader;
 
             switch (shape) {
                 case PRIMITIVES.box:
@@ -277,7 +278,9 @@
 
                         offsetZ = -0.05;
                     }
-                        break;
+
+                    fragmentShader = 'colorfulfragment';
+                    break;
 
                 case PRIMITIVES.plane:
                     if (isHorizontal) {
@@ -287,10 +290,13 @@
                         options.width = 2;
                         options.height = 1;
                     }
+
+                    fragmentShader = 'dotfragment';
                     break;
 
                 case PRIMITIVES.sphere:
-                        options.thetaLength = Math.PI / 2;
+                    options.thetaLength = Math.PI / 2;
+                    fragmentShader = 'columnfragment';
                     break;
 
                 case PRIMITIVES.cylinder:
@@ -300,8 +306,6 @@
                         options.height = 2;
 
                         offsetY = 1;
-
-                        tdEngine.setBarberProgram();
                     } else {
                         options.radiusTop = 0.5;
                         options.radiusBottom = 0.5;
@@ -309,6 +313,8 @@
 
                         offsetZ = -0.05;
                     }
+
+                    fragmentShader = 'barberfragment';
                     break;
 
                 case PRIMITIVES.cone:
@@ -317,11 +323,14 @@
 
                     offsetY = 0.25;
                     offsetZ = -0.25;
+
+                    fragmentShader = 'voronoifragment';
                     break;
             }
 
             const scale = 1;
-            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, options);
+            const placeholder = tdEngine.addPlaceholderWithOptions(shape,
+                reticle.position, reticle.quaternion, fragmentShader, options);
             placeholder.scale.set(scale);
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
