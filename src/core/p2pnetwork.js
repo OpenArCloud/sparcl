@@ -12,6 +12,9 @@ import Perge from '@thirdparty/perge.modern';
 import Automerge, {change} from 'automerge'
 import Peer from 'peerjs';
 
+import { get } from 'svelte/store';
+import { availableP2pServices, selectedP2pService } from '@src/stateStore';
+
 
 let instance;
 const docSet = new Automerge.DocSet();
@@ -84,8 +87,13 @@ function updateReceived() {
  * @param peerId  String        The peer ID to register with on the signaling server
  */
 function setupPerge(peerId) {
+    const service = get(selectedP2pService)?.url || get(availableP2pServices)[0]
+    const port = service?.properties.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
+
     const peer = new Peer(peerId, {
-        host:'peerjs-server.herokuapp.com', secure:true, port:443
+        host: service?.url || 'peerjs-server.herokuapp.com',
+        secure: true,
+        port: port || 443
     })
 
     instance = new Perge(peerId, {
@@ -115,7 +123,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         console.log('Connection to the PeerServer established. Peer ID ' + id);
 
         if (!isHeadless) {
-            console.log('Connecting to headless');
+            console.log('Connecting to headless', headlessPeerId);
             instance.connect(headlessPeerId);
         }
     });
