@@ -12,6 +12,9 @@ import Perge from '@thirdparty/perge.modern';
 import Automerge, {change} from 'automerge'
 import Peer from 'peerjs';
 import { p2pNetworkState, peerIdStr } from '@src/stateStore';
+import { get } from 'svelte/store';
+import { availableP2pServices, selectedP2pService } from '@src/stateStore';
+
 
 let instance;
 const docSet = new Automerge.DocSet();
@@ -84,14 +87,17 @@ function updateReceived() {
  * @param peerId  String        The peer ID to register with on the signaling server
  */
 function setupPerge(peerId) {
+    const service = get(selectedP2pService)?.url || get(availableP2pServices)[0]
+    const port = service?.properties.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
 
-    // NOTE: https://peerjs.com/peerserver.html
-    // If you DON'T specify 'host' and 'key' options, you will automatically connect to PeerServer Cloud service. 
-    const peer = new Peer(peerId,
-        {} // default, hosted by peerjs.com
-        //{host:'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
-        //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
-    )
+    //{} // default, hosted by peerjs.com, see https://peerjs.com/peerserver.html
+    //{host:'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
+    //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
+    const peer = new Peer(peerId, {
+        host: service?.url || 'peerjs-server.herokuapp.com',
+        secure: true,
+        port: port || 443
+    })
 
     instance = new Perge(peerId, {
         decode: JSON.parse, // msgpack or protobuf would also be a good option
@@ -123,7 +129,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         peerIdStr.set(id);
 
         if (!isHeadless) {
-            msg = 'Connecting to headless client';
+            msg = 'Connecting to headless client: ' + headlessPeerId;
             console.log(msg);
             p2pNetworkState.set(msg);
             let dataConnection = instance.connect(headlessPeerId);
