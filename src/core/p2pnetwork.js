@@ -87,9 +87,11 @@ function setupPerge(peerId) {
 
     // NOTE: https://peerjs.com/peerserver.html
     // If you DON'T specify 'host' and 'key' options, you will automatically connect to PeerServer Cloud service. 
-    const peer = new Peer(peerId, {
-        host:'peerjs-server.herokuapp.com', secure:true, port:443,
-    })
+    const peer = new Peer(peerId,
+        {} // default, hosted by peerjs.com
+        //{host:'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
+        //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
+    )
 
     instance = new Perge(peerId, {
         decode: JSON.parse, // msgpack or protobuf would also be a good option
