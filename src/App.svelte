@@ -82,7 +82,7 @@
                         p2p = p2pModule;
 
                         const headlessPeerId = $availableP2pServices[0].properties
-                            .reduce((result, property) => result || property.type === 'peerid' ? property.value : null, null);
+                            .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
                             p2p.connect(headlessPeerId, false, (data) => viewer?.updateReceived(data));

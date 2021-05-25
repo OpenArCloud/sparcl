@@ -5,8 +5,9 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject,
-    createWaitingProgram, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
+import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
+    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram,
+    createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
@@ -20,6 +21,7 @@ let _geo2ArTransformNode;
 let _ar2GeoTransformNode;
 let _globalImagePose;
 let experimentTapHandler = null;
+let lastTime = 0;
 
 
 /**
@@ -86,15 +88,28 @@ export default class ogl {
      * @param shape  String      Defines the shape to create
      * @param position  number{x, y, z}        3D position of the placeholder
      * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param fragmentShader  String        Fragment-Shader to add to program
      * @param options  Object       Defines additional options for the shape to add
      */
-    addPlaceholderWithOptions(shape, position, orientation, options = {}) {
+    addPlaceholderWithOptions(shape, position, orientation, fragmentShader, options = {}) {
         const placeholder = createModel(gl, shape,
             [Math.random(), Math.random(), Math.random(), 1], false, options);
 
         placeholder.position.set(position.x, position.y, position.z);
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
+
+        if (fragmentShader === 'barberfragment') {
+            this.setBarberProgram(placeholder);
+        } else if (fragmentShader === 'dotfragment') {
+            this.setDotProgram(placeholder);
+        } else if (fragmentShader === 'colorfulfragment') {
+            this.setColorfulProgram(placeholder);
+        } else if (fragmentShader === 'columnfragment') {
+            this.setColumnProgram(placeholder);
+        } else if (fragmentShader === 'voronoifragment') {
+            this.setVoronoiProgram(placeholder);
+        }
 
         return placeholder;
     }
@@ -267,6 +282,31 @@ export default class ogl {
         uniforms.time[model.id] = model;
     }
 
+    setBarberProgram(model) {
+        model.program = createBarberProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
+    setDotProgram(model) {
+        model.program = createDotProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
+    setColorfulProgram(model) {
+        model.program = createColorfulProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
+    setColumnProgram(model) {
+        model.program = createColumnProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
+    setVoronoiProgram(model) {
+        model.program = createVoronoiProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
     /**
      * Registers a general tap handler. Gets called when no hits where found for a tap.
      *
@@ -323,6 +363,9 @@ export default class ogl {
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
         Object.values(updateHandlers).forEach(handler => handler());
+
+        const relTime = time - lastTime;
+        lastTime = time;
         uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
 
         renderer.render({scene, camera});

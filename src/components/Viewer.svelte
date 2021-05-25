@@ -261,6 +261,7 @@
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
             let offsetY = 0, offsetZ = 0;
+            let fragmentShader;
 
             switch (shape) {
                 case PRIMITIVES.box:
@@ -277,7 +278,9 @@
 
                         offsetZ = -0.05;
                     }
-                        break;
+
+                    fragmentShader = 'colorfulfragment';
+                    break;
 
                 case PRIMITIVES.plane:
                     if (isHorizontal) {
@@ -287,10 +290,13 @@
                         options.width = 2;
                         options.height = 1;
                     }
+
+                    fragmentShader = 'dotfragment';
                     break;
 
                 case PRIMITIVES.sphere:
-                        options.thetaLength = Math.PI / 2;
+                    options.thetaLength = Math.PI / 2;
+                    fragmentShader = 'columnfragment';
                     break;
 
                 case PRIMITIVES.cylinder:
@@ -307,6 +313,8 @@
 
                         offsetZ = -0.05;
                     }
+
+                    fragmentShader = 'barberfragment';
                     break;
 
                 case PRIMITIVES.cone:
@@ -315,11 +323,14 @@
 
                     offsetY = 0.25;
                     offsetZ = -0.25;
+
+                    fragmentShader = 'voronoifragment';
                     break;
             }
 
             const scale = 1;
-            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, options);
+            const placeholder = tdEngine.addPlaceholderWithOptions(shape,
+                reticle.position, reticle.quaternion, fragmentShader, options);
             placeholder.scale.set(scale);
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
@@ -582,6 +593,16 @@
     }
 
     /**
+     * Show ui for localisation again.
+     */
+    function relocalize() {
+        isLocalized = false;
+        isLocalisationDone = false;
+        receivedContentNames = [];
+        showFooter = true;
+    }
+
+    /**
      * Request content from SCD available around the current location.
      */
     function getContent() {
@@ -778,7 +799,9 @@
                                 on:startLocalisation={startLocalisation} />
                 <p>{receivedContentNames.join()}</p>
                 {:else}
-                <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} />
+                <ArExperimentOverlay bind:this={experimentOverlay}
+                                     on:toggleAutoPlacement={toggleExperimentalPlacement}
+                                     on:relocalize={relocalize}/>
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>
