@@ -214,6 +214,11 @@
 
         padding: 0;
     }
+
+    .note {
+        color: red;
+        margin-top: -15px;
+    }
 </style>
 
 
@@ -318,20 +323,6 @@
         </dd>
         {/each}
     </dl>
-
-    <dl>
-        <dt><label for="p2pserver">P2P Service</label></dt>
-        <dd class="select"><select id="p2pserver" bind:value={$selectedP2pService}
-                                   disabled="{$availableP2pServices.length < 2  || null}">
-            {#if $availableP2pServices.length === 0}
-                <option>None</option>
-            {:else}
-                {#each $availableP2pServices as service}
-                    <option value={service}>{service.title}</option>
-                {/each}
-            {/if}
-        </select></dd>
-    </dl>
     {/if}
 
     {#if $arMode === ARMODES.marker}
@@ -425,6 +416,22 @@
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>
     </div>
+
+    <dl>
+        <dt><label for="p2pserver">P2P Service</label></dt>
+        <dd class="select"><select id="p2pserver" bind:value={$selectedP2pService}
+                                   disabled="{$availableP2pServices.length < 2  || $allowP2pNetwork === false}">
+            {#if $availableP2pServices.length === 0}
+                <option>None</option>
+            {:else}
+                {#each $availableP2pServices as service}
+                    <option value={service.id}>{service.title}</option>
+                {/each}
+            {/if}
+        </select></dd>
+    </dl>
+
+    <p class="note">Change active after reload</p>
 
     <dl>
         <dt>Connection status</dt>

@@ -206,8 +206,9 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (p2pServices.length > 0 && Object.keys(get(selectedP2pService)).length === 0) {
-        selectedP2pService.set(p2pServices[0]);
+    // TODO: Make sure that stored selected service is still valid
+    if (p2pServices.length > 0 && get(selectedP2pService) === 'none') {
+        selectedP2pService.set(p2pServices[0].id);
     }
 
     set(p2pServices);
@@ -246,7 +247,11 @@ export const selectedContentServices = writable({});
  *
  * @type {Writable<SERVICE>}
  */
-export const selectedP2pService = writable('none');
+const storedSelectedP2pService = localStorage.getItem('selectedp2pstorage');
+export const selectedP2pService = writable(storedSelectedP2pService || 'none');
+selectedP2pService.subscribe(value => {
+    localStorage.setItem('selectedp2pstorage', value);
+})
 
 
 /**
