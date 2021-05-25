@@ -6,8 +6,7 @@
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
-    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram,
-    createAxesBoxPlaceholder, createModel,
+    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram, createModel,
     createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
@@ -181,7 +180,6 @@ export default class ogl {
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
-
         return object;
     }
 
@@ -191,7 +189,9 @@ export default class ogl {
      * @returns {Transform}
      */
     addReticle() {
-        return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+        let reticle = this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
+        scene.addChild(reticle);
+        return reticle;
     }
 
     isHorizontal(object) {
@@ -372,6 +372,17 @@ export default class ogl {
 
         delete updateHandlers[model.id];
         delete eventHandlers[model.id];
+    }
+
+    /**
+     *  Removes all objects from the scene
+     */
+    clearScene() {
+        while (scene.children.length > 0) {
+            let child = scene.children[0];
+            scene.removeChild(child);
+            child = null;
+        }
     }
 
     /**

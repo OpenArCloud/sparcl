@@ -384,13 +384,15 @@
             experimentOverlay.objectPlaced();
             */
             
-            shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
-            let object_description = createRandomObjectDescription();
-            //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
-            shareObject(object_description, reticle.position, reticle.quaternion);
-            //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
+            if (isLocalisationDone) {
+                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
+                let object_description = createRandomObjectDescription();
+                //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
+                shareObject(object_description, reticle.position, reticle.quaternion);
+                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
-            experimentOverlay?.objectPlaced();
+                experimentOverlay?.objectPlaced();
+            }
         }
     }
 
@@ -738,6 +740,10 @@
         isLocalized = false;
         isLocalisationDone = false;
         receivedContentNames = [];
+
+        tdEngine.clearScene();
+        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+
         showFooter = true;
     }
 
@@ -769,7 +775,7 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s):\n"];
+        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
@@ -817,7 +823,7 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                wait(3000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
 
