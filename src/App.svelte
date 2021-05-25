@@ -111,8 +111,11 @@
                 .then(p2pModule => {
                     p2p = p2pModule;
 
-                    p2pModule.initialSetup();
-                    p2pModule.connect(urlParams.get('peerid'), true, (data) => {
+                    const url = urlParams.get('signal');
+                    const port = urlParams.get('port');
+
+                    p2p.initialSetup();
+                    p2p.connectWithUrl(urlParams.get('peerid'), true, url, port, (data) => {
                         // Just for development
                         currentSharedValues = data;
                     });
