@@ -48,6 +48,11 @@ export function connect(headlessPeerId, isHeadless = false, updateftn) {
     setupPeerEvents(headlessPeerId, isHeadless);
 }
 
+export function connectWithUrl(headlessPeerId, isHeadless = true, url, port, updateftn) {
+    setupPergeWithUrl(headlessPeerId, url, port);
+    setupPeerEvents(headlessPeerId, isHeadless);
+}
+
 /**
  * Disconnect the device from the peer to peer network.
  */
@@ -88,11 +93,15 @@ function updateReceived() {
  */
 function setupPerge(peerId) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result);
+    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result, {});
     const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
 
-    const options = service?.properties?.length !== undefined ? {
-        host: service?.url,
+    setupPergeWithUrl(peerId, service?.url, port)
+}
+
+function setupPergeWithUrl(peerId, url, port) {
+    const options = url && port ? {
+        host: url,
         secure: true,
         port: port
     } : {};
