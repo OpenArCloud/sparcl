@@ -87,15 +87,17 @@ function updateReceived() {
  * @param peerId  String        The peer ID to register with on the signaling server
  */
 function setupPerge(peerId) {
-    const service = get(selectedP2pService)?.url || get(availableP2pServices)[0]
-    const port = service?.properties.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
+    const selected = get(selectedP2pService);
+    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result);
+    const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
 
-    const peer = new Peer(peerId, {
-        host: service?.url || 'peerjs-server.herokuapp.com',
+    const options = service?.properties?.length !== undefined ? {
+        host: service?.url,
         secure: true,
-        port: port || 443
-    })
+        port: port
+    } : {};
 
+    const peer = new Peer(peerId, options);
     instance = new Perge(peerId, {
         decode: JSON.parse, // msgpack or protobuf would also be a good option
         encode: JSON.stringify,
