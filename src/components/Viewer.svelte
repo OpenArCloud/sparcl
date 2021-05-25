@@ -377,9 +377,22 @@
             let object_description = createRandomObjectDescription();
             //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
             shareObject(object_description, reticle.position, reticle.quaternion);
+            //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
             experimentOverlay?.objectPlaced();
         }
+    }
+
+    function shareCamera(position, quaternion) {
+        let object_description = {
+            'version': 2,
+            'color': [1.0, 1.0, 0.0, 0.2],
+            'shape': PRIMITIVES.box,
+            'scale': [0.05, 0.05, 0.05],
+            'transparent': true,
+            'options': {}
+        };
+        shareObject(object_description, position, quaternion);
     }
 
     function shareMessage(str) {

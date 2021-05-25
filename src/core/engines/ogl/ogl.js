@@ -362,6 +362,14 @@ export default class ogl {
     }
 
     /**
+     * Allows access to the camera from outside
+     * @returns Camera
+     */
+    getCamera() {
+        return camera;
+    }
+
+    /**
      * @private
      * Event handler for interactive objects.
      *
