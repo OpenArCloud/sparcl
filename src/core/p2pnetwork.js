@@ -88,9 +88,9 @@ function updateReceived() {
  */
 function setupPerge(peerId) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result);
+    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result, {});
     const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
-
+    
     //{} // default, hosted by peerjs.com, see https://peerjs.com/peerserver.html
     //{host:'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
     //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP

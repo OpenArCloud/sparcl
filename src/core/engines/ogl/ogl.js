@@ -189,9 +189,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addReticle() {
-        let reticle = this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
-        scene.addChild(reticle);
-        return reticle;
+        return this.addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/reticle.gltf');
     }
 
     isHorizontal(object) {
