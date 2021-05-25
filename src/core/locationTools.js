@@ -20,6 +20,26 @@ export const locationAccessOptions = {
     maximumAge: 0
 }
 
+/**
+ * 
+ * @param {degrees} latitude in degrees
+ * @returns Earth radius in meters at input latitude
+ */
+export function getEarthRadiusAt(latitude) {
+    // https://en.wikipedia.org/wiki/Earth_ellipsoid
+    // https://rechneronline.de/earth-radius/
+
+    let lat = toRadians(latitude);
+    const r1 = 6378137.0; // at Equator
+    const r2 = 6356752.3142; // at poles
+    let cosLat = Math.cos(lat);
+    let sinLat = Math.sin(lat);
+
+    let numerator = (r1 * r1 * cosLat) * (r1 * r1 * cosLat) + (r2 * r2 * sinLat) * (r2 * r2 * sinLat);
+    let denominator = (r1 * cosLat) * (r1 * cosLat) +  (r2 * sinLat) * (r2 * sinLat);
+    let R = Math.sqrt(numerator/denominator);
+    return R;
+}
 
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.

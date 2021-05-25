@@ -9,7 +9,7 @@ import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMark
     createWaitingProgram, createRandomObjectDescription, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
-         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees } from '@core/locationTools';
+         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
 
 import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
 
@@ -624,13 +624,14 @@ export default class ogl {
         let dN = localEnuPosition[1];
         let dU = localEnuPosition[2];
 
+        let refGeoPose = _globalImagePose;
         //TODO: do proper conversion here!
         // See https://www.movable-type.co.uk/scripts/latlong.html
-        const R = 6371009; // Earth radius (assuming a sphere)
+        //const R = 6371009; // Earth radius (assuming a sphere)
+        const R = getEarthRadiusAt(refGeoPose.latitude);
         let dLon = toDegrees(Math.atan2(dE, R));
         let dLat = toDegrees(Math.atan2(dN, R));
         let dHeight = dU;
-        let refGeoPose = _globalImagePose;
 
         let geoPose = {
             "longitude": refGeoPose.longitude + dLon,

@@ -6,6 +6,9 @@ import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
 
+// Here a good overview on geodetic distance calculations:
+// https://www.movable-type.co.uk/scripts/latlong.html
+
 /**
  * Pretty logging of a gl-matrix quaternion
 * @param name The name to print
