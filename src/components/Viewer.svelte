@@ -384,7 +384,7 @@
 
                 let geoPose = fakeLocationResult.geopose.pose;
                 let data = fakeLocationResult.scrs;
-                placeContent(floorPose, geoPose, data);
+                placeContent(floorPose, geoPose, [data]);
             }
         }
 
