@@ -295,7 +295,7 @@
         {/if}
         </div>
     </aside>
-    {:else}
+    {:else if !$arIsAvailable}
     <Spectator bind:this={spectator} {isHeadless} />
     {/if}
 
