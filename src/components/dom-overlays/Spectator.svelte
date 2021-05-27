@@ -17,14 +17,53 @@
 
     let map;
 
+    // Color conversion from https://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
+    function componentToHex(c) {
+        let hex = c.toString(16);
+        return hex.length == 1 ? "0" + hex : hex;
+    }
 
-    export function updateReceived(data) {
-        L.circle([51.505, -0.09], {
-            color: 'red',
-            fillColor: '#f03',
+    function rgbToHex(r, g, b) {
+    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+
+    function hexToRgb(hex) {
+        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+            r: parseInt(result[1], 16),
+            g: parseInt(result[2], 16),
+            b: parseInt(result[3], 16)
+        } : null;
+    }
+
+    function placeMarker(lat, lon, hexColor) {
+        L.circle([lat, lon], {
+            color: hexColor,
+            fillColor: hexColor, //'#f03',
             fillOpacity: 0.5,
             radius: 1
         }).addTo(map);
+    }
+
+    export function updateReceived(events) {
+        if ('object_created' in events) {
+            let data = events.object_created;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('scr' in data) {
+                    data = data.scr;
+                    if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                        const markerLat = data.content.geopose.latitude;
+                        const markerLon = data.content.geopose.longitude;
+                        const markerColor = rgbToHex(data.content.object_description.color[0]*255,
+                                                     data.content.object_description.color[1]*255,
+                                                     data.content.object_description.color[2]*255);
+                        placeMarker(markerLat, markerLon, markerColor);
+                    }
+                }
+//            }
+        }
+
+        
     }
 
     function mapAction(container) {
