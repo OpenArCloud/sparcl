@@ -8,7 +8,7 @@
 -->
 
 <script>
-    import { onMount } from 'svelte';
+    import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState } from '@src/stateStore';
 
     import L from 'leaflet';
 
@@ -59,6 +59,27 @@
         margin: 0;
         padding: 0;
     }
+
+    details {
+        position: absolute;
+        right: 10px;
+        top: 120px;
+        padding: 10px;
+        border: 1px solid black;
+        border-radius: 21px;
+        background-color: white;
+        z-index: 10000;
+    }
+
+    dd {
+        margin-left: 0;
+    }
+
+    select {
+        width: 100%;
+        height: 30px;
+    }
+
     #map {
         position: absolute;
         left: 0;
@@ -68,8 +89,43 @@
         width: 100vw;
         height: calc(100vh - 110px);
     }
+
+    .note {
+        color: red;
+        margin-top: -15px;
+    }
 </style>
 
+
+<details>
+    <summary>Multiplayer</summary>
+
+    <div class="inline">
+        <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
+        <label for="allowP2p">Connect to p2p network</label>
+    </div>
+
+    <dl>
+        <dt><label for="p2pserver">P2P Service</label></dt>
+        <dd class="select"><select id="p2pserver" bind:value={$selectedP2pService}
+                                   disabled="{$availableP2pServices.length < 2  || $allowP2pNetwork === false}">
+            {#if $availableP2pServices.length === 0}
+                <option>None</option>
+            {:else}
+                {#each $availableP2pServices as service}
+                    <option value={service.id}>{service.title}</option>
+                {/each}
+            {/if}
+        </select></dd>
+    </dl>
+
+    <p class="note">Change active after reload</p>
+
+    <dl>
+        <dt>Connection status</dt>
+        <dd>{$p2pNetworkState}</dd>
+    </dl>
+</details>
 
 <div id="map" use:mapAction></div>
 
