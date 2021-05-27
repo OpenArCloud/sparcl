@@ -28,24 +28,32 @@
     }
 
     function mapAction(container) {
-        map = L.map(container, {
-            center: [51.505, -0.09],
-            zoom: 20
-        });
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition((position) => {
+                map = L.map(container, {
+                    center: [position.coords.latitude, position.coords.longitude],
+                    zoom: 20
+                });
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-            attribution: `&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: `&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
                                 &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
-            subdomains: 'abcd',
-            maxZoom: 30
-        }).addTo(map);
+                    subdomains: 'abcd',
+                    maxZoom: 30
+                }).addTo(map);
 
-        return {
-            destroy: () => {
-                map.remove();
-                map = null;
-            },
-        };
+                return {
+                    destroy: () => {
+                        map.remove();
+                        map = null;
+                    },
+                };
+            }, (error) => {
+                console.log(`Location request failed: ${error}`)
+            }, {
+                enableHighAccuracy: false
+            });
+        }
     }
 
     function resizeMap() {
