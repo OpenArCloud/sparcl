@@ -28,7 +28,7 @@ export function printGlmQuat(name, qquat) {
     console.log("  OGL Euler angles: " + eulerOgl[0] + ", " + eulerOgl[1] + ", " + eulerOgl[2]);
 }
 
-/** 
+/**
  * Pretty logging of a quaternion given by 4 float numbers
  * @param  {name} string The name to print
  * @param  {x} float quaternion component x
@@ -72,7 +72,7 @@ export function getEulerAnglesOgl(quat, order = 'XYZ') {
     return eulerDeg;
 }
 
-/** 
+/**
  * Pretty logging of an OGL Transform
  * @param  {name} string The name to print
  * @param  {transform} Transform An OGL Transform object
@@ -226,7 +226,8 @@ export const fakeLocationResult = {
             "content": {
                 "custom_data": {
                     // "path": "https://clv.zappar.io/6966846783932362010/1.0.12/",  // Unity
-                    "path": "https://clv.zappar.io/6817336933886541943/",  // threejs
+                    // "path": "https://clv.zappar.io/6817336933886541943/",  // threejs
+                    "path": "/media/scenes/waypoint/",  // threejs
                     "sticker_id": 25532,
                     "sticker_subtype": "scene",
                     "sticker_text": "Picker",
