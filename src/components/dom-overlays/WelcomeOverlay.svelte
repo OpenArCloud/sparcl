@@ -13,7 +13,7 @@
     import { Swipeable, Screen, Controls } from 'buhrmi';
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
-    import { infoGreeting, info, introGreeting, intro, arOkMessage, noArMessage, dashboardOkLabel,
+    import { infoGreeting, info, introGreeting, intro, arOkMessage, dashboardOkLabel,
         startedOkLabel, unavailableInfo, allowLocationLabel, locationaccessgranted, locationaccessrequired,
         locationaccessinfo, noservicesavailable } from '@src/contentStore';
     import { ARMODES } from "@core/common";
@@ -196,12 +196,4 @@
 
         <Controls />
     </Swipeable>
-{:else}
-    <div id="flagswrapper">
-        <p>{@html $noArMessage}</p>
-        <p>
-            Chrome with <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">enabled WebXR incubation
-            features</a> on an <a href="https://developers.google.com/ar/devices">AR capable device</a> required.
-        </p>
-    </div>
 {/if}
