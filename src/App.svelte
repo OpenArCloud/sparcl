@@ -46,7 +46,7 @@
      * Will be called everytime the value in arIsAvailable changes
      */
     $: {
-        if ($arIsAvailable && $isLocationAccessAllowed && !haveReceivedServices) {
+        if ($isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
                 getCurrentLocation()
                     .then((currentLocation) => {
