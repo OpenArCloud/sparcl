@@ -523,9 +523,9 @@
                 isLocalized = true;
                 wait(1000).then(showFooter = false);
 
-                let geoPose = fakeLocationResult4.geopose.pose;
-                let data = fakeLocationResult4.scrs;
-                placeContent(floorPose, geoPose, data);
+                let geoPose = fakeLocationResult.geopose.pose;
+                let data = fakeLocationResult.scrs;
+                placeContent(floorPose, geoPose, [data]);
             }
         }
 

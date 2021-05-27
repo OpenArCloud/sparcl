@@ -9,20 +9,21 @@
 <script>
     import {onMount, tick} from "svelte";
 
-    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools'
+    import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
     import Dashboard from '@components/Dashboard.svelte';
     import Viewer from '@components/Viewer.svelte';
 
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
+    import Spectator from "@components/dom-overlays/Spectator.svelte";
 
     import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
         availableP2pServices, isLocationAccessAllowed } from './stateStore';
 
 
     let showWelcome, showOutro;
-    let dashboard, viewer;
+    let dashboard, viewer, spectator;
     let shouldShowDashboard, shouldShowUnavailableInfo;
 
     let isLocationAccessRefused = false;
@@ -45,7 +46,7 @@
      * Will be called everytime the value in arIsAvailable changes
      */
     $: {
-        if ($arIsAvailable && $isLocationAccessAllowed && !haveReceivedServices) {
+        if ($isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
                 getCurrentLocation()
                     .then((currentLocation) => {
@@ -85,7 +86,10 @@
                             .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
-                            p2p.connect(headlessPeerId, false, (data) => viewer?.updateReceived(data));
+                            p2p.connect(headlessPeerId, false, (data) => {
+                                viewer?.updateReceived(data);
+                                spectator?.updateReceived(data);
+                            });
                         }
                     }
                 });
@@ -276,7 +280,7 @@
         <Dashboard bind:this={dashboard} on:okClicked={startAr} />
     {/if}
 
-    {#if showWelcome || showOutro}
+    {#if (showWelcome || showOutro) && $arIsAvailable}
     <aside>
         <div id="frame">
         {#if showWelcome}
@@ -291,6 +295,8 @@
         {/if}
         </div>
     </aside>
+    {:else if !$arIsAvailable}
+    <Spectator bind:this={spectator} {isHeadless} />
     {/if}
 
 {:else}
