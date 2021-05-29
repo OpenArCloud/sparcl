@@ -256,6 +256,7 @@
                     let data = []; // WARNING: data (scr) must be an array. TODO: why?
                     $recentLocalisation.geopose = geoPose;
                     $recentLocalisation.floorpose = floorPose;
+                    isLocalisationDone = true;
                     placeContent(floorPose, geoPose, data); 
                 }
             }
@@ -384,6 +385,12 @@
             experimentOverlay.objectPlaced();
             */
             
+
+            //NOTE: ISMAR2021 experiment:
+            // keep track of last localization (global and local)
+            // when tapped, determine the global position of the tap, and save the global location of the object
+            // create SCR from the object and share it with the others
+            // when received, place the same way as a downloaded SCR.
             if (isLocalisationDone) {
                 shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
                 let object_description = createRandomObjectDescription();

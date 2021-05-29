@@ -13,33 +13,12 @@
     import L from 'leaflet';
 
     export let isHeadless = false;
-
-
     let map;
 
-    // Color conversion from https://stackoverflow.com/questions/5623838/rgb-to-hex-and-hex-to-rgb
-    function componentToHex(c) {
-        let hex = c.toString(16);
-        return hex.length == 1 ? "0" + hex : hex;
-    }
-
-    function rgbToHex(r, g, b) {
-    return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
-    }
-
-    function hexToRgb(hex) {
-        let result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-        return result ? {
-            r: parseInt(result[1], 16),
-            g: parseInt(result[2], 16),
-            b: parseInt(result[3], 16)
-        } : null;
-    }
-
-    function placeMarker(lat, lon, hexColor) {
+    function placeMarker(lat, lon, color) {
         L.circle([lat, lon], {
-            color: hexColor,
-            fillColor: hexColor, //'#f03',
+            color: color,
+            fillColor: color,
             fillOpacity: 0.5,
             radius: 1
         }).addTo(map);
@@ -54,16 +33,15 @@
                     if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
                         const markerLat = data.content.geopose.latitude;
                         const markerLon = data.content.geopose.longitude;
-                        const markerColor = rgbToHex(data.content.object_description.color[0]*255,
-                                                     data.content.object_description.color[1]*255,
-                                                     data.content.object_description.color[2]*255);
+                        const r = Math.round(255 * data.content.object_description.color[0]);
+                        const g = Math.round(255 * data.content.object_description.color[1]);
+                        const b = Math.round(255 * data.content.object_description.color[2])
+                        const markerColor = "rgb(" + r + "," + g + "," + b + ")";
                         placeMarker(markerLat, markerLon, markerColor);
                     }
                 }
 //            }
         }
-
-        
     }
 
     function mapAction(container) {
