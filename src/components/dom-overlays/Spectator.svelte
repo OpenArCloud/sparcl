@@ -13,18 +13,35 @@
     import L from 'leaflet';
 
     export let isHeadless = false;
-
-
     let map;
 
-
-    export function updateReceived(data) {
-        L.circle([51.505, -0.09], {
-            color: 'red',
-            fillColor: '#f03',
+    function placeMarker(lat, lon, color) {
+        L.circle([lat, lon], {
+            color: color,
+            fillColor: color,
             fillOpacity: 0.5,
             radius: 1
         }).addTo(map);
+    }
+
+    export function updateReceived(events) {
+        if ('object_created' in events) {
+            let data = events.object_created;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('scr' in data) {
+                    data = data.scr;
+                    if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                        const markerLat = data.content.geopose.latitude;
+                        const markerLon = data.content.geopose.longitude;
+                        const r = Math.round(255 * data.content.object_description.color[0]);
+                        const g = Math.round(255 * data.content.object_description.color[1]);
+                        const b = Math.round(255 * data.content.object_description.color[2])
+                        const markerColor = "rgb(" + r + "," + g + "," + b + ")";
+                        placeMarker(markerLat, markerLon, markerColor);
+                    }
+                }
+//            }
+        }
     }
 
     function mapAction(container) {

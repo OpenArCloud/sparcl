@@ -6,11 +6,12 @@
 /* Provides models for generic content, provided by the content discovery */
 
 
-import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'ogl';
+import { Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4 } from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
+import { randomInteger } from '@src/core/common';
 import barberFragment from '@shaders/barberfragment.glsl';
 import dotFragment from '@shaders/dotfragment.glsl';
 import colorfulFragment from '@shaders/colorfulfragment.glsl';
@@ -21,14 +22,15 @@ import voronoiFragment from '@shaders/voronoifragment.glsl';
 /**
  * The supported WebGL primitives.
  *
- * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string}>}
+ * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string, torus: string}>}
  */
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
-    plane: 'plane',
+//    plane: 'plane', // TODO: disabled for ISMAR demo
     cylinder: 'cylinder',
-    cone: 'cone'
+    cone: 'cone',
+    torus: 'torus'
 });
 
 /**
@@ -117,8 +119,12 @@ export let createVoronoiProgram = (gl) => new Program(gl, {
  * @param options  Object       Optional settings for created object
  * @returns {Mesh}
  */
-export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}) {
+export function createModel(gl,
+                            type = PRIMITIVES.box,
+                            color = [0.2, 0.8, 1.0, 1.0],
+                            translucent = false,
+                            options = {},
+                            scale = [1.0, 1.0, 1.0]) {
     let geometry;
 
     switch (type) {
@@ -137,13 +143,17 @@ export function createModel(gl, type = PRIMITIVES.box,
         case PRIMITIVES.sphere:
             geometry = new Sphere(gl, options);
             break;
+        case PRIMITIVES.torus:
+            geometry = new Torus(gl, options);
+            break;
         default:
             geometry = new Box(gl, options);
     }
 
     const program = createDefaultProgram(gl, color, translucent);
-
-    return new Mesh(gl, { geometry: geometry, program });
+    const mesh = new Mesh(gl, { geometry: geometry, program });
+    mesh.scale.set(scale);
+    return mesh; 
 }
 
 /**
@@ -191,6 +201,36 @@ export function getDefaultPlaceholder(gl) {
     return placeholder;
 }
 
+/** Creates properties struct with random shape (out of predefined shapes), color, scale
+ * @returns object_description = {color, shape, scale}
+*/
+export function createRandomObjectDescription() {
+    const kNumPrimitives = Object.keys(PRIMITIVES).length;
+    let shape_idx = Math.floor(Math.random() * kNumPrimitives);
+    let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
+    let color = [Math.random(), Math.random(), Math.random(), 1.0];
+    //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
+    let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
+    let object_description = {
+        'version': 2,
+        'color': color,
+        'shape': shape,
+        'scale': scale,
+        'transparent': false,
+        'options': {}
+    };
+    return object_description
+}
+
+/** Creates a Mesh with random shape (out of predefined shapes) and random color and size
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+*/
+export function createRandomObject(gl) {
+    let object_description = createRandomObjectDescription();
+    const placeholder = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
+    return placeholder;
+}
 
 /**
  * Generates a placeholder used for content of type scene.

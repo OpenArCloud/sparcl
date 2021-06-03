@@ -6,6 +6,9 @@ import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
 
+// Here a good overview on geodetic distance calculations:
+// https://www.movable-type.co.uk/scripts/latlong.html
+
 /**
  * Pretty logging of a gl-matrix quaternion
 * @param name The name to print
@@ -83,7 +86,8 @@ export function printOglTransform(name, transform) {
     let tEuler = getEulerDegreesOgl(tQuat, 'XYZ');
     console.log("transform " + name + "\n" +
             "  position (" + tPos[0] + ", " + tPos[1] + ", " +  tPos[2] + ") \n" +
-            "  orientation (" + tEuler[0] +  ", " + tEuler[1] + ", " +  tEuler[2] + ")");
+            "  orientation (" + tEuler[0] +  ", " + tEuler[1] + ", " +  tEuler[2] + ") \n" +
+            "  quaternion (" + tQuat[0] +  ", " + tQuat[1] + ", " + tQuat[2] + ", " +  tQuat[3] + ")");
 }
 
 /*
@@ -275,3 +279,395 @@ export const fakeLocationResult = {
         }
     ]
 }
+
+export const fakeLocationResult4 = {
+    "geopose": {
+        "accuracy": {
+            "orientation": -1,
+            "position": -1
+        },
+        "ecefPose": {
+            "orientation": {
+                "w": 0.5919192501923252,
+                "x": -0.5412070401668473,
+                "y": 0.011535737343803046,
+                "z": 0.5971544755668603
+            },
+            "position": {
+                "x": 4083570.417534955,
+                "y": 1408067.6422907924,
+                "z": 4677080.506363399
+            }
+        },
+        "id": "4fc416d1-eda0-4a5d-92a7-19d6b1a9f381",
+        "localPose": {
+            "orientation": {
+                "w": 0.5063787594539491,
+                "x": -0.5505655221963802,
+                "y": 0.4262068860718541,
+                "z": -0.5087296413690091
+            },
+            "position": {
+                "x": -11.526875196127614,
+                "y": -6.140907495430501,
+                "z": -0.37968869851290166
+            }
+        },
+        "pose": {
+            "ellipsoidHeight": 6.209678601295207,
+            "latitude": 47.46776729912386,
+            "longitude": 19.024852546852575,
+            "quaternion": {
+                "w": 0.6618161044717988,
+                "x": -0.5861336742744468,
+                "y": 0.3673496700733379,
+                "z": -0.2889653606235868
+            }
+        },
+        "reconstruction_id": 15526,
+        "timestamp": 1621583444646,
+        "type": "geopose"
+    },
+    "scrs": [
+        {
+            "content": {
+                "custom_data": {
+                    "created_by": "gabor.soros@nokia-bell-labs.com",
+                    "creation_date": "1620988445618",
+                    "description": "",
+                    "grounded": "0",
+                    "model_id": "santaarcity",
+                    "model_scale": "1.0",
+                    "path": "https://github.com/KhronosGroup/glTF-Sample-Models/blob/master/2.0/Duck/glTF-Binary/Duck.glb",
+                    "sticker_id": "41795",
+                    "sticker_subtype": "gltf",
+                    "sticker_text": "test-ori-0-0-0",
+                    "sticker_type": "other",
+                    "subtype": "OBJECT",
+                    "type": "3D",
+                    "vertically_aligned": "0"
+                },
+                "ecefPose": {
+                    "orientation": {
+                        "w": 0.5406416868871375,
+                        "x": 0.21146140080276724,
+                        "y": 0.29659499916150545,
+                        "z": 0.7583020828421538
+                    },
+                    "position": {
+                        "x": 4083567.730369103,
+                        "y": 1408077.4358462247,
+                        "z": 4677071.481341206
+                    }
+                },
+                "geopose": {
+                    "ellipsoidHeight": -1.1442635727831885e-09,
+                    "latitude": 47.467708102315875,
+                    "longitude": 19.024986975760502,
+                    "quaternion": {
+                        "w": 1.0,
+                        "x": -2.7755575615628914e-16,
+                        "y": 3.219916175035085e-17,
+                        "z": 2.9745892283657463e-17
+                    }
+                },
+                "id": "41795",
+                "keywords": [
+                    "other"
+                ],
+                "localPose": {
+                    "orientation": {
+                        "w": 0.9912099698891731,
+                        "x": -0.01903288291020846,
+                        "y": -0.13092065979000006,
+                        "z": -0.000570789437556009
+                    },
+                    "position": {
+                        "x": -0.40110391763084274,
+                        "y": -0.22670973012632145,
+                        "z": -6.464074744966913
+                    }
+                },
+                "refs": [],
+                "title": "test-ori-0-0-0",
+                "type": "placeholder"
+            },
+            "id": "41795",
+            "tenant": "AC",
+            "timestamp": 1621583444854,
+            "type": "scr"
+        },
+        {
+            "content": {
+                "custom_data": {
+                    "created_by": "gabor.soros@nokia-bell-labs.com",
+                    "creation_date": "1620989858865",
+                    "description": "",
+                    "grounded": "0",
+                    "model_id": "santaarcity",
+                    "model_scale": "1.0",
+                    "path": "https://github.com/KhronosGroup/glTF-Sample-Models/blob/master/2.0/Duck/glTF-Binary/Duck.glb",
+                    "sticker_id": "41797",
+                    "sticker_subtype": "gltf",
+                    "sticker_text": "test-ori-x90",
+                    "sticker_type": "other",
+                    "subtype": "OBJECT",
+                    "type": "3D",
+                    "vertically_aligned": "0"
+                },
+                "ecefPose": {
+                    "orientation": {
+                        "w": 0.23276561252318587,
+                        "x": 0.5318171934568722,
+                        "y": 0.745924880138689,
+                        "z": 0.3264762097924511
+                    },
+                    "position": {
+                        "x": 4083565.002216616,
+                        "y": 1408081.4752057407,
+                        "z": 4677072.639405281
+                    }
+                },
+                "geopose": {
+                    "ellipsoidHeight": 6.217590331480949e-10,
+                    "latitude": 47.46772351065496,
+                    "longitude": 19.0250494251137,
+                    "quaternion": {
+                        "w": 0.7071067811865476,
+                        "x": 0.7071067811865472,
+                        "y": 1.9626155733547187e-17,
+                        "z": 1.5407439555097887e-33
+                    }
+                },
+                "id": "41797",
+                "keywords": [
+                    "other"
+                ],
+                "localPose": {
+                    "orientation": {
+                        "w": 0.7143495718596857,
+                        "x": 0.6874330107170099,
+                        "y": -0.09297849541685152,
+                        "z": 0.09217127725300048
+                    },
+                    "position": {
+                        "x": 1.876735462955852,
+                        "y": -0.1774258048435171,
+                        "z": -4.867665670359021
+                    }
+                },
+                "refs": [],
+                "title": "test-ori-x90",
+                "type": "placeholder"
+            },
+            "id": "41797",
+            "tenant": "AC",
+            "timestamp": 1621583444857,
+            "type": "scr"
+        },
+        {
+            "content": {
+                "custom_data": {
+                    "created_by": "gabor.soros@nokia-bell-labs.com",
+                    "creation_date": "1620989913654",
+                    "description": "",
+                    "grounded": "0",
+                    "model_id": "santaarcity",
+                    "model_scale": "1.0",
+                    "path": "https://github.com/KhronosGroup/glTF-Sample-Models/blob/master/2.0/Duck/glTF-Binary/Duck.glb",
+                    "sticker_id": "41798",
+                    "sticker_subtype": "gltf",
+                    "sticker_text": "test-ori-y90",
+                    "sticker_type": "other",
+                    "subtype": "OBJECT",
+                    "type": "3D",
+                    "vertically_aligned": "0"
+                },
+                "ecefPose": {
+                    "orientation": {
+                        "w": 0.1725670678169102,
+                        "x": -0.3866747544987271,
+                        "y": 0.592015738163148,
+                        "z": 0.685726335432413
+                    },
+                    "position": {
+                        "x": 4083562.92418376,
+                        "y": 1408084.820038548,
+                        "z": 4677073.441338353
+                    }
+                },
+                "geopose": {
+                    "ellipsoidHeight": 1.077607447719231e-09,
+                    "latitude": 47.46773418058248,
+                    "longitude": 19.025100354147355,
+                    "quaternion": {
+                        "w": 0.7071067811865476,
+                        "x": -1.1102230246251565e-16,
+                        "y": 0.7071067811865477,
+                        "z": -1.6653345369377348e-16
+                    }
+                },
+                "id": "41798",
+                "keywords": [
+                    "other"
+                ],
+                "localPose": {
+                    "orientation": {
+                        "w": 0.7012949003702734,
+                        "x": -0.10603316690626392,
+                        "y": -0.07911660576358791,
+                        "z": 0.7004876822064224
+                    },
+                    "position": {
+                        "x": 3.764744087849218,
+                        "y": -0.14205708610258821,
+                        "z": -3.678690168397931
+                    }
+                },
+                "refs": [],
+                "title": "test-ori-y90",
+                "type": "placeholder"
+            },
+            "id": "41798",
+            "tenant": "AC",
+            "timestamp": 1621583444860,
+            "type": "scr"
+        },
+        {
+            "content": {
+                "custom_data": {
+                    "created_by": "gabor.soros@nokia-bell-labs.com",
+                    "creation_date": "1620989970933",
+                    "description": "",
+                    "grounded": "0",
+                    "model_id": "santaarcity",
+                    "model_scale": "1.0",
+                    "path": "https://github.com/KhronosGroup/glTF-Sample-Models/blob/master/2.0/Duck/glTF-Binary/Duck.glb",
+                    "sticker_id": "41799",
+                    "sticker_subtype": "gltf",
+                    "sticker_text": "test-ori-z90",
+                    "sticker_type": "other",
+                    "subtype": "OBJECT",
+                    "type": "3D",
+                    "vertically_aligned": "0"
+                },
+                "ecefPose": {
+                    "orientation": {
+                        "w": -0.15390914197554115,
+                        "x": 0.35925012563996206,
+                        "y": 0.060198544706275704,
+                        "z": 0.9184919479555992
+                    },
+                    "position": {
+                        "x": 4083562.137133426,
+                        "y": 1408085.958382831,
+                        "z": 4677073.78349634
+                    }
+                },
+                "geopose": {
+                    "ellipsoidHeight": 1.5454849899843026e-10,
+                    "latitude": 47.467738733083905,
+                    "longitude": 19.02511803199369,
+                    "quaternion": {
+                        "w": 0.7071067811865475,
+                        "x": -2.220446049250313e-16,
+                        "y": 1.6653345369377348e-16,
+                        "z": 0.7071067811865477
+                    }
+                },
+                "id": "41799",
+                "keywords": [
+                    "other"
+                ],
+                "localPose": {
+                    "orientation": {
+                        "w": 0.6083164049534219,
+                        "x": -0.013861889653263472,
+                        "y": -0.793466177623274,
+                        "z": 0.013054671489412542
+                    },
+                    "position": {
+                        "x": 4.406486012401896,
+                        "y": -0.12761956286449005,
+                        "z": -3.2154214455481465
+                    }
+                },
+                "refs": [],
+                "title": "test-ori-z90",
+                "type": "placeholder"
+            },
+            "id": "41799",
+            "tenant": "AC",
+            "timestamp": 1621583444862,
+            "type": "scr"
+        },
+        {
+            "content": {
+                "custom_data": {
+                    "created_by": "gabor.soros@nokia-bell-labs.com",
+                    "creation_date": "1621001098254",
+                    "description": "",
+                    "grounded": "0",
+                    "model_id": "trans2tank",
+                    "model_scale": "1.0",
+                    "path": "https://github.com/KhronosGroup/glTF-Sample-Models/blob/master/2.0/Duck/glTF-Binary/Duck.glb",
+                    "sticker_id": "41800",
+                    "sticker_subtype": "gltf",
+                    "sticker_text": "test-at-green-house",
+                    "sticker_type": "other",
+                    "subtype": "OBJECT",
+                    "type": "3D",
+                    "vertically_aligned": "0"
+                },
+                "ecefPose": {
+                    "orientation": {
+                        "w": 0.5406416868871375,
+                        "x": 0.21146140080276724,
+                        "y": 0.29659499916150545,
+                        "z": 0.7583020828421538
+                    },
+                    "position": {
+                        "x": 4083572.414225857,
+                        "y": 1408083.0336644766,
+                        "z": 4677065.745221431
+                    }
+                },
+                "geopose": {
+                    "ellipsoidHeight": -1.809494637461384e-10,
+                    "latitude": 47.46763178183924,
+                    "longitude": 19.025036918814745,
+                    "quaternion": {
+                        "w": 1.0,
+                        "x": -2.7755575615628914e-16,
+                        "y": 3.219916175035085e-17,
+                        "z": 2.9745892283657463e-17
+                    }
+                },
+                "id": "41800",
+                "keywords": [
+                    "other"
+                ],
+                "localPose": {
+                    "orientation": {
+                        "w": 0.9912099698891731,
+                        "x": -0.01903288291020846,
+                        "y": -0.13092065979000006,
+                        "z": -0.000570789437556009
+                    },
+                    "position": {
+                        "x": 2.840668345839372,
+                        "y": -0.4128877001606494,
+                        "z": -10.46761316683347
+                    }
+                },
+                "refs": [],
+                "title": "test-at-green-house",
+                "type": "placeholder"
+            },
+            "id": "41800",
+            "tenant": "AC",
+            "timestamp": 1621583444864,
+            "type": "scr"
+        }
+    ]
+};
