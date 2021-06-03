@@ -15,12 +15,31 @@ import { supportedCountries } from 'ssd-access';
 export const toRadians = (degrees) => degrees / 180 * Math.PI;
 export const toDegrees = (radians) => radians / Math.PI * 180;
 
-
 export const locationAccessOptions = {
     enableHighAccuracy: false,
     maximumAge: 0
 }
 
+/**
+ * 
+ * @param {degrees} latitude in degrees
+ * @returns Earth radius in meters at input latitude
+ */
+export function getEarthRadiusAt(latitude) {
+    // https://en.wikipedia.org/wiki/Earth_ellipsoid
+    // https://rechneronline.de/earth-radius/
+
+    let lat = toRadians(latitude);
+    const r1 = 6378137.0; // at Equator
+    const r2 = 6356752.3142; // at poles
+    let cosLat = Math.cos(lat);
+    let sinLat = Math.sin(lat);
+
+    let numerator = (r1 * r1 * cosLat) * (r1 * r1 * cosLat) + (r2 * r2 * sinLat) * (r2 * r2 * sinLat);
+    let denominator = (r1 * cosLat) * (r1 * cosLat) +  (r2 * sinLat) * (r2 * sinLat);
+    let R = Math.sqrt(numerator/denominator);
+    return R;
+}
 
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
@@ -162,7 +181,7 @@ export function convertGeo2WebQuat(geoQuat) {
  * @returns quat
  */
 export function convertWeb2GeoQuat(webQuat) {
-    let geoQuat = vec3.fromValues(webQuat[0], -webQuat[2], webQuat[1], webQuat[3]);
+    let geoQuat = quat.fromValues(webQuat[0], -webQuat[2], webQuat[1], webQuat[3]);
     return geoQuat;
 }
 

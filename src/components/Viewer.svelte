@@ -22,16 +22,18 @@
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
             debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
-            selectedContentServices, selectedGeoPoseService
-        } from '@src/stateStore';
+            selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { fakeLocationResult } from '@core/devTools';
+    import { fakeLocationResult4, printOglTransform} from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
     import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
     import {PRIMITIVES} from "../core/engines/ogl/modelTemplates";
+
+    // TODO: this is specific to OGL engine, but we only need a generic object description structure
+    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
 
 
     const message = (msg) => console.log(msg);
@@ -77,15 +79,42 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(data) {
-        // TODO: Receive list of events to fire from SCD
-
-        if ('setrotation' in data) {
-            // todo app.fire('setrotation', data.setrotation);
+    export function updateReceived(events) {
+        // NOTE: sometimes multiple events are bundled!
+        console.log('Viewer event received:');
+        console.log(events);
+        
+        if ('message_broadcasted' in events) {
+            let data = events.message_broadcasted;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('message' in data && 'sender' in data) {
+                    console.log("message from " + data.sender + ": \n  " + data.message);
+                }
+//            }
         }
 
-        if ('setcolor' in data) {
-            // todo app.fire('setcolor', data.setcolor);
+        if ('object_created' in events) {
+            let data = events.object_created;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                data = data.scr;
+                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                    experimentOverlay?.objectReceived();
+                    let latestGlobalPose = $recentLocalisation.geopose;
+                    let latestLocalPose = $recentLocalisation.floorpose;
+                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
+                }
+//            }
+        }
+
+        // TODO: Receive list of events to fire from SCD
+        if ('setrotation' in events) {
+            //let data = events.setrotation;
+            // todo app.fire('setrotation', data);
+        }
+
+        if ('setcolor' in events) {
+            //let data = events.setcolor;
+            // todo app.fire('setcolor', data);
         }
     }
 
@@ -215,13 +244,30 @@
 
             xrEngine.setViewPort();
 
+            /*
+            // perform fake localization. TODO: remove this
+            if (firstPoseReceived === false) {
+                firstPoseReceived = true;
+                for (let view of floorPose.views) {
+                    console.log('fake localisation');
+                    isLocalized = true;
+                    wait(1000);
+                    let geoPose = fakeLocationResult4.geopose.pose;
+                    let data = []; // WARNING: data (scr) must be an array. TODO: why?
+                    $recentLocalisation.geopose = geoPose;
+                    $recentLocalisation.floorpose = floorPose;
+                    isLocalisationDone = true;
+                    placeContent(floorPose, geoPose, data); 
+                }
+            }
+            */
+
             if (!reticle) {
                 reticle = tdEngine.addReticle();
             }
-
             const position = reticlePose.transform.position;
             const orientation = reticlePose.transform.orientation;
-            tdEngine.updateReticlePosition(reticle, position, orientation);
+            tdEngine.updateReticlePose(reticle, position, orientation);
 
             experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
 
@@ -253,7 +299,9 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(event, auto = false) {
+
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+            /*
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -334,10 +382,110 @@
             placeholder.scale.set(scale);
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
+            experimentOverlay.objectPlaced();
+            */
+            
 
-            experimentOverlay?.objectPlaced();
+            //NOTE: ISMAR2021 experiment:
+            // keep track of last localization (global and local)
+            // when tapped, determine the global position of the tap, and save the global location of the object
+            // create SCR from the object and share it with the others
+            // when received, place the same way as a downloaded SCR.
+            if (isLocalisationDone) {
+                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
+                let object_description = createRandomObjectDescription();
+                //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
+                shareObject(object_description, reticle.position, reticle.quaternion);
+                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
+
+                experimentOverlay?.objectPlaced();
+            }
         }
     }
+
+    function shareCamera(position, quaternion) {
+        let object_description = {
+            'version': 2,
+            'color': [1.0, 1.0, 0.0, 0.2],
+            'shape': PRIMITIVES.box,
+            'scale': [0.05, 0.05, 0.05],
+            'transparent': true,
+            'options': {}
+        };
+        shareObject(object_description, position, quaternion);
+    }
+
+    function shareMessage(str) {
+        let message_body = {
+            "message": str,
+            "sender": $peerIdStr,
+            "timestamp": new Date().getTime()
+        }
+
+        dispatch('broadcast', {
+                event: 'message_broadcasted',
+                value: message_body
+            });
+    }
+
+    function shareObject(object_description, position, quaternion) {
+
+        let latestGlobalPose = $recentLocalisation.geopose;
+        let latestLocalPose = $recentLocalisation.floorpose;
+        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
+            console.log("There was no successful localization yet, cannot share object");
+            return;
+        }
+
+        // Now calculate the global pose of the reticle
+        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+        let geoPose = {
+            "longitude": globalObjectPose.longitude,
+            "latitude": globalObjectPose.latitude,
+            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "quaternion": {
+                "x": globalObjectPose.quaternion.x,
+                "y": globalObjectPose.quaternion.y,
+                "z": globalObjectPose.quaternion.z,
+                "w": globalObjectPose.quaternion.w
+            }
+        }
+
+        let content = {
+            "id": "",
+            "type": "", //high-level OSCP type
+            "title": object_description.shape,
+            "refs": [],
+            "geopose": geoPose,
+            "object_description": object_description
+        }
+        let timestamp = new Date().getTime();
+
+        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        let scr = {
+            "content": content,
+            "id": object_id,
+            "tenant": "ISMAR2021demo",
+            "type": "scr-ephemeral",
+            "timestamp": timestamp
+        }
+
+        let message_body = {
+            "scr": scr,
+            "sender": $peerIdStr,
+            "timestamp": new Date().getTime()
+        }
+
+        // share over P2P network
+        // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
+        // and the value will be forwarded to the p2pnetwork.js
+        dispatch('broadcast', {
+                event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
+                value: message_body
+            });
+    }
+
 
     /**
      * Toggle automatic placement of placeholders for experiment mode.
@@ -599,6 +747,10 @@
         isLocalized = false;
         isLocalisationDone = false;
         receivedContentNames = [];
+
+        tdEngine.clearScene();
+        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+
         showFooter = true;
     }
 
@@ -630,7 +782,7 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = [];
+        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
@@ -654,7 +806,6 @@
                         const url = record.content.custom_data.path;
 
                         // TODO: Receive list of events to register to from SCD and register them here
-
                         switch (subtype) {
                             case 'scene':
                                 const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
@@ -668,9 +819,21 @@
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-
-                    // TODO: Anchor placeholder for better visual stability?!
                 }
+
+                if (record.tenant === 'ISMAR2021demo') {
+                    console.log("ISMAR2021demo object received!")
+                    let object_description = record.content.object_description;
+                    let globalObjectPose = record.content.geopose;
+                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                    printOglTransform("localObjectPose", localObjectPose);
+                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                }
+
+                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+
+                // TODO: Anchor placeholder for better visual stability?!
+
             })
         })
 
@@ -795,10 +958,11 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
+                <p>{receivedContentNames.join()}</p>
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                                 on:startLocalisation={startLocalisation} />
-                <p>{receivedContentNames.join()}</p>
                 {:else}
+                <p>{receivedContentNames.join()}</p>
                 <ArExperimentOverlay bind:this={experimentOverlay}
                                      on:toggleAutoPlacement={toggleExperimentalPlacement}
                                      on:relocalize={relocalize}/>

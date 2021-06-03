@@ -161,3 +161,13 @@ export function debounce(func, timeout = 300){
         timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
 }
+
+/**
+ * Returns an integer random number between min (included) and max (included):
+ * @param integer min 
+ * @param integer max 
+ * @returns integer
+ */
+export function randomInteger(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
