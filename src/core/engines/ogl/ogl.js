@@ -6,13 +6,15 @@
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
-    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram,
-    createSdfProgram, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
+    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram, createModel,
+    createSdfProgram, createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
 
-import { convertGeo2WebVec3, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
-         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
+import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
+         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
 
-import { quat } from 'gl-matrix';
+import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
+
+import { quat, vec3 } from 'gl-matrix';
 
 
 let scene, camera, renderer, gl;
@@ -20,6 +22,7 @@ let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
 let _geo2ArTransformNode;
 let _ar2GeoTransformNode;
 let _globalImagePose;
+let _localImagePose;
 let experimentTapHandler = null;
 let lastTime = 0;
 
@@ -196,6 +199,36 @@ export default class ogl {
     }
 
     /**
+     * Create object with random shape, color, size and add it to the scene at the given pose
+     *
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @returns {Mesh}
+     */
+    addRandomObject(position, orientation) {
+        let object_description = createRandomObjectDescription();
+        return addObject(position, orientation, object_description);
+    }
+
+    /**
+     * Create object with given properties at the given pose
+     *
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param object_description  {"shape": enum PRIMITIVES, "color": float[4], "scale": float or float[3]}
+     * @returns {Mesh}
+     */
+    addObject(position, orientation, object_description) {
+        const mesh = createModel(gl, object_description.shape,
+                object_description.color, object_description.transparent,
+                object_description.options, object_description.scale);
+        mesh.position.set(position.x, position.y, position.z);
+        mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        scene.addChild(mesh);
+        return mesh;
+    }
+
+    /**
      * Updates the marker object according the provided position and orientation.
      *
      * Called when marker movement was detected, for example.
@@ -216,7 +249,7 @@ export default class ogl {
      * @param position  Ved3       The position to move the reticle to
      * @param orientation  Quaternion       The rotation to apply to the reticle
      */
-    updateReticlePosition(reticle, position, orientation) {
+    updateReticlePose(reticle, position, orientation) {
         reticle.position.set(position.x, position.y, position.z);
         reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
     }
@@ -346,6 +379,17 @@ export default class ogl {
     }
 
     /**
+     *  Removes all objects from the scene
+     */
+    clearScene() {
+        while (scene.children.length > 0) {
+            let child = scene.children[0];
+            scene.removeChild(child);
+            child = null;
+        }
+    }
+
+    /**
      * 3D engine isn't needed anymore.
      */
     stop() {
@@ -374,6 +418,14 @@ export default class ogl {
         uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
 
         renderer.render({scene, camera});
+    }
+
+    /**
+     * Allows access to the camera from outside
+     * @returns Camera
+     */
+    getCamera() {
+        return camera;
     }
 
     /**
@@ -503,6 +555,7 @@ export default class ogl {
         quat.invert(deltaRotGeo2Ar, deltaRotAr2Geo);
 
         _globalImagePose = globalImagePose;
+        _localImagePose = localImagePose;
 
         // rotate around the origin by the rotation that brings the Geo system to the WebXR system
         _geo2ArTransformNode.quaternion.set(deltaRotGeo2Ar[0], deltaRotGeo2Ar[1], deltaRotGeo2Ar[2], deltaRotGeo2Ar[3]); // from quat to Quat
@@ -521,6 +574,9 @@ export default class ogl {
         _ar2GeoTransformNode.matrix.inverse(_geo2ArTransformNode.matrix);
         _ar2GeoTransformNode.decompose();
         _ar2GeoTransformNode.updateMatrixWorld(true);
+
+        printOglTransform("_geo2ArTransformNode", _geo2ArTransformNode);
+        printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
     }
 
     /**
@@ -539,9 +595,9 @@ export default class ogl {
         object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
         // set the objects' orientation as in the GeoPose response, that is already in ENU
         object.quaternion.set(globalObjectPose.quaternion.x,
-                                   globalObjectPose.quaternion.y,
-                                   globalObjectPose.quaternion.z,
-                                   globalObjectPose.quaternion.w);
+                              globalObjectPose.quaternion.y,
+                              globalObjectPose.quaternion.z,
+                              globalObjectPose.quaternion.w);
 
         // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
         _geo2ArTransformNode.addChild(object);
@@ -583,6 +639,79 @@ export default class ogl {
         _geo2ArTransformNode.removeChild(transform);
 
         return localPose;
+    }
+
+    convertLocalPoseToGeoPose(position, quaternion) {
+        if (_ar2GeoTransformNode === undefined) {
+            throw "No localization has happened yet!";
+        }
+/*
+        // TODO: return proper geopose, not only the global camera pose
+        console.log("WARNING: returning fake geoPose");
+        let geoPose = {
+            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
+            "longitude": _globalImagePose.longitude,
+            "latitude": _globalImagePose.latitude,
+            "ellipsoidHeight": _globalImagePose.ellipsoidHeight,
+            "quaternion": {
+                "x": _globalImagePose.quaternion.x,
+                "y": _globalImagePose.quaternion.y,
+                "z": _globalImagePose.quaternion.z,
+                "w": _globalImagePose.quaternion.w
+            }
+        }
+        return geoPose;
+*/
+
+        let localPose = new Transform();
+        localPose.position = position;
+        localPose.quaternion = quaternion;
+        localPose.updateMatrix();
+        _ar2GeoTransformNode.addChild(localPose);
+        _ar2GeoTransformNode.updateMatrixWorld();
+
+        let localENUPose = new Transform();
+        localENUPose.matrix = localPose.worldMatrix;
+        localENUPose.decompose();
+        _ar2GeoTransformNode.removeChild(localPose);
+
+        //TODO: swap orientation axes
+        //let localENUQuaternion = quat.fromValues(localENUPose.quaternion.x, localENUPose.quaternion.y, localENUPose.quaternion.z, localENUPose.quaternion.w);
+        //localENUQuaternion = convertWeb2GeoQuat(localENUQuaternion);
+        //localENUPose.quaternion.set(localENUQuaternion[0], localENUQuaternion[1], localENUQuaternion[2], localENUQuaternion[3]);
+
+
+        let localEnuPosition = vec3.fromValues(
+                localENUPose.position.x,
+                localENUPose.position.y,
+                localENUPose.position.z);
+        localEnuPosition = convertWeb2GeoVec3(localEnuPosition);
+
+        let dE = localEnuPosition[0];
+        let dN = localEnuPosition[1];
+        let dU = localEnuPosition[2];
+
+        let refGeoPose = _globalImagePose;
+        //TODO: do proper conversion here!
+        // See https://www.movable-type.co.uk/scripts/latlong.html
+        //const R = 6371009; // Earth radius (assuming a sphere)
+        const R = getEarthRadiusAt(refGeoPose.latitude);
+        let dLon = toDegrees(Math.atan2(dE, R));
+        let dLat = toDegrees(Math.atan2(dN, R));
+        let dHeight = dU;
+
+        let geoPose = {
+            "longitude": refGeoPose.longitude + dLon,
+            "latitude": refGeoPose.latitude + dLat,
+            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
+            "quaternion": {
+                "x": localENUPose.quaternion.x,
+                "y": localENUPose.quaternion.y,
+                "z": localENUPose.quaternion.z,
+                "w": localENUPose.quaternion.w
+            }
+        }
+        return geoPose;
     }
 
     /**

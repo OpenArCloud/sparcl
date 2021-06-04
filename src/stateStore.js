@@ -6,8 +6,8 @@
 /*
     Store for application state
 */
-
-
+// NOTE Persisting checkbox values into Svelte local storage is described here:
+// https://chasingcode.dev/blog/svelte-persist-state-to-localstorage/
 import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
@@ -281,16 +281,19 @@ allowP2pNetwork.subscribe(value => {
     localStorage.setItem('allowP2pNetwork', value === true ? 'true' : 'false');
 })
 
-
 /**
  * The current state of the peer to peer network connection.
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('none');
+export const p2pNetworkState = writable('not connected');
 
-
-
+/**
+ * Alphanumeric uuid string that identifies this client in the P2P network.
+ *
+ * @type {Writable<string>}
+ */
+export const peerIdStr = writable('none');
 
 /**
  * Appends the captured image used for localisation to the body an an image element.
