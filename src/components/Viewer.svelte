@@ -368,7 +368,8 @@
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
-            xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
+            // TODO: Fails for some reason
+            // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
             if ($debug_showLocalAxes) {
                 tdEngine.addAxes();
@@ -415,7 +416,8 @@
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
-            xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
+            // TODO: Fails for some reason
+            // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
             if ($debug_showLocalAxes) {
                 tdEngine.addAxes();

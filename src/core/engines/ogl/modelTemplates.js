@@ -16,6 +16,7 @@ import dotFragment from '@shaders/dotfragment.glsl';
 import colorfulFragment from '@shaders/colorfulfragment.glsl';
 import columnFragment from '@shaders/columnfragment.glsl';
 import voronoiFragment from '@shaders/voronoifragment.glsl';
+import sdfFragment from '@shaders/sdffragment.glsl';
 
 
 /**
@@ -101,6 +102,15 @@ export let createColumnProgram = (gl) => new Program(gl, {
 export let createVoronoiProgram = (gl) => new Program(gl, {
     vertex: defaultVertex,
     fragment: voronoiFragment,
+    uniforms: {
+        uTime: {value: 0.0}
+    }
+})
+
+export let createSdfProgram = (gl) => new Program(gl, {
+    vertex: defaultVertex,
+    fragment: sdfFragment,
+    transparent: true,
     uniforms: {
         uTime: {value: 0.0}
     }

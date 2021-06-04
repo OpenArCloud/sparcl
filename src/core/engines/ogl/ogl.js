@@ -7,7 +7,7 @@ import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} fro
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
     createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram,
-    createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
+    createSdfProgram, createAxesBoxPlaceholder, createModel} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu } from '@core/locationTools';
@@ -304,6 +304,11 @@ export default class ogl {
 
     setVoronoiProgram(model) {
         model.program = createVoronoiProgram(gl);
+        uniforms.time[model.id] = model;
+    }
+
+    setSdfProgram(model) {
+        model.program = createSdfProgram(gl);
         uniforms.time[model.id] = model;
     }
 
