@@ -271,7 +271,7 @@
 
 
 <header>
-    <img id="logo" alt="OARC logo" src="/media/ismar_demo_logo.png" />
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>

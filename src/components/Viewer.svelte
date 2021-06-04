@@ -25,7 +25,7 @@
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { fakeLocationResult4, printOglTransform} from '@core/devTools';
+    import { fakeLocationResult, printOglTransform} from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -83,7 +83,7 @@
         // NOTE: sometimes multiple events are bundled!
         console.log('Viewer event received:');
         console.log(events);
-        
+
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
@@ -244,27 +244,10 @@
 
             xrEngine.setViewPort();
 
-            /*
-            // perform fake localization. TODO: remove this
-            if (firstPoseReceived === false) {
-                firstPoseReceived = true;
-                for (let view of floorPose.views) {
-                    console.log('fake localisation');
-                    isLocalized = true;
-                    wait(1000);
-                    let geoPose = fakeLocationResult4.geopose.pose;
-                    let data = []; // WARNING: data (scr) must be an array. TODO: why?
-                    $recentLocalisation.geopose = geoPose;
-                    $recentLocalisation.floorpose = floorPose;
-                    isLocalisationDone = true;
-                    placeContent(floorPose, geoPose, data); 
-                }
-            }
-            */
-
             if (!reticle) {
                 reticle = tdEngine.addReticle();
             }
+
             const position = reticlePose.transform.position;
             const orientation = reticlePose.transform.orientation;
             tdEngine.updateReticlePose(reticle, position, orientation);
@@ -301,7 +284,6 @@
     function experimentTapHandler(event, auto = false) {
 
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
-            /*
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -383,8 +365,7 @@
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
             experimentOverlay.objectPlaced();
-            */
-            
+
 
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
@@ -835,7 +816,6 @@
                 //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
-
             })
         })
 
