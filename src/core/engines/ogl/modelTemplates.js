@@ -28,7 +28,7 @@ import sdfFragment from '@shaders/sdffragment.glsl';
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
-//    plane: 'plane', // TODO: disabled for ISMAR demo
+    plane: 'plane',
     cylinder: 'cylinder',
     cone: 'cone',
     torus: 'torus'
@@ -163,7 +163,7 @@ export function createModel(gl,
     const program = createDefaultProgram(gl, color, translucent);
     const mesh = new Mesh(gl, { geometry: geometry, program });
     mesh.scale.set(scale);
-    return mesh; 
+    return mesh;
 }
 
 /**
