@@ -173,7 +173,7 @@
             {/if}
         </Screen>
         <Screen>
-            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.dev && $arMode !== ARMODES.creator}
+            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
             <h4>{$noservicesavailable}</h4>
             <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
