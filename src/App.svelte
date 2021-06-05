@@ -12,18 +12,16 @@
     import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
     import Dashboard from '@components/Dashboard.svelte';
-    import Viewer from '@components/Viewer.svelte';
-
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
-    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
-        availableP2pServices, isLocationAccessAllowed } from './stateStore';
+    import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
+        isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
 
 
     let showWelcome, showOutro;
-    let dashboard, viewer, spectator;
+    let dashboard, viewer, viewerInstance, spectator;
     let shouldShowDashboard, shouldShowUnavailableInfo;
 
     let isLocationAccessRefused = false;
@@ -162,14 +160,20 @@
     /**
      * Initiate start of AR session
      */
-    async function startAr() {
+    function startAr() {
         shouldShowDashboard = false;
         showOutro = false;
 
-        const ogl = await import('@core/engines/ogl/ogl');
-        const webxr = await import('@core/engines/webxr');
-
-        tick().then(() => viewer.startAr(new webxr.default(), new ogl.default()));
+        Promise.all([
+                import('@core/engines/ogl/ogl'),
+                import('@core/engines/webxr'),
+                import('@components/viewer-implementations/Viewer-Oscp')])
+            .then(values => {
+                viewer = values[2].default;
+                tick().then(() => {
+                    viewerInstance.startAr(new values[1].default(), new values[0].default());
+                });
+            });
     }
 
     /**
@@ -180,6 +184,8 @@
     function sessionEnded() {
         showOutro = true;
         shouldShowDashboard = $showDashboard;
+
+        viewer = null;
     }
 
     /**
@@ -307,7 +313,8 @@
 </main>
 
 {#if showAr}
-<Viewer bind:this={viewer} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+<svelte:component bind:this={viewerInstance} this="{viewer}"
+                  on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

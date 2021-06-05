@@ -254,19 +254,19 @@
         <dt>AR mode</dt>
         <dd>
             <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}" />
-            <label for="armodeoscp">{ARMODES.oscp}</label>
+            <label for="armodeoscp">{ARMODES.oscp.name}</label>
         </dd>
         <dd>
-            <input id="armodecreator" type="radio" bind:group={$arMode} value="{ARMODES.creator}" />
-            <label for="armodecreator">{ARMODES.creator}</label>
+            <input id="armodecreator" type="radio" bind:group={$arMode} value="{ARMODES.create}" />
+            <label for="armodecreator">{ARMODES.create.name}</label>
         </dd>
         <dd>
-            <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.dev}" />
-            <label for="armodedev">{ARMODES.dev}</label>
+            <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.develop}" />
+            <label for="armodedev">{ARMODES.develop.name}</label>
         </dd>
         <dd>
             <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.experiment}" />
-            <label for="armodetest">{ARMODES.experiment}</label>
+            <label for="armodetest">{ARMODES.experiment.name}</label>
         </dd>
     </dl>
 
@@ -334,7 +334,7 @@
     </dl>
     {/if}
 
-    {#if $arMode === ARMODES.creator}
+    {#if $arMode === ARMODES.create}
     <dl>
         <dt><label for="creatortype">Content Type</label></dt>
         <dd class="select"><select id="creatortype" bind:value={$creatorModeSettings.type}>

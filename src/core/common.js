@@ -93,14 +93,14 @@ export const SERVICE = {
  * dev: Places default content from a stored service response. Should speed up using sparcl during development
  * experiment: Used for experimenting with features under development
  *
- * @type {{creator: string, dev: string, experiment: string, oscp: string, marker: string}}
+ * @type {{dev: {component: string, name: string}, experiment: {component: string, name: string}, oscp: {component: string, name: string}, marker: {component: string, name: string}, content: {component: string, name: string}}}
  */
 export const ARMODES = {
-    marker: 'Marker',
-    oscp: 'OSCP',
-    creator: 'Content creation',
-    dev: 'Development',
-    experiment: 'Experiment'
+    marker: {name: 'Marker', component: 'Viewer-Marker'},
+    oscp: {name: 'OSCP', component: 'Viewer-Oscp'},
+    create: {name: 'Content creation', component: 'Viewer-Content'},
+    develop: {name: 'Development', component: 'Viewer-Development'},
+    experiment: {name: 'Experiment', component: 'Viewer-Experiment'}
 }
 
 /**
@@ -164,8 +164,8 @@ export function debounce(func, timeout = 300){
 
 /**
  * Returns an integer random number between min (included) and max (included):
- * @param integer min 
- * @param integer max 
+ * @param integer min
+ * @param integer max
  * @returns integer
  */
 export function randomInteger(min, max) {
