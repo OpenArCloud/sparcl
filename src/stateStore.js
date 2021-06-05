@@ -6,8 +6,7 @@
 /*
     Store for application state
 */
-// NOTE Persisting checkbox values into Svelte local storage is described here:
-// https://chasingcode.dev/blog/svelte-persist-state-to-localstorage/
+
 import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
@@ -155,10 +154,6 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
             }));
     }
 
-    if (geoposeServices.length > 0 && Object.keys(get(selectedGeoPoseService)).length === 0) {
-        selectedGeoPoseService.set(geoposeServices[0]);
-    }
-
     set(geoposeServices);
 }, []);
 
@@ -220,7 +215,10 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
  *
  * @type {Writable<>}
  */
-export const selectedGeoPoseService = writable({});
+export const selectedGeoPoseService = writable({}, (set) => {
+    selectedGeoPoseService.set(get(availableGeoPoseServices)[0]);
+    return () => {};
+});
 
 
 /**
