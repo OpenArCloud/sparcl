@@ -93,14 +93,14 @@ export const SERVICE = {
  * dev: Places default content from a stored service response. Should speed up using sparcl during development
  * experiment: Used for experimenting with features under development
  *
- * @type {{dev: {component: string, name: string}, experiment: {component: string, name: string}, oscp: {component: string, name: string}, marker: {component: string, name: string}, content: {component: string, name: string}}}
+ * @type {{creator: string, dev: string, experiment: string, oscp: string, marker: string}}
  */
 export const ARMODES = {
-    marker: {name: 'Marker', component: 'Viewer-Marker'},
-    oscp: {name: 'OSCP', component: 'Viewer-Oscp'},
-    create: {name: 'Content creation', component: 'Viewer-Content'},
-    develop: {name: 'Development', component: 'Viewer-Development'},
-    experiment: {name: 'Experiment', component: 'Viewer-Experiment'}
+    marker: 'Marker',
+    oscp: 'OSCP',
+    create: 'Content creation',
+    develop: 'Development',
+    experiment: 'Experiment'
 }
 
 /**

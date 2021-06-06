@@ -254,19 +254,19 @@
         <dt>AR mode</dt>
         <dd>
             <input id="armodeoscp" type="radio" bind:group={$arMode} value="{ARMODES.oscp}" />
-            <label for="armodeoscp">{ARMODES.oscp.name}</label>
+            <label for="armodeoscp">{ARMODES.oscp}</label>
         </dd>
         <dd>
             <input id="armodecreator" type="radio" bind:group={$arMode} value="{ARMODES.create}" />
-            <label for="armodecreator">{ARMODES.create.name}</label>
+            <label for="armodecreator">{ARMODES.create}</label>
         </dd>
         <dd>
             <input id="armodedev" type="radio" bind:group={$arMode} value="{ARMODES.develop}" />
-            <label for="armodedev">{ARMODES.develop.name}</label>
+            <label for="armodedev">{ARMODES.develop}</label>
         </dd>
         <dd>
             <input id="armodetest" type="radio" bind:group={$arMode} value="{ARMODES.experiment}" />
-            <label for="armodetest">{ARMODES.experiment.name}</label>
+            <label for="armodetest">{ARMODES.experiment}</label>
         </dd>
     </dl>
 

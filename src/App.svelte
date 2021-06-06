@@ -17,7 +17,8 @@
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
     import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
-        isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
+        isLocationAccessAllowed, showDashboard, ssr, arMode } from './stateStore';
+    import {ARMODES} from "./core/common";
 
 
     let showWelcome, showOutro;
@@ -164,10 +165,22 @@
         shouldShowDashboard = false;
         showOutro = false;
 
+        let viewerImplementation;
+        switch ($arMode) {
+            case ARMODES.oscp:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Oscp');
+                break;
+            case ARMODES.create:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Create');
+                break;
+            default:
+                throw new Error('Unknown AR mode');
+        }
+
         Promise.all([
                 import('@core/engines/ogl/ogl'),
                 import('@core/engines/webxr'),
-                import('@components/viewer-implementations/Viewer-Oscp')])
+                viewerImplementation])
             .then(values => {
                 viewer = values[2].default;
                 tick().then(() => {
