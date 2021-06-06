@@ -17,6 +17,9 @@
 
     /**
      * Initial setup.
+     *
+     * @param thisWebxr  class instance     Handler class for WebXR
+     * @param this3dEngine  class instance      Handler class for 3D processing
      */
     export function startAr(thisWebxr, this3dEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
@@ -28,44 +31,13 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        parentInstance.startSession(update, onSessionEnded, onNoPose,
+        parentInstance.startSession(parentInstance.update, parentInstance.onSessionEnded, parentInstance.onNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
             },
             ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
         );
-    }
-
-    /**
-     * Handles update loop when AR Cloud mode is used.
-     *
-     * @param time  DOMHighResTimeStamp     time offset at which the updated
-     *      viewer state was received from the WebXR device.
-     * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
-     */
-    function update(time, frame, floorPose) {
-        parentInstance.update(time, frame, floorPose);
-    }
-
-    /**
-     * Called when no pose was reported from WebXR.
-     *
-     * @param time  DOMHighResTimeStamp     time offset at which the updated
-     *      viewer state was received from the WebXR device.
-     * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
-     */
-    function onNoPose(time, frame, floorPose) {
-        parentInstance.onNoPose(time, frame, floorPose);
-    }
-
-    /**
-     * Let's the app know that the XRSession was closed.
-     */
-    function onSessionEnded() {
-        parentInstance.onSessionEnded();
     }
 </script>
 

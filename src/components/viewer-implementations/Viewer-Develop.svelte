@@ -137,7 +137,7 @@
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
             });
-        } else if ($arMode === ARMODES.creator) {
+        } else if ($arMode === ARMODES.create) {
             promise = xrEngine.startCreativeSession(canvas, handleCreator, {
                 requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
                 domOverlay: {root: overlay}
@@ -934,7 +934,7 @@
                         on:startLocalisation={startLocalisation} />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
-            {:else if $arMode === ARMODES.creator}
+            {:else if $arMode === ARMODES.creat}
                 <!-- TODO: Add creator mode ui -->
             {:else if $arMode === ARMODES.develop}
                 <!--TODO: Add development mode ui -->

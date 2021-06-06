@@ -31,9 +31,9 @@
     import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
 
     // Used to dispatch events to parent
-    export const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher();
 
-    export let firstPoseReceived = false;
+    export let firstPoseReceived = false, showFooter = false;
 
 
     const message = (msg) => console.log(msg);
@@ -42,7 +42,7 @@
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let showFooter = false, experienceLoaded = false, experienceMatrix = null;
+    let experienceLoaded = false, experienceMatrix = null;
     let isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
     let unableToStartSession = false, experimentIntervallId = null;
 
@@ -58,6 +58,9 @@
 
     /**
      * Initial setup.
+     *
+     * @param thisWebxr  class instance     Handler class for WebXR
+     * @param this3dEngine  class instance      Handler class for 3D processing
      */
     export function startAr(thisWebxr, this3dEngine) {
         xrEngine = thisWebxr;
@@ -189,10 +192,7 @@
         for (let view of floorPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
-            if (experienceLoaded === true) {
-                externalContent.contentWindow.postMessage(
-                    tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
-            }
+            handleExternalExperience(view);
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
@@ -231,6 +231,18 @@
             }
 
             tdEngine.render(time, view);
+        }
+    }
+
+    /**
+     * Send the required information to an external experience, to allow it to stay in sync with the local one.
+     *
+     * @param view  XRView      The view to use
+     */
+    export function handleExternalExperience(view) {
+        if (experienceLoaded === true) {
+            externalContent.contentWindow.postMessage(
+                tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
         }
     }
 
@@ -380,7 +392,7 @@
      * @param orientation  Orientation      The orientation of the experience
      * @param url  String       The URL to load the experience from
      */
-    function experienceLoadHandler(placeholder, position, orientation, url) {
+    export function experienceLoadHandler(placeholder, position, orientation, url) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;
@@ -478,16 +490,16 @@
                     sparcl needs some <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">
                     experimental flags</a> to be enabled.
                 </p>
-            {:else if $arMode.name === ARMODES.oscp.name}
+            {:else if $arMode === ARMODES.oscp}
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
                         on:startLocalisation={startLocalisation} />
-            {:else if $arMode.name === ARMODES.marker.name}
+            {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
-            {:else if $arMode.name === ARMODES.create.name}
+            {:else if $arMode === ARMODES.create}
                 <!-- TODO: Add creator mode ui -->
-            {:else if $arMode.name === ARMODES.develop.name}
+            {:else if $arMode === ARMODES.develop}
                 <!--TODO: Add development mode ui -->
-            {:else if $arMode.name === ARMODES.experiment.name}
+            {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
                 <p>{receivedContentNames.join()}</p>
                 <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
