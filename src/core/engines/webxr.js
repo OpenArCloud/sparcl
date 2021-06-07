@@ -62,39 +62,24 @@ export default class webxr {
     }
 
     /**
-     * Start specific session for creative mode.
-     *
-     * @param canvas  Canvas        The element to use
-     * @param callback  function        Callback to call for every frame
-     * @param options  {}       Settings to use to setup the AR session
-     * @returns {Promise}
-     */
-    startCreativeSession(canvas, callback, options) {
-        creativeFrameCallback = callback;
-
-        return navigator.xr.requestSession('immersive-ar', options)
-            .then((result) => {
-                this._initSession(canvas, result);
-            })
-    }
-
-    /**
      * Setup regular use session.
      *
      * @param canvas  Canvas        The element to use
      * @param callback  function        Callback to call for every frame
      * @param options  {}       Settings to use to setup the AR session
+     * @param setup  function       Allows to execute setup functions for session
      * @returns {Promise}
      */
-    startOscpSession(canvas, callback, options) {
+    startSession(canvas, callback, options, setup = () => {}) {
         oscpFrameCallback = callback;
 
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
                 this._initSession(canvas, result);
 
-                this.glBinding = new XRWebGLBinding(result, gl);
-                initCameraCaptureScene(gl);
+                if (setup) {
+                    setup(this, result, gl);
+                }
             })
     }
 
@@ -146,6 +131,10 @@ export default class webxr {
             this.setViewPort()
         }
         return viewport;
+    }
+
+    initCameraCapture(gl) {
+        initCameraCaptureScene(gl);
     }
 
     /**
