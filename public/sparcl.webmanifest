@@ -71,7 +71,7 @@
         "name": "Open Dashboard",
         "short_name": "Dashboard",
         "description": "View the dashboard for internal state and settings",
-        "url": "?dashboard"
+        "url": "/?dashboard"
       },
       {
         "name": "Use Creation Mode",
