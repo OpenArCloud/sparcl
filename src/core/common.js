@@ -98,8 +98,8 @@ export const SERVICE = {
 export const ARMODES = {
     marker: 'Marker',
     oscp: 'OSCP',
-    creator: 'Content creation',
-    dev: 'Development',
+    create: 'Content creation',
+    develop: 'Development',
     experiment: 'Experiment'
 }
 
@@ -164,8 +164,8 @@ export function debounce(func, timeout = 300){
 
 /**
  * Returns an integer random number between min (included) and max (included):
- * @param integer min 
- * @param integer max 
+ * @param integer min
+ * @param integer max
  * @returns integer
  */
 export function randomInteger(min, max) {
