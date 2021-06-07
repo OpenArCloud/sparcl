@@ -216,7 +216,7 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
  * @type {Writable<>}
  */
 export const selectedGeoPoseService = writable({}, (set) => {
-    selectedGeoPoseService.set(get(availableGeoPoseServices)[0]);
+    set(get(availableGeoPoseServices)[0]);
     return () => {};
 });
 

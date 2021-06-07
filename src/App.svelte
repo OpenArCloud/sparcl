@@ -15,7 +15,7 @@
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
-
+  
     import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
         isLocationAccessAllowed, showDashboard, ssr, arMode } from './stateStore';
     import {ARMODES} from "./core/common";
@@ -131,6 +131,14 @@
 
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
+
+            if (urlParams.has('create')) {
+                $arMode = ARMODES.creator;
+            } else if (urlParams.has('develop')) {
+                $arMode = ARMODES.dev;
+            } else if (urlParams.has('dashboard')) {
+                shouldShowDashboard = true;
+            }
 
             if ('serviceWorker' in navigator) {
                 () => navigator.serviceWorker.register('/service-worker.js');
@@ -290,7 +298,7 @@
 
 
 <header>
-    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.svg" />
 </header>
 
 <main>
