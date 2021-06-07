@@ -106,7 +106,7 @@
 
     :global(.swipeable)  {
         position: relative;
-        height: 369px !important;
+        height: 385px !important;
 
         color: white;
         background-color: var(--theme-background);
@@ -132,6 +132,10 @@
             <p>{$locationaccessrequired}</p>
         {:else}
             <p>{$locationaccessgranted}</p>
+        {/if}
+
+        {#if $arMode !== ARMODES.oscp}
+            <p>{$arMode} mode active</p>
         {/if}
 
         {#if withOkFooter}
@@ -185,6 +189,10 @@
             {:else}
             <div>{@html $arOkMessage}</div>
             <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+                {#if $arMode !== ARMODES.oscp}
+                    <p>{$arMode} mode active</p>
+                {/if}
+
                 {#if withOkFooter}
                 <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
