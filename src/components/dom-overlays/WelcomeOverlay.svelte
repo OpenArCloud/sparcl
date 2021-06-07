@@ -88,11 +88,11 @@
         padding-top: 45px;
 
         font-weight: bold;
-        background: url("/media/overlay/welcome.png") no-repeat;
+        background: url("/media/overlay/welcome.svg") no-repeat;
     }
 
     #welcomebackwrapper {
-        background: url("/media/overlay/welcomeback.jpg") no-repeat;
+        background: url("/media/overlay/welcomeback.svg") no-repeat;
     }
 
     #welcomebackwrapper h3 {
@@ -169,11 +169,11 @@
             {#if !$isLocationAccessAllowed}
             <h4>{$locationaccessrequired}</h4>
             <p>{@html $locationaccessinfo}</p>
-            <img src="/media/overlay/marker.png" alt="location marker" />
+            <img src="/media/overlay/marker.svg" alt="location marker" />
             <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
             {:else}
             <h4 id="locationgranted">{$locationaccessgranted}</h4>
-            <img src="/media/overlay/marker.png" alt="location marker" />
+            <img src="/media/overlay/marker.svg" alt="location marker" />
             {/if}
         </Screen>
         <Screen>
@@ -188,7 +188,7 @@
 
             {:else}
             <div>{@html $arOkMessage}</div>
-            <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+            <img src="/media/overlay/ready.svg" alt="Ready icon showing phone" />
                 {#if $arMode !== ARMODES.oscp}
                     <p>{$arMode} mode active</p>
                 {/if}
