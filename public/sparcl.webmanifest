@@ -71,19 +71,19 @@
         "name": "Open Dashboard",
         "short_name": "Dashboard",
         "description": "View the dashboard for internal state and settings",
-        "url": "?dashboard=true"
+        "url": "?dashboard"
       },
       {
         "name": "Use Creation Mode",
         "short_name": "Creation Mode",
         "description": "Use content from server on local network",
-        "url": "/?create=true"
+        "url": "/?create"
       },
       {
         "name": "Use Development Mode",
         "short_name": "Development",
         "description": "Use content record stored locally",
-        "url": "/?development=true"
+        "url": "/?develop"
       }
     ]
 }
