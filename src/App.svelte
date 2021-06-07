@@ -19,7 +19,8 @@
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
     import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
-        availableP2pServices, isLocationAccessAllowed } from './stateStore';
+        availableP2pServices, isLocationAccessAllowed, arMode } from './stateStore';
+    import {ARMODES} from "@core/common";
 
 
     let showWelcome, showOutro;
@@ -132,6 +133,14 @@
 
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
+
+            if (urlParams.has('create')) {
+                $arMode = ARMODES.creator;
+            } else if (urlParams.has('develop')) {
+                $arMode = ARMODES.dev;
+            } else if (urlParams.has('dashboard')) {
+                shouldShowDashboard = true;
+            }
 
             if ('serviceWorker' in navigator) {
                 () => navigator.serviceWorker.register('/service-worker.js');
