@@ -10,8 +10,6 @@
     import Parent from '@components/Viewer';
 
 
-    const message = (msg) => console.log(msg);
-
     let parentInstance;
 
 

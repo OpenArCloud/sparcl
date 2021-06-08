@@ -15,7 +15,7 @@
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
-  
+
     import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
         isLocationAccessAllowed, showDashboard, ssr, arMode } from './stateStore';
     import {ARMODES} from "./core/common";
@@ -173,6 +173,7 @@
         shouldShowDashboard = false;
         showOutro = false;
 
+        // Unfortunately, the import function does accept string literals only
         let viewerImplementation;
         switch ($arMode) {
             case ARMODES.oscp:
@@ -180,6 +181,9 @@
                 break;
             case ARMODES.create:
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Create');
+                break;
+            case ARMODES.develop:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Develop');
                 break;
             default:
                 throw new Error('Unknown AR mode');
