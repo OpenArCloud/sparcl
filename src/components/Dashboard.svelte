@@ -19,11 +19,16 @@
         creatorModeSettings, experimentModeSettings, debug_appendCameraImage, debug_showLocalAxes
     } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from '@core/common';
+    import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
+
+    import Selector from '@experiments/Selector';
 
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+
+    let experimentSettings = null;
+
 
     function handleContentServiceSelection(event, service) {
         if (!$selectedContentServices[service.id]) {
@@ -193,7 +198,6 @@
         color: white;
 
         background: var(--theme-color) 0 0 no-repeat padding-box;
-
     }
 
     select:disabled {
@@ -364,49 +368,15 @@
 
     {#if $arMode === ARMODES.experiment}
         <dl>
-            <dt><label for="experimenttype">Type</label></dt>
-            <dd class="select"><select id="experimenttype" bind:value={$experimentModeSettings.type}>
-                {#each Object.values(EXPERIMENTTYPES) as type}
-                    <option value="{type}">{type}</option>
-                {/each}
-            </select></dd>
+            <dt><label>Type</label></dt>
+            <dd class="select">
+                <Selector on:change={ async (event) => {
+                    experimentSettings = event.detail[0];
+                }} />
+            </dd>
         </dl>
 
-        {#if $experimentModeSettings.type === EXPERIMENTTYPES.game}
-            <dl class="radio">
-                <dt>Localisation</dt>
-                <dd>
-                    <input id="xlocalisation" type="checkbox" bind:checked={$experimentModeSettings.game.localisation} />
-                    <label for="xlocalisation">Required</label>
-                </dd>
-                <dt>Add placeholders</dt>
-                <dd>
-                    <input id="addmanually" type="radio"
-                           bind:group={$experimentModeSettings.game.add} value="manually" />
-                    <label for="addmanually">Manually</label>
-                </dd>
-                <dd>
-                    <input id="addautomatically" type="radio"
-                           bind:group={$experimentModeSettings.game.add} value="automatically" />
-                    <label for="addautomatically">Automatically</label>
-                </dd>
-
-                <dt>Keep elements</dt>
-                <dd>
-                    <input id="keepall" type="radio" bind:group={$experimentModeSettings.game.keep} value="all" />
-                    <label for="keepall">All</label>
-                </dd>
-                <dd>
-                    <input id="keepupto" type="radio" bind:group={$experimentModeSettings.game.keep} value="upto" />
-                    <label for="keepupto">Up to 20m</label>
-                </dd>
-
-                <dt>
-                    <input id="showstats" type="checkbox" bind:checked={$experimentModeSettings.game.showstats} />
-                    <label for="showstats">Show stats</label>
-                </dt>
-            </dl>
-        {/if}
+        <svelte:component this="{experimentSettings}"/>
     {/if}
 </details>
 

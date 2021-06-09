@@ -185,8 +185,10 @@
             case ARMODES.develop:
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Develop');
                 break;
+            case ARMODES.experiment:
+                break;
             default:
-                throw new Error('Unknown AR mode');
+                throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
         Promise.all([
