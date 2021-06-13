@@ -15,7 +15,7 @@
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
-  
+
     import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
         isLocationAccessAllowed, showDashboard, ssr, arMode } from './stateStore';
     import {ARMODES} from "./core/common";
@@ -138,10 +138,6 @@
                 $arMode = ARMODES.dev;
             } else if (urlParams.has('dashboard')) {
                 shouldShowDashboard = true;
-            }
-
-            if ('serviceWorker' in navigator) {
-                () => navigator.serviceWorker.register('/service-worker.js');
             }
         }
     })
