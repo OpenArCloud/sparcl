@@ -139,10 +139,6 @@
             } else if (urlParams.has('dashboard')) {
                 shouldShowDashboard = true;
             }
-
-            if ('serviceWorker' in navigator) {
-                () => navigator.serviceWorker.register('/service-worker.js');
-            }
         }
     })
 
