@@ -1,3 +1,4 @@
+.gitmodules
 .snowpack
 build
 node_modules
@@ -8,5 +9,5 @@ node_modules
 
 **/*.js.map
 
-/src/experiments/*
+/src/experiments/**
 /src/experiments/*.*
