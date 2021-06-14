@@ -27,7 +27,7 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let experimentSettings = null;
+    let experimentDetail = null;
 
 
     function handleContentServiceSelection(event, service) {
@@ -371,12 +371,13 @@
             <dt><label>Type</label></dt>
             <dd class="select">
                 <Selector on:change={ async (event) => {
-                    experimentSettings = event.detail[0];
+                    experimentDetail = event.detail;
+                    $experimentModeSettings.active = experimentDetail.key;
                 }} />
             </dd>
         </dl>
 
-        <svelte:component this="{experimentSettings}"/>
+        <svelte:component this="{experimentDetail?.settings}" settings="{$experimentModeSettings[experimentDetail.key]}" />
     {/if}
 </details>
 
