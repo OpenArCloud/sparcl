@@ -119,15 +119,6 @@ export const CREATIONTYPES = {
 }
 
 /**
- * Experiments available for sparcl.
- *
- * @type {Readonly<{game: string}>}
- */
-export const EXPERIMENTTYPES = Object.freeze({
-    game: 'Game'
-});
-
-/**
  * Supported shapes for placeholder content types.
  *
  * @type {{sign: string, pole: string}}

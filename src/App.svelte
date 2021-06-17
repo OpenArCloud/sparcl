@@ -16,8 +16,10 @@
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
-    import { allowP2pNetwork, arIsAvailable, availableP2pServices, hasIntroSeen, initialLocation,
-        isLocationAccessAllowed, showDashboard, ssr, arMode } from './stateStore';
+    import Selector from '@experiments/Selector';
+
+    import { allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
+        initialLocation, isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
     import {ARMODES} from "./core/common";
 
 
@@ -165,10 +167,11 @@
     /**
      * Initiate start of AR session
      */
-    function startAr() {
+    async function startAr() {
         shouldShowDashboard = false;
         showOutro = false;
 
+        // Unfortunately, the import function does accept string literals only
         let viewerImplementation;
         switch ($arMode) {
             case ARMODES.oscp:
@@ -177,8 +180,18 @@
             case ARMODES.create:
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Create');
                 break;
+            case ARMODES.develop:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Develop');
+                break;
+            case ARMODES.experiment:
+                if ($experimentModeSettings.active) {
+                    const selector = new Selector({target: document.createElement('div')})
+                    const settings = await selector.loadSettings($experimentModeSettings.active);
+                    viewerImplementation = settings.viewerPromise;
+                }
+                break;
             default:
-                throw new Error('Unknown AR mode');
+                throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
         Promise.all([
@@ -186,9 +199,9 @@
                 import('@core/engines/webxr'),
                 viewerImplementation])
             .then(values => {
-                viewer = values[2].default;
+                viewer = values[2]?.default;
                 tick().then(() => {
-                    viewerInstance.startAr(new values[1].default(), new values[0].default());
+                    viewerInstance?.startAr(new values[1].default(), new values[0].default());
                 });
             });
     }
@@ -329,9 +342,11 @@
 {/if}
 </main>
 
-{#if showAr}
+{#if showAr && viewer}
 <svelte:component bind:this={viewerInstance} this="{viewer}"
                   on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{:else}
+<p>Settings not valid for {$arMode}. Unable to create viewer.</p>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

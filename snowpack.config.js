@@ -39,6 +39,7 @@ module.exports = {
     '@public': './public',
     '@shaders': './src/core/engines/ogl/shaders',
     '@src': './src',
-    '@thirdparty': './src/third-party'
+    '@thirdparty': './src/third-party',
+    '@experiments': './src/experiments'
   }
 };
