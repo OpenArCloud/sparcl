@@ -13,10 +13,8 @@
     import { CREATIONTYPES } from '@core/common';
 
 
-    const message = (msg) => console.log(msg);
-
     let parentInstance, xrEngine, tdEngine;
-    let creatorObject = null, firstPoseReceived;
+    let creatorObject = null, firstPoseReceived, showFooter = false;
 
 
     /**
@@ -25,12 +23,22 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr, this3dEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
-        parentInstance.startSession(update, parentInstance.onSessionEnded, parentInstance.onNoPose);
+        startSession();
+    }
+
+    /**
+     * Setup required AR features and start the XRSession.
+     */
+    async function startSession() {
+        parentInstance.startSession(update, parentInstance.onSessionEnded, parentInstance.onNoPose,
+            () => {},
+            ['dom-overlay', 'anchors', 'local-floor'],
+        );
     }
 
     /**
@@ -42,7 +50,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     function update(time, frame, floorPose) {
-        parent.showFooter = false;
+        showFooter = false;
 
         xrEngine.setViewPort();
 
@@ -57,10 +65,8 @@
             }
         }
 
-        xrEngine.handleAnchors(frame);
-
         if (!creatorObject) {
-            const position = {x: 0, y: 0, z: -4};
+            const position = {x: 0, y: 0, z: -2};
             const orientation = {x: 0, y: 0, z: 0, w: 1};
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
@@ -70,7 +76,7 @@
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
                 tdEngine.addClickEvent(creatorObject,
-                    () => parent.experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
+                    () => parentInstance.experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');
             }
@@ -78,11 +84,12 @@
 
         for (let view of floorPose.views) {
             xrEngine.setViewportForView(view);
-            parent.handleImportedExperience(view);
+            parentInstance.handleExternalExperience(view);
         }
 
+        xrEngine.handleAnchors(frame);
         tdEngine.render(time, floorPose.views[0]);
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:brbroadcast />
+<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:brbroadcast />

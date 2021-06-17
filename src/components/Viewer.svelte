@@ -33,7 +33,9 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    export let firstPoseReceived = false, showFooter = false;
+    export let firstPoseReceived = false;
+    export let showFooter = false;
+    export let isLocalized = false;
 
 
     const message = (msg) => console.log(msg);
@@ -43,7 +45,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
+    let isLocalizing = false, isLocalisationDone = false, hasLostTracking = false;
     let unableToStartSession = false, experimentIntervallId = null;
 
     let receivedContentNames = [];
@@ -115,7 +117,8 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    export function startSession(updateCallback, endedCallback, noPoseCallback, setup, requiredFeatures, optionalFeatures = []) {
+    export function startSession(updateCallback, endedCallback, noPoseCallback,
+                                 setup, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,

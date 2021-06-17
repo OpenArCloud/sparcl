@@ -77,9 +77,7 @@ export default class webxr {
             .then((result) => {
                 this._initSession(canvas, result);
 
-                if (setup) {
-                    setup(this, result, gl);
-                }
+                setup(this, result, gl);
             })
     }
 
