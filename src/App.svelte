@@ -8,6 +8,7 @@
 -->
 <script>
     import {onMount, tick} from "svelte";
+    import { writable } from 'svelte/store';
 
     import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
@@ -171,8 +172,10 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        // Unfortunately, the import function does accept string literals only
         let viewerImplementation;
+        let options = {};
+
+        // Unfortunately, the import function does accept string literals only
         switch ($arMode) {
             case ARMODES.oscp:
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Oscp');
@@ -186,8 +189,9 @@
             case ARMODES.experiment:
                 if ($experimentModeSettings.active) {
                     const selector = new Selector({target: document.createElement('div')})
-                    const settings = await selector.loadSettings($experimentModeSettings.active);
-                    viewerImplementation = settings.viewerPromise;
+                    const {viewer, key} = selector.importExperiment($experimentModeSettings.active);
+                    options.settings = writable($experimentModeSettings[key]);
+                    viewerImplementation = viewer;
                 }
                 break;
             default:
@@ -201,7 +205,7 @@
             .then(values => {
                 viewer = values[2]?.default;
                 tick().then(() => {
-                    viewerInstance?.startAr(new values[1].default(), new values[0].default());
+                    viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
                 });
             });
     }
@@ -307,7 +311,7 @@
 
 
 <header>
-    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.svg" />
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>

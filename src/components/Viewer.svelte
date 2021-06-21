@@ -7,7 +7,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import { createEventDispatcher, onDestroy, getContext } from 'svelte';
 
     import { v4 as uuidv4 } from 'uuid';
 
@@ -20,39 +20,39 @@
 
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
-    import { arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings,
+    import { arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes,
         initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService } from '@src/stateStore';
 
     import { ARMODES, wait } from "@core/common";
     import { printOglTransform } from '@core/devTools';
 
-    import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
-    import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    export let firstPoseReceived = false;
-    export let showFooter = false;
-    export let isLocalized = false;
+    export let settings;
 
 
     const message = (msg) => console.log(msg);
 
-    let canvas, overlay, externalContent, closeExperience, experimentOverlay;
+    let canvas, overlay, externalContent, closeExperience;
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let experienceLoaded = false, experienceMatrix = null;
-    let isLocalizing = false, isLocalisationDone = false, hasLostTracking = false;
-    let unableToStartSession = false, experimentIntervallId = null;
+    let showFooter = false, experienceLoaded = false, experienceMatrix = null;
+    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
+    let unableToStartSession = false;
 
     let receivedContentNames = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
 
+    const context = getContext('state');
+    $context = {
+        showFooter, isLocalized, isLocalizing, isLocalisationDone,
+    }
 
     onDestroy(() => {
         tdEngine.stop();
@@ -64,7 +64,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr, this3dEngine, options) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
@@ -94,7 +94,7 @@
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
+                    // experimentOverlay?.objectReceived();
                     let latestGlobalPose = $recentLocalisation.geopose;
                     let latestLocalPose = $recentLocalisation.floorpose;
                     placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
@@ -116,6 +116,13 @@
 
     /**
      * Setup required AR features and start the XRSession.
+     *
+     * @param updateCallback  function      Will be called from animation loop
+     * @param endedCallback  function       Will be called when AR session ends
+     * @param noPoseCallback  function      Will be called when no pose was found
+     * @param setup  function       Specific setup for AR mode or experiment
+     * @param requiredFeatures  Array       Required features for the AR session
+     * @param optionalFeatures  Array       Optional features for the AR session
      */
     export function startSession(updateCallback, endedCallback, noPoseCallback,
                                  setup, requiredFeatures = [], optionalFeatures = []) {
@@ -144,11 +151,6 @@
      */
     export function onSessionEnded() {
         firstPoseReceived = false;
-
-        if (experimentIntervallId) {
-            clearInterval(experimentIntervallId);
-            experimentIntervallId = null;
-        }
 
         dispatch('arSessionEnded');
     }
@@ -493,23 +495,10 @@
                     sparcl needs some <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">
                     experimental flags</a> to be enabled.
                 </p>
-            {:else if $arMode === ARMODES.oscp}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                        on:startLocalisation={startLocalisation} />
+            {:else if Object.values(ARMODES).includes($arMode)}
+                <slot name="overlay" {isLocalisationDone} {receivedContentNames} />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
-            {:else if $arMode === ARMODES.create}
-                <!-- TODO: Add creator mode ui -->
-            {:else if $arMode === ARMODES.develop}
-                <!--TODO: Add development mode ui -->
-            {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <p>{receivedContentNames.join()}</p>
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
-                {:else}
-                <p>{receivedContentNames.join()}</p>
-                {/if}
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>

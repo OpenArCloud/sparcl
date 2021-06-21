@@ -370,14 +370,21 @@
         <dl>
             <dt><label>Type</label></dt>
             <dd class="select">
-                <Selector on:change={ async (event) => {
+                <Selector value="{$experimentModeSettings.active}" on:change={(event) => {
                     experimentDetail = event.detail;
                     $experimentModeSettings.active = experimentDetail.key;
+
+                    if ($experimentModeSettings[experimentDetail.key] === undefined)
+                        $experimentModeSettings[experimentDetail.key] = {};
                 }} />
             </dd>
         </dl>
 
-        <svelte:component this="{experimentDetail?.settings}" settings="{$experimentModeSettings[experimentDetail.key]}" />
+        {#await experimentDetail?.settings}
+        <p>Loading...</p>
+        {:then setting}
+        <svelte:component this="{setting?.default}" settings="{$experimentModeSettings[experimentDetail.key]}" />
+        {/await}
     {/if}
 </details>
 
