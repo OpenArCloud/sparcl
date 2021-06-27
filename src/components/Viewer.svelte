@@ -50,8 +50,10 @@
     // TODO: Setup event target array, based on info received from SCD
 
     const context = getContext('state');
-    $context = {
-        showFooter, isLocalized, isLocalizing, isLocalisationDone,
+    if (context) {
+        $context = {
+            showFooter, isLocalized, isLocalizing, isLocalisationDone,
+        }
     }
 
     onDestroy(() => {
@@ -125,7 +127,7 @@
      * @param optionalFeatures  Array       Optional features for the AR session
      */
     export function startSession(updateCallback, endedCallback, noPoseCallback,
-                                 setup, requiredFeatures = [], optionalFeatures = []) {
+                                 setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,
@@ -158,7 +160,7 @@
     /**
      * Trigger localisation of the device globally using a GeoPose service.
      */
-    function startLocalisation() {
+    export function startLocalisation() {
         doCaptureImage = true;
         isLocalizing = true;
     }
@@ -481,7 +483,7 @@
 
 <canvas id='application' bind:this={canvas}></canvas>
 
-<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
+<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()} on:relocalize={relocalize}>
     <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
          bind:this={closeExperience} />
@@ -492,11 +494,11 @@
             {#if unableToStartSession}
                 <h4>Couldn't start AR</h4>
                 <p>
-                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">
+                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/help/incubationflag.html">
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {isLocalisationDone} {receivedContentNames} />
+                <slot name="overlay" {isLocalisationDone} {receivedContentNames} {firstPoseReceived} {isLocalizing} />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else}

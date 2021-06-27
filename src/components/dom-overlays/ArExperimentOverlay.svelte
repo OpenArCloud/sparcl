@@ -8,13 +8,12 @@
 -->
 
 <script>
-    import { createEventDispatcher } from 'svelte';
-
-    import { experimentModeSettings} from "@src/stateStore";
+    import { createEventDispatcher, getContext } from 'svelte';
 
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+    const settings = getContext('state');
 
     let prevFrameTime = 0;
     let hasPassedMaxSlow = false;
@@ -49,6 +48,7 @@
     }
     .prime {
         width: 200px;
+        margin-bottom: 10px;
     }
     .secondary {
         width: 50px;
@@ -59,14 +59,14 @@
 </style>
 
 
-{#if $experimentModeSettings.game.showstats}
+{#if settings.showstats}
     <p>Objects placed: {objectsPlacedCount}</p>
     <!--<p>Objects received: {objectsReceivedCount}</p>-->
     <p>ISMAR 2021 demo</p>
     <!--<p>Frame time: {prevFrameTime}</p>-->
     <!--<p>Max slow passed: {hasPassedMaxSlow}</p>-->
     <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings.game.localisation}
+    {#if settings.localisation}
     <button class="secondary" on:click={() => dispatch('relocalize')}>
         <img src="/media/refresh.svg" />
     </button>

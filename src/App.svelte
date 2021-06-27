@@ -349,8 +349,9 @@
 {#if showAr && viewer}
 <svelte:component bind:this={viewerInstance} this="{viewer}"
                   on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
-{:else}
+{:else if showAr && $arMode === ARMODES.experiment}
 <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+<button on:click={sessionEnded}>Go back</button>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

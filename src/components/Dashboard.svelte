@@ -73,7 +73,7 @@
         background-color: white;
     }
 
-    dt, .label {
+    :global(.dashboard dt), .label {
         height: 20px;
 
         margin-bottom: 6px;
@@ -82,7 +82,7 @@
         text-align: left;
     }
 
-    dd, .value {
+    :global(.dashboard dd), .value {
         display: flex;
         align-items: center;
 
@@ -94,13 +94,13 @@
         border: 1px solid var(--theme-color);
     }
 
-    dd.area {
+    :global(.dashboard dd.area) {
         display: block;
         height: auto;
         padding: 0;
     }
 
-    dd.area textarea {
+    :global(.dashboard dd.area textarea) {
         display: block;
         width: -webkit-fill-available;
         height: 75px;
@@ -108,12 +108,12 @@
         resize: none;
     }
 
-    dd.list {
+    :global(.dashboard dd.list) {
         border: 0;
         padding: 0;
     }
 
-    dd.list input {
+    :global(.dashboard dd.list input) {
         width: 100%;
         height: 39px;
 
@@ -123,11 +123,11 @@
         font-size: 18px;
     }
 
-    dd.unitinput {
+    :global(.dashboard dd.unitinput) {
         padding: 3px;
     }
 
-    dd.unitinput input {
+    :global(.dashboard dd.unitinput input) {
         width: 100%;
         height: 37px;
 
@@ -136,56 +136,56 @@
         border: 0;
     }
 
-    dl.radio {
+    :global(.dashboard dl.radio) {
         margin-top: 35px;
         margin-bottom: 60px;
     }
 
-    dl.radio dd {
+    :global(.dashboard dl.radio dd) {
         height: 22px;
 
         padding-left: 0;
         border: 0;
     }
 
-    dl.radio.connected {
+    :global(.dashboard dl.radio.connected) {
         margin-top: 7px;
         margin-bottom: 30px;
     }
 
-    dl.nested dd {
+    :global(.dashboard dl.nested dd) {
         display: block;
         height: auto;
         padding-top: 10px;
         padding-bottom: 10px;
     }
 
-    dl.nested p {
+    :global(.dashboard dl.nested p) {
         margin: 0;
     }
 
-    dl.nested ul {
+    :global(.dashboard dl.nested ul) {
         margin: 0;
         list-style: none;
         padding: 0;
     }
 
-    dd.select {
+    :global(.dashboard dd.select) {
         border: 0;
         padding: 0;
     }
 
-    fieldset {
+    :global(.dashboard fieldset) {
         margin: 0;
         padding: 0;
         border: 0;
     }
 
-    input[type=checkbox] {
+    :global(.dashboard input[type=checkbox]) {
         margin-bottom: 14px;
     }
 
-    select {
+    :global(.dashboard select) {
         width: 100%;
         height: 39px;
 
@@ -200,7 +200,7 @@
         background: var(--theme-color) 0 0 no-repeat padding-box;
     }
 
-    select:disabled {
+    :global(.dashboard select:disabled) {
         background: #8e9ca9 0 0 no-repeat padding-box;
     }
 
@@ -228,7 +228,7 @@
 
 <button on:click={() => dispatch('okClicked')}>Go immersive</button>
 
-<details bind:open="{$dashboardDetail.state}">
+<details class="dashboard" bind:open="{$dashboardDetail.state}">
     <summary>Application state</summary>
 
     <div>
@@ -370,10 +370,14 @@
         <dl>
             <dt><label>Type</label></dt>
             <dd class="select">
-                <Selector value="{$experimentModeSettings.active}" on:change={(event) => {
+                <Selector value="{$experimentModeSettings?.active}" on:change={(event) => {
                     experimentDetail = event.detail;
-                    $experimentModeSettings.active = experimentDetail.key;
 
+                    if ($experimentModeSettings === null){
+                        $experimentModeSettings = {};
+                    }
+
+                    $experimentModeSettings.active = experimentDetail.key;
                     if ($experimentModeSettings[experimentDetail.key] === undefined)
                         $experimentModeSettings[experimentDetail.key] = {};
                 }} />
@@ -383,12 +387,12 @@
         {#await experimentDetail?.settings}
         <p>Loading...</p>
         {:then setting}
-        <svelte:component this="{setting?.default}" settings="{$experimentModeSettings[experimentDetail.key]}" />
+        <svelte:component this="{setting?.default}" bind:settings="{$experimentModeSettings[experimentDetail.key]}" />
         {/await}
     {/if}
 </details>
 
-<details bind:open="{$dashboardDetail.multiplayer}">
+<details class="dashboard" bind:open="{$dashboardDetail.multiplayer}">
     <summary>Multiplayer</summary>
     <div>
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
@@ -417,9 +421,7 @@
     </dl>
 </details>
 
-
-
-<details bind:open="{$dashboardDetail.debug}">
+<details class="dashboard" bind:open="{$dashboardDetail.debug}">
     <summary>Debug settings</summary>
     <div>
         <input id="appendcameraimage" type="checkbox" bind:checked={$debug_appendCameraImage} />
