@@ -31,17 +31,14 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    export let settings;
-
-
     const message = (msg) => console.log(msg);
 
     let canvas, overlay, externalContent, closeExperience;
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
-    let showFooter = false, experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
+    let experienceLoaded = false, experienceMatrix = null;
+    let firstPoseReceived = false, hasLostTracking = false;
     let unableToStartSession = false;
 
     let receivedContentNames = [];
@@ -50,10 +47,11 @@
     // TODO: Setup event target array, based on info received from SCD
 
     const context = getContext('state');
-    if (context) {
-        $context = {
-            showFooter, isLocalized, isLocalizing, isLocalisationDone,
-        }
+    $context = {
+        showFooter: false,
+        isLocalized: false,
+        isLocalizing: false,
+        isLocalisationDone: false
     }
 
     onDestroy(() => {
@@ -65,13 +63,14 @@
      *
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
+     * @param options  {}       Options provided from caller. Currently settings for experiment mode
      */
     export function startAr(thisWebxr, this3dEngine, options) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
         // give the component some time to set up itself
-        wait(1000).then(() => showFooter = true);
+        wait(1000).then(() => $context.showFooter = true);
     }
 
     /**
@@ -162,7 +161,7 @@
      */
     export function startLocalisation() {
         doCaptureImage = true;
-        isLocalizing = true;
+        $context.isLocalizing = true;
     }
 
     /**
@@ -203,7 +202,7 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
-            if (!isLocalized) {
+            if (!$context.isLocalized) {
                 cameraTexture = xrEngine.getCameraTexture(frame, view);
             }
 
@@ -275,18 +274,18 @@
 
             sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
                 .then(data => {
-                    isLocalizing = false;
-                    isLocalized = true;
+                    $context.isLocalizing = false;
+                    $context.isLocalized = true;
                     wait(4000).then(() => {
-                        showFooter = false;
-                        isLocalisationDone = true;
+                        $context.showFooter = false;
+                        $context.isLocalisationDone = true;
                     });
 
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
-                    isLocalizing = false;
+                    $context.isLocalizing = false;
                     console.error(error);
                     reject(error);
                 });
@@ -297,13 +296,13 @@
      * Show ui for localisation again.
      */
     export function relocalize() {
-        isLocalized = false;
-        isLocalisationDone = false;
+        $context.isLocalized = false;
+        $context.isLocalisationDone = false;
         receivedContentNames = [];
 
         tdEngine.clearScene();
 
-        showFooter = true;
+        $context.showFooter = true;
     }
 
     /**
@@ -483,13 +482,13 @@
 
 <canvas id='application' bind:this={canvas}></canvas>
 
-<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()} on:relocalize={relocalize}>
+<aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
     <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
          bind:this={closeExperience} />
 
     <!--  Space for UI elements  -->
-    {#if showFooter}
+    {#if $context.showFooter}
         <footer>
             {#if unableToStartSession}
                 <h4>Couldn't start AR</h4>
@@ -498,7 +497,10 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {isLocalisationDone} {receivedContentNames} {firstPoseReceived} {isLocalizing} />
+                <slot name="overlay" {receivedContentNames} {firstPoseReceived}
+                      isLocalized={$context.isLocalized}
+                      isLocalisationDone={$context.isLocalisationDone}
+                      isLocalizing={$context.isLocalizing} />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else}

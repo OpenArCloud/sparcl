@@ -6,8 +6,7 @@
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
 import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
-    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram, createModel,
-    createSdfProgram, createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
+    createProgram, createModel, createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
 
 import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
@@ -102,17 +101,14 @@ export default class ogl {
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
 
-        if (fragmentShader === 'barberfragment') {
-            this.setBarberProgram(placeholder);
-        } else if (fragmentShader === 'dotfragment') {
-            this.setDotProgram(placeholder);
-        } else if (fragmentShader === 'colorfulfragment') {
-            this.setColorfulProgram(placeholder);
-        } else if (fragmentShader === 'columnfragment') {
-            this.setColumnProgram(placeholder);
-        } else if (fragmentShader === 'voronoifragment') {
-            this.setVoronoiProgram(placeholder);
-        }
+        placeholder.program = createProgram(gl, {
+            fragment: fragmentShader,
+            uniforms: {
+                uTime: {value: 0.0}
+            }
+        });
+
+        uniforms.time[placeholder.id] = placeholder;
 
         return placeholder;
     }
@@ -312,36 +308,6 @@ export default class ogl {
      */
     setWaiting(model) {
         model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
-        uniforms.time[model.id] = model;
-    }
-
-    setBarberProgram(model) {
-        model.program = createBarberProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setDotProgram(model) {
-        model.program = createDotProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setColorfulProgram(model) {
-        model.program = createColorfulProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setColumnProgram(model) {
-        model.program = createColumnProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setVoronoiProgram(model) {
-        model.program = createVoronoiProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setSdfProgram(model) {
-        model.program = createSdfProgram(gl);
         uniforms.time[model.id] = model;
     }
 

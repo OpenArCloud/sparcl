@@ -12,12 +12,6 @@ import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 import { randomInteger } from '@src/core/common';
-import barberFragment from '@shaders/barberfragment.glsl';
-import dotFragment from '@shaders/dotfragment.glsl';
-import colorfulFragment from '@shaders/colorfulfragment.glsl';
-import columnFragment from '@shaders/columnfragment.glsl';
-import voronoiFragment from '@shaders/voronoifragment.glsl';
-import sdfFragment from '@shaders/sdffragment.glsl';
 
 
 /**
@@ -33,6 +27,10 @@ export const PRIMITIVES = Object.freeze({
     cone: 'cone',
     torus: 'torus'
 });
+
+export let createProgram = (gl, {vertex = defaultVertex, fragment = defaultFragment, uniforms = {}}) => new Program(gl, {
+    vertex, fragment, uniforms
+})
 
 /**
  * General use GLSL program.
@@ -69,56 +67,6 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
     }
 })
 
-export let createBarberProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: barberFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createDotProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: dotFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createColorfulProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: colorfulFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createColumnProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: columnFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createVoronoiProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: voronoiFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createSdfProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: sdfFragment,
-    transparent: true,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-
 /**
  * Simple sample model to place for tests.
  *
@@ -127,6 +75,7 @@ export let createSdfProgram = (gl) => new Program(gl, {
  * @param color  Color      Color array
  * @param translucent  Boolean      true to draw translucent according to alpha value in color
  * @param options  Object       Optional settings for created object
+ * @param scale  number[]       Scale of the model
  * @returns {Mesh}
  */
 export function createModel(gl,
@@ -171,6 +120,7 @@ export function createModel(gl,
  *
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @param color  Color      Color array
+ * @param showaxes  boolean     show local coordinate system access when true
  * @returns {Mesh}
  */
 export function createAxesBoxPlaceholder(gl, color, showaxes=true) {
