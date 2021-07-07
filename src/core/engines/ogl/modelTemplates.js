@@ -6,12 +6,12 @@
 /* Provides models for generic content, provided by the content discovery */
 
 
-import { Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4 } from 'ogl';
+import {Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4} from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
-import { randomInteger } from '@src/core/common';
+import {randomInteger} from '@src/core/common';
 
 
 /**
@@ -161,9 +161,11 @@ export function getDefaultPlaceholder(gl) {
     return placeholder;
 }
 
-/** Creates properties struct with random shape (out of predefined shapes), color, scale
- * @returns object_description = {color, shape, scale}
-*/
+/**
+ * Creates properties struct with random shape (out of predefined shapes), color, scale.
+ *
+ * @returns {{color: (number|number)[], shape, options: {}, scale: number, version: number, transparent: boolean}}
+ */
 export function createRandomObjectDescription() {
     const kNumPrimitives = Object.keys(PRIMITIVES).length;
     let shape_idx = Math.floor(Math.random() * kNumPrimitives);
@@ -171,15 +173,15 @@ export function createRandomObjectDescription() {
     let color = [Math.random(), Math.random(), Math.random(), 1.0];
     //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
     let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
-    let object_description = {
+
+    return {
         'version': 2,
         'color': color,
         'shape': shape,
         'scale': scale,
         'transparent': false,
         'options': {}
-    };
-    return object_description
+    }
 }
 
 /** Creates a Mesh with random shape (out of predefined shapes) and random color and size
@@ -188,8 +190,8 @@ export function createRandomObjectDescription() {
 */
 export function createRandomObject(gl) {
     let object_description = createRandomObjectDescription();
-    const placeholder = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
-    return placeholder;
+    return createModel(gl, object_description.shape, object_description.color,
+        object_description.transparent, object_description.options, object_description.scale);
 }
 
 /**

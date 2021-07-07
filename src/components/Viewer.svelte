@@ -7,26 +7,35 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import { createEventDispatcher, onDestroy, getContext } from 'svelte';
+    import {createEventDispatcher, getContext, onDestroy} from 'svelte';
 
-    import { v4 as uuidv4 } from 'uuid';
+    import {v4 as uuidv4} from 'uuid';
 
-    import { sendRequest, validateRequest } from 'gpp-access';
+    import {sendRequest, validateRequest} from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
-    import { IMAGEFORMAT } from 'gpp-access/GppGlobals.js';
+    import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from 'scd-access';
+    import {getContentAtLocation} from 'scd-access';
 
-    import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
+    import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import { arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes,
-        initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService } from '@src/stateStore';
+    import {
+        arMode,
+        availableContentServices,
+        debug_appendCameraImage,
+        debug_showLocalAxes,
+        initialLocation,
+        recentLocalisation,
+        selectedContentServices,
+        selectedGeoPoseService
+    } from '@src/stateStore';
 
-    import { ARMODES, wait } from "@core/common";
-    import { printOglTransform } from '@core/devTools';
+    import {ARMODES, wait} from "@core/common";
+    import {printOglTransform} from '@core/devTools';
 
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
+
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -63,7 +72,7 @@
      *
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
-     * @param options  {}       Options provided from caller. Currently settings for experiment mode
+     * @param options  {*}       Options provided from caller. Currently settings for experiment mode
      */
     export function startAr(thisWebxr, this3dEngine, options) {
         xrEngine = thisWebxr;
@@ -94,7 +103,7 @@
             let data = events.object_created;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 data = data.scr;
-                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
                     // experimentOverlay?.objectReceived();
                     let latestGlobalPose = $recentLocalisation.geopose;
                     let latestLocalPose = $recentLocalisation.floorpose;
@@ -321,6 +330,35 @@
     }
 
     /**
+     * This adds a spatial content record (SCR) to the scene at a given GeoPose
+     *
+     * @param globalObjectPose GeoPose of the content
+     * @param scr  SCR      The content entry
+     */
+    export function placeScr(globalObjectPose, scr) {
+/*  TODO: make usable here
+
+        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]) // gray
+
+        // calculate relative position w.r.t the camera in ENU system
+        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
+        relativePosition = convertGeo2WebVec3(relativePosition);
+        // set _local_ transformation w.r.t parent _geo2ArTransformNode
+        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
+        // set the objects' orientation as in the GeoPose response, that is already in ENU
+        object.quaternion.set(globalObjectPose.quaternion.x,
+            globalObjectPose.quaternion.y,
+            globalObjectPose.quaternion.z,
+            globalObjectPose.quaternion.w);
+
+        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
+        _geo2ArTransformNode.addChild(object);
+        object.updateMatrixWorld(true);
+*/
+    }
+
+
+    /**
      *  Places the content provided by a call to Spacial Content Discovery providers.
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
@@ -328,10 +366,7 @@
      * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     export function placeContent(localPose, globalPose, scr) {
-        let localImagePose = localPose.transform
-        let globalImagePose = globalPose
-
-        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
+        tdEngine.beginSpatialContentRecords(localPose.transform, globalPose)
 
         receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
@@ -341,7 +376,7 @@
                 receivedContentNames.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
-                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
+                // placeScr(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
                 if (record.content.type === 'placeholder') {
@@ -387,7 +422,7 @@
             })
         })
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateMatrixWorld();
     }
 
     /**
