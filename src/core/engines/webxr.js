@@ -6,61 +6,14 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
 
 
-let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
-    experimentFrameCallback, noExperimentResultCallback, onFrameUpdate;
-let floorSpaceReference, localSpaceReference, hitTestSource, gl;
-
-let previousTime = performance.now();
-let slowCount = 0;
-let maxSlow = 10;
-let maximumFrameTime = 1000/30; // 30 FPS
+let endedCallback, frameCallback, markerFrameCallback, noExperimentResultCallback, onFrameUpdate;
+let floorSpaceReference, localSpaceReference, gl;
 
 
 /**
  * WebXR implementation of the AR engine.
  */
 export default class webxr {
-    /**
-     * Start specific session for experiment mode.
-     *
-     * @param canvas  Canvas        The element to use
-     * @param callback  function        Callback to call for every frame
-     * @param options  {}       Settings to use to setup the AR session
-     * @returns {Promise}
-     */
-    startExperimentSession(canvas, callback, options) {
-        experimentFrameCallback = callback;
-
-        return navigator.xr.requestSession('immersive-ar', options)
-            .then((result) => {
-                this._initSession(canvas, result);
-
-                result.requestReferenceSpace('viewer')
-                    .then(refSpace => result.requestHitTestSource({ space: refSpace }))
-                    .then(source => hitTestSource = source);
-
-                this.glBinding = new XRWebGLBinding(result, gl);
-                initCameraCaptureScene(gl);
-            })
-    }
-
-    /**
-     * Start specific session for development mode.
-     *
-     * @param canvas  Canvas        The element to use
-     * @param callback  function        Callback to call for every frame
-     * @param options  {}       Settings to use to setup the AR session
-     * @returns {Promise}
-     */
-    startDevSession(canvas, callback, options) {
-        devFrameCallback = callback;
-
-        return navigator.xr.requestSession('immersive-ar', options)
-            .then((result) => {
-                this._initSession(canvas, result);
-            })
-    }
-
     /**
      * Setup regular use session.
      *
@@ -71,7 +24,7 @@ export default class webxr {
      * @returns {Promise}
      */
     startSession(canvas, callback, options, setup = () => {}) {
-        oscpFrameCallback = callback;
+        frameCallback = callback;
 
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
@@ -177,11 +130,6 @@ export default class webxr {
      * @param session  XRSession        The session to end
      */
     onEndSession(session) {
-        if (hitTestSource) {
-            hitTestSource.cancel();
-            hitTestSource = null;
-        }
-
         session.end();
     }
 
@@ -283,35 +231,8 @@ export default class webxr {
         const floorPose = frame.getViewerPose(floorSpaceReference);
 
         if (floorPose) {
-            if (experimentFrameCallback && hitTestSource) {
-                const t = performance.now();
-                const elapsed = t - previousTime;
-                previousTime = t;
-
-                if (elapsed > maximumFrameTime) {
-                    slowCount = Math.max(slowCount++, maxSlow);
-                }
-
-                const roundedElapsed = Math.ceil(elapsed);
-                const hitTestResults = frame.getHitTestResults(hitTestSource);
-                if (hitTestResults.length > 0) {
-                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-                    experimentFrameCallback(time, frame, floorPose, reticlePose, roundedElapsed, slowCount >= maxSlow);
-                } else {
-                    noExperimentResultCallback(time, frame, floorPose, roundedElapsed, slowCount >= maxSlow)
-                }
-            }
-
-            if (devFrameCallback) {
-                devFrameCallback(time, frame, floorPose);
-            }
-
-            if (creativeFrameCallback) {
-                creativeFrameCallback(time, frame, floorPose);
-            }
-
-            if (oscpFrameCallback) {
-                oscpFrameCallback(time, frame, floorPose);
+            if (frameCallback) {
+                frameCallback(time, frame, floorPose, floorSpaceReference);
             }
 
             if (markerFrameCallback) {

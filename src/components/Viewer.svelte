@@ -7,52 +7,54 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import {createEventDispatcher, getContext, onDestroy} from 'svelte';
+    import {writable} from 'svelte/store';
 
-    import { v4 as uuidv4 } from 'uuid';
+    import {v4 as uuidv4} from 'uuid';
 
-    import { sendRequest, validateRequest } from 'gpp-access';
+    import {sendRequest, validateRequest} from 'gpp-access';
     import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
-    import { IMAGEFORMAT } from 'gpp-access/GppGlobals.js';
+    import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from 'scd-access';
+    import {getContentAtLocation} from 'scd-access';
 
-    import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
+    import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import { arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings,
-        initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService } from '@src/stateStore';
+    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, initialLocation,
+        recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
-    import { ARMODES, wait } from "@core/common";
-    import { printOglTransform } from '@core/devTools';
+    import {ARMODES, wait} from "@core/common";
+    import {printOglTransform} from '@core/devTools';
 
-    import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
-    import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
+
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    export let firstPoseReceived = false;
-    export let showFooter = false;
-    export let isLocalized = false;
-
-
     const message = (msg) => console.log(msg);
 
-    let canvas, overlay, externalContent, closeExperience, experimentOverlay;
+    let canvas, overlay, externalContent, closeExperience;
     let xrEngine, tdEngine;
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let isLocalizing = false, isLocalisationDone = false, hasLostTracking = false;
-    let unableToStartSession = false, experimentIntervallId = null;
+    let firstPoseReceived = false, hasLostTracking = false;
+    let unableToStartSession = false;
 
     let receivedContentNames = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
 
+    const context = getContext('state') || writable();
+    $context = {
+        showFooter: false,
+        isLocalized: false,
+        isLocalizing: false,
+        isLocalisationDone: false
+    }
 
     onDestroy(() => {
         tdEngine.stop();
@@ -63,13 +65,14 @@
      *
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
+     * @param options  {*}       Options provided from caller. Currently settings for experiment mode
      */
-    export function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr, this3dEngine, options) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
         // give the component some time to set up itself
-        wait(1000).then(() => showFooter = true);
+        wait(1000).then(() => $context.showFooter = true);
     }
 
     /**
@@ -93,8 +96,8 @@
             let data = events.object_created;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 data = data.scr;
-                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
+                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
+                    // experimentOverlay?.objectReceived();
                     let latestGlobalPose = $recentLocalisation.geopose;
                     let latestLocalPose = $recentLocalisation.floorpose;
                     placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
@@ -116,9 +119,16 @@
 
     /**
      * Setup required AR features and start the XRSession.
+     *
+     * @param updateCallback  function      Will be called from animation loop
+     * @param endedCallback  function       Will be called when AR session ends
+     * @param noPoseCallback  function      Will be called when no pose was found
+     * @param setup  function       Specific setup for AR mode or experiment
+     * @param requiredFeatures  Array       Required features for the AR session
+     * @param optionalFeatures  Array       Optional features for the AR session
      */
     export function startSession(updateCallback, endedCallback, noPoseCallback,
-                                 setup, requiredFeatures = [], optionalFeatures = []) {
+                                 setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,
@@ -145,20 +155,15 @@
     export function onSessionEnded() {
         firstPoseReceived = false;
 
-        if (experimentIntervallId) {
-            clearInterval(experimentIntervallId);
-            experimentIntervallId = null;
-        }
-
         dispatch('arSessionEnded');
     }
 
     /**
      * Trigger localisation of the device globally using a GeoPose service.
      */
-    function startLocalisation() {
+    export function startLocalisation() {
         doCaptureImage = true;
-        isLocalizing = true;
+        $context.isLocalizing = true;
     }
 
     /**
@@ -199,7 +204,7 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
-            if (!isLocalized) {
+            if (!$context.isLocalized) {
                 cameraTexture = xrEngine.getCameraTexture(frame, view);
             }
 
@@ -271,18 +276,18 @@
 
             sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
                 .then(data => {
-                    isLocalizing = false;
-                    isLocalized = true;
+                    $context.isLocalizing = false;
+                    $context.isLocalized = true;
                     wait(4000).then(() => {
-                        showFooter = false;
-                        isLocalisationDone = true;
+                        $context.showFooter = false;
+                        $context.isLocalisationDone = true;
                     });
 
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
-                    isLocalizing = false;
+                    $context.isLocalizing = false;
                     console.error(error);
                     reject(error);
                 });
@@ -293,13 +298,13 @@
      * Show ui for localisation again.
      */
     export function relocalize() {
-        isLocalized = false;
-        isLocalisationDone = false;
+        $context.isLocalized = false;
+        $context.isLocalisationDone = false;
         receivedContentNames = [];
 
         tdEngine.clearScene();
 
-        showFooter = true;
+        $context.showFooter = true;
     }
 
     /**
@@ -318,6 +323,35 @@
     }
 
     /**
+     * This adds a spatial content record (SCR) to the scene at a given GeoPose
+     *
+     * @param globalObjectPose GeoPose of the content
+     * @param scr  SCR      The content entry
+     */
+    export function placeScr(globalObjectPose, scr) {
+/*  TODO: make usable here
+
+        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]) // gray
+
+        // calculate relative position w.r.t the camera in ENU system
+        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
+        relativePosition = convertGeo2WebVec3(relativePosition);
+        // set _local_ transformation w.r.t parent _geo2ArTransformNode
+        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
+        // set the objects' orientation as in the GeoPose response, that is already in ENU
+        object.quaternion.set(globalObjectPose.quaternion.x,
+            globalObjectPose.quaternion.y,
+            globalObjectPose.quaternion.z,
+            globalObjectPose.quaternion.w);
+
+        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
+        _geo2ArTransformNode.addChild(object);
+        object.updateMatrixWorld(true);
+*/
+    }
+
+
+    /**
      *  Places the content provided by a call to Spacial Content Discovery providers.
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
@@ -325,10 +359,7 @@
      * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     export function placeContent(localPose, globalPose, scr) {
-        let localImagePose = localPose.transform
-        let globalImagePose = globalPose
-
-        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
+        tdEngine.beginSpatialContentRecords(localPose.transform, globalPose)
 
         receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
@@ -338,7 +369,7 @@
                 receivedContentNames.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
-                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
+                // placeScr(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
                 if (record.content.type === 'placeholder') {
@@ -384,7 +415,7 @@
             })
         })
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateMatrixWorld();
     }
 
     /**
@@ -485,31 +516,21 @@
          bind:this={closeExperience} />
 
     <!--  Space for UI elements  -->
-    {#if showFooter}
+    {#if $context.showFooter}
         <footer>
             {#if unableToStartSession}
                 <h4>Couldn't start AR</h4>
                 <p>
-                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/guides/incubationflag.html">
+                    sparcl needs some <a href="https://openarcloud.github.io/sparcl/help/incubationflag.html">
                     experimental flags</a> to be enabled.
                 </p>
-            {:else if $arMode === ARMODES.oscp}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                        on:startLocalisation={startLocalisation} />
+            {:else if Object.values(ARMODES).includes($arMode)}
+                <slot name="overlay" {receivedContentNames} {firstPoseReceived}
+                      isLocalized={$context.isLocalized}
+                      isLocalisationDone={$context.isLocalisationDone}
+                      isLocalizing={$context.isLocalizing} />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
-            {:else if $arMode === ARMODES.create}
-                <!-- TODO: Add creator mode ui -->
-            {:else if $arMode === ARMODES.develop}
-                <!--TODO: Add development mode ui -->
-            {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <p>{receivedContentNames.join()}</p>
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
-                {:else}
-                <p>{receivedContentNames.join()}</p>
-                {/if}
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
