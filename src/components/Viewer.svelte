@@ -8,6 +8,7 @@
 -->
 <script>
     import {createEventDispatcher, getContext, onDestroy} from 'svelte';
+    import {writable} from 'svelte/store';
 
     import {v4 as uuidv4} from 'uuid';
 
@@ -20,16 +21,8 @@
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import {
-        arMode,
-        availableContentServices,
-        debug_appendCameraImage,
-        debug_showLocalAxes,
-        initialLocation,
-        recentLocalisation,
-        selectedContentServices,
-        selectedGeoPoseService
-    } from '@src/stateStore';
+    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, initialLocation,
+        recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
@@ -55,7 +48,7 @@
 
     // TODO: Setup event target array, based on info received from SCD
 
-    const context = getContext('state');
+    const context = getContext('state') || writable();
     $context = {
         showFooter: false,
         isLocalized: false,

@@ -5,29 +5,13 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import {
-    createAxesBoxPlaceholder,
-    createModel,
-    createProgram,
-    createRandomObjectDescription,
-    createWaitingProgram,
-    getAxes,
-    getDefaultMarkerObject,
-    getDefaultPlaceholder,
-    getExperiencePlaceholder
-} from '@core/engines/ogl/modelTemplates';
+import { createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
+    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder } from '@core/engines/ogl/modelTemplates';
 
-import {
-    convertAugmentedCityCam2WebQuat,
-    convertAugmentedCityCam2WebVec3,
-    convertGeo2WebVec3,
-    convertWeb2GeoVec3,
-    geodetic_to_enu,
-    getEarthRadiusAt,
-    getRelativeGlobalPosition,
-    getRelativeOrientation,
-    toDegrees
-} from '@core/locationTools';
+import { convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
+    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees} from '@core/locationTools';
+
+import { printOglTransform } from '@core/devTools';
 
 import {quat, vec3} from 'gl-matrix';
 
