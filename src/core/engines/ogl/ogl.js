@@ -5,16 +5,15 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
-    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram, createModel,
-    createSdfProgram, createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
+import { createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
+    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder } from '@core/engines/ogl/modelTemplates';
 
-import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
-         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
+import { convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
+    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees} from '@core/locationTools';
 
-import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
+import { printOglTransform } from '@core/devTools';
 
-import { quat, vec3 } from 'gl-matrix';
+import {quat, vec3} from 'gl-matrix';
 
 
 let scene, camera, renderer, gl;
@@ -102,17 +101,14 @@ export default class ogl {
         placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         placeholder.setParent(scene);
 
-        if (fragmentShader === 'barberfragment') {
-            this.setBarberProgram(placeholder);
-        } else if (fragmentShader === 'dotfragment') {
-            this.setDotProgram(placeholder);
-        } else if (fragmentShader === 'colorfulfragment') {
-            this.setColorfulProgram(placeholder);
-        } else if (fragmentShader === 'columnfragment') {
-            this.setColumnProgram(placeholder);
-        } else if (fragmentShader === 'voronoifragment') {
-            this.setVoronoiProgram(placeholder);
-        }
+        placeholder.program = createProgram(gl, {
+            fragment: fragmentShader,
+            uniforms: {
+                uTime: {value: 0.0}
+            }
+        });
+
+        uniforms.time[placeholder.id] = placeholder;
 
         return placeholder;
     }
@@ -215,7 +211,7 @@ export default class ogl {
      *
      * @param position  number{x, y, z}        3D position of the object
      * @param orientation  number{x, y, z, w}     Orientation of the object
-     * @param object_description  {"shape": enum PRIMITIVES, "color": float[4], "scale": float or float[3]}
+     * @param object_description  {*}
      * @returns {Mesh}
      */
     addObject(position, orientation, object_description) {
@@ -315,36 +311,6 @@ export default class ogl {
         uniforms.time[model.id] = model;
     }
 
-    setBarberProgram(model) {
-        model.program = createBarberProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setDotProgram(model) {
-        model.program = createDotProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setColorfulProgram(model) {
-        model.program = createColorfulProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setColumnProgram(model) {
-        model.program = createColumnProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setVoronoiProgram(model) {
-        model.program = createVoronoiProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
-    setSdfProgram(model) {
-        model.program = createSdfProgram(gl);
-        uniforms.time[model.id] = model;
-    }
-
     /**
      * Registers a general tap handler. Gets called when no hits where found for a tap.
      *
@@ -398,6 +364,13 @@ export default class ogl {
     }
 
     /**
+     * This recursively updates the whole scene graph after all SCRs are placed
+     */
+    updateMatrixWorld() {
+        scene.updateMatrixWorld(true);
+    }
+
+    /**
      * Render loop.
      *
      * @param time  Number      Provided by WebXR
@@ -420,13 +393,6 @@ export default class ogl {
         renderer.render({scene, camera});
     }
 
-    /**
-     * Allows access to the camera from outside
-     * @returns Camera
-     */
-    getCamera() {
-        return camera;
-    }
 
     /**
      * @private
@@ -579,38 +545,6 @@ export default class ogl {
         printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
     }
 
-    /**
-     * This adds a spatial content record (SCR) to the scene at a given GeoPose
-     * @param {*} globalObjectPose GeoPose of the content
-     * @param {*} content The content entry
-     */
-    addSpatialContentRecord(globalObjectPose, content) {
-
-        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]) // gray
-
-        // calculate relative position w.r.t the camera in ENU system
-        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
-        relativePosition = convertGeo2WebVec3(relativePosition);
-        // set _local_ transformation w.r.t parent _geo2ArTransformNode
-        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
-        // set the objects' orientation as in the GeoPose response, that is already in ENU
-        object.quaternion.set(globalObjectPose.quaternion.x,
-                              globalObjectPose.quaternion.y,
-                              globalObjectPose.quaternion.z,
-                              globalObjectPose.quaternion.w);
-
-        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
-        _geo2ArTransformNode.addChild(object);
-        object.updateMatrixWorld(true);
-    }
-
-    /**
-     * This recursively updates the whole scene graph after all SCRs are placed
-     */
-    endSpatialContentRecords() {
-        scene.updateMatrixWorld(true);
-    }
-
     convertGeoPoseToLocalPose(geoPose) {
         if (_geo2ArTransformNode === undefined) {
             throw "No localization has happened yet!";
@@ -698,20 +632,18 @@ export default class ogl {
         const R = getEarthRadiusAt(refGeoPose.latitude);
         let dLon = toDegrees(Math.atan2(dE, R));
         let dLat = toDegrees(Math.atan2(dN, R));
-        let dHeight = dU;
 
-        let geoPose = {
+        return {
             "longitude": refGeoPose.longitude + dLon,
             "latitude": refGeoPose.latitude + dLat,
-            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
+            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dU,
             "quaternion": {
                 "x": localENUPose.quaternion.x,
                 "y": localENUPose.quaternion.y,
                 "z": localENUPose.quaternion.z,
                 "w": localENUPose.quaternion.w
             }
-        }
-        return geoPose;
+        };
     }
 
     /**

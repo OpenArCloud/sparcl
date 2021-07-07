@@ -8,6 +8,7 @@
 -->
 <script>
     import Parent from '@components/Viewer';
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
 
 
     let parentInstance;
@@ -39,4 +40,11 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:brbroadcast />
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized
+                     let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
+    <p>{receivedContentNames.join()}</p>
+        <ArCloudOverlay hasPose="{firstPoseReceived}" {isLocalizing} {isLocalized}
+                        on:startLocalisation={() => parentInstance.startLocalisation()} />
+    </svelte:fragment>
+</Parent>
