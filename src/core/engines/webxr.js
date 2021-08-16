@@ -3,7 +3,7 @@
   This code is licensed under MIT license (see LICENSE for details)
 */
 
-import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture } from '@core/cameraCapture';
+import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
 
 
 let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
@@ -142,6 +142,10 @@ export default class webxr {
 
         if (viewport) {
             gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+            
+            // For an application working in viewport space, get the camera intrinsics
+            // based on the viewport dimensions:
+            getCameraIntrinsics(view.projectionMatrix, viewport);
         } else {
             this.setViewPort()
         }
@@ -165,6 +169,46 @@ export default class webxr {
         // but only as a GPU texture. We draw something textured with the camera image at every frame,
         // so that the texture is kept in GPU memory. We can then capture it below.
         const cameraTexture = this.glBinding.getCameraImage(frame, view);
+        drawCameraCaptureScene(gl, cameraTexture);
+
+        return cameraTexture;
+    }
+    // NOTE: since Chrome update in June 2021, the getCameraImage(frame, view) method is not available anymore
+    // Instead we can call getCameraImage(XRCamera)
+    // See https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
+
+    /**
+     * Get camera image as a texture from the WebXR session.
+     * We want to capture the camera image, however, it is not directly available here,
+     * but only as a GPU texture. We draw something textured with the camera image at every frame,
+     * so that the texture is kept in GPU memory. We can then capture it below.
+     *
+     * @param camera  XRCamera  The camera of the XR session
+     * @returns {WebGLTexture}
+     */
+    getCameraTexture2(view) {
+
+        // For an application working in camera texture space, get the camera
+        // intrinsics based on the camera texture width/height which may be
+        // different from the XR framebuffer width/height.
+        //
+        // Note that the camera texture has origin at bottom left, and the
+        // returned intrinsics are based on that convention. If a library
+        // has a different coordinate convention, the coordinates would
+        // need to be adjusted, for example mirroring the Y coordinate if
+        // the origin needs to be at the top left.
+        const cameraViewport = {
+            width: view.camera.width,
+            height: view.camera.height,
+            x: 0,
+            y: 0
+        };
+        getCameraIntrinsics(view.projectionMatrix, cameraViewport);
+
+        const cameraTexture = this.glBinding.getCameraImage(view.camera);
+
+        // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
+        // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
         drawCameraCaptureScene(gl, cameraTexture);
 
         return cameraTexture;
