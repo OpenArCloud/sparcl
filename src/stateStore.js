@@ -76,10 +76,10 @@ hasIntroSeen.subscribe(value => {
  *
  * @type {string}
  */
-const storedArMode = JSON.parse(localStorage.getItem('storedarmode'));
+const storedArMode = localStorage.getItem('storedarmode');
 export const arMode = writable(storedArMode || ARMODES.oscp);
 arMode.subscribe(value => {
-    localStorage.setItem('storedarmode', JSON.stringify(value));
+    localStorage.setItem('storedarmode', value);
 })
 
 /**
