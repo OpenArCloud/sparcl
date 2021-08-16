@@ -98,8 +98,8 @@ export const SERVICE = {
 export const ARMODES = {
     marker: 'Marker',
     oscp: 'OSCP',
-    creator: 'Content creation',
-    dev: 'Development',
+    create: 'Content creation',
+    develop: 'Development',
     experiment: 'Experiment'
 }
 
@@ -117,15 +117,6 @@ export const CREATIONTYPES = {
     model: 'Model',
     scene: 'Scene'
 }
-
-/**
- * Experiments available for sparcl.
- *
- * @type {Readonly<{game: string}>}
- */
-export const EXPERIMENTTYPES = Object.freeze({
-    game: 'Game'
-});
 
 /**
  * Supported shapes for placeholder content types.
@@ -160,4 +151,14 @@ export function debounce(func, timeout = 300){
         clearTimeout(timer);
         timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
+}
+
+/**
+ * Returns an integer random number between min (included) and max (included):
+ * @param integer min
+ * @param integer max
+ * @returns integer
+ */
+export function randomInteger(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
 }

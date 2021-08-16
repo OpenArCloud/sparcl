@@ -6,30 +6,31 @@
 /* Provides models for generic content, provided by the content discovery */
 
 
-import { Box, Cylinder, Mesh, Plane, Program, Sphere, Transform, Vec4 } from 'ogl';
+import {Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4} from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
-import barberFragment from '@shaders/barberfragment.glsl';
-import dotFragment from '@shaders/dotfragment.glsl';
-import colorfulFragment from '@shaders/colorfulfragment.glsl';
-import columnFragment from '@shaders/columnfragment.glsl';
-import voronoiFragment from '@shaders/voronoifragment.glsl';
+import {randomInteger} from '@src/core/common';
 
 
 /**
  * The supported WebGL primitives.
  *
- * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string}>}
+ * @type {Readonly<{plane: string, sphere: string, box: string, cylinder: string, cone: string, torus: string}>}
  */
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
     plane: 'plane',
     cylinder: 'cylinder',
-    cone: 'cone'
+    cone: 'cone',
+    torus: 'torus'
 });
+
+export let createProgram = (gl, {vertex = defaultVertex, fragment = defaultFragment, uniforms = {}}) => new Program(gl, {
+    vertex, fragment, uniforms
+})
 
 /**
  * General use GLSL program.
@@ -66,47 +67,6 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
     }
 })
 
-export let createBarberProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: barberFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createDotProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: dotFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createColorfulProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: colorfulFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createColumnProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: columnFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-export let createVoronoiProgram = (gl) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: voronoiFragment,
-    uniforms: {
-        uTime: {value: 0.0}
-    }
-})
-
-
 /**
  * Simple sample model to place for tests.
  *
@@ -115,10 +75,15 @@ export let createVoronoiProgram = (gl) => new Program(gl, {
  * @param color  Color      Color array
  * @param translucent  Boolean      true to draw translucent according to alpha value in color
  * @param options  Object       Optional settings for created object
+ * @param scale  number[]       Scale of the model
  * @returns {Mesh}
  */
-export function createModel(gl, type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}) {
+export function createModel(gl,
+                            type = PRIMITIVES.box,
+                            color = [0.2, 0.8, 1.0, 1.0],
+                            translucent = false,
+                            options = {},
+                            scale = [1.0, 1.0, 1.0]) {
     let geometry;
 
     switch (type) {
@@ -137,13 +102,17 @@ export function createModel(gl, type = PRIMITIVES.box,
         case PRIMITIVES.sphere:
             geometry = new Sphere(gl, options);
             break;
+        case PRIMITIVES.torus:
+            geometry = new Torus(gl, options);
+            break;
         default:
             geometry = new Box(gl, options);
     }
 
     const program = createDefaultProgram(gl, color, translucent);
-
-    return new Mesh(gl, { geometry: geometry, program });
+    const mesh = new Mesh(gl, { geometry: geometry, program });
+    mesh.scale.set(scale);
+    return mesh;
 }
 
 /**
@@ -151,6 +120,7 @@ export function createModel(gl, type = PRIMITIVES.box,
  *
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @param color  Color      Color array
+ * @param showaxes  boolean     show local coordinate system access when true
  * @returns {Mesh}
  */
 export function createAxesBoxPlaceholder(gl, color, showaxes=true) {
@@ -191,6 +161,38 @@ export function getDefaultPlaceholder(gl) {
     return placeholder;
 }
 
+/**
+ * Creates properties struct with random shape (out of predefined shapes), color, scale.
+ *
+ * @returns {{color: (number|number)[], shape, options: {}, scale: number, version: number, transparent: boolean}}
+ */
+export function createRandomObjectDescription() {
+    const kNumPrimitives = Object.keys(PRIMITIVES).length;
+    let shape_idx = Math.floor(Math.random() * kNumPrimitives);
+    let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
+    let color = [Math.random(), Math.random(), Math.random(), 1.0];
+    //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
+    let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
+
+    return {
+        'version': 2,
+        'color': color,
+        'shape': shape,
+        'scale': scale,
+        'transparent': false,
+        'options': {}
+    }
+}
+
+/** Creates a Mesh with random shape (out of predefined shapes) and random color and size
+ * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
+ * @returns {Mesh}
+*/
+export function createRandomObject(gl) {
+    let object_description = createRandomObjectDescription();
+    return createModel(gl, object_description.shape, object_description.color,
+        object_description.transparent, object_description.options, object_description.scale);
+}
 
 /**
  * Generates a placeholder used for content of type scene.
