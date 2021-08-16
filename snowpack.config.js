@@ -26,7 +26,7 @@ module.exports = {
     // source: "remote"
   },
   devOptions: {
-    secure: false,
+    secure: true,
     hostname: '0.0.0.0',
     open: 'none'
   },
