@@ -1,5 +1,5 @@
 {
-  "name": "workshop_client",
+  "name": "spARcl",
   "version": "0.0.1",
   "description": "Generic OSCP client prototype",
   "main": "src/index.js",

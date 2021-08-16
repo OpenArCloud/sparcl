@@ -8,22 +8,24 @@
 -->
 <script>
     import {onMount, tick} from "svelte";
+    import { writable } from 'svelte/store';
 
     import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
     import Dashboard from '@components/Dashboard.svelte';
-    import Viewer from '@components/Viewer.svelte';
-
     import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
-    import { arIsAvailable, showDashboard, hasIntroSeen, initialLocation, ssr, allowP2pNetwork,
-        availableP2pServices, isLocationAccessAllowed } from './stateStore';
+    import Selector from '@experiments/Selector';
+
+    import { allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
+        initialLocation, isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
+    import {ARMODES} from "./core/common";
 
 
     let showWelcome, showOutro;
-    let dashboard, viewer, spectator;
+    let dashboard, viewer, viewerInstance, spectator;
     let shouldShowDashboard, shouldShowUnavailableInfo;
 
     let isLocationAccessRefused = false;
@@ -133,8 +135,12 @@
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
 
-            if ('serviceWorker' in navigator) {
-                () => navigator.serviceWorker.register('/service-worker.js');
+            if (urlParams.has('create')) {
+                $arMode = ARMODES.creator;
+            } else if (urlParams.has('develop')) {
+                $arMode = ARMODES.dev;
+            } else if (urlParams.has('dashboard')) {
+                shouldShowDashboard = true;
             }
         }
     })
@@ -166,10 +172,42 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        const ogl = await import('@core/engines/ogl/ogl');
-        const webxr = await import('@core/engines/webxr');
+        let viewerImplementation;
+        let options = {};
 
-        tick().then(() => viewer.startAr(new webxr.default(), new ogl.default()));
+        // Unfortunately, the import function does accept string literals only
+        switch ($arMode) {
+            case ARMODES.oscp:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Oscp');
+                break;
+            case ARMODES.create:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Create');
+                break;
+            case ARMODES.develop:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Develop');
+                break;
+            case ARMODES.experiment:
+                if ($experimentModeSettings.active) {
+                    const selector = new Selector({target: document.createElement('div')})
+                    const {viewer, key} = selector.importExperiment($experimentModeSettings.active);
+                    options.settings = writable($experimentModeSettings[key]);
+                    viewerImplementation = viewer;
+                }
+                break;
+            default:
+                throw new Error(`Unknown AR mode: ${$arMode}`);
+        }
+
+        Promise.all([
+                import('@core/engines/ogl/ogl'),
+                import('@core/engines/webxr'),
+                viewerImplementation])
+            .then(values => {
+                viewer = values[2]?.default;
+                tick().then(() => {
+                    viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
+                });
+            });
     }
 
     /**
@@ -180,6 +218,8 @@
     function sessionEnded() {
         showOutro = true;
         shouldShowDashboard = $showDashboard;
+
+        viewer = null;
     }
 
     /**
@@ -306,8 +346,12 @@
 {/if}
 </main>
 
-{#if showAr}
-<Viewer bind:this={viewer} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{#if showAr && viewer}
+<svelte:component bind:this={viewerInstance} this="{viewer}"
+                  on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{:else if showAr && $arMode === ARMODES.experiment}
+<p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+<button on:click={sessionEnded}>Go back</button>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

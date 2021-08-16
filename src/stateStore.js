@@ -7,10 +7,9 @@
     Store for application state
 */
 
-
 import { readable, writable, derived, get } from 'svelte/store';
 
-import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, EXPERIMENTTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
+import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from "./core/common.js";
 
 
 /**
@@ -77,10 +76,10 @@ hasIntroSeen.subscribe(value => {
  *
  * @type {string}
  */
-const storedArMode = localStorage.getItem('storedarmode');
+const storedArMode = JSON.parse(localStorage.getItem('storedarmode'));
 export const arMode = writable(storedArMode || ARMODES.oscp);
 arMode.subscribe(value => {
-    localStorage.setItem('storedarmode', value);
+    localStorage.setItem('storedarmode', JSON.stringify(value));
 })
 
 /**
@@ -106,14 +105,7 @@ creatorModeSettings.subscribe(value => {
  * @type {Writable<{type: string}>}
  */
 const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings'));
-export const experimentModeSettings = writable(storedExperimentModeSettings || {
-    type: EXPERIMENTTYPES.game,
-    game: {
-        "add": "manually",
-        "keep": "all",
-        "showstats": true
-    }
-})
+export const experimentModeSettings = writable(storedExperimentModeSettings)
 experimentModeSettings.subscribe(value => {
     localStorage.setItem('experimentmodesettings', JSON.stringify(value));
 })
@@ -153,10 +145,6 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
                 if(service.type === 'geopose')
                     geoposeServices.push(service);
             }));
-    }
-
-    if (geoposeServices.length > 0 && Object.keys(get(selectedGeoPoseService)).length === 0) {
-        selectedGeoPoseService.set(geoposeServices[0]);
     }
 
     set(geoposeServices);
@@ -220,7 +208,10 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
  *
  * @type {Writable<>}
  */
-export const selectedGeoPoseService = writable({});
+export const selectedGeoPoseService = writable({}, (set) => {
+    set(get(availableGeoPoseServices)[0]);
+    return () => {};
+});
 
 
 /**
@@ -281,16 +272,19 @@ allowP2pNetwork.subscribe(value => {
     localStorage.setItem('allowP2pNetwork', value === true ? 'true' : 'false');
 })
 
-
 /**
  * The current state of the peer to peer network connection.
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('none');
+export const p2pNetworkState = writable('not connected');
 
-
-
+/**
+ * Alphanumeric uuid string that identifies this client in the P2P network.
+ *
+ * @type {Writable<string>}
+ */
+export const peerIdStr = writable('none');
 
 /**
  * Appends the captured image used for localisation to the body an an image element.
