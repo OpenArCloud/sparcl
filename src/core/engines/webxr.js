@@ -4,7 +4,7 @@
 */
 
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
-
+import { checkGLError } from '@core/devTools'
 
 let endedCallback, devFrameCallback, creativeFrameCallback, oscpFrameCallback, markerFrameCallback,
     experimentFrameCallback, noExperimentResultCallback, onFrameUpdate;
@@ -20,6 +20,7 @@ let maximumFrameTime = 1000/30; // 30 FPS
  * WebXR implementation of the AR engine.
  */
 export default class webxr {
+
     /**
      * Start specific session for experiment mode.
      *
@@ -171,6 +172,8 @@ export default class webxr {
         const cameraTexture = this.glBinding.getCameraImage(frame, view);
         drawCameraCaptureScene(gl, cameraTexture);
 
+        checkGLError(gl, "getCameraTexture() end");
+
         return cameraTexture;
     }
     // NOTE: since Chrome update in June 2021, the getCameraImage(frame, view) method is not available anymore
@@ -187,7 +190,6 @@ export default class webxr {
      * @returns {WebGLTexture}
      */
     getCameraTexture2(view) {
-
         // For an application working in camera texture space, get the camera
         // intrinsics based on the camera texture width/height which may be
         // different from the XR framebuffer width/height.
@@ -210,6 +212,8 @@ export default class webxr {
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
         // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
         drawCameraCaptureScene(gl, cameraTexture);
+
+        checkGLError(gl, "getCameraTexture2() end");
 
         return cameraTexture;
     }
@@ -332,6 +336,8 @@ export default class webxr {
      * @param frame  XRFrame        The frame to handle
      */
     _onFrameUpdate(time, frame) {
+        checkGLError(gl, "_onFrameUpdate() 1");
+
         const session = frame.session;
         session.requestAnimationFrame(onFrameUpdate);
 
@@ -367,9 +373,13 @@ export default class webxr {
                 creativeFrameCallback(time, frame, floorPose);
             }
 
+            checkGLError(gl, "_onFrameUpdate() 2");
+
             if (oscpFrameCallback) {
                 oscpFrameCallback(time, frame, floorPose);
             }
+
+            checkGLError(gl, "_onFrameUpdate() 3");
 
             if (markerFrameCallback) {
                 const results = frame.getImageTrackingResults();
@@ -379,5 +389,7 @@ export default class webxr {
                 }
             }
         }
+
+        checkGLError(gl, "_onFrameUpdate() 4");
     }
 }

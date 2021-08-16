@@ -12,7 +12,7 @@ import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMark
 import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
          getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
 
-import { printQuat, printGlmQuat, printOglTransform } from '@core/devTools';
+import { printQuat, printGlmQuat, printOglTransform, checkGLError } from '@core/devTools';
 
 import { quat, vec3 } from 'gl-matrix';
 
@@ -54,6 +54,8 @@ export default class ogl {
         this.resize();
 
         document.addEventListener('click', this._handleEvent);
+
+        checkGLError(gl, "OGL init end");
     }
 
     /**
@@ -398,6 +400,8 @@ export default class ogl {
      * @param view  XRView      Provided by WebXR
      */
     render(time, view) {
+        checkGLError(gl, "OGL render() begin");
+
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
@@ -412,6 +416,8 @@ export default class ogl {
         uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
 
         renderer.render({scene, camera});
+
+        checkGLError(gl, "OGL render() end");
     }
 
     /**

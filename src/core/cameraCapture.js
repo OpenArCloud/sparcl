@@ -5,6 +5,8 @@
 // TODO: Leftover code from camera access sample from Chromium site. Needs to be better adapted to our requirements.
 // See more details here: https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
 
+import { checkGLError } from '@core/devTools';
+
 let shaderProgram = null;
 let vertexBuffer = null;
 let aCoordLoc = null;
@@ -127,10 +129,7 @@ export function getCameraIntrinsics(projectionMatrix, viewport) {
 }
 
 export function initCameraCaptureScene(gl) {
-    let e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at initCameraCaptureScene() beginning: ", e);
-    }
+    checkGLError(gl, "initCameraCaptureScene() begin")
 
     var vertices = [
         -1.0, 1.0, 0.0
@@ -171,22 +170,20 @@ export function initCameraCaptureScene(gl) {
     aCoordLoc = gl.getAttribLocation(shaderProgram, "coordinates");
     uSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
 
-    e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at initCameraCaptureScene() end: ", e);
-    }
+    checkGLError(gl, "initCameraCaptureScene() end");
 }
 
 
 export function drawCameraCaptureScene(gl, cameraTexture) {
-    let e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at drawCameraCaptureScene() beginning: ", e);
-    }
+    checkGLError(gl, "drawCameraCaptureScene() begin");
 
     // Save ID of the previous shader
     const prevShaderId = gl.getParameter(gl.CURRENT_PROGRAM);
+    const prevActiveTexture = gl.getParameter(gl.ACTIVE_TEXTURE);
+    const prevTextureId = gl.getParameter(gl.TEXTURE_BINDING_2D)
+    const prevArrayBuffer = gl.getParameter(gl.ARRAY_BUFFER_BINDING);
 
+    // Bind the shader program
     gl.useProgram(shaderProgram);
 
     // Bind the geometry
@@ -202,13 +199,14 @@ export function drawCameraCaptureScene(gl, cameraTexture) {
     // Draw the single point
     gl.drawArrays(gl.POINTS, 0, 1);
 
-    // Restore the previous shader
+    // cleanup
+    gl.activeTexture(prevActiveTexture);
+    gl.bindTexture(gl.TEXTURE_2D, prevTextureId);
+    gl.disableVertexAttribArray(aCoordLoc);
+    gl.bindBuffer(gl.ARRAY_BUFFER, prevArrayBuffer);
     gl.useProgram(prevShaderId);
 
-    e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at drawCameraCaptureScene() end: ", e);
-    }
+    checkGLError(gl, "drawCameraCaptureScene() end");
 }
 
 let readback_pixels = null; // buffer that stores the last image read from the GPU
@@ -226,10 +224,7 @@ let readback_pixels = null; // buffer that stores the last image read from the G
  * @returns {string}     base64 encoded string of the image (will likely change)
  */
  export function createImageFromTexture(gl, texture, imageWidth, imageHeight) {
-    let e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at createImageFromTexture() beginning: ", e);
-    }
+    checkGLError(gl, "createImageFromTexture() begin");
 
     const prev_framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING); // save the screen framebuffer ID
 
@@ -297,10 +292,7 @@ let readback_pixels = null; // buffer that stores the last image read from the G
     context.putImageData(imageFlip, 0, 0);
     let imageBase64 = canvas.toDataURL('image/jpeg');
 
-    e = gl.getError()
-    if (e != 0) {
-        console.warn("GL error at createImageFromTexture() end: ", e);
-    }
+    checkGLError(gl, "createImageFromTexture() end");
 
     return imageBase64;
 }

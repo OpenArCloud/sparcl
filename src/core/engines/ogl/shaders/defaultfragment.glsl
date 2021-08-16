@@ -8,6 +8,7 @@ precision highp float;
 varying vec3 vNormal;
 
 uniform vec4 uColor;
+uniform float uTime;
 
 void main() {
     vec3 normal = normalize(vNormal);
