@@ -550,6 +550,38 @@ export default class ogl {
         printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
     }
 
+    /**
+     * This adds a spatial content record (SCR) to the scene at a given GeoPose
+     * @param {*} globalObjectPose GeoPose of the content
+     * @param {*} content The content entry
+     */
+    addSpatialContentRecord(globalObjectPose, content) {
+
+        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]) // gray
+
+        // calculate relative position w.r.t the camera in ENU system
+        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
+        relativePosition = convertGeo2WebVec3(relativePosition);
+        // set _local_ transformation w.r.t parent _geo2ArTransformNode
+        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
+        // set the objects' orientation as in the GeoPose response, that is already in ENU
+        object.quaternion.set(globalObjectPose.quaternion.x,
+                              globalObjectPose.quaternion.y,
+                              globalObjectPose.quaternion.z,
+                              globalObjectPose.quaternion.w);
+
+        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
+        _geo2ArTransformNode.addChild(object);
+        object.updateMatrixWorld(true);
+    }
+
+    /**
+     * This recursively updates the whole scene graph after all SCRs are placed
+     */
+    endSpatialContentRecords() {
+        scene.updateMatrixWorld(true);
+    }
+
     convertGeoPoseToLocalPose(geoPose) {
         if (_geo2ArTransformNode === undefined) {
             throw "No localization has happened yet!";
@@ -637,18 +669,20 @@ export default class ogl {
         const R = getEarthRadiusAt(refGeoPose.latitude);
         let dLon = toDegrees(Math.atan2(dE, R));
         let dLat = toDegrees(Math.atan2(dN, R));
+        let dHeight = dU;
 
-        return {
+        let geoPose = {
             "longitude": refGeoPose.longitude + dLon,
             "latitude": refGeoPose.latitude + dLat,
-            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dU,
+            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
             "quaternion": {
                 "x": localENUPose.quaternion.x,
                 "y": localENUPose.quaternion.y,
                 "z": localENUPose.quaternion.z,
                 "w": localENUPose.quaternion.w
             }
-        };
+        }
+        return geoPose;
     }
 
     /**
