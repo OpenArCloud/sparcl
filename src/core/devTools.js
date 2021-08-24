@@ -9,6 +9,26 @@ import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 // Here a good overview on geodetic distance calculations:
 // https://www.movable-type.co.uk/scripts/latlong.html
 
+
+/**
+ * Checks for pending OpenGL errors
+ * @param {glBinding} gl OpenGL binding
+ * @param {string} message 
+ * @returns {boolean} false if no error, true if there was an error 
+ */
+export function checkGLError(gl, message) {
+    if (gl == null) {
+        console.warn("checkGLError called but there is no GL context")
+        return true;
+    }
+    let e = gl.getError()
+    if (e != 0) {
+        console.warn("GL error - " + message + ": ", e);
+        return true;
+    }
+    return false;
+}
+
 /**
  * Pretty logging of a gl-matrix quaternion
 * @param name The name to print
