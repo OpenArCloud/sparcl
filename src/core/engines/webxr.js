@@ -336,8 +336,6 @@ export default class webxr {
      * @param frame  XRFrame        The frame to handle
      */
     _onFrameUpdate(time, frame) {
-        checkGLError(gl, "_onFrameUpdate() 1");
-
         const session = frame.session;
         session.requestAnimationFrame(onFrameUpdate);
 
@@ -373,13 +371,9 @@ export default class webxr {
                 creativeFrameCallback(time, frame, floorPose);
             }
 
-            checkGLError(gl, "_onFrameUpdate() 2");
-
             if (oscpFrameCallback) {
                 oscpFrameCallback(time, frame, floorPose);
             }
-
-            checkGLError(gl, "_onFrameUpdate() 3");
 
             if (markerFrameCallback) {
                 const results = frame.getImageTrackingResults();
@@ -389,7 +383,5 @@ export default class webxr {
                 }
             }
         }
-
-        checkGLError(gl, "_onFrameUpdate() 4");
     }
 }

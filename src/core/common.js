@@ -164,8 +164,8 @@ export function debounce(func, timeout = 300){
 
 /**
  * Returns an integer random number between min (included) and max (included):
- * @param integer min 
- * @param integer max 
+ * @param integer min
+ * @param integer max
  * @returns integer
  */
 export function randomInteger(min, max) {

@@ -16,16 +16,16 @@
     import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from 'scd-access';
+    import {getContentAtLocation} from 'scd-access';
 
-    import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
+    import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
-            selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
+    import {arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
+        debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+        selectedContentServices, selectedGeoPoseService, peerIdStr} from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
-    import { fakeLocationResult4, printOglTransform} from '@core/devTools';
+    import {ARMODES, CREATIONTYPES, debounce, wait} from "@core/common";
+    import {fakeLocationResult4, printOglTransform} from '@core/devTools';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
@@ -33,7 +33,7 @@
     import {PRIMITIVES} from "../core/engines/ogl/modelTemplates";
 
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
-    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
+    import {createRandomObjectDescription} from '@core/engines/ogl/modelTemplates';
 
 
     const message = (msg) => console.log(msg);
@@ -44,10 +44,11 @@
     let canvas, overlay, externalContent, closeExperience, experimentOverlay;
     let xrEngine, tdEngine;
 
-    let doCaptureImage = false, doExperimentAutoPlacement;
+    let doCaptureImage = false;
+    let doExperimentAutoPlacement = false, experimentIntervallId = null;
     let showFooter = false, experienceLoaded = false, experienceMatrix = null;
     let firstPoseReceived = false, isLocalizing = false, isLocalized = false, isLocalisationDone = false, hasLostTracking = false;
-    let unableToStartSession = false, experimentIntervallId = null;
+    let unableToStartSession = false;
 
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
@@ -83,7 +84,7 @@
         // NOTE: sometimes multiple events are bundled!
         console.log('Viewer event received:');
         console.log(events);
-        
+
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
@@ -117,7 +118,6 @@
             // todo app.fire('setcolor', data);
         }
     }
-
 
     /**
      * Setup required AR features and start the XRSession.
@@ -669,7 +669,7 @@
 
             if (doCaptureImage) {
                 doCaptureImage = false;
-                
+
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
                 const imageWidth = view.camera.width; // new Chrome 92
@@ -839,7 +839,6 @@
                 //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
-
             })
         })
 
@@ -877,7 +876,6 @@
         }, { once: true });
     }
 </script>
-
 
 
 <style>

@@ -5,16 +5,16 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import {getAxes, getDefaultPlaceholder, getExperiencePlaceholder, getDefaultMarkerObject, createWaitingProgram,
-    createBarberProgram, createDotProgram, createColorfulProgram, createVoronoiProgram, createColumnProgram, createModel,
-    createRandomObjectDescription, createAxesBoxPlaceholder} from '@core/engines/ogl/modelTemplates';
+import {createAxesBoxPlaceholder, createModel, createBarberProgram, createColorfulProgram,
+    createColumnProgram, createDotProgram, createVoronoiProgram, createWaitingProgram, createRandomObjectDescription,
+    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
 
-import { convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat, convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3,
-         getRelativeGlobalPosition, getRelativeOrientation, geodetic_to_enu, toDegrees, getEarthRadiusAt } from '@core/locationTools';
+import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3, convertWeb2GeoQuat,
+    geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation,toDegrees} from '@core/locationTools';
 
-import { printQuat, printGlmQuat, printOglTransform, checkGLError } from '@core/devTools';
+import {printQuat, printGlmQuat, printOglTransform, checkGLError} from '@core/devTools';
 
-import { quat, vec3 } from 'gl-matrix';
+import {quat, vec3} from 'gl-matrix';
 
 
 let scene, camera, renderer, gl;
@@ -216,11 +216,11 @@ export default class ogl {
      *
      * @param position  number{x, y, z}        3D position of the object
      * @param orientation  number{x, y, z, w}     Orientation of the object
-     * @param object_description  {"shape": enum PRIMITIVES, "color": float[4], "scale": float or float[3]}
+     * @param object_description  {*}
      * @returns {Mesh}
      */
     addObject(position, orientation, object_description) {
-        const mesh = createModel(gl, object_description.shape, 
+        const mesh = createModel(gl, object_description.shape,
                 object_description.color, object_description.transparent,
                 object_description.options, object_description.scale);
         mesh.position.set(position.x, position.y, position.z);
@@ -713,7 +713,7 @@ export default class ogl {
         }
         return geoPose;
     }
-	
+
     /**
      * Converts a GeoPose object into East-North-Up coordinate system (local tangent plane approximation)
      * @param {*} geoPose GeoPose to convert
