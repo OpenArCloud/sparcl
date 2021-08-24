@@ -173,15 +173,15 @@ export function createRandomObjectDescription() {
     let color = [Math.random(), Math.random(), Math.random(), 1.0];
     //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
     let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
-
-    return {
+    let object_description = {
         'version': 2,
         'color': color,
         'shape': shape,
         'scale': scale,
         'transparent': false,
         'options': {}
-    }
+    };
+    return object_description
 }
 
 /** Creates a Mesh with random shape (out of predefined shapes) and random color and size
