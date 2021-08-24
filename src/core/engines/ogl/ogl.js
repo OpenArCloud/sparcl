@@ -5,13 +5,13 @@
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
 
-import { createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
-    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder } from '@core/engines/ogl/modelTemplates';
+import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
+    getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
 
-import { convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
+import {convertAugmentedCityCam2WebQuat, convertAugmentedCityCam2WebVec3, convertGeo2WebVec3, convertWeb2GeoVec3,
     geodetic_to_enu, getEarthRadiusAt, getRelativeGlobalPosition, getRelativeOrientation, toDegrees} from '@core/locationTools';
 
-import { printOglTransform } from '@core/devTools';
+import {printOglTransform, checkGLError} from '@core/devTools';
 
 import {quat, vec3} from 'gl-matrix';
 
@@ -53,6 +53,8 @@ export default class ogl {
         this.resize();
 
         document.addEventListener('click', this._handleEvent);
+
+        checkGLError(gl, "OGL init end");
     }
 
     /**
@@ -176,7 +178,6 @@ export default class ogl {
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
-
         return object;
     }
 
@@ -327,7 +328,7 @@ export default class ogl {
      */
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.perspective({aspect: gl.canvas.width / gl.canvas.height});
+        camera.perspective({aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000});
     }
 
     /**
@@ -377,6 +378,8 @@ export default class ogl {
      * @param view  XRView      Provided by WebXR
      */
     render(time, view) {
+        checkGLError(gl, "OGL render() begin");
+
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
@@ -391,6 +394,8 @@ export default class ogl {
         uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
 
         renderer.render({scene, camera});
+
+        checkGLError(gl, "OGL render() end");
     }
 
 

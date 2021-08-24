@@ -646,13 +646,19 @@
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
             if (!isLocalized) {
-                cameraTexture = xrEngine.getCameraTexture(frame, view);
+                //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
+                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
             }
 
             if (doCaptureImage) {
                 doCaptureImage = false;
 
-                const image = xrEngine.getCameraImageFromTexture(cameraTexture, viewport.width, viewport.height);
+                //const imageWidth = viewport.width; // old Chrome 91
+                //const imageHeight = viewport.height; // old Chrome 91
+                const imageWidth = view.camera.width; // new Chrome 92
+                const imageHeight = view.camera.height; // new Chrome 92
+
+                const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
                 // Append captured camera image to body to verify if it was captured correctly
                 if ($debug_appendCameraImage) {
@@ -661,7 +667,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, viewport.width, viewport.height)
+                localize(image, imageWidth, imageHeight)
                     .then(([geoPose, scr]) => {
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
