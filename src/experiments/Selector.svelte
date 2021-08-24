@@ -9,6 +9,8 @@
     };
 
     export async function loadSettings(key) {
+        console.warn("loadSettings is not yet implemented!");
+        /*
         let settings, viewerPromise;
 
         switch (key) {
@@ -21,6 +23,7 @@
         }
 
         dispatch('change', {settings: settings?.default, viewerPromise, key});
+        */
     }
 </script>
 
