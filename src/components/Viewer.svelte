@@ -205,13 +205,19 @@
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
             if (!$context.isLocalized) {
-                cameraTexture = xrEngine.getCameraTexture(frame, view);
+                //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
+                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
             }
 
             if (doCaptureImage) {
                 doCaptureImage = false;
 
-                const image = xrEngine.getCameraImageFromTexture(cameraTexture, viewport.width, viewport.height);
+                //const imageWidth = viewport.width; // old Chrome 91
+                //const imageHeight = viewport.height; // old Chrome 91
+                const imageWidth = view.camera.width; // new Chrome 92
+                const imageHeight = view.camera.height; // new Chrome 92
+
+                const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
                 // Append captured camera image to body to verify if it was captured correctly
                 if ($debug_appendCameraImage) {
@@ -220,7 +226,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, viewport.width, viewport.height)
+                localize(image, imageWidth, imageHeight)
                     .then(([geoPose, scr]) => {
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
@@ -323,35 +329,6 @@
     }
 
     /**
-     * This adds a spatial content record (SCR) to the scene at a given GeoPose
-     *
-     * @param globalObjectPose GeoPose of the content
-     * @param scr  SCR      The content entry
-     */
-    export function placeScr(globalObjectPose, scr) {
-/*  TODO: make usable here
-
-        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]) // gray
-
-        // calculate relative position w.r.t the camera in ENU system
-        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
-        relativePosition = convertGeo2WebVec3(relativePosition);
-        // set _local_ transformation w.r.t parent _geo2ArTransformNode
-        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
-        // set the objects' orientation as in the GeoPose response, that is already in ENU
-        object.quaternion.set(globalObjectPose.quaternion.x,
-            globalObjectPose.quaternion.y,
-            globalObjectPose.quaternion.z,
-            globalObjectPose.quaternion.w);
-
-        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
-        _geo2ArTransformNode.addChild(object);
-        object.updateMatrixWorld(true);
-*/
-    }
-
-
-    /**
      *  Places the content provided by a call to Spacial Content Discovery providers.
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
@@ -359,7 +336,10 @@
      * @param scr  [SCR]        Content Records with the result from the selected content services
      */
     export function placeContent(localPose, globalPose, scr) {
-        tdEngine.beginSpatialContentRecords(localPose.transform, globalPose)
+        let localImagePose = localPose.transform
+        let globalImagePose = globalPose
+
+        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
         receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
@@ -369,7 +349,7 @@
                 receivedContentNames.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
-                // placeScr(globalObjectPose, record.content)
+                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
                 if (record.content.type === 'placeholder') {
@@ -415,7 +395,7 @@
             })
         })
 
-        tdEngine.updateMatrixWorld();
+        tdEngine.endSpatialContentRecords();
     }
 
     /**
