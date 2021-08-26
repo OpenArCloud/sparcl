@@ -26,9 +26,14 @@ npm needs to be installed, because dependencies are handled with it.
 Steps to setup the project: 
 * clone this repository
 * run `npm install` in the project folder to download the dependencies
+* run `npx devcert-cli generate localhost` to create self-signed certificates
+* rename certificates to snowpack.key and snowpack.crt
+* in your local snowpack.config.js, change the value devOptions.secure:=true (location access requires HTTPS connection)
 * run `npm run start`
-* note the URL shown in the terminal after the server started
-* Set up [remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/) with [port forwarding](https://developer.chrome.com/docs/devtools/remote-debugging/local-server/)
-
+* note the URL shown in the terminal after the server started (note http or https!)
 * open Chrome on an AR capable device, enter `chrome://flags` and enable _WebXR Incubations_
+
+* set up [remote debugging](https://developer.chrome.com/docs/devtools/remote-debugging/) for debugging with cable
+* optionally, set up [port forwarding](https://developer.chrome.com/docs/devtools/remote-debugging/local-server/) for debugging wirelessly (only http now)
+
 * enter the ULR shown in the terminal in the browser on the device
