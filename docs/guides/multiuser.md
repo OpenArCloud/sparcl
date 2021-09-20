@@ -11,6 +11,9 @@ This is a quick rundown on how to use the multi user feature of sparcl. It can b
 
 A simple use case: You're visiting a world heritage site with your friends. On site an interactive AR experience is available, visualizing the mechanics of an historic machinery. Without multi user feature, the machine would be seen differently on every device. With multi user feature, the machine is shown in the same state on every device connected to the service. Exactly as it would be when the actual machine would stay at that location.
 
+The inspiration for the multiuser architecture of sparcl came from an article titled [`A web application with no web server?`](https://medium.com/all-the-things/a-web-application-with-no-web-server-61000a6aed8f#e135) by [Ink & Switch](https://www.inkandswitch.com/).
+
+
 ## Preparation for sparcl
 ### Register an headless client with [SSD](https://openarcloud.github.io/sparcl/glossary.html#spatial-service-discovery-ssd)
 How to do this, depends on the service provider you use. The important part here is to add the peer ID for the headless client to the field description - better place to add this info is requested. 

@@ -7,15 +7,15 @@ nav_order: 1
 
 # Location access
 
-sparcl is an application that needs location access to offer its functionality. This is why location access is requested right when you use the app the first time.
+sparcl is an application that needs location access to discover local services and content, this is why location access is requested right at the beginning when you use the app the first time.
 
-If, for some reason location access gets blocked after the first use, you need to reenable it before being able to use sparcl again. The way properties work, sparcl can't request location access again, because it's blocked by Android to prevent applications spaming users for permissions.
+If, for some reason, location access gets blocked after the first use, you need to re-enable it before being able to use sparcl again. The way properties work, sparcl cannot request location access again, because it's blocked by Android to prevent applications spaming users for permissions.
 
 To allow location access permission again, press the button `Allow location`. If all goes well, the location request dialog is displayed, where you can allow location access.
 
-In case you blocked location access for sparcl before, the location request dialog isn't shown. In that case, you need to allow location access manually. 
+In case you blocked location access for sparcl before, the location request dialog isn't shown. In that case, you need to allow location access manually among the Android Permission Manager under the Android Settings.
 
-## Allow location access when sparcl is run in browser
+## Allow location access when sparcl is running in browser
 
 This is a simple 3 step process:
 
@@ -41,4 +41,4 @@ When sparcl is installed on your device, you have the joyce to either open it on
 ### Activate location access
 ![image](https://user-images.githubusercontent.com/231274/117125471-d8924c00-ad99-11eb-8961-1a4984719310.png)
 
-Now, when you're returning to the app, the button `Lets's get started` should be active.
+Now, when you return to the app, the button `Go Immersive` should be active.
