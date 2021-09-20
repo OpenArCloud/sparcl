@@ -2,28 +2,26 @@
     import { createEventDispatcher } from 'svelte';
     const dispatch = createEventDispatcher();
 
-    export let settings;
-
     const EXPERIMENTTYPES = {
-        // key: value
+        //yourkey: 'yourvalue'
     };
 
-    export async function loadSettings(key) {
-        console.warn("loadSettings is not yet implemented!");
-        /*
-        let settings, viewerPromise;
-
+    export async function importExperiment(key) {
+        let settings = null;
+        let viewer = null;
         switch (key) {
-            case EXPERIMENTTYPES.key:
-                settings = await import('@experiments/<subroot>/<experimentname>/Settings')
-                viewerPromise = import('@experiments/<subroot>/<experimentname>/Viewer');
-                break;
+            //case 'yourkey':
+            //    settings = await import('@experiments/<subroot>/<experimentname>/Settings.svelte')
+            //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
+            //    break;
             default:
                 settings = null;
+                viewer = null;
+                break;
         }
 
-        dispatch('change', {settings: settings?.default, viewerPromise, key});
-        */
+        dispatch('change', {settings, viewer, key});
+        return {settings, viewer, key};
     }
 </script>
 
