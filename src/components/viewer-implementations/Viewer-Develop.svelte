@@ -80,4 +80,4 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:brbroadcast />
+<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:broadcast />
