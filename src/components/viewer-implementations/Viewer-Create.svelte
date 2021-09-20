@@ -92,4 +92,4 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:brbroadcast />
+<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:broadcast />
