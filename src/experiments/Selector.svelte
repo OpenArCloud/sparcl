@@ -51,7 +51,7 @@
 
 
 <select id="experimenttype"
-        on:change={(event) => loadSettings(event.target.value)}
+        on:change={(event) => importExperiment(event.target.value)}
         disabled="{Object.keys(EXPERIMENTTYPES).length === 0}">
     <option value="none">None</option>
     {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
