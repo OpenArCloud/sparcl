@@ -189,9 +189,15 @@
             case ARMODES.experiment:
                 if ($experimentModeSettings.active) {
                     const selector = new Selector({target: document.createElement('div')})
-                    const {viewer, key} = selector.importExperiment($experimentModeSettings.active);
+                    const {_, viewer, key} = selector.importExperiment($experimentModeSettings.active);
                     options.settings = writable($experimentModeSettings[key]);
                     viewerImplementation = viewer;
+                    if(viewer === undefined) {
+                        console.warn("The experiment's Viewer is undefined!")
+                    }
+                    if(viewer === null) {
+                        console.warn("The experiment's Viewer is null!")
+                    }
                 }
                 break;
             default:
