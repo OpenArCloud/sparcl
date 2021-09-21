@@ -7,6 +7,7 @@
 
     const EXPERIMENTTYPES = {
         //yourkey: 'yourvalue'
+        performance: 'Performance',
     };
 
     export function importExperiment(key) {
@@ -17,6 +18,10 @@
             //    settings = import('@experiments/<subroot>/<experimentname>/Settings.svelte')
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
+            case 'performance':
+                settings = import('@experiments/oarc/performance/Settings.svelte');
+                viewer = import('@experiments/oarc/performance/Viewer.svelte');
+                break;
             default:
                 settings = null;
                 viewer = null;
