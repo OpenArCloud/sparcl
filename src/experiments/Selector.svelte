@@ -2,16 +2,19 @@
     import { createEventDispatcher } from 'svelte';
     const dispatch = createEventDispatcher();
 
+    export let settings = undefined; // TODO: is this needed?
+    export let value = undefined; // TODO: is this needed?
+
     const EXPERIMENTTYPES = {
         //yourkey: 'yourvalue'
     };
 
-    export async function importExperiment(key) {
+    export function importExperiment(key) {
         let settings = null;
         let viewer = null;
         switch (key) {
             //case 'yourkey':
-            //    settings = await import('@experiments/<subroot>/<experimentname>/Settings.svelte')
+            //    settings = import('@experiments/<subroot>/<experimentname>/Settings.svelte')
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
             default:
@@ -19,6 +22,7 @@
                 viewer = null;
                 break;
         }
+        // NOTE: The return value of import is only a Promise, which needs to be resolved later
 
         dispatch('change', {settings, viewer, key});
         return {settings, viewer, key};
