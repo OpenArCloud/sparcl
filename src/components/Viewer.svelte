@@ -76,48 +76,6 @@
     }
 
     /**
-     * Receives data from the application to be applied to current scene.
-     */
-    export function updateReceived(events) {
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
-        console.log(events);
-
-        if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log("message from " + data.sender + ": \n  " + data.message);
-                }
-//            }
-        }
-
-        if ('object_created' in events) {
-            let data = events.object_created;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                data = data.scr;
-                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
-                    // experimentOverlay?.objectReceived();
-                    let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose;
-                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
-                }
-//            }
-        }
-
-        // TODO: Receive list of events to fire from SCD
-        if ('setrotation' in events) {
-            //let data = events.setrotation;
-            // todo app.fire('setrotation', data);
-        }
-
-        if ('setcolor' in events) {
-            //let data = events.setcolor;
-            // todo app.fire('setcolor', data);
-        }
-    }
-
-    /**
      * Setup required AR features and start the XRSession.
      *
      * @param updateCallback  function      Will be called from animation loop
@@ -147,36 +105,6 @@
                 unableToStartSession = true;
                 message("WebXR Immersive AR failed to start: " + error);
             });
-    }
-
-    /**
-     * Let's the app know that the XRSession was closed.
-     */
-    export function onSessionEnded() {
-        firstPoseReceived = false;
-
-        dispatch('arSessionEnded');
-    }
-
-    /**
-     * Trigger localisation of the device globally using a GeoPose service.
-     */
-    export function startLocalisation() {
-        doCaptureImage = true;
-        $context.isLocalizing = true;
-    }
-
-    /**
-     * Called when no pose was reported from WebXR.
-     *
-     * @param time  DOMHighResTimeStamp     time offset at which the updated
-     *      viewer state was received from the WebXR device.
-     * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
-     */
-    export function onNoPose(time, frame, floorPose) {
-        hasLostTracking = true;
-        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -246,6 +174,35 @@
 
             tdEngine.render(time, view);
         }
+    }
+
+    /**
+     * Let's the app know that the XRSession was closed.
+     */
+    export function onSessionEnded() {
+        firstPoseReceived = false;
+        dispatch('arSessionEnded');
+    }
+
+    /**
+     * Called when no pose was reported from WebXR.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame  XRFrame        The XRFrame provided to the update loop
+     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     */
+    export function onNoPose(time, frame, floorPose) {
+        hasLostTracking = true;
+        tdEngine.render(time, floorPose.views[0]);
+    }
+
+    /**
+     * Trigger localisation of the device globally using a GeoPose service.
+     */
+    export function startLocalisation() {
+        doCaptureImage = true;
+        $context.isLocalizing = true;
     }
 
     /**
@@ -428,6 +385,49 @@
             }
         }, { once: true });
     }
+
+    /**
+     * Receives data from the application to be applied to current scene.
+     */
+     export function updateReceived(events) {
+        // NOTE: sometimes multiple events are bundled!
+        console.log('Viewer event received:');
+        console.log(events);
+
+        if ('message_broadcasted' in events) {
+            let data = events.message_broadcasted;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('message' in data && 'sender' in data) {
+                    console.log("message from " + data.sender + ": \n  " + data.message);
+                }
+//            }
+        }
+
+        if ('object_created' in events) {
+            let data = events.object_created;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                data = data.scr;
+                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
+                    // experimentOverlay?.objectReceived();
+                    let latestGlobalPose = $recentLocalisation.geopose;
+                    let latestLocalPose = $recentLocalisation.floorpose;
+                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
+                }
+//            }
+        }
+
+        // TODO: Receive list of events to fire from SCD
+        if ('setrotation' in events) {
+            //let data = events.setrotation;
+            // todo app.fire('setrotation', data);
+        }
+
+        if ('setcolor' in events) {
+            //let data = events.setcolor;
+            // todo app.fire('setcolor', data);
+        }
+    }
+
 </script>
 
 
