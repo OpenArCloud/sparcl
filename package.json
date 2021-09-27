@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/OpenArCloud/workshop_client.git"
+    "url": "git+https://github.com/OpenArCloud/sparcl.git"
   },
   "keywords": [
     "oarc",
@@ -20,9 +20,9 @@
   "author": "Michael Vogt",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/OpenArCloud/workshop_client/issues"
+    "url": "https://github.com/OpenArCloud/sparcl/issues"
   },
-  "homepage": "https://github.com/OpenArCloud/workshop_client#readme",
+  "homepage": "https://github.com/OpenArCloud/sparcl#readme",
   "devDependencies": {
     "@snowpack/plugin-dotenv": "^2.1.0",
     "@snowpack/plugin-svelte": "^3.6.1",
@@ -35,7 +35,6 @@
   },
   "dependencies": {
     "automerge": "^0.14.2",
-    "buhrmi": "^0.0.15",
     "chai": "^4.2.0",
     "geodesy": "^2.2.1",
     "gl-matrix": "^3.3.0",
@@ -49,6 +48,7 @@
     "scd-access": "^0.1.0",
     "ssd-access": "^0.2.0",
     "svelte": "^3.38.2",
+    "thumb-ui": "^0.0.16",
     "uuid": "^8.3.2"
   }
 }
