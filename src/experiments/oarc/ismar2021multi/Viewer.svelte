@@ -10,6 +10,7 @@
 
     let parentInstance, xrEngine, tdEngine;
     let hitTestSource, reticle, hasLostTracking = true
+    let experimentIntervalId, doExperimentAutoPlacement = false;
     let settings;
     let experimentOverlay;
 
@@ -62,7 +63,6 @@
      * @param floorSpaceReference
      */
      function update(time, frame, floorPose, floorSpaceReference) {
-        console.log("update()")
         hasLostTracking = false;
 
         if (hitTestSource) {
@@ -100,6 +100,10 @@
         if (hitTestSource) {
             hitTestSource.cancel();
             hitTestSource = null;
+        }
+        if (experimentIntervalId) {
+            clearInterval(experimentIntervalId);
+            experimentIntervalId = null;
         }
         parentInstance.onSessionEnded();
     }
@@ -197,6 +201,19 @@
         }
     }
 
+    /**
+     * Toggle automatic placement of placeholders for experiment mode.
+     */
+     function toggleExperimentalPlacement() {
+        doExperimentAutoPlacement = !doExperimentAutoPlacement;
+
+        if (doExperimentAutoPlacement) {
+            experimentIntervalId = setInterval(() => experimentTapHandler(null, true), 1000);
+        } else {
+            clearInterval(experimentIntervalId);
+        }
+    }
+
     function shareCamera(position, quaternion) {
         let object_description = {
             'version': 2,
@@ -286,6 +303,7 @@
         {:else}
             <p>{receivedContentNames.join()}</p>
             <ArExperimentOverlay bind:this={experimentOverlay} {settings}
+                                 on:toggleAutoPlacement={toggleExperimentalPlacement}
                                  on:relocalize={() => parentInstance.relocalize()} />
         {/if}
     </svelte:fragment>

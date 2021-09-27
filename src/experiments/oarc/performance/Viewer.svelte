@@ -11,10 +11,10 @@
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
 
-
     let parentInstance, xrEngine, tdEngine;
-    let hitTestSource, reticle, hasLostTracking = true, doExperimentAutoPlacement = false;
-    let settings, experimentIntervallId;
+    let hitTestSource, reticle, hasLostTracking = true;
+    let experimentIntervalId, doExperimentAutoPlacement = false;
+    let settings;
     let experimentOverlay;
 
     let previousTime = performance.now(), slowCount = 0, maxSlow = 10, maximumFrameTime = 1000/30; // 30 FPS
@@ -149,9 +149,9 @@
         doExperimentAutoPlacement = !doExperimentAutoPlacement;
 
         if (doExperimentAutoPlacement) {
-            experimentIntervallId = setInterval(() => experimentTapHandler(null, true), 1000);
+            experimentIntervalId = setInterval(() => experimentTapHandler(null, true), 1000);
         } else {
-            clearInterval(experimentIntervallId);
+            clearInterval(experimentIntervalId);
         }
     }
 
@@ -229,9 +229,9 @@
             hitTestSource = null;
         }
 
-        if (experimentIntervallId) {
-            clearInterval(experimentIntervallId);
-            experimentIntervallId = null;
+        if (experimentIntervalId) {
+            clearInterval(experimentIntervalId);
+            experimentIntervalId = null;
         }
 
         parentInstance.onSessionEnded();
