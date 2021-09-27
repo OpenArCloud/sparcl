@@ -10,7 +10,7 @@
 <script>
     import { createEventDispatcher } from 'svelte';
 
-    import { Swipeable, Screen, Controls } from 'buhrmi';
+    import { Swipeable, Screen, Controls } from 'thumb-ui';
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
     import { infoGreeting, info, introGreeting, intro, arOkMessage, dashboardOkLabel,
