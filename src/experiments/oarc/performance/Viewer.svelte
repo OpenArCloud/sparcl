@@ -9,17 +9,8 @@
 
     import { PRIMITIVES } from "@core/engines/ogl/modelTemplates";
 
-    import barberFragment from '@experiments/oarc/performance/shaders/barberfragment.glsl?raw';
-    import dotFragment from '@experiments/oarc/performance/shaders/dotfragment.glsl?raw';
-    import colorfulFragment from '@experiments/oarc/performance/shaders/colorfulfragment.glsl?raw';
-    import columnFragment from '@experiments/oarc/performance/shaders/columnfragment.glsl?raw';
-    import voronoiFragment from '@experiments/oarc/performance/shaders/voronoifragment.glsl?raw';
-/*    import barberFragment from './shaders/barberfragment.glsl';
-    import dotFragment from './shaders/dotfragment.glsl';
-    import colorfulFragment from './shaders/colorfulfragment.glsl';
-    import columnFragment from './shaders/columnfragment.glsl';
-    import voronoiFragment from './shaders/voronoifragment.glsl';
-*/
+    import colorfulFragment from '@shaders/colorfulfragment.glsl';
+
 
     let parentInstance, xrEngine, tdEngine;
     let hitTestSource, reticle, hasLostTracking = true, doExperimentAutoPlacement = false;
@@ -85,7 +76,7 @@
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
             let offsetY = 0, offsetZ = 0;
-            let fragmentShader;
+            let fragmentShader = colorfulFragment;
 
             switch (shape) {
                 case PRIMITIVES.box:
@@ -93,17 +84,13 @@
                         options.width = 0.3;
                         options.depth = 0.3;
                         options.height = 2;
-
                         offsetY = 1;
                     } else {
                         options.width = 2;
                         options.depth = 0.1;
                         options.height = 0.3;
-
                         offsetZ = -0.05;
                     }
-
-                    fragmentShader = colorfulFragment;
                     break;
 
                 case PRIMITIVES.plane:
@@ -114,13 +101,10 @@
                         options.width = 2;
                         options.height = 1;
                     }
-
-                    fragmentShader = dotFragment;
                     break;
 
                 case PRIMITIVES.sphere:
                     options.thetaLength = Math.PI / 2;
-                    fragmentShader = columnFragment;
                     break;
 
                 case PRIMITIVES.cylinder:
@@ -128,33 +112,29 @@
                         options.radiusTop = 0.3;
                         options.radiusBottom = 0.3;
                         options.height = 2;
-
                         offsetY = 1;
                     } else {
                         options.radiusTop = 0.5;
                         options.radiusBottom = 0.5;
                         options.height = 0.1;
-
                         offsetZ = -0.05;
                     }
-
-                    fragmentShader = barberFragment;
                     break;
 
                 case PRIMITIVES.cone:
                     options.radiusBottom = 0.3;
                     options.height = 0.5;
-
                     offsetY = 0.25;
                     offsetZ = -0.25;
-
-                    fragmentShader = voronoiFragment;
                     break;
             }
 
             const scale = 1;
             const placeholder = tdEngine.addPlaceholderWithOptions(shape,
                 reticle.position, reticle.quaternion, fragmentShader, options);
+            // TODO: pass the whole program, not only the fragment shader code
+            // because we only know here what kind of uniforms will be needed at render time
+            // Accordingly, the render code will need to come back here and ask for updates
             placeholder.scale.set(scale);
             placeholder.position.y += offsetY * scale;
             placeholder.position.z += offsetZ * scale;
