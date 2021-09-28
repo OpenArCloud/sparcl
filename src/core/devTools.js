@@ -9,6 +9,89 @@ import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 // Here a good overview on geodetic distance calculations:
 // https://www.movable-type.co.uk/scripts/latlong.html
 
+/*
+* Redirects logging from console to logger widget (preformatted text), 
+* code inspired by https://stackoverflow.com/a/45387558
+*
+* Example use: 
+* <pre id="logger"></pre>
+  <script> logToElement(document.getElementById("logger")); </script>
+*/
+export function logToElement(loggerElement) {
+    if (console.oldlog != null) {
+        // We already redefined the logging, so do nothing
+        return;
+    }
+
+    console.oldlog = console.log;
+    console.log = function () {
+        var output = "", arg, i;
+        for (i = 0; i < arguments.length; i++) {
+            arg = arguments[i];
+            output += "<span class=\"log-" + (typeof arg) + "\">";
+            if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
+                output += JSON.stringify(arg);
+            } else {
+                output += arg;
+            }
+            output += "</span>&nbsp;";
+        }
+        loggerElement.innerHTML += output + "<br>";
+        console.oldlog.apply(undefined, arguments);
+    };
+
+    console.oldwarn = console.warn;
+    console.warn = function () {
+        var output = "", arg, i;
+        for (i = 0; i < arguments.length; i++) {
+            arg = arguments[i];
+            output += "<span class=\"warning-" + (typeof arg) + "\">";
+            if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
+                output += JSON.stringify(arg);
+            } else {
+                output += arg;
+            }
+            output += "</span>&nbsp;";
+        }
+        loggerElement.innerHTML += output + "<br>";
+        console.oldwarn.apply(undefined, arguments);
+    };
+
+    console.olderror = console.error;
+    console.error = function () {
+        var output = "", arg, i;
+        for (i = 0; i < arguments.length; i++) {
+            arg = arguments[i];
+            output += "<span class=\"error-" + (typeof arg) + "\">";
+            if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
+                output += JSON.stringify(arg);
+            } else {
+                output += arg;
+            }
+            output += "</span>&nbsp;";
+        }
+        loggerElement.innerHTML += output + "<br>";
+        console.olderror.apply(undefined, arguments);
+    };
+}
+
+/*
+* Restores the logging to console only
+*/
+export function logToConsole() {
+    if (console.oldlog != null) {
+        console.log = console.oldlog;
+        console.oldlog = null;
+    }
+    if (console.oldwarn != null) {
+        console.warn = console.oldwarn;
+        console.oldwarn = null;
+    }
+    if (console.olderror != null) {
+        console.error = console.olderror;
+        console.olderror = null;
+    }
+}
 
 /**
  * Checks for pending OpenGL errors

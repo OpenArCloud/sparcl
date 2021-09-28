@@ -8,7 +8,7 @@
 -->
 <script>
     import {onMount, tick} from "svelte";
-    import { writable } from 'svelte/store';
+    import {writable} from 'svelte/store';
 
     import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
@@ -19,9 +19,11 @@
 
     import Selector from '@experiments/Selector';
 
-    import { allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
+    import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
+        initialLocation, isLocationAccessAllowed, showDashboard, ssr} from './stateStore';
     import {ARMODES} from "./core/common";
+
+    import {logToElement} from '@src/core/devTools';
 
 
     let showWelcome, showOutro;
@@ -106,6 +108,8 @@
      * Initial setup of the viewer. Called after the component is first rendered to the DOM.
      */
     onMount(() => {
+        logToElement(document.getElementById("logger"));
+
         const urlParams = new URLSearchParams(location.search);
 
         if (urlParams.has('peerid')) {
@@ -361,3 +365,6 @@
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>
+
+<!-- logger widget (preformatted text), see devTools logToElement() -->
+<pre id="logger"></pre>
