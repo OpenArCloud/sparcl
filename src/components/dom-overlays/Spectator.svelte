@@ -138,7 +138,7 @@
                 <option>None</option>
             {:else}
                 {#each $availableP2pServices as service}
-                    <option value={service.id}>{service.title}</option>
+                    <option value={service}>{service.title}</option>
                 {/each}
             {/if}
         </select></dd>

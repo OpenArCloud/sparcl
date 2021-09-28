@@ -93,7 +93,7 @@ function updateReceived() {
  */
 function setupPerge(peerId) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result, {});
+    const service = get(availableP2pServices).reduce((result, service) => service.id === selected.id ? service : result, {});
     const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
 
     setupPergeWithUrl(peerId, service?.url, port)
