@@ -93,7 +93,7 @@ function updateReceived() {
  */
 function setupPerge(peerId) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected ? service : result, {});
+    const service = get(availableP2pServices).reduce((result, service) => service.id === selected.id ? service : result, {});
     const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
 
     setupPergeWithUrl(peerId, service?.url, port)
@@ -110,6 +110,11 @@ function setupPergeWithUrl(peerId, url, port) {
         secure: true,
         port: port
     } : {};
+
+    console.log("Creating P2P network:");
+    console.log("  Server URL: " + (url!=null ? url : "PeerJS default"));
+    console.log("  Server port: " + (port!=null ? port : "PeerJS default"));
+    console.log("  PeerId: " + peerId);
 
     const peer = new Peer(peerId, options);
     instance = new Perge(peerId, {
@@ -146,6 +151,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
             console.log(msg);
             p2pNetworkState.set(msg);
             let dataConnection = instance.connect(headlessPeerId);
+            // TODO: connect() is asynchronous, so this dataConnction should not be used yet
             if (dataConnection != null) {
                 msg = 'Connected to headless client.\nMy PeerId: ' + id;
                 console.log(msg);
@@ -163,7 +169,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
 
     // Errors on the peer are almost always fatal and will destroy the peer.
     instance.peer.on('error', (error) => {
-        let msg = 'Error:' + error;
+        let msg = error; // 'Error: ' is already prefixed to the incoming error message
         console.error(msg);
         p2pNetworkState.set(msg);
     })

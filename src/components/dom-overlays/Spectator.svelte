@@ -138,13 +138,20 @@
                 <option>None</option>
             {:else}
                 {#each $availableP2pServices as service}
-                    <option value={service.id}>{service.title}</option>
+                    <option value={service}>{service.title}</option>
                 {/each}
             {/if}
         </select></dd>
+        <pre class="serviceurl">
+            <label>URL: {$selectedP2pService.url || "no url"}</label>
+            {#if ($selectedP2pService.properties != undefined) && ($selectedP2pService.properties.length != 0)}
+                {#each $selectedP2pService.properties as prop}
+                <label>{prop.type}: {prop.value}<br></label>
+                {/each}
+            {/if}
+        </pre>
+        <p class="note">Change active after reload</p>
     </dl>
-
-    <p class="note">Change active after reload</p>
 
     <dl>
         <dt>Connection status</dt>
