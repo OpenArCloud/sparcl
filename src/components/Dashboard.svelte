@@ -223,6 +223,10 @@
         color: red;
         margin-top: -15px;
     }
+
+    .serviceurl {
+        font-size: 8px;
+    }
 </style>
 
 
@@ -276,17 +280,22 @@
 
     {#if $arMode === ARMODES.oscp}
     <dl>
-        <dt><label for="geoposeServer">GeoPose Server</label></dt>
-        <dd class="select"><select id="geoposeServer" bind:value={$selectedGeoPoseService}
-                                   disabled="{$availableGeoPoseServices.length < 2  || null}">
-            {#if $availableGeoPoseServices.length === 0}
-                <option>None</option>
-            {:else}
-                {#each $availableGeoPoseServices as service}
-                    <option value={service}>{service.title}</option>
-                {/each}
-            {/if}
-        </select></dd>
+        <dt><label for="geoposeServer">GeoPose Service</label></dt>
+        <dd class="select">
+            <select id="geoposeServer" bind:value={$selectedGeoPoseService}
+                    disabled="{$availableGeoPoseServices.length < 2  || null}">
+                {#if $availableGeoPoseServices.length === 0}
+                    <option>None</option>
+                {:else}
+                    {#each $availableGeoPoseServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                {/if}
+            </select>
+        </dd>
+        <pre class="serviceurl">
+            <label for="geoposeServer">{$selectedGeoPoseService.url || ""}</label>
+        </pre>
     </dl>
 
     <dl>
@@ -298,12 +307,15 @@
     </dl>
 
     <dl class="nested">
-        <dt><label>Content Server</label></dt>
+        <dt><label>Content Service</label></dt>
         {#each $availableContentServices as service}
         <dd>
-            <input type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
+            <input id="selectedContentService" type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
                    on:change={(event) => handleContentServiceSelection(event, service)} />
-            <label>{service.title}</label>
+            <label for="selectedContentService">{service.title}</label>
+            <pre class="serviceurl">
+                <label for="selectedContentService">{$selectedGeoPoseService.url || ""}</label>
+            </pre>
 
             {#if service?.properties}
             <ul>
@@ -411,9 +423,16 @@
                 {/each}
             {/if}
         </select></dd>
+        <pre class="serviceurl">
+            <label>URL: {$selectedP2pService.url || "no url"}</label>
+            {#if ($selectedP2pService.properties != undefined) && ($selectedP2pService.properties.length != 0)}
+                {#each $selectedP2pService.properties as prop}
+                <label>{prop.type}: {prop.value}<br></label>
+                {/each}
+            {/if}
+        </pre>
+        <p class="note">Change active after reload</p>
     </dl>
-
-    <p class="note">Change active after reload</p>
 
     <dl>
         <dt>Connection status</dt>
