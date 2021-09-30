@@ -86,6 +86,7 @@
                     if (!p2p) {
                         p2p = p2pModule;
 
+                        // TODO: take selectedP2pService, not the 0th service
                         const headlessPeerId = $availableP2pServices[0].properties
                             .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
@@ -121,11 +122,19 @@
                 .then(p2pModule => {
                     p2p = p2pModule;
 
+                    // TODO: these are only used in the headless client.
+                    // normal clients take them from an SSR instead
+                    const headlessPeerId = urlParams.get('peerid')
                     const url = urlParams.get('signal');
                     const port = urlParams.get('port');
 
+                    console.log("Starting headless client...");
+                    console.log("  peerid: " + headlessPeerId);
+                    console.log("  signal: " + (url ? url : "PeerJS default"));
+                    console.log("  port: "   + (port? port : "PeerJS default"));
+
                     p2p.initialSetup();
-                    p2p.connectWithUrl(urlParams.get('peerid'), true, url, port, (data) => {
+                    p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
                         // Just for development
                         currentSharedValues = data;
                     });
