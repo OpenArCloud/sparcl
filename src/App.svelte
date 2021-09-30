@@ -8,7 +8,7 @@
 -->
 <script>
     import {onMount, tick} from "svelte";
-    import { writable } from 'svelte/store';
+    import {writable} from 'svelte/store';
 
     import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
 
@@ -19,9 +19,11 @@
 
     import Selector from '@experiments/Selector';
 
-    import { allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, showDashboard, ssr } from './stateStore';
+    import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
+        initialLocation, isLocationAccessAllowed, showDashboard, ssr} from './stateStore';
     import {ARMODES} from "./core/common";
+
+    import {logToElement} from '@src/core/devTools';
 
 
     let showWelcome, showOutro;
@@ -84,6 +86,7 @@
                     if (!p2p) {
                         p2p = p2pModule;
 
+                        // TODO: take selectedP2pService, not the 0th service
                         const headlessPeerId = $availableP2pServices[0].properties
                             .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
@@ -106,6 +109,8 @@
      * Initial setup of the viewer. Called after the component is first rendered to the DOM.
      */
     onMount(() => {
+        logToElement(document.getElementById("logger"));
+
         const urlParams = new URLSearchParams(location.search);
 
         if (urlParams.has('peerid')) {
@@ -117,11 +122,19 @@
                 .then(p2pModule => {
                     p2p = p2pModule;
 
+                    // TODO: these are only used in the headless client.
+                    // normal clients take them from an SSR instead
+                    const headlessPeerId = urlParams.get('peerid')
                     const url = urlParams.get('signal');
                     const port = urlParams.get('port');
 
+                    console.log("Starting headless client...");
+                    console.log("  peerid: " + headlessPeerId);
+                    console.log("  signal: " + (url ? url : "PeerJS default"));
+                    console.log("  port: "   + (port? port : "PeerJS default"));
+
                     p2p.initialSetup();
-                    p2p.connectWithUrl(urlParams.get('peerid'), true, url, port, (data) => {
+                    p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
                         // Just for development
                         currentSharedValues = data;
                     });
@@ -361,3 +374,6 @@
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>
+
+<!-- logger widget (preformatted text), see devTools logToElement() -->
+<pre id="logger"></pre>
