@@ -53,6 +53,8 @@ export function getCurrentLocation() {
                 const latAngle = position.coords.latitude;
                 const lonAngle = position.coords.longitude;
 
+                // WARNING: more than 1 request in a second leads to IP ban!
+                // TODO: refactor to call OSM only infrequently, even if SSD is not available
                 fetch(`https://nominatim.openstreetmap.org/reverse?
                         lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
                     .then((response) => {
@@ -73,7 +75,9 @@ export function getCurrentLocation() {
                         })
                     })
                     .catch((error) => {
-                        reject(error.statusText());
+                        // TODO: refactor: use US as default and resolve
+                        console.error('Could not retrieve country code.');
+                        reject(error);
                     });
             }, (error) => {
                 console.log(`Location request failed: ${error}`)

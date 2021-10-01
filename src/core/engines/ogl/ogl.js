@@ -546,8 +546,8 @@ export default class ogl {
         _ar2GeoTransformNode.decompose();
         _ar2GeoTransformNode.updateMatrixWorld(true);
 
-        printOglTransform("_geo2ArTransformNode", _geo2ArTransformNode);
-        printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
+        //printOglTransform("_geo2ArTransformNode", _geo2ArTransformNode);
+        //printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
     }
 
     /**
