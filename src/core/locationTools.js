@@ -153,6 +153,9 @@ export function getEuler(out, quat) {
  * @returns vec3
  */
 export function convertGeo2WebVec3(geoVec3) {
+    // X_WebXR =  X_ENU
+    // Y_WebXR =  Z_ENU
+    // Z_WebXR = -Y_ENU
     return vec3.fromValues(geoVec3[0], geoVec3[2], -geoVec3[1]);
 }
 
@@ -162,6 +165,9 @@ export function convertGeo2WebVec3(geoVec3) {
  * @returns vec3
  */
 export function convertWeb2GeoVec3(webVec3) {
+    // X_ENU =  X_WebXR
+    // Y_ENU = -Z_WebXR
+    // Z_ENU =  Y_WebXR
     return vec3.fromValues(webVec3[0], -webVec3[2], webVec3[1]);
 }
 
@@ -173,6 +179,9 @@ export function convertWeb2GeoVec3(webVec3) {
 export function convertGeo2WebQuat(geoQuat) {
     // WebXR: X to the right, Y up, Z backwards
     // Geo East-North-Up (with camera facing to North): X to the right, Y forwards, Z up
+    // X_WebXR =  X_ENU
+    // Y_WebXR =  Z_ENU
+    // Z_WebXR = -Y_ENU
     return quat.fromValues(geoQuat[0], geoQuat[2], -geoQuat[1], geoQuat[3]);
 }
 
@@ -182,6 +191,9 @@ export function convertGeo2WebQuat(geoQuat) {
  * @returns quat
  */
 export function convertWeb2GeoQuat(webQuat) {
+    // X_ENU =  X_WebXR
+    // Y_ENU = -Z_WebXR
+    // Z_ENU =  Y_WebXR
     return quat.fromValues(webQuat[0], -webQuat[2], webQuat[1], webQuat[3]);
 }
 
@@ -191,6 +203,10 @@ export function convertWeb2GeoQuat(webQuat) {
  * @returns vec3
  */
 export function convertAugmentedCityCam2WebVec3(acVec3) {
+    // flip the axes from ENU to WebXR
+    // X_WebXR = -Y_AC
+    // Y_WebXR =  Z_AC
+    // Z_WebXR = -X_AC
     return vec3.fromValues(-acVec3[1], acVec3[2], -acVec3[0]);
 }
 
@@ -203,13 +219,26 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
     // WebXR: X to the right, Y up, Z backwards
     // AugmentedCity ENU (with camera facing to East): X forward, Y to the left, Z up
 
+    // first from AC to ENU
+    // Extra -90 deg rotation around UP axis to get the orientation w.r.t North instead of East
+    // This is equivalent to rotating the coordinate sytem the opposite direction (+90 degrees around UP)
+    // X_ACrot =  Y_AC
+    // Y_ACrot = -X_AC
+    // Z_ACRot =  Z_AC
     let enuQuat = quat.create();
     let rotZm90 = quat.create();
-    // Extra -90 deg rotation around UP axis to get the orientation w.r.t North instead of East
-    quat.fromEuler(rotZm90,0,0,-90);
-    quat.multiply(enuQuat, rotZm90, acQuat);
+    quat.fromEuler(rotZm90, 0, 0, -90); // [0, 0, -0.7071, 0.7071]
+    quat.multiply(enuQuat, rotZm90, acQuat);  // enuQuat holds the orientation w.r.t North
+    // X_ENU = -Y_ACrot = X_AC
+    // Y_ENU =  X_ACrot = Y_AC
+    // Z_ENU =  Z_ACrot = Z_AC
+    // The ENU cooridate axes are the same as the AC coordinate axes,
+    // but the orientation quaternion is different because the zero orientation is different
 
     // and now flip the axes from ENU to WebXR
+    // X_WebXR =  X_ENU = -Y_ACrot
+    // Y_WebXR =  Z_ENU =  Z_ACrot
+    // Z_WebXR = -Y_ENU = -X_ACrot
     return quat.fromValues(-enuQuat[1], enuQuat[2], -enuQuat[0], enuQuat[3]);
 }
 
