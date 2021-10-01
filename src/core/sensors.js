@@ -137,13 +137,23 @@ export function stopOrientationSensor() {
 export function lockScreenOrientation(orientation) {
     // Code from https://code-boxx.com/lock-screen-orientation/
 
-    let de = document.documentElement;
-    if (de.requestFullscreen) { de.requestFullscreen(); }
-    else if (de.mozRequestFullScreen) { de.mozRequestFullScreen(); }
-    else if (de.webkitRequestFullscreen) { de.webkitRequestFullscreen(); }
-    else if (de.msRequestFullscreen) { de.msRequestFullscreen(); }
+    document.addEventListener('fullscreenerror', (event) => {
+        console.error('Could not change to fullscreen');
+        console.log(event);
+    });
 
-    screen.orientation.lock(orientation);
+    if (!document.fullscreenElement && !document.mozFullScreenElement
+            && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+        let de = document.documentElement;
+        if (de.requestFullscreen) { de.requestFullscreen(); }
+        else if (de.mozRequestFullScreen) { de.mozRequestFullScreen(); }
+        else if (de.webkitRequestFullscreen) { de.webkitRequestFullscreen(); }
+        else if (de.msRequestFullscreen) { de.msRequestFullscreen(); }
+    }
+
+    screen.orientation.lock(orientation)
+    .then((success) => { console.log(success)},
+          (failure) => { console.error("Could not lock screen orientation"); console.log(failure)});
 }
 
 /**

@@ -98,13 +98,16 @@
             options.domOverlay = {root: overlay};
         }
 
+        let promise = xrEngine.startSession(canvas, updateCallback, options, setup);
+
+        // NOTE: screen orientation cannot be changed between user click and WebXR startSession,
+        // and it cannot be changed after the XR Session started, so the only place to change it is here
         if ($debug_useGeolocationSensors) {
-            startOrientationSensor();
             lockScreenOrientation('landscape-primary');
+            startOrientationSensor();
         }
 
-        xrEngine.startSession(canvas, updateCallback, options, setup)
-            .then(() => {
+        promise.then(() => {
                 xrEngine.setCallbacks(endedCallback, noPoseCallback);
                 tdEngine.init();
             })
