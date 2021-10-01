@@ -10,7 +10,7 @@
 <script>
     import { createEventDispatcher } from 'svelte';
 
-    import { supportedCountries} from 'ssd-access';
+    import { supportedCountries} from '@oarc/ssd-access';
 
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices, availableP2pServices,
         selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
