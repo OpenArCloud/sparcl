@@ -294,7 +294,7 @@
             </select>
         </dd>
         <pre class="serviceurl">
-            <label for="geoposeServer">{$selectedGeoPoseService.url || ""}</label>
+            <label for="geoposeServer">{$selectedGeoPoseService?.url || ""}</label>
         </pre>
     </dl>
 
@@ -314,7 +314,7 @@
                    on:change={(event) => handleContentServiceSelection(event, service)} />
             <label for="selectedContentService">{service.title}</label>
             <pre class="serviceurl">
-                <label for="selectedContentService">{$selectedGeoPoseService.url || ""}</label>
+                <label for="selectedContentService">{service.url || ""}</label>
             </pre>
 
             {#if service?.properties}
@@ -424,7 +424,7 @@
             {/if}
         </select></dd>
         <pre class="serviceurl">
-            <label>URL: {$selectedP2pService.url || "no url"}</label>
+            <label>URL: {$selectedP2pService?.url || "no url"}</label>
             {#if ($selectedP2pService.properties != undefined) && ($selectedP2pService.properties.length != 0)}
                 {#each $selectedP2pService.properties as prop}
                 <label>{prop.type}: {prop.value}<br></label>
