@@ -10,7 +10,7 @@
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
 import {quat, vec3} from 'gl-matrix';
 import * as h3 from "h3-js";
-import {supportedCountries} from 'ssd-access';
+import {supportedCountries} from '@oarc/ssd-access';
 
 export const toRadians = (degrees) => degrees / 180 * Math.PI;
 export const toDegrees = (radians) => radians / Math.PI * 180;

@@ -12,12 +12,12 @@
 
     import {v4 as uuidv4} from 'uuid';
 
-    import {sendRequest, validateRequest} from 'gpp-access';
-    import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
-    import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
+    import {sendRequest, validateRequest} from '@oarc/gpp-access';
+    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
+    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
+    import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import {getContentAtLocation} from 'scd-access';
+    import {getContentAtLocation} from '@oarc/scd-access';
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 

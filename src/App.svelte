@@ -57,7 +57,7 @@
                 getCurrentLocation()
                     .then((currentLocation) => {
                         $initialLocation = currentLocation;
-                        return import('ssd-access');
+                        return import('@oarc/ssd-access');
                     })
                     .then(ssdModule => {
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
