@@ -5,18 +5,18 @@
 
 attribute vec3 position;
 attribute vec3 normal;
-//attribute vec2 uv;
+attribute vec2 uv;
 
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
 uniform mat3 normalMatrix;
 
 varying vec3 vNormal;
-//varying vec2 vUv;
+varying vec2 vUv;
 
 void main() {
     vNormal = normalize(normalMatrix * normal);
-    //vUv = uv;
+    vUv = uv;
 
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
 }

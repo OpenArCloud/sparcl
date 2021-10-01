@@ -7,6 +7,9 @@
 
     const EXPERIMENTTYPES = {
         //yourkey: 'yourvalue'
+        performance: 'Performance',
+        ismar2021poles: "ISMAR 2021 Poles",
+        ismar2021multi: "ISMAR 2021 Multi"
     };
 
     export function importExperiment(key) {
@@ -17,6 +20,18 @@
             //    settings = import('@experiments/<subroot>/<experimentname>/Settings.svelte')
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
+            case 'ismar2021poles':
+                settings = import('@experiments/oarc/ismar2021poles/Settings.svelte')
+                viewer = import('@experiments/oarc/ismar2021poles/Viewer.svelte');
+                break;
+            case 'ismar2021multi':
+                settings = import('@experiments/oarc/ismar2021multi/Settings.svelte');
+                viewer = import('@experiments/oarc/ismar2021multi/Viewer.svelte');
+                break;
+            case 'performance':
+                settings = import('@experiments/oarc/performance/Settings.svelte');
+                viewer = import('@experiments/oarc/performance/Viewer.svelte');
+                break;
             default:
                 settings = null;
                 viewer = null;
