@@ -286,7 +286,8 @@
             <select id="geoposeServer" bind:value={$selectedGeoPoseService}
                     disabled="{$availableGeoPoseServices.length < 2  || null}">
                 {#if $availableGeoPoseServices.length === 0}
-                    <option>None</option>
+                    <option>None / Device Sensors</option>
+                    {debug_useGeolocationSensors.set(true)}
                 {:else}
                     {#each $availableGeoPoseServices as service}
                         <option value={service}>{service.title}</option>
