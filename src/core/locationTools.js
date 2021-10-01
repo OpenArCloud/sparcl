@@ -10,7 +10,7 @@
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
 import {quat, vec3} from 'gl-matrix';
 import * as h3 from "h3-js";
-import {supportedCountries} from 'ssd-access';
+import {supportedCountries} from '@oarc/ssd-access';
 
 export const toRadians = (degrees) => degrees / 180 * Math.PI;
 export const toDegrees = (radians) => radians / Math.PI * 180;
@@ -53,6 +53,8 @@ export function getCurrentLocation() {
                 const latAngle = position.coords.latitude;
                 const lonAngle = position.coords.longitude;
 
+                // WARNING: more than 1 request in a second leads to IP ban!
+                // TODO: refactor to call OSM only infrequently, even if SSD is not available
                 fetch(`https://nominatim.openstreetmap.org/reverse?
                         lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
                     .then((response) => {
@@ -73,7 +75,9 @@ export function getCurrentLocation() {
                         })
                     })
                     .catch((error) => {
-                        reject(error.statusText());
+                        // TODO: refactor: use US as default and resolve
+                        console.error('Could not retrieve country code.');
+                        reject(error);
                     });
             }, (error) => {
                 console.log(`Location request failed: ${error}`)
@@ -102,7 +106,6 @@ export function calculateEulerRotation(localisationQuaternion, localQuaternion) 
     getEuler(euler, diff);
     return euler;
 }
-
 
 /**
  * Returns an euler angle representation of a quaternion.
@@ -149,6 +152,9 @@ export function getEuler(out, quat) {
  * @returns vec3
  */
 export function convertGeo2WebVec3(geoVec3) {
+    // X_WebXR =  X_ENU
+    // Y_WebXR =  Z_ENU
+    // Z_WebXR = -Y_ENU
     return vec3.fromValues(geoVec3[0], geoVec3[2], -geoVec3[1]);
 }
 
@@ -158,6 +164,9 @@ export function convertGeo2WebVec3(geoVec3) {
  * @returns vec3
  */
 export function convertWeb2GeoVec3(webVec3) {
+    // X_ENU =  X_WebXR
+    // Y_ENU = -Z_WebXR
+    // Z_ENU =  Y_WebXR
     return vec3.fromValues(webVec3[0], -webVec3[2], webVec3[1]);
 }
 
@@ -169,6 +178,9 @@ export function convertWeb2GeoVec3(webVec3) {
 export function convertGeo2WebQuat(geoQuat) {
     // WebXR: X to the right, Y up, Z backwards
     // Geo East-North-Up (with camera facing to North): X to the right, Y forwards, Z up
+    // X_WebXR =  X_ENU
+    // Y_WebXR =  Z_ENU
+    // Z_WebXR = -Y_ENU
     return quat.fromValues(geoQuat[0], geoQuat[2], -geoQuat[1], geoQuat[3]);
 }
 
@@ -178,6 +190,9 @@ export function convertGeo2WebQuat(geoQuat) {
  * @returns quat
  */
 export function convertWeb2GeoQuat(webQuat) {
+    // X_ENU =  X_WebXR
+    // Y_ENU = -Z_WebXR
+    // Z_ENU =  Y_WebXR
     return quat.fromValues(webQuat[0], -webQuat[2], webQuat[1], webQuat[3]);
 }
 
@@ -187,6 +202,10 @@ export function convertWeb2GeoQuat(webQuat) {
  * @returns vec3
  */
 export function convertAugmentedCityCam2WebVec3(acVec3) {
+    // flip the axes from ENU to WebXR
+    // X_WebXR = -Y_AC
+    // Y_WebXR =  Z_AC
+    // Z_WebXR = -X_AC
     return vec3.fromValues(-acVec3[1], acVec3[2], -acVec3[0]);
 }
 
@@ -197,16 +216,87 @@ export function convertAugmentedCityCam2WebVec3(acVec3) {
  */
 export function convertAugmentedCityCam2WebQuat(acQuat) {
     // WebXR: X to the right, Y up, Z backwards
-    // AugmentedCity ENU (with camera facing to East): X forward, Y to the left, Z up
+    // AugmentedCity cameraENU (with camera facing to East): X forward, Y to the left, Z up
 
+    // first from AC to ENU
+    // Extra -90 deg rotation around UP axis to get the orientation w.r.t North instead of East
+    // This is equivalent to rotating the coordinate sytem the opposite direction (+90 degrees around UP)
+    // X_ACrot =  Y_AC
+    // Y_ACrot = -X_AC
+    // Z_ACRot =  Z_AC
     let enuQuat = quat.create();
     let rotZm90 = quat.create();
-    // Extra -90 deg rotation around UP axis to get the orientation w.r.t North instead of East
-    quat.fromEuler(rotZm90,0,0,-90);
-    quat.multiply(enuQuat, rotZm90, acQuat);
+    quat.fromEuler(rotZm90, 0, 0, -90); // [0, 0, -0.7071, 0.7071]
+    quat.multiply(enuQuat, rotZm90, acQuat);  // enuQuat holds the orientation w.r.t North
+    // X_ENU = -Y_ACrot = X_AC
+    // Y_ENU =  X_ACrot = Y_AC
+    // Z_ENU =  Z_ACrot = Z_AC
+    // The ENU cooridate axes are the same as the AC coordinate axes,
+    // but the orientation quaternion is different because the zero orientation is different
 
     // and now flip the axes from ENU to WebXR
+    // X_WebXR =  X_ENU = -Y_ACrot
+    // Y_WebXR =  Z_ENU =  Z_ACrot
+    // Z_WebXR = -Y_ENU = -X_ACrot
     return quat.fromValues(-enuQuat[1], enuQuat[2], -enuQuat[0], enuQuat[3]);
+}
+
+/**
+* Converts a quaternion from Sensor ENU (X to right, Y forward, Z up) (for example W3C Sensor API)
+* to AugmentedCity's cameraENU quaternion (X forward, Y to the left, Z up)
+* @param {*} sensorQuat quaternion
+* @returns quat
+*/
+export function convertSensor2AugmentedCityCam(sensorQuat) {
+    // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
+    // This is only correct because instead of the actual camera image, 
+    // we capture the camera texture which is always rotated according to the screen orientation.
+
+    // At unit quaternion orientation in the WebXR coordinate system, the (back) camera looks in the direction of North
+    // At unit quaternion orientation in the W3C Sensor API coordinate system, the (back) camera looks in the direction of gravity
+    // At unit quaternion orientation in the AugmentedCity coordinate system, the (back) camera looks towards East.
+
+    /*
+    // https://developer.mozilla.org/en-US/docs/Web/API/Screen/orientation
+    let orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
+    let displayTransform = quat.create();
+    if (orientation === "landscape-primary") {
+        console.log("Screen orienation: landscape-primary");
+        quat.fromEuler(displayTransform, 0, 0, 0);
+    } else if (orientation === "landscape-secondary") {
+        console.log("Screen orienation: landscape-secondary (upside down)");
+        quat.fromEuler(displayTransform, 0, 0, 180);
+    } else if (orientation === "portrait-primary") {
+        console.log("Screen orienation: portrait-primary");
+        quat.fromEuler(displayTransform, 0, 0, 90);
+    } else if (orientation === "portrait-secondary") {
+        console.log("Screen orienation: portrait-secondary (upside down)");
+        quat.fromEuler(displayTransform, 0, 0, 270);
+    } else {
+        console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
+        quat.fromEuler(displayTransform, 0, 0, 0);
+    }
+    
+    let screenQuat = quat.create();
+    quat.multiply(screenQuat, displayTransform, sensorQuat);
+    */
+
+    // The code below works well in landscape-primary orientation and 'device' reference of Sensor
+    let screenQuat = sensorQuat;
+
+    // We additionally rotate +90 degrees around the North axis,
+    // which is equivalent to rotating the Sensor coordinate system by -90 degrees aroung the North axis,
+    // so that the (back) camera looks towards East instead of towards the ground.
+    let sensorRotQuat = quat.create();
+    let rotY90 = quat.create();
+    quat.fromEuler(rotY90, 0, 90, 0);
+    quat.multiply(sensorRotQuat, rotY90, screenQuat);
+
+    // Then we swap the axes from Sensor coordinate sytstem to AC (camera) coordinate system
+    // X_AC = -Z_SensorRot
+    // Y_AC =  Y_SensorRot
+    // Z_AC =  X_SensorRot
+    return quat.fromValues(-sensorRotQuat[2], sensorRotQuat[1], sensorRotQuat[0], sensorRotQuat[3]);
 }
 
 /**

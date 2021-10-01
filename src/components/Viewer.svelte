@@ -12,20 +12,22 @@
 
     import {v4 as uuidv4} from 'uuid';
 
-    import {sendRequest, validateRequest} from 'gpp-access';
-    import GeoPoseRequest from 'gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from 'gpp-access/request/options/ImageOrientation.js';
-    import {IMAGEFORMAT} from 'gpp-access/GppGlobals.js';
+    import {sendRequest, validateRequest} from '@oarc/gpp-access';
+    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
+    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
+    import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import {getContentAtLocation} from 'scd-access';
+    import {getContentAtLocation} from '@oarc/scd-access';
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, initialLocation,
-        recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
+    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors,
+        initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
+    import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
+         stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
 
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
 
@@ -96,8 +98,16 @@
             options.domOverlay = {root: overlay};
         }
 
-        xrEngine.startSession(canvas, updateCallback, options, setup)
-            .then(() => {
+        let promise = xrEngine.startSession(canvas, updateCallback, options, setup);
+
+        // NOTE: screen orientation cannot be changed between user click and WebXR startSession,
+        // and it cannot be changed after the XR Session started, so the only place to change it is here
+        if ($debug_useGeolocationSensors) {
+            lockScreenOrientation('landscape-primary');
+            startOrientationSensor();
+        }
+
+        promise.then(() => {
                 xrEngine.setCallbacks(endedCallback, noPoseCallback);
                 tdEngine.init();
             })
@@ -181,6 +191,12 @@
      */
     export function onSessionEnded() {
         firstPoseReceived = false;
+
+        if ($debug_useGeolocationSensors) {
+            stopOrientationSensor();
+            unlockScreenOrientation();
+        }
+
         dispatch('arSessionEnded');
     }
 
@@ -229,6 +245,28 @@
      */
     export function localize(image, width, height) {
         return new Promise((resolve, reject) => {
+            if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
+                console.warn("There is no available GeoPose service. Trying to use the on-board sensors instead.")
+            }
+
+            if ($debug_useGeolocationSensors) {
+                getSensorEstimatedGeoPose()
+                    .then(selfEstimatedGeoPose => {
+                        $context.isLocalizing = false;
+                        $context.isLocalized = true; 
+                        // allow relocalization after a few seconds
+                        wait(4000).then(() => {
+                            $context.showFooter = true;
+                            $context.isLocalized = false;
+                            $context.isLocalisationDone = false;
+                        });
+                        console.log("SENSOR GeoPose:");
+                        console.log(selfEstimatedGeoPose);
+                        resolve([selfEstimatedGeoPose]);
+                    });
+                return;
+            }
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
@@ -245,6 +283,9 @@
                         $context.showFooter = false;
                         $context.isLocalisationDone = true;
                     });
+
+                    console.log("IMAGE GeoPose:");
+                    console.log(data.geopose || data.pose);
 
                     resolve([data.geopose || data.pose, data.scrs]);
                 })

@@ -52,10 +52,12 @@
     $: {
         if ($isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
+                // TODO: refactor to call getCurrentLocation() only infrequently even if SSD is not available,
+                // otherwise we can get banned from OpenStreetMap
                 getCurrentLocation()
                     .then((currentLocation) => {
                         $initialLocation = currentLocation;
-                        return import('ssd-access');
+                        return import('@oarc/ssd-access');
                     })
                     .then(ssdModule => {
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
@@ -70,7 +72,8 @@
                     })
                     .catch(error => {
                         // TODO: Inform user
-                        console.log(error);
+                        console.error("Could not retrieve spatial services");
+                        console.error(error);
                     });
             })
         }
