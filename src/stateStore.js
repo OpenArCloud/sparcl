@@ -314,6 +314,17 @@ debug_showLocalAxes.subscribe(value => {
 })
 
 /**
+ * Use the Geolocation and AbsoluteOrientation sensors for determining the camera pose in the world (i.e., not use visual positioning).
+ *
+ * @type {Writable<boolean>}
+ */
+ const storedDebug_useGeolocationSensors = localStorage.getItem('debug_useGeolocationSensors') === 'true';
+ export const debug_useGeolocationSensors = writable(storedDebug_useGeolocationSensors);
+ debug_useGeolocationSensors.subscribe(value => {
+     localStorage.setItem('debug_useGeolocationSensors', value === true ? 'true' : 'false');
+ })
+
+/**
  * Keeps some state of the dashboard.
  *
  * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}

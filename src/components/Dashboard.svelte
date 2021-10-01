@@ -16,7 +16,8 @@
         selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
-        creatorModeSettings, experimentModeSettings, debug_appendCameraImage, debug_showLocalAxes
+        creatorModeSettings, experimentModeSettings,
+        debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -450,6 +451,11 @@
     <div>
         <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
         <label for="showlocalaxes">Show local coordinate axes</label>
+    </div>
+
+    <div>
+        <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
+        <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
     </div>
 </details>
 
