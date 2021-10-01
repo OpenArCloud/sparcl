@@ -242,17 +242,20 @@
      */
     export function localize(image, width, height) {
         return new Promise((resolve, reject) => {
+            if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
+                console.warn("There is no available GeoPose service. Trying to use the on-board sensors instead.")
+            }
 
             if ($debug_useGeolocationSensors) {
                 getSensorEstimatedGeoPose()
                     .then(selfEstimatedGeoPose => {
-                        isLocalizing = false;
-                        isLocalized = true; 
+                        $context.isLocalizing = false;
+                        $context.isLocalized = true; 
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            showFooter = true;
-                            isLocalized = false;
-                            isLocalisationDone = false;
+                            $context.showFooter = true;
+                            $context.isLocalized = false;
+                            $context.isLocalisationDone = false;
                         });
                         console.log("SENSOR GeoPose:");
                         console.log(selfEstimatedGeoPose);
