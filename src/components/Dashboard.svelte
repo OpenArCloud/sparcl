@@ -10,13 +10,14 @@
 <script>
     import { createEventDispatcher } from 'svelte';
 
-    import { supportedCountries} from 'ssd-access';
+    import { supportedCountries} from '@oarc/ssd-access';
 
     import { showDashboard, initialLocation, availableGeoPoseServices, availableContentServices, availableP2pServices,
         selectedGeoPoseService, selectedContentServices, selectedP2pService, arMode,
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
-        creatorModeSettings, experimentModeSettings, debug_appendCameraImage, debug_showLocalAxes
+        creatorModeSettings, experimentModeSettings,
+        debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -285,7 +286,8 @@
             <select id="geoposeServer" bind:value={$selectedGeoPoseService}
                     disabled="{$availableGeoPoseServices.length < 2  || null}">
                 {#if $availableGeoPoseServices.length === 0}
-                    <option>None</option>
+                    <option>None / Device Sensors</option>
+                    {debug_useGeolocationSensors.set(true)}
                 {:else}
                     {#each $availableGeoPoseServices as service}
                         <option value={service}>{service.title}</option>
@@ -294,7 +296,7 @@
             </select>
         </dd>
         <pre class="serviceurl">
-            <label for="geoposeServer">{$selectedGeoPoseService.url || ""}</label>
+            <label for="geoposeServer">{$selectedGeoPoseService?.url || ""}</label>
         </pre>
     </dl>
 
@@ -314,7 +316,7 @@
                    on:change={(event) => handleContentServiceSelection(event, service)} />
             <label for="selectedContentService">{service.title}</label>
             <pre class="serviceurl">
-                <label for="selectedContentService">{$selectedGeoPoseService.url || ""}</label>
+                <label for="selectedContentService">{service.url || ""}</label>
             </pre>
 
             {#if service?.properties}
@@ -424,7 +426,7 @@
             {/if}
         </select></dd>
         <pre class="serviceurl">
-            <label>URL: {$selectedP2pService.url || "no url"}</label>
+            <label>URL: {$selectedP2pService?.url || "no url"}</label>
             {#if ($selectedP2pService.properties != undefined) && ($selectedP2pService.properties.length != 0)}
                 {#each $selectedP2pService.properties as prop}
                 <label>{prop.type}: {prop.value}<br></label>
@@ -450,6 +452,11 @@
     <div>
         <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
         <label for="showlocalaxes">Show local coordinate axes</label>
+    </div>
+
+    <div>
+        <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
+        <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
     </div>
 </details>
 
