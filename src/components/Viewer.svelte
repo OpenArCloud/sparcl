@@ -21,11 +21,13 @@
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, initialLocation,
-        recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
+    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors,
+        initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
+    import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
+         stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
 
     import ArMarkerOverlay from "@components/dom-overlays/ArMarkerOverlay.svelte";
 
@@ -94,6 +96,11 @@
 
         if (requiredFeatures.includes('dom-overlay') || optionalFeatures.includes('dom-overlay')) {
             options.domOverlay = {root: overlay};
+        }
+
+        if ($debug_useGeolocationSensors) {
+            startOrientationSensor();
+            lockScreenOrientation('landscape-primary');
         }
 
         xrEngine.startSession(canvas, updateCallback, options, setup)
@@ -181,6 +188,12 @@
      */
     export function onSessionEnded() {
         firstPoseReceived = false;
+
+        if ($debug_useGeolocationSensors) {
+            stopOrientationSensor();
+            unlockScreenOrientation();
+        }
+
         dispatch('arSessionEnded');
     }
 
@@ -229,6 +242,25 @@
      */
     export function localize(image, width, height) {
         return new Promise((resolve, reject) => {
+
+            if ($debug_useGeolocationSensors) {
+                getSensorEstimatedGeoPose()
+                    .then(selfEstimatedGeoPose => {
+                        isLocalizing = false;
+                        isLocalized = true; 
+                        // allow relocalization after a few seconds
+                        wait(4000).then(() => {
+                            showFooter = true;
+                            isLocalized = false;
+                            isLocalisationDone = false;
+                        });
+                        console.log("SENSOR GeoPose:");
+                        console.log(selfEstimatedGeoPose);
+                        resolve([selfEstimatedGeoPose]);
+                    });
+                return;
+            }
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
@@ -245,6 +277,9 @@
                         $context.showFooter = false;
                         $context.isLocalisationDone = true;
                     });
+
+                    console.log("IMAGE GeoPose:");
+                    console.log(data.geopose || data.pose);
 
                     resolve([data.geopose || data.pose, data.scrs]);
                 })

@@ -107,7 +107,6 @@ export function calculateEulerRotation(localisationQuaternion, localQuaternion) 
     return euler;
 }
 
-
 /**
  * Returns an euler angle representation of a quaternion.
  *
@@ -217,7 +216,7 @@ export function convertAugmentedCityCam2WebVec3(acVec3) {
  */
 export function convertAugmentedCityCam2WebQuat(acQuat) {
     // WebXR: X to the right, Y up, Z backwards
-    // AugmentedCity ENU (with camera facing to East): X forward, Y to the left, Z up
+    // AugmentedCity cameraENU (with camera facing to East): X forward, Y to the left, Z up
 
     // first from AC to ENU
     // Extra -90 deg rotation around UP axis to get the orientation w.r.t North instead of East
@@ -240,6 +239,64 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
     // Y_WebXR =  Z_ENU =  Z_ACrot
     // Z_WebXR = -Y_ENU = -X_ACrot
     return quat.fromValues(-enuQuat[1], enuQuat[2], -enuQuat[0], enuQuat[3]);
+}
+
+/**
+* Converts a quaternion from Sensor ENU (X to right, Y forward, Z up) (for example W3C Sensor API)
+* to AugmentedCity's cameraENU quaternion (X forward, Y to the left, Z up)
+* @param {*} sensorQuat quaternion
+* @returns quat
+*/
+export function convertSensor2AugmentedCityCam(sensorQuat) {
+    // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
+    // This is only correct because instead of the actual camera image, 
+    // we capture the camera texture which is always rotated according to the screen orientation.
+
+    // At unit quaternion orientation in the WebXR coordinate system, the (back) camera looks in the direction of North
+    // At unit quaternion orientation in the W3C Sensor API coordinate system, the (back) camera looks in the direction of gravity
+    // At unit quaternion orientation in the AugmentedCity coordinate system, the (back) camera looks towards East.
+
+    /*
+    // https://developer.mozilla.org/en-US/docs/Web/API/Screen/orientation
+    let orientation = (screen.orientation || {}).type || screen.mozOrientation || screen.msOrientation;
+    let displayTransform = quat.create();
+    if (orientation === "landscape-primary") {
+        console.log("Screen orienation: landscape-primary");
+        quat.fromEuler(displayTransform, 0, 0, 0);
+    } else if (orientation === "landscape-secondary") {
+        console.log("Screen orienation: landscape-secondary (upside down)");
+        quat.fromEuler(displayTransform, 0, 0, 180);
+    } else if (orientation === "portrait-primary") {
+        console.log("Screen orienation: portrait-primary");
+        quat.fromEuler(displayTransform, 0, 0, 90);
+    } else if (orientation === "portrait-secondary") {
+        console.log("Screen orienation: portrait-secondary (upside down)");
+        quat.fromEuler(displayTransform, 0, 0, 270);
+    } else {
+        console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
+        quat.fromEuler(displayTransform, 0, 0, 0);
+    }
+    
+    let screenQuat = quat.create();
+    quat.multiply(screenQuat, displayTransform, sensorQuat);
+    */
+
+    // The code below works well in landscape-primary orientation and 'device' reference of Sensor
+    let screenQuat = sensorQuat;
+
+    // We additionally rotate +90 degrees around the North axis,
+    // which is equivalent to rotating the Sensor coordinate system by -90 degrees aroung the North axis,
+    // so that the (back) camera looks towards East instead of towards the ground.
+    let sensorRotQuat = quat.create();
+    let rotY90 = quat.create();
+    quat.fromEuler(rotY90, 0, 90, 0);
+    quat.multiply(sensorRotQuat, rotY90, screenQuat);
+
+    // Then we swap the axes from Sensor coordinate sytstem to AC (camera) coordinate system
+    // X_AC = -Z_SensorRot
+    // Y_AC =  Y_SensorRot
+    // Z_AC =  X_SensorRot
+    return quat.fromValues(-sensorRotQuat[2], sensorRotQuat[1], sensorRotQuat[0], sensorRotQuat[3]);
 }
 
 /**
