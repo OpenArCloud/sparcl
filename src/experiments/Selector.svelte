@@ -8,7 +8,6 @@
     const EXPERIMENTTYPES = {
         //yourkey: 'yourvalue'
         performance: 'Performance',
-        ismar2021poles: "ISMAR 2021 Poles",
         ismar2021multi: "ISMAR 2021 Multi",
         ismar2021singpost: "ISMAR 2021 Signpost"
     };
@@ -25,10 +24,7 @@
                 settings = import('@experiments/oarc/ismar2021singpost/Settings.svelte')
                 viewer = import('@experiments/oarc/ismar2021singpost/Viewer.svelte');
                 break;
-            case 'ismar2021poles':
-                settings = import('@experiments/oarc/ismar2021poles/Settings.svelte')
-                viewer = import('@experiments/oarc/ismar2021poles/Viewer.svelte');
-                break;
+
             case 'ismar2021multi':
                 settings = import('@experiments/oarc/ismar2021multi/Settings.svelte');
                 viewer = import('@experiments/oarc/ismar2021multi/Viewer.svelte');
