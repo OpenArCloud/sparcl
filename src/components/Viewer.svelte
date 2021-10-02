@@ -427,46 +427,14 @@
         }, { once: true });
     }
 
+    // TODO: rename to onEventReceived()
     /**
      * Receives data from the application to be applied to current scene.
      */
-     export function updateReceived(events) {
+    export function updateReceived(events) {
         // NOTE: sometimes multiple events are bundled!
         console.log('Viewer event received:');
         console.log(events);
-
-        if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log("message from " + data.sender + ": \n  " + data.message);
-                }
-//            }
-        }
-
-        if ('object_created' in events) {
-            let data = events.object_created;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                data = data.scr;
-                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
-                    // experimentOverlay?.objectReceived();
-                    let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose;
-                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
-                }
-//            }
-        }
-
-        // TODO: Receive list of events to fire from SCD
-        if ('setrotation' in events) {
-            //let data = events.setrotation;
-            // todo app.fire('setrotation', data);
-        }
-
-        if ('setcolor' in events) {
-            //let data = events.setcolor;
-            // todo app.fire('setcolor', data);
-        }
     }
 
 </script>
