@@ -19,8 +19,8 @@ import { availableP2pServices, selectedP2pService } from '@src/stateStore';
 let instance;
 const docSet = new Automerge.DocSet();
 
-let updateFunction;
-
+let updateFunction = undefined;
+let unsubscribeFunction = undefined;
 
 /**
  * Can be used to put initial values into the docset.
@@ -49,6 +49,8 @@ export function connect(headlessPeerId, isHeadless = false, updateftn) {
 }
 
 export function connectWithUrl(headlessPeerId, isHeadless = true, url, port, updateftn) {
+    updateFunction = updateftn;
+
     setupPergeWithUrl(headlessPeerId, url, port);
     setupPeerEvents(headlessPeerId, isHeadless);
 }
@@ -57,8 +59,12 @@ export function connectWithUrl(headlessPeerId, isHeadless = true, url, port, upd
  * Disconnect the device from the peer to peer network.
  */
 export function disconnect() {
-    // TODO: Implement
     console.log('disconnect');
+    // disconnect from Perge
+    if (unsubscribeFunction) {
+        unsubscribeFunction();
+    }
+    // TODO: cleanup PeerJS too
 }
 
 /**
@@ -109,6 +115,13 @@ function setupPergeWithUrl(peerId, url, port) {
         host: url,
         secure: true,
         port: port
+        //,config: {
+        //    iceServers: [
+        //        { url: 'stun:stun.l.google.com:19302' },
+        //        { url: 'stun:stun1.l.google.com:19302' },
+        //        { url: 'stun:stun2.l.google.com:19302' },
+        //    ]
+        //}
     } : {};
 
     console.log("Creating P2P network:");
@@ -124,8 +137,9 @@ function setupPergeWithUrl(peerId, url, port) {
         docSet: docSet
     })
 
-    instance.subscribe(() => {
-        console.log('instance.subscribe');
+    // subscribe returns an unsubscribe function
+    unsubscribeFunction = instance.subscribe(() => {
+        //console.log('instance.subscribe');
         updateReceived();
     })
 }
@@ -158,6 +172,12 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
                 p2pNetworkState.set(msg);
             }
         }
+
+        // Send heartbeat to keep the connection alive
+        if (instance.peerServerHeartbeater === undefined) {
+            instance.peerServerHeartbeater = new PeerJSHeartbeater(instance.peer);
+            instance.peerServerHeartbeater.start();
+        }
     });
 
     // Emitted when a new data connection is established from a remote peer.
@@ -186,5 +206,35 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         let msg = "Connection closed";
         console.log(msg);
         p2pNetworkState.set(msg);
+
+        if (instance.peerServerHeartbeater != undefined) {
+            instance.peerServerHeartbeater.stop();
+        }
     });
+}
+
+// Code from https://github.com/peers/peerjs/issues/295
+class PeerJSHeartbeater {
+    constructor(peer) {
+        this.peer = peer;
+        this.start();
+    }
+    start() {
+        console.log("PeerJSHeartbeater start")
+        if (this.timeoutID === undefined) {
+            this.beat();
+        }
+    }
+    stop() {
+        console.log("PeerJSHeartbeater stop")
+        clearTimeout(this.timeoutID);
+        this.timeoutID = undefined;
+    }
+    beat() {
+        console.log("PeerJS heartbeat from " + this.peer.id)
+        this.timeoutID = setTimeout(() => {this.beat();}, 10000);
+        if (this.peer.socket._wsOpen()) {
+            this.peer.socket.send({ type: 'HEARTBEAT' });
+        }
+    }
 }

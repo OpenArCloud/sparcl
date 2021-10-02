@@ -25,6 +25,17 @@
     }
 
     export function updateReceived(events) {
+        // Log the messages received form others
+        if ('message_broadcasted' in events) {
+            let data = events.message_broadcasted;
+//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('message' in data && 'sender' in data) {
+                    console.log("message from " + data.sender + ": \n  " + data.message);
+                }
+//            }
+        }
+
+        // Place markers on a 2D map where others have created objects. Use the same color!
         if ('object_created' in events) {
             let data = events.object_created;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
@@ -41,6 +52,12 @@
                     }
                 }
 //            }
+        }
+
+        // Simply print any other events
+        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+            console.log('Spectator event received:');
+            console.log(events);
         }
     }
 
