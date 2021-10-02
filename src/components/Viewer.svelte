@@ -54,8 +54,8 @@
     $context = {
         showFooter: false,
         isLocalized: false,
-        isLocalizing: false,
-        isLocalisationDone: false
+        isLocalizing: false,      // while waiting for GeoPose service localization
+        isLocalisationDone: false // whether to show the dom-overlay with 'localize' button
     }
 
     onDestroy(() => {
@@ -256,9 +256,8 @@
                         $context.isLocalized = true; 
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            $context.showFooter = true;
-                            $context.isLocalized = false;
-                            $context.isLocalisationDone = false;
+                            $context.showFooter = false;
+                            $context.isLocalisationDone = true;
                         });
                         console.log("SENSOR GeoPose:");
                         console.log(selfEstimatedGeoPose);
@@ -383,7 +382,7 @@
                     let object_description = record.content.object_description;
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    printOglTransform("localObjectPose", localObjectPose);
+                    //printOglTransform("localObjectPose", localObjectPose);
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
