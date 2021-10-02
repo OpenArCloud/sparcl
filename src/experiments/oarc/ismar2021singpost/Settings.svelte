@@ -202,15 +202,36 @@ let gl, canvas, renderer, scene, camera, sunlight, session, pose, reticle,
 	referenceSpace, viewerSpace, hitTestSource, signPost,
 	currentTime = 0, lastTime = 0, deltaTime, fpsTime = 0, fpsCounter = 0, fps;
 
+/** Initializes the WebXR experience. */
+async function initWebXRExperience() {
+	
+	// Show the main element
+	mainElement.style.display = "block";
 
-/** Initializes the demo. */
+	//Load the Threejs
+	console.log("Loading Threejs");
+	let loaded = false;
+	try { loaded = (THREE !== undefined) } catch (e) {}
+	if (!loaded) {
+		let script = createDomElement("script", null, document.body);
+	 	script.src = "https://unpkg.com/three@0.126.0/build/three.js"
+	 	requestAnimationFrame(loadWebXRExperience);
+	}
+}
+
+/** Loads the elements of the WebXR experience. */
+async function loadWebXRExperience() {
+	let loaded = false;
+	try { loaded = (THREE !== undefined); } catch (e) {}
+	if (loaded) startWebXRExperience();
+	else requestAnimationFrame(loadWebXRExperience);
+}
+
+/** Starts the WebXR experience. */
 async function startWebXRExperience() {
 	
 	// Check WebXR support
 	if (navigator.xr == undefined) throw new Error("XR is not supported");
-
-	// Show the main element
-	mainElement.style.display = "block";
 
 	// Add a canvas element and initialize a WebGL context
 	canvas = document.createElement("canvas", mainElement);
@@ -349,8 +370,5 @@ function updateWebXRExperience(time, frame) {
 async function shutdownWebXRExperience() { if (session) await session.end(); }
 </script>
 
-<svelte:head>
-	<script src="https://unpkg.com/three@0.126.0/build/three.js"></script>
-</svelte:head>
 
-<button on:click={startWebXRExperience}>Start Demo</button>
+<button on:click={initWebXRExperience}>Start Demo</button>
