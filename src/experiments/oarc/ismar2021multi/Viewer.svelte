@@ -1,12 +1,17 @@
 <script>
-    import { setContext } from 'svelte';
-    import { writable } from 'svelte/store';
+    import {setContext} from 'svelte';
+    import {createEventDispatcher} from 'svelte';
+    import {writable} from 'svelte/store';
 
     import Parent from '@components/Viewer.svelte';
 
     import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
-    import { PRIMITIVES } from "@core/engines/ogl/modelTemplates";
+    import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
+    // TODO: this is specific to OGL engine, but we only need a generic object description structure
+    import {createRandomObjectDescription} from '@core/engines/ogl/modelTemplates';
+    import {peerIdStr, recentLocalisation} from '@src/stateStore';
+    import {v4 as uuidv4} from 'uuid';
 
     let parentInstance, xrEngine, tdEngine;
     let hitTestSource, reticle, hasLostTracking = true
@@ -17,6 +22,10 @@
     let parentState = writable();
     setContext('state', parentState);
 
+    // Used to dispatch events to parent
+    const dispatch = createEventDispatcher();
+
+
     /**
      * Initial setup.
      *
@@ -24,7 +33,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-     export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr, this3dEngine, options) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
@@ -62,7 +71,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-     function update(time, frame, floorPose, floorSpaceReference) {
+    function update(time, frame, floorPose, floorSpaceReference) {
         hasLostTracking = false;
 
         if (hitTestSource) {
@@ -96,7 +105,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-     function onSessionEnded() {
+    function onSessionEnded() {
         if (hitTestSource) {
             hitTestSource.cancel();
             hitTestSource = null;
@@ -116,9 +125,14 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-     function onNoPose(time, frame, floorPose) {
+    function onNoPose(time, frame, floorPose) {
         parentInstance.onNoPose(time, frame, floorPose);
         hasLostTracking = true;
+    }
+
+    function relocalize() {
+        parentInstance.relocalize();
+        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
 //////////////////////////////////
@@ -134,38 +148,6 @@
         poseFoundHeartbeat();
     }
 
-
-    /**
-     * Special mode for experiments.
-     *
-     * @param time  DOMHighResTimeStamp     time offset at which the updated
-     *      viewer state was received from the WebXR device.
-     * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
-     * @param reticlePose  XRPose       The pose for the reticle
-     * @param frameDuration  integer        The duration of the previous frame
-     * @param passedMaxSlow  boolean        Max number of slow frames passed
-     */
-/*
-    function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
-        if ($settings.localisation && !isLocalized) {
-            handleOscp(time, frame, floorPose);
-        } else {
-            handlePoseHeartbeat();
-            showFooter = $settings.showstats
-                || ($settings.localisation && !$parentState.isLocalisationDone);
-            xrEngine.setViewPort();
-            if (!reticle) {
-                reticle = tdEngine.addReticle();
-            }
-            const position = reticlePose.transform.position;
-            const orientation = reticlePose.transform.orientation;
-            tdEngine.updateReticlePose(reticle, position, orientation);
-            tdEngine.render(time, floorPose.views[0]);
-        }
-    }
-*/
-
     /**
      * There might be the case that a tap handler for off object taps. This is the place to handle that.
      *
@@ -175,25 +157,19 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(event) {
-        console.log("tapped!");
         if (!hasLostTracking && reticle) {
-            //const index = Math.floor(Math.random() * 5);
-            //const shape = Object.values(PRIMITIVES)[index];
-            //const options = {attributes: {}};
-            //const isHorizontal = tdEngine.isHorizontal(reticle);
-
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
             // when tapped, determine the global position of the tap, and save the global location of the object
             // create SCR from the object and share it with the others
             // when received, place the same way as a downloaded SCR.
             if ($parentState.isLocalisationDone) {
-                shareMessage("Hello from " + $parentState.peerIdStr + " sent at " + new Date().getTime());
+                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
                 let object_description = createRandomObjectDescription();
 
                 tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
 
-                //shareObject(object_description, reticle.position, reticle.quaternion);
+                shareObject(object_description, reticle.position, reticle.quaternion);
                 //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
                 experimentOverlay?.objectPlaced();
@@ -204,7 +180,7 @@
     /**
      * Toggle automatic placement of placeholders for experiment mode.
      */
-     function toggleExperimentalPlacement() {
+    function toggleExperimentalPlacement() {
         doExperimentAutoPlacement = !doExperimentAutoPlacement;
 
         if (doExperimentAutoPlacement) {
@@ -229,7 +205,7 @@
     function shareMessage(str) {
         let message_body = {
             "message": str,
-            "sender": $parentState.peerIdStr,
+            "sender": $peerIdStr,
             "timestamp": new Date().getTime()
         }
         dispatch('broadcast', {
@@ -240,8 +216,8 @@
     }
 
     function shareObject(object_description, position, quaternion) {
-        let latestGlobalPose = $parentState.recentLocalisation.geopose;
-        let latestLocalPose = $parentState.recentLocalisation.floorpose;
+        let latestGlobalPose = $recentLocalisation.geopose;
+        let latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
             console.log("There was no successful localization yet, cannot share object");
             return;
@@ -269,7 +245,7 @@
         }
         let timestamp = new Date().getTime();
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $parentState.peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         let scr = {
             "content": content,
             "id": object_id,
@@ -279,7 +255,7 @@
         }
         let message_body = {
             "scr": scr,
-            "sender": $parentState.peerIdStr,
+            "sender": $peerIdStr,
             "timestamp": new Date().getTime()
         }
         // share over P2P network
@@ -291,6 +267,38 @@
             });
     }
 
+    /*
+     * Handle messages from the application or from the P2P network
+     */
+    export function updateReceived(events) {
+
+        if ('message_broadcasted' in events) {
+            let data = events.message_broadcasted;
+            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                if ('message' in data && 'sender' in data) {
+                    console.log("message from " + data.sender + ": \n  " + data.message);
+                }
+            }
+        }
+
+        if ('object_created' in events) {
+            let data = events.object_created;
+            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+                data = data.scr;
+                if ('tenant' in data && data.tenant === 'ISMAR2021demo') {
+                    experimentOverlay?.objectReceived();
+                    let latestGlobalPose = $recentLocalisation.geopose;
+                    let latestLocalPose = $recentLocalisation.floorpose;
+                    parentInstance.placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
+                }
+            }
+        }
+
+        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+            // let the parent Viewer process it
+            parentInstance.updateReceived(events);
+        }
+    }
 </script>
 
 <Parent bind:this={parentInstance} on:arSessionEnded>
@@ -303,8 +311,8 @@
         {:else}
             <p>{receivedContentNames.join()}</p>
             <ArExperimentOverlay bind:this={experimentOverlay} {settings}
-                                 on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                 on:relocalize={() => parentInstance.relocalize()} />
+                                 on:toggleAutoPlacement={() => toggleExperimentalPlacement()}
+                                 on:relocalize={() => relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>
