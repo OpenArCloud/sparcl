@@ -95,7 +95,7 @@
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
                             p2p.connect(headlessPeerId, false, (data) => {
-                                viewer?.updateReceived(data);
+                                viewerInstance?.updateReceived(data); //TODO: why does it not work with viewer?
                                 spectator?.updateReceived(data);
                             });
                         }
@@ -139,6 +139,7 @@
                     p2p.initialSetup();
                     p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
                         // Just for development
+                        console.log(data);
                         currentSharedValues = data;
                     });
                 })
@@ -358,7 +359,7 @@
         </div>
     </aside>
     {:else if !$arIsAvailable}
-    <Spectator bind:this={spectator} {isHeadless} />
+        <Spectator bind:this={spectator} {isHeadless} />
     {/if}
 
 {:else}
