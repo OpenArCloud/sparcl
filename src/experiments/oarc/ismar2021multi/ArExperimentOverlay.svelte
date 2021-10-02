@@ -43,12 +43,12 @@
 </style>
 
 
-{#if $experimentModeSettings[$experimentModeSettings.active].showstats}
+{#if $experimentModeSettings.ismar2021multi.showstats}
     <p>Objects placed: {objectsPlacedCount}</p>
     <p>Objects received: {objectsReceivedCount}</p>
     <p>ISMAR 2021 demo</p>
     <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings[$experimentModeSettings.active].localisation}
+    {#if $experimentModeSettings.ismar2021multi.localisation}
     <button class="secondary" on:click={() => dispatch('relocalize')}>
         <img src="/media/refresh.svg" />
     </button>
