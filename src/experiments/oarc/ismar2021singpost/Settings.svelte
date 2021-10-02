@@ -208,18 +208,18 @@ async function initWebXRExperience() {
 	// Show the main element
 	mainElement.style.display = "block";
 
-	//Load the Threejs
-	console.log("Loading Threejs");
+	// Try to load the Resources
 	let loaded = false;
 	try { loaded = (THREE !== undefined) } catch (e) {}
-	if (!loaded) {
+	if (loaded) startWebXRExperience();
+	else {
 		let script = createDomElement("script", null, document.body);
 	 	script.src = "https://unpkg.com/three@0.126.0/build/three.js"
 	 	requestAnimationFrame(loadWebXRExperience);
 	}
 }
 
-/** Loads the elements of the WebXR experience. */
+/** Loads the resources of the WebXR experience. */
 async function loadWebXRExperience() {
 	let loaded = false;
 	try { loaded = (THREE !== undefined); } catch (e) {}
