@@ -60,6 +60,11 @@
                         return import('@oarc/ssd-access');
                     })
                     .then(ssdModule => {
+                        const ssdUrl = __SNOWPACK_ENV__.SNOWPACK_PUBLIC_SSD_ROOT_URL;
+                        if (ssdUrl != undefined && ssdUrl != "") {
+                            ssdModule.setSsdUrl("https://ssd.orbit-lab.org");
+                            console.log("Setting SSD URL to " +  ssdUrl);
+                        }
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {

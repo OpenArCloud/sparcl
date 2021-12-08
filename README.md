@@ -37,3 +37,20 @@ Steps to setup the project:
 * optionally, set up [port forwarding](https://developer.chrome.com/docs/devtools/remote-debugging/local-server/) for debugging wirelessly (only http now)
 
 * enter the ULR shown in the terminal in the browser on the device
+
+## Production
+Create `.env` file containing the URL to OSCP SSD
+```
+SNOWPACK_PUBLIC_SSD_ROOT_URL=
+```
+
+Build:
+```
+npm install
+npm run build
+```
+
+Start:
+```
+npm run start
+```
