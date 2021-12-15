@@ -790,7 +790,8 @@
                     let orientation = localObjectPose.quaternion;
 
                     // Augmented City proprietary structure
-                    if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') {
+                    //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
+                    if (record.content.custom_data?.sticker_subtype != undefined) {
                         const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
                         const url = record.content.custom_data.path;
 
@@ -803,6 +804,10 @@
                                 break;
                             case 'gltf':
                                 tdEngine.addModel(position, orientation, url)
+                                break;
+                            default:
+                                console.log("Error: unexpected sticker subtype: " + subtype)
+                                break;
                         }
                     } else {
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
