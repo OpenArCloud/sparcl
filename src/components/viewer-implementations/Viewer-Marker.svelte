@@ -803,10 +803,10 @@
                                     () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
                                 break;
                             case 'gltf':
-                                tdEngine.addModel(position, orientation, url)
+                                tdEngine.addModel(position, orientation, url);
                                 break;
                             default:
-                                console.log("Error: unexpected sticker subtype: " + subtype)
+                                console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
                     } else {

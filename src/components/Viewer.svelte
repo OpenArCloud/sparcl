@@ -373,7 +373,7 @@
                                 tdEngine.addModel(position, orientation, url);
                                 break;
                             default:
-                                console.log("Error: unexpected sticker subtype: " + subtype)
+                                console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
