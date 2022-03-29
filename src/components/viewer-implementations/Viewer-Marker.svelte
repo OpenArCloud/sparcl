@@ -52,7 +52,7 @@
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
-    let receivedContentNames = [];
+    let receivedContents = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -735,7 +735,7 @@
     function relocalize() {
         isLocalized = false;
         isLocalisationDone = false;
-        receivedContentNames = [];
+        receivedContents = [];
 
         tdEngine.clearScene();
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
@@ -771,12 +771,11 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContentNames.push(record.content.title);
+                receivedContents.push(record.content);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -803,10 +802,10 @@
                                     () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
                                 break;
                             case 'gltf':
-                                tdEngine.addModel(position, orientation, url)
+                                tdEngine.addModel(position, orientation, url);
                                 break;
                             default:
-                                console.log("Error: unexpected sticker subtype: " + subtype)
+                                console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
                     } else {
@@ -824,7 +823,7 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContents = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
@@ -951,14 +950,12 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <p>{receivedContentNames.join()}</p>
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
+                    <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}" {receivedContents}
+                                    on:startLocalisation={startLocalisation} />
                 {:else}
-                <p>{receivedContentNames.join()}</p>
-                <ArExperimentOverlay bind:this={experimentOverlay}
-                                     on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                     on:relocalize={relocalize}/>
+                    <ArExperimentOverlay bind:this={experimentOverlay}
+                                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                                        on:relocalize={relocalize}/>
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>

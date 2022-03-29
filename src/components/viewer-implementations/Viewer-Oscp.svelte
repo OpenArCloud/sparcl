@@ -42,9 +42,8 @@
 
 <Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized
-                     let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
-    <p>{receivedContentNames.join()}</p>
-        <ArCloudOverlay hasPose="{firstPoseReceived}" {isLocalizing} {isLocalized}
+                     let:isLocalisationDone let:receivedContents let:firstPoseReceived>
+        <ArCloudOverlay hasPose="{firstPoseReceived}" {isLocalizing} {isLocalized} {receivedContents}
                         on:startLocalisation={() => parentInstance.startLocalisation()} />
     </svelte:fragment>
 </Parent>

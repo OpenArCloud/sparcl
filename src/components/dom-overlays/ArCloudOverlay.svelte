@@ -14,6 +14,7 @@
     export let hasPose = false;
     export let isLocalizing = false;
     export let isLocalized = false;
+    export let receivedContents = [];
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -52,5 +53,14 @@
     <button on:click={() => dispatch('startLocalisation')}>{$localizeLabel}</button>
 {:else if isLocalized}
     <p>{$isLocalizedMessage}</p>
+
+    {#if receivedContents.length > 0}
+        <div align="left">
+            <p>Objects(s):</p>
+            {#each receivedContents as scr, i}
+                <li>[{i}] {scr.title}</li>
+            {/each}
+        </div>
+    {/if}
 {/if}
 
