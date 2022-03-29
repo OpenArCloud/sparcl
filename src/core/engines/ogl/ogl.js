@@ -4,6 +4,7 @@
 */
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {createGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
@@ -129,17 +130,25 @@ export default class ogl {
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         gltfScene.setParent(scene);
 
+        console.log("Loading " + url);
         GLTFLoader.load(gl, url)
-            .then(gltf => {
+            .then((gltf) => {
                 const s = gltf.scene || gltf.scenes[0];
-                s.forEach(root => {
+                s.forEach((root) => {
                     root.setParent(gltfScene);
+                    root.traverse((node) => {
+                        if (node.program) {
+                            node.program = createGltfProgram(node);
+                        }
+                    });
                 });
+                scene.updateMatrixWorld();
             }).catch(() => {
                 console.log("Unable to load model from URL: " + url);
                 console.log("Adding placeholder box instead");
                 let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false) // red
                 gltfScene.addChild(gltfPlaceholder);
+                scene.updateMatrixWorld();
             });
 
         scene.updateMatrixWorld();
