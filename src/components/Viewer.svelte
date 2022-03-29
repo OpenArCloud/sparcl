@@ -45,7 +45,7 @@
     let firstPoseReceived = false, hasLostTracking = false;
     let unableToStartSession = false;
 
-    let receivedContentNames = [];
+    let receivedContents = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -291,7 +291,7 @@
                 .catch(error => {
                     // TODO: Inform user
                     $context.isLocalizing = false;
-                    console.error(error);
+                    console.error("Could not localize. Error: " + error);
                     reject(error);
                 });
         });
@@ -303,7 +303,7 @@
     export function relocalize() {
         $context.isLocalized = false;
         $context.isLocalisationDone = false;
-        receivedContentNames = [];
+        receivedContents = [];
 
         tdEngine.clearScene();
 
@@ -338,12 +338,12 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContentNames.push(record.content.title);
+                // TODO: validate here whether we received a proper SCR
+                receivedContents.push(record.content);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -373,7 +373,7 @@
                                 tdEngine.addModel(position, orientation, url);
                                 break;
                             default:
-                                console.log("Error: unexpected sticker subtype: " + subtype)
+                                console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
@@ -401,7 +401,7 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContents = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
@@ -528,7 +528,7 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {receivedContentNames} {firstPoseReceived}
+                <slot name="overlay" {receivedContents} {firstPoseReceived}
                       isLocalized={$context.isLocalized}
                       isLocalisationDone={$context.isLocalisationDone}
                       isLocalizing={$context.isLocalizing} />
