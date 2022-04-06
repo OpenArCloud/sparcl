@@ -16,12 +16,12 @@
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from '@oarc/scd-access';
+    import { getContentsAtLocation } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
@@ -52,7 +52,7 @@
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
-    let receivedContents = [];
+    let receivedContentTitles = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -735,7 +735,7 @@
     function relocalize() {
         isLocalized = false;
         isLocalisationDone = false;
-        receivedContents = [];
+        receivedContentTitles = [];
 
         tdEngine.clearScene();
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
@@ -749,7 +749,7 @@
     function getContent() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
 
             return result
@@ -775,7 +775,8 @@
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContents.push(record.content);
+                $receivedScrs.push(record);
+                receivedContentTitles.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -823,7 +824,7 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => receivedContents = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
@@ -950,12 +951,17 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                    <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}" {receivedContents}
-                                    on:startLocalisation={startLocalisation} />
+                    <ArCloudOverlay hasPose="{firstPoseReceived}"
+                                    isLocalizing="{isLocalizing}"
+                                    isLocalized="{isLocalized}"
+                                    receivedContentTitles="{receivedContentTitles}"
+                                    on:startLocalisation={startLocalisation}
+                    />
                 {:else}
                     <ArExperimentOverlay bind:this={experimentOverlay}
                                         on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                        on:relocalize={relocalize}/>
+                                        on:relocalize={relocalize}
+                    />
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>
