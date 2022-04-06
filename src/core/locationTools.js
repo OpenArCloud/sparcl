@@ -41,51 +41,61 @@ export function getEarthRadiusAt(latitude) {
     return Math.sqrt(numerator / denominator);
 }
 
+// stores the UTC timestamp of the last query to getCurrentLocation(). We must not call the OpenStreetMap API higher than 1 Hz.
+// This is important in case the SSD is not available and the client keeps retrying this call.
+let lastTimeCurrentLocationQuery = 0;
+
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
  *
  * @returns {Promise<LOCATIONINFO>}     Object with lat, lon, regionCode or rejects
  */
 export function getCurrentLocation() {
+    console.log("getCurrentLocation...");
     return new Promise((resolve, reject) => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const latAngle = position.coords.latitude;
-                const lonAngle = position.coords.longitude;
-
-                // WARNING: more than 1 request in a second leads to IP ban!
-                // TODO: refactor to call OSM only infrequently, even if SSD is not available
-                fetch(`https://nominatim.openstreetmap.org/reverse?
-                        lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
-                    .then((response) => {
-                        if (response.ok) {
-                            return response.json();
-                        } else {
-                            reject(response.text());
-                        }
-                    })
-                    .then((data) => {
-                        const countryCode = data.address.country_code;
-                        resolve({
-                            h3Index: h3.geoToH3(latAngle, lonAngle, 8),
-                            lat: latAngle,
-                            lon: lonAngle,
-                            countryCode: countryCode,
-                            regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us'
-                        })
-                    })
-                    .catch((error) => {
-                        // TODO: refactor: use US as default and resolve
-                        console.error('Could not retrieve country code.');
-                        reject(error);
-                    });
-            }, (error) => {
-                console.log(`Location request failed: ${error}`)
-                reject(error);
-            }, locationAccessOptions);
-        } else {
+        if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
+
+        let now = Date.now();
+        if (now - lastTimeCurrentLocationQuery < 1200) { // we want at least 1.2 secs between calls
+            reject('Too frequent calls to current location are not allowed (OpenStreetMap)');
+        }
+        lastTimeCurrentLocationQuery = now;
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const latAngle = position.coords.latitude;
+            const lonAngle = position.coords.longitude;
+
+            // WARNING: more than 1 request in a second leads to IP address ban!
+            fetch(`https://nominatim.openstreetmap.org/reverse?
+                    lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        reject(response.text());
+                    }
+                })
+                .then((data) => {
+                    const countryCode = data.address.country_code;
+                    resolve({
+                        h3Index: h3.geoToH3(latAngle, lonAngle, 8),
+                        lat: latAngle,
+                        lon: lonAngle,
+                        countryCode: countryCode,
+                        regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us'
+                    })
+                })
+                .catch((error) => {
+                    // TODO: refactor: use US as default and resolve
+                    console.error('Could not retrieve country code.');
+                    reject(error);
+                });
+        }, (error) => {
+            console.log(`Location request failed: ${error}`)
+            reject(error);
+        }, locationAccessOptions);
     });
 }
 

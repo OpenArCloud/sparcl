@@ -52,8 +52,7 @@
     $: {
         if ($isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
-                // TODO: refactor to call getCurrentLocation() only infrequently even if SSD is not available,
-                // otherwise we can get banned from OpenStreetMap
+                // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
                 getCurrentLocation()
                     .then((currentLocation) => {
                         $initialLocation = currentLocation;
@@ -62,8 +61,11 @@
                     .then(ssdModule => {
                         const ssdUrl = __SNOWPACK_ENV__.SNOWPACK_PUBLIC_SSD_ROOT_URL;
                         if (ssdUrl != undefined && ssdUrl != "") {
-                            ssdModule.setSsdUrl("https://ssd.orbit-lab.org");
+                            ssdModule.setSsdUrl(ssdUrl);
                             console.log("Setting SSD URL to " +  ssdUrl);
+                        } else {
+                            console.error("Cannot determine SSD URL!");
+                            throw new Error("Cannot determine SSD URL!");
                         }
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
@@ -73,10 +75,12 @@
 
                         if (services.length === 0) {
                             shouldShowUnavailableInfo = true;
+                            console.error("No available services found");
+                        } else {
+                            console.log("Retrieved " + services.length + " SSRs");
                         }
                     })
                     .catch(error => {
-                        // TODO: Inform user
                         console.error("Could not retrieve spatial services");
                         console.error(error);
                     });

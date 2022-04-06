@@ -17,12 +17,12 @@
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import {getContentAtLocation} from '@oarc/scd-access';
+    import {getContentsAtLocation} from '@oarc/scd-access';
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
     import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors,
-        initialLocation, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
+        initialLocation, receivedScrs, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
@@ -45,9 +45,6 @@
     let firstPoseReceived = false, hasLostTracking = false;
     let unableToStartSession = false;
 
-    let receivedContentNames = [];
-
-
     // TODO: Setup event target array, based on info received from SCD
 
     const context = getContext('state') || writable();
@@ -55,7 +52,8 @@
         showFooter: false,
         isLocalized: false,
         isLocalizing: false,      // while waiting for GeoPose service localization
-        isLocalisationDone: false // whether to show the dom-overlay with 'localize' button
+        isLocalisationDone: false, // whether to show the dom-overlay with 'localize' button
+        receivedContentTitles: []
     }
 
     onDestroy(() => {
@@ -291,7 +289,7 @@
                 .catch(error => {
                     // TODO: Inform user
                     $context.isLocalizing = false;
-                    console.error(error);
+                    console.error("Could not localize. Error: " + error);
                     reject(error);
                 });
         });
@@ -303,7 +301,8 @@
     export function relocalize() {
         $context.isLocalized = false;
         $context.isLocalisationDone = false;
-        receivedContentNames = [];
+        $receivedScrs = [];
+        $context.receivedContentTitles = [];
 
         tdEngine.clearScene();
 
@@ -316,7 +315,7 @@
     export function getContent() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
 
             return result
@@ -338,12 +337,17 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContentNames.push(record.content.title);
+                // TODO: validate here whether we received a proper SCR
+
+                // TODO: we can check here whether we have received this content already and break if yes.
+                // TODO: first save the records and then start to instantiate the objects
+
+                $receivedScrs.push(record);
+                $context.receivedContentTitles.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -390,6 +394,8 @@
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
+                } else {
+                    console.log(record.content.title + " has unexpected content type: " + record.content.type);
                 }
 
                 if (record.tenant === 'ISMAR2021demo') {
@@ -401,11 +407,17 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
         })
+
+        // DEBUG
+        console.log("Received contents: ");
+        $receivedScrs.forEach(record => {
+            console.log("  " + record.content.title);
+        });
 
         tdEngine.endSpatialContentRecords();
     }
@@ -518,8 +530,8 @@
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg"
          bind:this={closeExperience} />
 
-    <!--  Space for UI elements  -->
-    {#if $context.showFooter}
+    <!--  Space for UI elements -->
+    {#if $context.showFooter || true}  <!-- always show footer now for demo purposes -->
         <footer>
             {#if unableToStartSession}
                 <h4>Couldn't start AR</h4>
@@ -528,10 +540,12 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {receivedContentNames} {firstPoseReceived}
+                <slot name="overlay" {firstPoseReceived}
                       isLocalized={$context.isLocalized}
                       isLocalisationDone={$context.isLocalisationDone}
-                      isLocalizing={$context.isLocalizing} />
+                      isLocalizing={$context.isLocalizing}
+                      receivedContentTitles={$context.receivedContentTitles}
+                />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else}
