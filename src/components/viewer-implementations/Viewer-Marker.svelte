@@ -1,3 +1,5 @@
+<!-- WARNING: this code is left behind from refactoring. do not use it -->
+
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE for details)
@@ -951,16 +953,18 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                    <ArCloudOverlay hasPose="{firstPoseReceived}"
-                                    isLocalizing="{isLocalizing}"
-                                    isLocalized="{isLocalized}"
-                                    receivedContentTitles="{receivedContentTitles}"
-                                    on:startLocalisation={startLocalisation}
+                    <ArCloudOverlay
+                        hasPose="{firstPoseReceived}"
+                        isLocalizing="{isLocalizing}"
+                        isLocalized="{isLocalized}"
+                        receivedContentTitles="{receivedContentTitles}"
+                        on:startLocalisation={startLocalisation}
                     />
                 {:else}
-                    <ArExperimentOverlay bind:this={experimentOverlay}
-                                        on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                        on:relocalize={relocalize}
+                    <ArExperimentOverlay
+                        bind:this={experimentOverlay}
+                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                        on:relocalize={relocalize}
                     />
                 {/if}
             {:else}
