@@ -540,14 +540,15 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if Object.values(ARMODES).includes($arMode)}
-                <slot name="overlay" {firstPoseReceived}
-                      isLocalized={$context.isLocalized}
-                      isLocalisationDone={$context.isLocalisationDone}
-                      isLocalizing={$context.isLocalizing}
-                      receivedContentTitles={$context.receivedContentTitles}
+                <slot name="overlay"
+                    {firstPoseReceived}
+                    isLocalized={$context.isLocalized}
+                    isLocalisationDone={$context.isLocalisationDone}
+                    isLocalizing={$context.isLocalizing}
+                    receivedContentTitles={$context.receivedContentTitles}
                 />
             {:else if $arMode === ARMODES.marker}
-                <ArMarkerOverlay />
+                <ArMarkerOverlay/>
             {:else}
                 <p>Somethings wrong...</p>
                 <p>Apologies.</p>
