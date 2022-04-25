@@ -22,6 +22,27 @@ export const locationAccessOptions = {
 
 /**
  *
+ * @param geoPose a GeoPose entry in old or new format
+ * @returns The same GeoPose formatted according to the new (March 2022) standard
+ */
+export function upgradeGeoPoseStandard(geoPose) {
+    if (geoPose.position != undefined) { 
+        return geoPose;
+    }
+    geoPose["position"] = {
+        "lat" : geoPose.latitude,
+        "lon" : geoPose.longitude,
+        "h" : geoPose.ellipsoidHeight
+    }
+    delete geoPose["latitude"];
+    delete geoPose["longitude"];
+    delete geoPose["ellipsoidHeight"];
+    return geoPose;
+}
+
+
+/**
+ *
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
