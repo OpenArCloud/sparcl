@@ -423,9 +423,11 @@
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
                 "y": globalObjectPose.quaternion.y,
@@ -720,6 +722,7 @@
                         isLocalisationDone = true;
                     });
 
+                    //TODO: data.pose from AugmentedCity is deprecated
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {

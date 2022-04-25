@@ -52,10 +52,17 @@ export const SCR = {
  * @type {{quaternion: [], latitude: number, longitude: number, ellipsoidHeight: number}}
  */
 export const GEOPOSE = {
-    longitude: 0,
-    latitude: 0,
-    ellipsoidHeight: 0,
-    quaternion: []
+    position: {
+        lat: 0,
+        lon: 0,
+        h: 0
+    },
+    quaternion: {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 0
+    }
 }
 
 /**

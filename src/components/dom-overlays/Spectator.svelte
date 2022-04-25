@@ -42,8 +42,8 @@
                 if ('scr' in data) {
                     data = data.scr;
                     if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                        const markerLat = data.content.geopose.latitude;
-                        const markerLon = data.content.geopose.longitude;
+                        const markerLat = data.content.geopose.position.lat;
+                        const markerLon = data.content.geopose.position.lon;
                         const r = Math.round(255 * data.content.object_description.color[0]);
                         const g = Math.round(255 * data.content.object_description.color[1]);
                         const b = Math.round(255 * data.content.object_description.color[2])
