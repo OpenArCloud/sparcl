@@ -625,23 +625,6 @@ export default class ogl {
         if (_ar2GeoTransformNode === undefined) {
             throw "No localization has happened yet!";
         }
-/*
-        // TODO: return proper geopose, not only the global camera pose
-        console.log("WARNING: returning fake geoPose");
-        let geoPose = {
-            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
-            "longitude": _globalImagePose.longitude,
-            "latitude": _globalImagePose.latitude,
-            "ellipsoidHeight": _globalImagePose.ellipsoidHeight,
-            "quaternion": {
-                "x": _globalImagePose.quaternion.x,
-                "y": _globalImagePose.quaternion.y,
-                "z": _globalImagePose.quaternion.z,
-                "w": _globalImagePose.quaternion.w
-            }
-        }
-        return geoPose;
-*/
 
         let localPose = new Transform();
         localPose.position = position;
@@ -681,9 +664,11 @@ export default class ogl {
         let dHeight = dU;
 
         let geoPose = {
-            "longitude": refGeoPose.longitude + dLon,
-            "latitude": refGeoPose.latitude + dLat,
-            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
+            "position": {
+                "lat": refGeoPose.position.lat + dLat,
+                "lon": refGeoPose.position.lon + dLon,
+                "h": refGeoPose.position.h + dHeight,
+            },
             "quaternion": {
                 "x": localENUPose.quaternion.x,
                 "y": localENUPose.quaternion.y,
@@ -701,8 +686,8 @@ export default class ogl {
      * @returns
      */
     geoPose_to_ENU(geoPose, refGeoPose) {
-        let enuPosition = geodetic_to_enu(geoPose.latitude, geoPose.longitude, geoPose.ellipsoidHeight,
-                        refGeoPose.latitude, refGeoPose.longitude, refGeoPose.ellipsoidHeight);
+        let enuPosition = geodetic_to_enu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h,
+                        refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
 
         let enuPose = new Transform();
         enuPose.position.set(enuPosition.x, enuPosition.y, enuPosition.z);
