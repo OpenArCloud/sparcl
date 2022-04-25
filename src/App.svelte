@@ -67,6 +67,7 @@
                             console.error("Cannot determine SSD URL!");
                             throw new Error("Cannot determine SSD URL!");
                         }
+                        // TODO: we could also query all the neighboring hexagons
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {

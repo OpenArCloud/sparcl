@@ -26,6 +26,7 @@
 
     import {ARMODES, wait} from "@core/common";
     import {printOglTransform} from '@core/devTools';
+    import {upgradeGeoPoseStandard} from '@core/locationTools';
     import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
          stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
 
@@ -282,6 +283,7 @@
                     });
 
                     console.log("IMAGE GeoPose:");
+                    // TODO: data.pose by Augmented.City is deprecated
                     console.log(data.geopose || data.pose);
 
                     resolve([data.geopose || data.pose, data.scrs]);
@@ -343,6 +345,9 @@
             response.forEach(record => {
                 // TODO: validate here whether we received a proper SCR
 
+                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard
+                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
 
@@ -382,6 +387,7 @@
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
                         // Orbit custom data type
+                        // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
                         if (contentType.includes("gltf")) {
