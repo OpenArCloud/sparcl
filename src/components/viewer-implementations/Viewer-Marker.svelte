@@ -368,107 +368,8 @@
             placeholder.position.z += offsetZ * scale;
             experimentOverlay.objectPlaced();
 
-
-            //NOTE: ISMAR2021 experiment:
-            // keep track of last localization (global and local)
-            // when tapped, determine the global position of the tap, and save the global location of the object
-            // create SCR from the object and share it with the others
-            // when received, place the same way as a downloaded SCR.
-            if (isLocalisationDone) {
-                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
-                let object_description = createRandomObjectDescription();
-                //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
-                shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
-
-                experimentOverlay?.objectPlaced();
-            }
         }
     }
-
-    function shareCamera(position, quaternion) {
-        let object_description = {
-            'version': 2,
-            'color': [1.0, 1.0, 0.0, 0.2],
-            'shape': PRIMITIVES.box,
-            'scale': [0.05, 0.05, 0.05],
-            'transparent': true,
-            'options': {}
-        };
-        shareObject(object_description, position, quaternion);
-    }
-
-    function shareMessage(str) {
-        let message_body = {
-            "message": str,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
-
-        dispatch('broadcast', {
-                event: 'message_broadcasted',
-                value: message_body
-            });
-    }
-
-    function shareObject(object_description, position, quaternion) {
-
-        let latestGlobalPose = $recentLocalisation.geopose;
-        let latestLocalPose = $recentLocalisation.floorpose;
-        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
-            console.log("There was no successful localization yet, cannot share object");
-            return;
-        }
-
-        // Now calculate the global pose of the reticle
-        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
-        let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
-            "quaternion": {
-                "x": globalObjectPose.quaternion.x,
-                "y": globalObjectPose.quaternion.y,
-                "z": globalObjectPose.quaternion.z,
-                "w": globalObjectPose.quaternion.w
-            }
-        }
-
-        let content = {
-            "id": "",
-            "type": "", //high-level OSCP type
-            "title": object_description.shape,
-            "refs": [],
-            "geopose": geoPose,
-            "object_description": object_description
-        }
-        let timestamp = new Date().getTime();
-
-        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
-        let scr = {
-            "content": content,
-            "id": object_id,
-            "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
-            "timestamp": timestamp
-        }
-
-        let message_body = {
-            "scr": scr,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
-
-        // share over P2P network
-        // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
-        // and the value will be forwarded to the p2pnetwork.js
-        dispatch('broadcast', {
-                event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
-                value: message_body
-            });
-    }
-
 
     /**
      * Toggle automatic placement of placeholders for experiment mode.
@@ -720,6 +621,7 @@
                         isLocalisationDone = true;
                     });
 
+                    // TODO: data.pose from AugmentedCity is deprecated
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
@@ -815,15 +717,6 @@
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                }
-
-                if (record.tenant === 'ISMAR2021demo') {
-                    console.log("ISMAR2021demo object received!")
-                    let object_description = record.content.object_description;
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    printOglTransform("localObjectPose", localObjectPose);
-                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer

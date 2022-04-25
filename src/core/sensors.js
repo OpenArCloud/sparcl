@@ -108,10 +108,12 @@ export function stopOrientationSensor() {
             // The GeoPose orientation has East-North-Up axes, 
             // but we need to make sure the camera orientation is understood the same way
             let geoPose = {
-                    "longitude": position.coords.longitude,
-                    "latitude": position.coords.latitude,
-                    //"ellipsoidHeight": position.coords.altitude,
-                    "ellipsoidHeight": 0.0, // HACK: hardcoded height
+                    "position" : {
+                        "lat": position.coords.latitude,
+                        "lon": position.coords.longitude,
+                        "h": position.coords.altitude,
+                        //"h": 0.0, // HACK: hardcoded height
+                    },
                     "quaternion": {
                         "x": augmentedCityCameraQuat[0],
                         "y": augmentedCityCameraQuat[1],
