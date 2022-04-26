@@ -413,9 +413,6 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
-
-                // TODO: Anchor placeholder for better visual stability?!
             })
         })
 
@@ -426,6 +423,8 @@
         });
 
         tdEngine.endSpatialContentRecords();
+
+        wait(3000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
     }
 
     /**
