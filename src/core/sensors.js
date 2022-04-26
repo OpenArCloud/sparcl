@@ -107,12 +107,15 @@ export function stopOrientationSensor() {
             // NOTE: The sensor API has East-North-Up axes
             // The GeoPose orientation has East-North-Up axes, 
             // but we need to make sure the camera orientation is understood the same way
+            console.log("warning: geosensor height is set to 0.0 instead of " + position.coords.altitude);
             let geoPose = {
                     "position" : {
                         "lat": position.coords.latitude,
                         "lon": position.coords.longitude,
-                        "h": position.coords.altitude,
-                        //"h": 0.0, // HACK: hardcoded height
+                        //"h": position.coords.altitude,
+                        "h": 1.4, // HACK: hardcoded height to 1.4m (typical smartphone localization height) 
+                        // Note that we can only use the altitude here when 
+                        // the contents are also stored with correct altitude instead of 0
                     },
                     "quaternion": {
                         "x": augmentedCityCameraQuat[0],
