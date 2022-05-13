@@ -4,6 +4,7 @@
 */
 
 import {Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2} from 'ogl';
+import {createGltfProgram} from '@core/engines/ogl/oglGltfHelper';
 
 import {createAxesBoxPlaceholder, createModel, createProgram, createRandomObjectDescription, createWaitingProgram,
     getAxes, getDefaultMarkerObject, getDefaultPlaceholder, getExperiencePlaceholder} from '@core/engines/ogl/modelTemplates';
@@ -129,17 +130,25 @@ export default class ogl {
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         gltfScene.setParent(scene);
 
+        console.log("Loading " + url);
         GLTFLoader.load(gl, url)
-            .then(gltf => {
+            .then((gltf) => {
                 const s = gltf.scene || gltf.scenes[0];
-                s.forEach(root => {
+                s.forEach((root) => {
                     root.setParent(gltfScene);
+                    root.traverse((node) => {
+                        if (node.program) {
+                            node.program = createGltfProgram(node);
+                        }
+                    });
                 });
+                scene.updateMatrixWorld();
             }).catch(() => {
                 console.log("Unable to load model from URL: " + url);
                 console.log("Adding placeholder box instead");
                 let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false) // red
                 gltfScene.addChild(gltfPlaceholder);
+                scene.updateMatrixWorld();
             });
 
         scene.updateMatrixWorld();
@@ -616,23 +625,6 @@ export default class ogl {
         if (_ar2GeoTransformNode === undefined) {
             throw "No localization has happened yet!";
         }
-/*
-        // TODO: return proper geopose, not only the global camera pose
-        console.log("WARNING: returning fake geoPose");
-        let geoPose = {
-            // TODO: fill in the geoPose properly. now simply write in our latest known global camera pose
-            "longitude": _globalImagePose.longitude,
-            "latitude": _globalImagePose.latitude,
-            "ellipsoidHeight": _globalImagePose.ellipsoidHeight,
-            "quaternion": {
-                "x": _globalImagePose.quaternion.x,
-                "y": _globalImagePose.quaternion.y,
-                "z": _globalImagePose.quaternion.z,
-                "w": _globalImagePose.quaternion.w
-            }
-        }
-        return geoPose;
-*/
 
         let localPose = new Transform();
         localPose.position = position;
@@ -672,9 +664,11 @@ export default class ogl {
         let dHeight = dU;
 
         let geoPose = {
-            "longitude": refGeoPose.longitude + dLon,
-            "latitude": refGeoPose.latitude + dLat,
-            "ellipsoidHeight": refGeoPose.ellipsoidHeight + dHeight,
+            "position": {
+                "lat": refGeoPose.position.lat + dLat,
+                "lon": refGeoPose.position.lon + dLon,
+                "h": refGeoPose.position.h + dHeight,
+            },
             "quaternion": {
                 "x": localENUPose.quaternion.x,
                 "y": localENUPose.quaternion.y,
@@ -692,8 +686,8 @@ export default class ogl {
      * @returns
      */
     geoPose_to_ENU(geoPose, refGeoPose) {
-        let enuPosition = geodetic_to_enu(geoPose.latitude, geoPose.longitude, geoPose.ellipsoidHeight,
-                        refGeoPose.latitude, refGeoPose.longitude, refGeoPose.ellipsoidHeight);
+        let enuPosition = geodetic_to_enu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h,
+                        refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
 
         let enuPose = new Transform();
         enuPose.position.set(enuPosition.x, enuPosition.y, enuPosition.z);

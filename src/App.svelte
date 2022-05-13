@@ -52,8 +52,7 @@
     $: {
         if ($isLocationAccessAllowed && !haveReceivedServices) {
             window.requestIdleCallback(() => {
-                // TODO: refactor to call getCurrentLocation() only infrequently even if SSD is not available,
-                // otherwise we can get banned from OpenStreetMap
+                // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
                 getCurrentLocation()
                     .then((currentLocation) => {
                         $initialLocation = currentLocation;
@@ -62,9 +61,13 @@
                     .then(ssdModule => {
                         const ssdUrl = __SNOWPACK_ENV__.SNOWPACK_PUBLIC_SSD_ROOT_URL;
                         if (ssdUrl != undefined && ssdUrl != "") {
-                            ssdModule.setSsdUrl("https://ssd.orbit-lab.org");
+                            ssdModule.setSsdUrl(ssdUrl);
                             console.log("Setting SSD URL to " +  ssdUrl);
+                        } else {
+                            console.error("Cannot determine SSD URL!");
+                            throw new Error("Cannot determine SSD URL!");
                         }
+                        // TODO: we could also query all the neighboring hexagons
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {
@@ -73,10 +76,12 @@
 
                         if (services.length === 0) {
                             shouldShowUnavailableInfo = true;
+                            console.error("No available services found");
+                        } else {
+                            console.log("Retrieved " + services.length + " SSRs");
                         }
                     })
                     .catch(error => {
-                        // TODO: Inform user
                         console.error("Could not retrieve spatial services");
                         console.error(error);
                     });
@@ -352,19 +357,28 @@
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
-                            {isLocationAccessRefused}
-                            on:okAction={() => closeIntro(false)}
-                            on:dashboardAction={() => closeIntro(true)}
-                            on:requestLocation={requestLocationAccess} />
-
+            <WelcomeOverlay
+                withOkFooter="{$arIsAvailable}"
+                {shouldShowDashboard}
+                {shouldShowUnavailableInfo}
+                {isLocationAccessRefused}
+                on:okAction={() => closeIntro(false)}
+                on:dashboardAction={() => closeIntro(true)}
+                on:requestLocation={requestLocationAccess}
+            />
         {:else if showOutro}
-            <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
+            <OutroOverlay
+                {shouldShowDashboard}
+                on:okAction={closeIntro}
+            />
         {/if}
         </div>
     </aside>
     {:else if !$arIsAvailable}
-        <Spectator bind:this={spectator} {isHeadless} />
+        <Spectator
+            bind:this={spectator}
+            {isHeadless}
+        />
     {/if}
 
 {:else}
@@ -375,11 +389,15 @@
 </main>
 
 {#if showAr && viewer}
-<svelte:component bind:this={viewerInstance} this="{viewer}"
-                  on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+    <svelte:component
+        bind:this={viewerInstance}
+        this="{viewer}"
+        on:arSessionEnded={sessionEnded}
+        on:broadcast={handleBroadcast}
+    />
 {:else if showAr && $arMode === ARMODES.experiment}
-<p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-<button on:click={sessionEnded}>Go back</button>
+    <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+    <button on:click={sessionEnded}>Go back</button>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>
