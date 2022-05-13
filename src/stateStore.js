@@ -335,3 +335,5 @@ export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe(value => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
 })
+
+export const receivedScrs = writable([]);

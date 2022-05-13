@@ -22,6 +22,27 @@ export const locationAccessOptions = {
 
 /**
  *
+ * @param geoPose a GeoPose entry in old or new format
+ * @returns The same GeoPose formatted according to the new (March 2022) standard
+ */
+export function upgradeGeoPoseStandard(geoPose) {
+    if (geoPose.position != undefined) { 
+        return geoPose;
+    }
+    geoPose["position"] = {
+        "lat" : geoPose.latitude,
+        "lon" : geoPose.longitude,
+        "h" : geoPose.ellipsoidHeight
+    }
+    delete geoPose["latitude"];
+    delete geoPose["longitude"];
+    delete geoPose["ellipsoidHeight"];
+    return geoPose;
+}
+
+
+/**
+ *
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
@@ -41,51 +62,61 @@ export function getEarthRadiusAt(latitude) {
     return Math.sqrt(numerator / denominator);
 }
 
+// stores the UTC timestamp of the last query to getCurrentLocation(). We must not call the OpenStreetMap API higher than 1 Hz.
+// This is important in case the SSD is not available and the client keeps retrying this call.
+let lastTimeCurrentLocationQuery = 0;
+
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
  *
  * @returns {Promise<LOCATIONINFO>}     Object with lat, lon, regionCode or rejects
  */
 export function getCurrentLocation() {
+    console.log("getCurrentLocation...");
     return new Promise((resolve, reject) => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const latAngle = position.coords.latitude;
-                const lonAngle = position.coords.longitude;
-
-                // WARNING: more than 1 request in a second leads to IP ban!
-                // TODO: refactor to call OSM only infrequently, even if SSD is not available
-                fetch(`https://nominatim.openstreetmap.org/reverse?
-                        lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
-                    .then((response) => {
-                        if (response.ok) {
-                            return response.json();
-                        } else {
-                            reject(response.text());
-                        }
-                    })
-                    .then((data) => {
-                        const countryCode = data.address.country_code;
-                        resolve({
-                            h3Index: h3.geoToH3(latAngle, lonAngle, 8),
-                            lat: latAngle,
-                            lon: lonAngle,
-                            countryCode: countryCode,
-                            regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us'
-                        })
-                    })
-                    .catch((error) => {
-                        // TODO: refactor: use US as default and resolve
-                        console.error('Could not retrieve country code.');
-                        reject(error);
-                    });
-            }, (error) => {
-                console.log(`Location request failed: ${error}`)
-                reject(error);
-            }, locationAccessOptions);
-        } else {
+        if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
+
+        let now = Date.now();
+        if (now - lastTimeCurrentLocationQuery < 1200) { // we want at least 1.2 secs between calls
+            reject('Too frequent calls to current location are not allowed (OpenStreetMap)');
+        }
+        lastTimeCurrentLocationQuery = now;
+
+        navigator.geolocation.getCurrentPosition((position) => {
+            const latAngle = position.coords.latitude;
+            const lonAngle = position.coords.longitude;
+
+            // WARNING: more than 1 request in a second leads to IP address ban!
+            fetch(`https://nominatim.openstreetmap.org/reverse?
+                    lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        reject(response.text());
+                    }
+                })
+                .then((data) => {
+                    const countryCode = data.address.country_code;
+                    resolve({
+                        h3Index: h3.geoToH3(latAngle, lonAngle, 8),
+                        lat: latAngle,
+                        lon: lonAngle,
+                        countryCode: countryCode,
+                        regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us'
+                    })
+                })
+                .catch((error) => {
+                    // TODO: refactor: use US as default and resolve
+                    console.error('Could not retrieve country code.');
+                    reject(error);
+                });
+        }, (error) => {
+            console.log(`Location request failed: ${error}`)
+            reject(error);
+        }, locationAccessOptions);
     });
 }
 
@@ -311,22 +342,24 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
 */
 export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
     // We wrap them into LatLon object for easier calculation of relative displacement
-    const cam = new LatLon(cameraGeoPose.latitude, cameraGeoPose.longitude);
-    const cam2objLat = new LatLon(objectGeoPose.latitude, cameraGeoPose.longitude);
-    const cam2objLon = new LatLon(cameraGeoPose.latitude, objectGeoPose.longitude);
+    const cam = new LatLon(cameraGeoPose.position.lat, cameraGeoPose.position.lon);
+    const cam2objLat = new LatLon(objectGeoPose.position.lat, cameraGeoPose.position.lon);
+    const cam2objLon = new LatLon(cameraGeoPose.position.lat, objectGeoPose.position.lon);
     let dx = cam.distanceTo(cam2objLon);
     let dy = cam.distanceTo(cam2objLat);
-    if (objectGeoPose.latitude < cameraGeoPose.latitude) {
+    if (objectGeoPose.position.lat < cameraGeoPose.position.lat) {
         dy = -dy;
     }
-    if (objectGeoPose.longitude < cameraGeoPose.longitude) {
+    if (objectGeoPose.position.lon < cameraGeoPose.position.lon) {
         dx = -dx;
     }
 
     // OLD AugmentedCity API
     //const dz = objectGeoPose.altitude - cameraGeoPose.altitude;
-    // NEW AugmentedCty API
-    let dz = objectGeoPose.ellipsoidHeight - cameraGeoPose.ellipsoidHeight;
+    // OLD GeoPose
+    //let dz = objectGeoPose.ellipsoidHeight- cameraGeoPose.ellipsoidHeight;
+    // NEW AugmentedCity API and NEW GeoPose
+    let dz = objectGeoPose.position.h - cameraGeoPose.position.h;
     //console.log("dx: " + dx + ", dy: " + dy + ", dz: " + dz);
 
     // WARNING: AugmentedCity sometimes returns invalid height!

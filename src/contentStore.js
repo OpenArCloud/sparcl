@@ -139,6 +139,11 @@ export const localizeLabel = readable('', (set) => {
     return () => set('');
 })
 
+// Button label in DOM-overlay to start localisation
+export const resetLabel = readable('', (set) => {
+    set('Reset');
+    return () => set('');
+})
 
 
 // Message shown when AR session is started in mode 'oscp' to help device to localize locally

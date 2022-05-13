@@ -15,7 +15,10 @@
 
 
     let parentInstance, xrEngine, tdEngine;
-    let firstPoseReceived = false, showFooter = false, isLocalized = false;
+
+    let firstPoseReceived = false;
+    let showFooter = false;
+    let isLocalized = false;
 
 
     /**
@@ -80,4 +83,10 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:broadcast />
+<!-- TODO: showFooter and isLocalized are not passed correctly -->
+<Parent bind:this={parentInstance}
+    {showFooter}
+    {isLocalized}
+    on:arSessionEnded
+    on:broadcast
+/>
