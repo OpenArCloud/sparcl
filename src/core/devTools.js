@@ -217,9 +217,11 @@ export const fakeLocationResult = {
         },
         "id": "1adc076d-5a33-4f06-aacb-e8c2e94499b9",
         "pose": {
-            "ellipsoidHeight": 0.06582733851264133,
-            "latitude": 48.756115957414345,
-            "longitude": 8.545640947400223,
+            "position": {
+                "lat": 48.756115957414345,
+                "lon": 8.545640947400223,
+                "h": 0.06582733851264133
+            },
             "quaternion": {
                 "x": 0.13936200826179151,
                 "y": 0.33341690000800994,
@@ -256,9 +258,11 @@ export const fakeLocationResult = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": -0.9490814805030823,
-                    "latitude": 48.75611158077768,
-                    "longitude": 8.545700426348882,
+                    "position": {
+                        "lat": 48.75611158077768,
+                        "lon": 8.545700426348882,
+                        "h": -0.9490814805030823
+                    },
                     "quaternion": {
                         "x": 0.03369506983713525,
                         "y": 0.30602725114310314,
@@ -305,9 +309,11 @@ export const fakeLocationResult = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": -0.8568757176399231,
-                    "latitude": 48.7560834514246,
-                    "longitude": 8.545731127889324,
+                    "position": {
+                        "lat": 48.7560834514246,
+                        "lon": 8.545731127889324,
+                        "h": -0.8568757176399231
+                    },
                     "quaternion": {
                         "x": 0.030575819204840073,
                         "y": -0.8192063719687788,
@@ -356,9 +362,11 @@ export const fakeLocationResult = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": -0.4542122185230255,
-                    "latitude": 48.756132830613595,
-                    "longitude": 8.545662319589079,
+                    "position": {
+                        "lat": 48.756132830613595,
+                        "lon": 8.545662319589079,
+                        "h": -0.4542122185230255
+                    },
                     "quaternion": {
                         "x": -0.11061927770517868,
                         "y": -0.5654197985215716,
@@ -417,9 +425,11 @@ export const fakeLocationResult4 = {
             }
         },
         "pose": {
-            "ellipsoidHeight": 6.209678601295207,
-            "latitude": 47.46776729912386,
-            "longitude": 19.024852546852575,
+            "position": {
+                "lat": 47.46776729912386,
+                "lon": 19.024852546852575,
+                "h": 6.209678601295207
+            },
             "quaternion": {
                 "w": 0.6618161044717988,
                 "x": -0.5861336742744468,
@@ -464,9 +474,11 @@ export const fakeLocationResult4 = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": -1.1442635727831885e-09,
-                    "latitude": 47.467708102315875,
-                    "longitude": 19.024986975760502,
+                    "position": {
+                        "lat": 47.467708102315875,
+                        "lon": 19.024986975760502,
+                        "h": -1.1442635727831885e-09
+                    },
                     "quaternion": {
                         "w": 1.0,
                         "x": -2.7755575615628914e-16,
@@ -532,9 +544,11 @@ export const fakeLocationResult4 = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": 6.217590331480949e-10,
-                    "latitude": 47.46772351065496,
-                    "longitude": 19.0250494251137,
+                    "position": {
+                        "lat": 47.46772351065496,
+                        "lon": 19.0250494251137,
+                        "h": 6.217590331480949e-10
+                    },
                     "quaternion": {
                         "w": 0.7071067811865476,
                         "x": 0.7071067811865472,
@@ -600,9 +614,11 @@ export const fakeLocationResult4 = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": 1.077607447719231e-09,
-                    "latitude": 47.46773418058248,
-                    "longitude": 19.025100354147355,
+                    "position": {
+                        "lat": 47.46773418058248,
+                        "lon": 19.025100354147355,
+                        "h": 1.077607447719231e-09
+                    },
                     "quaternion": {
                         "w": 0.7071067811865476,
                         "x": -1.1102230246251565e-16,
@@ -668,9 +684,11 @@ export const fakeLocationResult4 = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": 1.5454849899843026e-10,
-                    "latitude": 47.467738733083905,
-                    "longitude": 19.02511803199369,
+                    "position": {
+                        "lat": 47.467738733083905,
+                        "lon": 19.02511803199369,
+                        "h": 1.5454849899843026e-10
+                    },
                     "quaternion": {
                         "w": 0.7071067811865475,
                         "x": -2.220446049250313e-16,
@@ -736,9 +754,11 @@ export const fakeLocationResult4 = {
                     }
                 },
                 "geopose": {
-                    "ellipsoidHeight": -1.809494637461384e-10,
-                    "latitude": 47.46763178183924,
-                    "longitude": 19.025036918814745,
+                    "position": {
+                        "lat": 47.46763178183924,
+                        "lon": 19.025036918814745,
+                        "h": -1.809494637461384e-10
+                    },
                     "quaternion": {
                         "w": 1.0,
                         "x": -2.7755575615628914e-16,
