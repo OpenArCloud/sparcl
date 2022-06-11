@@ -1,3 +1,5 @@
+<!-- WARNING: this code is left behind from refactoring. do not use it -->
+
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE for details)
@@ -16,12 +18,12 @@
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from '@oarc/scd-access';
+    import { getContentsAtLocation } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
@@ -52,7 +54,7 @@
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
-    let receivedContentNames = [];
+    let receivedContentTitles = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -366,107 +368,8 @@
             placeholder.position.z += offsetZ * scale;
             experimentOverlay.objectPlaced();
 
-
-            //NOTE: ISMAR2021 experiment:
-            // keep track of last localization (global and local)
-            // when tapped, determine the global position of the tap, and save the global location of the object
-            // create SCR from the object and share it with the others
-            // when received, place the same way as a downloaded SCR.
-            if (isLocalisationDone) {
-                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
-                let object_description = createRandomObjectDescription();
-                //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
-                shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
-
-                experimentOverlay?.objectPlaced();
-            }
         }
     }
-
-    function shareCamera(position, quaternion) {
-        let object_description = {
-            'version': 2,
-            'color': [1.0, 1.0, 0.0, 0.2],
-            'shape': PRIMITIVES.box,
-            'scale': [0.05, 0.05, 0.05],
-            'transparent': true,
-            'options': {}
-        };
-        shareObject(object_description, position, quaternion);
-    }
-
-    function shareMessage(str) {
-        let message_body = {
-            "message": str,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
-
-        dispatch('broadcast', {
-                event: 'message_broadcasted',
-                value: message_body
-            });
-    }
-
-    function shareObject(object_description, position, quaternion) {
-
-        let latestGlobalPose = $recentLocalisation.geopose;
-        let latestLocalPose = $recentLocalisation.floorpose;
-        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
-            console.log("There was no successful localization yet, cannot share object");
-            return;
-        }
-
-        // Now calculate the global pose of the reticle
-        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
-        let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
-            "quaternion": {
-                "x": globalObjectPose.quaternion.x,
-                "y": globalObjectPose.quaternion.y,
-                "z": globalObjectPose.quaternion.z,
-                "w": globalObjectPose.quaternion.w
-            }
-        }
-
-        let content = {
-            "id": "",
-            "type": "", //high-level OSCP type
-            "title": object_description.shape,
-            "refs": [],
-            "geopose": geoPose,
-            "object_description": object_description
-        }
-        let timestamp = new Date().getTime();
-
-        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
-        let scr = {
-            "content": content,
-            "id": object_id,
-            "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
-            "timestamp": timestamp
-        }
-
-        let message_body = {
-            "scr": scr,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
-
-        // share over P2P network
-        // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
-        // and the value will be forwarded to the p2pnetwork.js
-        dispatch('broadcast', {
-                event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
-                value: message_body
-            });
-    }
-
 
     /**
      * Toggle automatic placement of placeholders for experiment mode.
@@ -718,6 +621,7 @@
                         isLocalisationDone = true;
                     });
 
+                    // TODO: data.pose from AugmentedCity is deprecated
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
@@ -735,7 +639,7 @@
     function relocalize() {
         isLocalized = false;
         isLocalisationDone = false;
-        receivedContentNames = [];
+        receivedContentTitles = [];
 
         tdEngine.clearScene();
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
@@ -749,7 +653,7 @@
     function getContent() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
 
             return result
@@ -771,12 +675,12 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContentNames.push(record.content.title);
+                $receivedScrs.push(record);
+                receivedContentTitles.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -815,16 +719,7 @@
                     }
                 }
 
-                if (record.tenant === 'ISMAR2021demo') {
-                    console.log("ISMAR2021demo object received!")
-                    let object_description = record.content.object_description;
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    printOglTransform("localObjectPose", localObjectPose);
-                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
-                }
-
-                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
@@ -951,14 +846,19 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <p>{receivedContentNames.join()}</p>
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
+                    <ArCloudOverlay
+                        hasPose="{firstPoseReceived}"
+                        isLocalizing="{isLocalizing}"
+                        isLocalized="{isLocalized}"
+                        receivedContentTitles="{receivedContentTitles}"
+                        on:startLocalisation={startLocalisation}
+                    />
                 {:else}
-                <p>{receivedContentNames.join()}</p>
-                <ArExperimentOverlay bind:this={experimentOverlay}
-                                     on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                     on:relocalize={relocalize}/>
+                    <ArExperimentOverlay
+                        bind:this={experimentOverlay}
+                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                        on:relocalize={relocalize}
+                    />
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>

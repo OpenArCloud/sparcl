@@ -281,7 +281,7 @@
 
     {#if $arMode === ARMODES.oscp}
     <dl>
-        <dt><label for="geoposeServer">GeoPose Service</label></dt>
+        <dt><label for="geoposeServer">GeoPose Services</label></dt>
         <dd class="select">
             <select id="geoposeServer" bind:value={$selectedGeoPoseService}
                     disabled="{$availableGeoPoseServices.length < 2  || null}">
@@ -309,14 +309,14 @@
     </dl>
 
     <dl class="nested">
-        <dt><label>Content Service</label></dt>
+        <dt><label>Content Services</label></dt>
         {#each $availableContentServices as service}
         <dd>
-            <input id="selectedContentService" type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
+            <input id="selectedContentService_{service.id}" type="checkbox" checked="{$selectedContentServices[service.id]?.isSelected}"
                    on:change={(event) => handleContentServiceSelection(event, service)} />
-            <label for="selectedContentService">{service.title}</label>
+            <label for="selectedContentService_{service.id}">{service.title}</label>
             <pre class="serviceurl">
-                <label for="selectedContentService">{service.url || ""}</label>
+                <label for="selectedContentService_{service.id}">{service.url || ""}</label>
             </pre>
 
             {#if service?.properties}

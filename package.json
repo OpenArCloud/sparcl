@@ -1,7 +1,7 @@
 {
   "name": "spARcl",
-  "version": "0.0.1",
-  "description": "Generic OSCP client prototype",
+  "version": "0.0.2",
+  "description": "Generic OSCP client prototype with WebXR",
   "main": "src/index.js",
   "scripts": {
     "start": "snowpack dev",
@@ -42,13 +42,13 @@
     "leaflet": "^1.7.1",
     "mocha": "^8.3.2",
     "nyc": "^15.1.0",
-    "ogl": "^0.0.76",
+    "ogl": "^0.0.90",
     "peerjs": "^1.3.2",
-    "@oarc/gpp-access": "0.0.2",
-    "@oarc/scd-access": "^0.1.5",
-    "@oarc/ssd-access": "^0.2.3",
+    "@oarc/gpp-access": "0.0.6",
+    "@oarc/scd-access": "^0.1.9",
+    "@oarc/ssd-access": "^0.2.7",
     "svelte": "^3.38.2",
-    "thumb-ui": "^0.0.16",
+    "thumb-ui": "^0.0.17",
     "uuid": "^8.3.2"
   }
 }
