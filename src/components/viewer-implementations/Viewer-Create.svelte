@@ -14,8 +14,11 @@
 
 
     let parentInstance, xrEngine, tdEngine;
-    let creatorObject = null, firstPoseReceived, showFooter = false;
 
+    let firstPoseReceived = false;
+    let showFooter = false;
+
+    let creatorObject = null;
 
     /**
      * Initial setup.
@@ -92,4 +95,9 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:broadcast />
+<!-- TODO: showFooter is not passed correctly -->
+<Parent bind:this={parentInstance}
+    {showFooter}
+    on:arSessionEnded
+    on:broadcast
+/>

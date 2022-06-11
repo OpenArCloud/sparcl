@@ -6,14 +6,12 @@
 <!-- DOM-overlay on top of AR canvas AR mode is OSCP -->
 <script>
     import { createEventDispatcher } from 'svelte';
-
-    import { movePhoneMessage, localizeMessage, localizeLabel, isLocalizingMessage, isLocalizedMessage
-    } from '@src/contentStore';
-
+    import { isLocalizingMessage, isLocalizedMessage, localizeMessage, localizeLabel, movePhoneMessage, resetLabel } from '@src/contentStore';
 
     export let hasPose = false;
     export let isLocalizing = false;
     export let isLocalized = false;
+    export let receivedContentTitles = [];
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -52,5 +50,14 @@
     <button on:click={() => dispatch('startLocalisation')}>{$localizeLabel}</button>
 {:else if isLocalized}
     <p>{$isLocalizedMessage}</p>
+    <button on:click={() => dispatch('relocalize')}>{$resetLabel}</button>
+    {#if receivedContentTitles.length > 0}
+        <div align="left">
+            <p>Received objects(s):</p>
+            {#each receivedContentTitles as title, i}
+                <li>[{i}] {title}</li>
+            {/each}
+        </div>
+    {/if}
 {/if}
 

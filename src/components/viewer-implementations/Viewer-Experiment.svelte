@@ -1,3 +1,5 @@
+<!-- WARNING: this code is left behind from refactoring. do not use it -->
+
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE for details)
@@ -16,12 +18,12 @@
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
-    import { getContentAtLocation } from '@oarc/scd-access';
+    import { getContentsAtLocation } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, recentLocalisation,
+            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
@@ -52,7 +54,7 @@
     let trackedImageObject, creatorObject, reticle;
     let poseFoundHeartbeat = null;
 
-    let receivedContentNames = [];
+    let receivedContentTitles = [];
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -421,9 +423,11 @@
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
                 "y": globalObjectPose.quaternion.y,
@@ -718,6 +722,7 @@
                         isLocalisationDone = true;
                     });
 
+                    //TODO: data.pose from AugmentedCity is deprecated
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
@@ -735,7 +740,7 @@
     function relocalize() {
         isLocalized = false;
         isLocalisationDone = false;
-        receivedContentNames = [];
+        receivedContentTitles = [];
 
         tdEngine.clearScene();
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
@@ -749,7 +754,7 @@
     function getContent() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentAtLocation(service.url, 'history', $initialLocation.h3Index));
+                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
 
             return result
@@ -771,12 +776,12 @@
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        receivedContentNames = ["New objects(s): "];
         scr.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
-                receivedContentNames.push(record.content.title);
+                $receivedScrs.push(record);
+                receivedContentTitles.push(record.content.title);
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
@@ -834,7 +839,7 @@
                     tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                 }
 
-                //wait(1000).then(() => receivedContentNames = []); // clear the list after a timer
+                //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
@@ -951,8 +956,12 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if $arMode === ARMODES.oscp}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                        on:startLocalisation={startLocalisation} />
+                <ArCloudOverlay
+                    hasPose="{firstPoseReceived}"
+                    isLocalizing="{isLocalizing}"
+                    isLocalized="{isLocalized}"
+                    on:startLocalisation={startLocalisation}
+                />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else if $arMode === ARMODES.create}
@@ -961,14 +970,19 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                <p>{receivedContentNames.join()}</p>
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                                on:startLocalisation={startLocalisation} />
+                    <ArCloudOverlay
+                        hasPose="{firstPoseReceived}"
+                        isLocalizing="{isLocalizing}"
+                        isLocalized="{isLocalized}"
+                        receivedContentTitles="{receivedContentTitles}"
+                        on:startLocalisation={startLocalisation}
+                    />
                 {:else}
-                <p>{receivedContentNames.join()}</p>
-                <ArExperimentOverlay bind:this={experimentOverlay}
-                                     on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                     on:relocalize={relocalize}/>
+                    <ArExperimentOverlay
+                        bind:this={experimentOverlay}
+                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                        on:relocalize={relocalize}
+                    />
                 {/if}
             {:else}
                 <p>Somethings wrong...</p>
