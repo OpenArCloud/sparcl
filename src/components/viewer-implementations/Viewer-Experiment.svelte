@@ -1,3 +1,5 @@
+<!-- WARNING: this code is left behind from refactoring. do not use it -->
+
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE for details)
@@ -421,9 +423,11 @@
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
                 "y": globalObjectPose.quaternion.y,
@@ -718,6 +722,7 @@
                         isLocalisationDone = true;
                     });
 
+                    //TODO: data.pose from AugmentedCity is deprecated
                     resolve([data.geopose || data.pose, data.scrs]);
                 })
                 .catch(error => {
@@ -951,8 +956,12 @@
                     experimental flags</a> to be enabled.
                 </p>
             {:else if $arMode === ARMODES.oscp}
-                <ArCloudOverlay hasPose="{firstPoseReceived}" isLocalizing="{isLocalizing}" isLocalized="{isLocalized}"
-                        on:startLocalisation={startLocalisation} />
+                <ArCloudOverlay
+                    hasPose="{firstPoseReceived}"
+                    isLocalizing="{isLocalizing}"
+                    isLocalized="{isLocalized}"
+                    on:startLocalisation={startLocalisation}
+                />
             {:else if $arMode === ARMODES.marker}
                 <ArMarkerOverlay />
             {:else if $arMode === ARMODES.create}
@@ -961,16 +970,18 @@
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
                 {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
-                    <ArCloudOverlay hasPose="{firstPoseReceived}"
-                                    isLocalizing="{isLocalizing}"
-                                    isLocalized="{isLocalized}"
-                                    receivedContentTitles="{receivedContentTitles}"
-                                    on:startLocalisation={startLocalisation}
+                    <ArCloudOverlay
+                        hasPose="{firstPoseReceived}"
+                        isLocalizing="{isLocalizing}"
+                        isLocalized="{isLocalized}"
+                        receivedContentTitles="{receivedContentTitles}"
+                        on:startLocalisation={startLocalisation}
                     />
                 {:else}
-                    <ArExperimentOverlay bind:this={experimentOverlay}
-                                        on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                        on:relocalize={relocalize}
+                    <ArExperimentOverlay
+                        bind:this={experimentOverlay}
+                        on:toggleAutoPlacement={toggleExperimentalPlacement}
+                        on:relocalize={relocalize}
                     />
                 {/if}
             {:else}

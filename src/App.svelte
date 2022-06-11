@@ -67,6 +67,7 @@
                             console.error("Cannot determine SSD URL!");
                             throw new Error("Cannot determine SSD URL!");
                         }
+                        // TODO: we could also query all the neighboring hexagons
                         return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
                     })
                     .then(services => {
@@ -356,19 +357,28 @@
     <aside>
         <div id="frame">
         {#if showWelcome}
-            <WelcomeOverlay withOkFooter="{$arIsAvailable}" {shouldShowDashboard} {shouldShowUnavailableInfo}
-                            {isLocationAccessRefused}
-                            on:okAction={() => closeIntro(false)}
-                            on:dashboardAction={() => closeIntro(true)}
-                            on:requestLocation={requestLocationAccess} />
-
+            <WelcomeOverlay
+                withOkFooter="{$arIsAvailable}"
+                {shouldShowDashboard}
+                {shouldShowUnavailableInfo}
+                {isLocationAccessRefused}
+                on:okAction={() => closeIntro(false)}
+                on:dashboardAction={() => closeIntro(true)}
+                on:requestLocation={requestLocationAccess}
+            />
         {:else if showOutro}
-            <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
+            <OutroOverlay
+                {shouldShowDashboard}
+                on:okAction={closeIntro}
+            />
         {/if}
         </div>
     </aside>
     {:else if !$arIsAvailable}
-        <Spectator bind:this={spectator} {isHeadless} />
+        <Spectator
+            bind:this={spectator}
+            {isHeadless}
+        />
     {/if}
 
 {:else}
@@ -379,11 +389,15 @@
 </main>
 
 {#if showAr && viewer}
-<svelte:component bind:this={viewerInstance} this="{viewer}"
-                  on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+    <svelte:component
+        bind:this={viewerInstance}
+        this="{viewer}"
+        on:arSessionEnded={sessionEnded}
+        on:broadcast={handleBroadcast}
+    />
 {:else if showAr && $arMode === ARMODES.experiment}
-<p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-<button on:click={sessionEnded}>Go back</button>
+    <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+    <button on:click={sessionEnded}>Go back</button>
 {/if}
 
 <div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>

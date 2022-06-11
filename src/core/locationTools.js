@@ -22,6 +22,27 @@ export const locationAccessOptions = {
 
 /**
  *
+ * @param geoPose a GeoPose entry in old or new format
+ * @returns The same GeoPose formatted according to the new (March 2022) standard
+ */
+export function upgradeGeoPoseStandard(geoPose) {
+    if (geoPose.position != undefined) { 
+        return geoPose;
+    }
+    geoPose["position"] = {
+        "lat" : geoPose.latitude,
+        "lon" : geoPose.longitude,
+        "h" : geoPose.ellipsoidHeight
+    }
+    delete geoPose["latitude"];
+    delete geoPose["longitude"];
+    delete geoPose["ellipsoidHeight"];
+    return geoPose;
+}
+
+
+/**
+ *
  * @param latitude number in degrees
  * @returns Earth radius in meters at input latitude
  */
@@ -321,22 +342,24 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
 */
 export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
     // We wrap them into LatLon object for easier calculation of relative displacement
-    const cam = new LatLon(cameraGeoPose.latitude, cameraGeoPose.longitude);
-    const cam2objLat = new LatLon(objectGeoPose.latitude, cameraGeoPose.longitude);
-    const cam2objLon = new LatLon(cameraGeoPose.latitude, objectGeoPose.longitude);
+    const cam = new LatLon(cameraGeoPose.position.lat, cameraGeoPose.position.lon);
+    const cam2objLat = new LatLon(objectGeoPose.position.lat, cameraGeoPose.position.lon);
+    const cam2objLon = new LatLon(cameraGeoPose.position.lat, objectGeoPose.position.lon);
     let dx = cam.distanceTo(cam2objLon);
     let dy = cam.distanceTo(cam2objLat);
-    if (objectGeoPose.latitude < cameraGeoPose.latitude) {
+    if (objectGeoPose.position.lat < cameraGeoPose.position.lat) {
         dy = -dy;
     }
-    if (objectGeoPose.longitude < cameraGeoPose.longitude) {
+    if (objectGeoPose.position.lon < cameraGeoPose.position.lon) {
         dx = -dx;
     }
 
     // OLD AugmentedCity API
     //const dz = objectGeoPose.altitude - cameraGeoPose.altitude;
-    // NEW AugmentedCty API
-    let dz = objectGeoPose.ellipsoidHeight - cameraGeoPose.ellipsoidHeight;
+    // OLD GeoPose
+    //let dz = objectGeoPose.ellipsoidHeight- cameraGeoPose.ellipsoidHeight;
+    // NEW AugmentedCity API and NEW GeoPose
+    let dz = objectGeoPose.position.h - cameraGeoPose.position.h;
     //console.log("dx: " + dx + ", dy: " + dy + ", dz: " + dz);
 
     // WARNING: AugmentedCity sometimes returns invalid height!
