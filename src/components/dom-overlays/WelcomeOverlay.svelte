@@ -152,56 +152,50 @@
     </div>
 {:else if $arIsAvailable}
     <Swipeable>
-        <Screen>
+        <Screen numScreens="4">
             <div id="welcomewrapper">
                 <h3>{$introGreeting}</h3>
                 <div>{@html $intro}</div>
             </div>
         </Screen>
-<!--
-        TODO: Needs some styling
-        <Screen>
-            <h4 id="staysafe">Stay safe</h4>
-            <p>Always be aware of your surroundings.</p>
-        </Screen>
--->
         <Screen>
             {#if !$isLocationAccessAllowed}
-            <h4>{$locationaccessrequired}</h4>
-            <p>{@html $locationaccessinfo}</p>
-            <img src="/media/overlay/marker.png" alt="location marker" />
-            <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
+                <h4>{$locationaccessrequired}</h4>
+                <p>{@html $locationaccessinfo}</p>
+                <img src="/media/overlay/marker.png" alt="location marker" />
+                <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
             {:else}
-            <h4 id="locationgranted">{$locationaccessgranted}</h4>
-            <img src="/media/overlay/marker.png" alt="location marker" />
+                <h4 id="locationgranted">{$locationaccessgranted}</h4>
+                <img src="/media/overlay/marker.png" alt="location marker" />
             {/if}
         </Screen>
         <Screen>
+            <h4 id="staysafe">Stay safe</h4>
+            <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+            <p>Always keep aware of your surroundings.</p>
+        </Screen>
+        <Screen>
             {#if shouldShowUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
-            <h4>{$noservicesavailable}</h4>
-            <div>{$unavailableInfo}</div>
+                <h4>{$noservicesavailable}</h4>
+                <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
                 <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('dashboardAction')}>
                     {$dashboardOkLabel}
                 </button>
                 {/if}
-
             {:else}
-            <div>{@html $arOkMessage}</div>
-            <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+                <div>{@html $arOkMessage}</div>
+                <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
                 {#if $arMode !== ARMODES.oscp}
                     <p>{$arMode} mode active</p>
                 {/if}
-
                 {#if withOkFooter}
                 <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                 </button>
                 {/if}
-
             {/if}
         </Screen>
-
-        <Controls />
+        <Controls/>
     </Swipeable>
 {/if}
