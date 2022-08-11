@@ -20,7 +20,7 @@
     import Selector from '@experiments/Selector';
 
     import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, showDashboard, ssr} from './stateStore';
+        initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr} from './stateStore';
     import {ARMODES} from "./core/common";
 
     import {logToElement} from '@src/core/devTools';
@@ -99,8 +99,9 @@
                     if (!p2p) {
                         p2p = p2pModule;
 
-                        // TODO: take selectedP2pService, not the 0th service
-                        const headlessPeerId = $availableP2pServices[0].properties
+                        const selected = $selectedP2pService;
+                        const service = $availableP2pServices.reduce((result, service) => service.id === selected.id ? service : result, {});
+                        const headlessPeerId = service.properties
                             .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
