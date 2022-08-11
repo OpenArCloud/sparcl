@@ -143,6 +143,8 @@ export const ssr = writable([]);
  * @type {Readable<SERVICE[]>}
  */
 export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
+    selectedGeoPoseService.set('none')
+    
     let geoposeServices = [];
     for (let record of $ssr) {
         geoposeServices.concat(record.services
@@ -157,7 +159,14 @@ export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
     // If none selected yet, set the first available as selected
     // TODO: Make sure that stored selected service is still valid
     if (get(selectedGeoPoseService) === 'none' && geoposeServices.length > 0) {
-        selectedGeoPoseService.set(geoposeServices[0].id);
+        selectedGeoPoseService.set(geoposeServices[0]);
+    }
+
+    // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
+    if (get(selectedGeoPoseService) !== 'none') {
+        debug_useGeolocationSensors.set(false);
+    } else {
+        debug_useGeolocationSensors.set(true);
     }
 }, []);
 
@@ -197,6 +206,8 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
  * @type {Readable<SERVICE[]>}
  */
 export const availableP2pServices = derived(ssr, ($ssr, set) => {
+    selectedP2pService.set('none')
+    
     let p2pServices = [];
     for (let record of $ssr) {
         p2pServices.concat(record.services
@@ -211,7 +222,7 @@ export const availableP2pServices = derived(ssr, ($ssr, set) => {
     // If none selected yet, set the first available as selected
     // TODO: Make sure that stored selected service is still valid
     if (get(selectedP2pService) === 'none' && p2pServices.length > 0) {
-        selectedP2pService.set(p2pServices[0].id);
+        selectedP2pService.set(p2pServices[0]);
     }
 }, []);
 

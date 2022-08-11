@@ -283,15 +283,15 @@
     <dl>
         <dt><label for="geoposeServer">GeoPose Services</label></dt>
         <dd class="select">
-            <select id="geoposeServer" bind:value={$selectedGeoPoseService}
-                    disabled="{$availableGeoPoseServices.length < 2  || null}">
+            <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
                 {#if $availableGeoPoseServices.length === 0}
-                    <option>None / Device Sensors</option>
-                    {debug_useGeolocationSensors.set(true)}
+                    <option value='none' disabled selected>Device sensors (no VPS available)</option>
+                    <!--{debug_useGeolocationSensors.set(true)}-->
                 {:else}
                     {#each $availableGeoPoseServices as service}
                         <option value={service}>{service.title}</option>
                     {/each}
+                    <!--{debug_useGeolocationSensors.set(false)}-->
                 {/if}
             </select>
         </dd>
@@ -415,21 +415,23 @@
 
     <dl>
         <dt><label for="p2pserver">P2P Service</label></dt>
-        <dd class="select"><select id="p2pserver" bind:value={$selectedP2pService}
+        <dd class="select">
+            <select id="p2pserver" bind:value={$selectedP2pService}
                                    disabled="{$availableP2pServices.length < 2  || $allowP2pNetwork === false}">
-            {#if $availableP2pServices.length === 0}
-                <option>None</option>
-            {:else}
-                {#each $availableP2pServices as service}
-                    <option value={service}>{service.title}</option>
-                {/each}
-            {/if}
-        </select></dd>
+                {#if $availableP2pServices.length === 0}
+                    <option>None</option>
+                {:else}
+                    {#each $availableP2pServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                {/if}
+            </select>
+        </dd>
         <pre class="serviceurl">
             <label>URL: {$selectedP2pService?.url || "no url"}</label>
             {#if ($selectedP2pService.properties != undefined) && ($selectedP2pService.properties.length != 0)}
                 {#each $selectedP2pService.properties as prop}
-                <label>{prop.type}: {prop.value}<br></label>
+                    <label>{prop.type}: {prop.value}<br></label>
                 {/each}
             {/if}
         </pre>
