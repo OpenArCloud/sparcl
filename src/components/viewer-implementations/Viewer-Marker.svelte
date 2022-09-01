@@ -571,19 +571,25 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
-                        } else {
-                            return getContent();
-                        }
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        //if (optionalScrs) {
+                        //    return [optionalScrs];
+                        //}
+                        
+                        // Instead of returning [optionalScrs], we request content from all available content services
+                        // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                        let scrsPromises = getContentsInH3Cell();
+                        return scrsPromises;
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
@@ -650,12 +656,11 @@
     /**
      * Request content from SCD available around the current location.
      */
-    function getContent() {
+    function getContentsInH3Cell() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
                 result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
-
             return result
         }, [])
 
