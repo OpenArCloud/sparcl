@@ -31,7 +31,7 @@
     async function startSession() {
         let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
         let optionalXrFeatures = [];
-        parentInstance.startSession(myOnXrFrameUpdate, myOnSessionEnded, myOnNoPose,
+        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -61,9 +61,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function myOnXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-        // TODO: rename to onXrFrameUpdate
-        parentInstance.update(time, frame, floorPose);
+    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
+        parentInstance.onXrFrameUpdate(time, frame, floorPose);
     }
 
     /**
@@ -74,15 +73,15 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function myOnNoPose(time, frame, floorPose) {
-        parentInstance.onNoPose(time, frame, floorPose);
+    function onXrNoPose(time, frame, floorPose) {
+        parentInstance.onXrNoPose(time, frame, floorPose);
     }
 
     /**
      * Called when the XRSession was closed.
      */
-    function myOnSessionEnded() {
-        parentInstance.onSessionEnded();
+    function onXrSessionEnded() {
+        parentInstance.onXrSessionEnded();
     }
 
 </script>

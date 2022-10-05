@@ -83,13 +83,12 @@
      * NOTE: sometimes multiple events are bundled using different keys!
      */
     export function onNetworkEvent(events) {
-        // Viewer-Marker cannot handle any events currently    
+        // Viewer-Marker cannot handle any events currently
         console.log('Viewer-Marker: Unknown event received:');
         console.log(events);
         // pass on to parent
         return parentInstance.onNetworkEvent(events);
     }
-
 
     /**
      * Setup required AR features and start the XRSession.
