@@ -256,7 +256,7 @@
                 getSensorEstimatedGeoPose()
                     .then(selfEstimatedGeoPose => {
                         $context.isLocalizing = false;
-                        $context.isLocalized = true; 
+                        $context.isLocalized = true;
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
                             $context.showFooter = false;
@@ -365,6 +365,7 @@
     export function placeContent(localPose, globalPose, scrs) {
         let localImagePose = localPose.transform
         let globalImagePose = globalPose
+        let showContentsLog = false;
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
@@ -380,14 +381,21 @@
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
 
-                $receivedScrs.push(record);
-                $context.receivedContentTitles.push(record.content.title);
+
+                if (record.content.type === "placeholder") {
+                    // only list the 3D models and not ephemeral objects nor stream objects
+                    $receivedScrs.push(record);
+                    $context.receivedContentTitles.push(record.content.title);
+                }
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
-                if (record.content.type === 'placeholder') {
+                switch (record.content.type) {
+                // TODO: placeholder is a temporary type we use in all demos until we come up with a good list
+                case "placeholder":
+                    showContentsLog = true; // show log if at least one 3D object was received
 
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
@@ -414,7 +422,7 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
                         // Orbit custom data type
                         // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
@@ -429,27 +437,31 @@
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                } else {
+                    break;
+                case "ephemeral":
+                    // ISMAR2021 demo
+                    if (record.tenant === 'ISMAR2021demo') {
+                        console.log("ISMAR2021demo object received!")
+                        let object_description = record.content.object_description;
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                    }
+                    break;
+                default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
+                    console.log(record.content);
                 }
-
-                if (record.tenant === 'ISMAR2021demo') {
-                    console.log("ISMAR2021demo object received!")
-                    let object_description = record.content.object_description;
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    //printOglTransform("localObjectPose", localObjectPose);
-                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
-                }
-
             })
         })
 
         // DEBUG
-        console.log("Received contents: ");
-        $receivedScrs.forEach(record => {
-            console.log("  " + record.content.title);
-        });
+        if (showContentsLog) {
+            console.log("Received contents: ");
+            $receivedScrs.forEach(record => {
+                console.log("  " + record.content.title);
+            });
+        }
 
         tdEngine.endSpatialContentRecords();
 
