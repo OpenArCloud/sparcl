@@ -81,9 +81,17 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(events) {
+    export function onNetworkEvent(events) {
+        // Simply print any other events and return
+        if (!('message_broadcasted' in events) && !('object_created' in events)
+                && !('setrotation' in events) && !('setcolor' in events)) {
+            console.log('Viewer-Experiment: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
         // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+        console.log('Viewer-Experiment: event received:');
         console.log(events);
 
         if ('message_broadcasted' in events) {

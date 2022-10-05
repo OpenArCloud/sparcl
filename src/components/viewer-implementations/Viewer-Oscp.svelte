@@ -37,6 +37,18 @@
             ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
         );
     }
+    /**
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
+     */
+    export function onNetworkEvent(events) {
+        // Viewer-Marker cannot handle any events currently
+        console.log('Viewer-Oscp: Unknown event received:');
+        console.log(events);
+        // pass on to parent
+        return parentInstance.onNetworkEvent(events);
+    }
+
 </script>
 
 <Parent 
