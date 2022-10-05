@@ -43,7 +43,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in update(), move into context.
+    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -79,14 +79,14 @@
     /**
      * Setup required AR features and start the XRSession.
      *
-     * @param updateCallback  function      Will be called from animation loop
-     * @param endedCallback  function       Will be called when AR session ends
-     * @param noPoseCallback  function      Will be called when no pose was found
-     * @param setup  function       Specific setup for AR mode or experiment
+     * @param xrFrameUpdateCallback  function      Will be called from animation loop
+     * @param xrSessionEndedCallback  function     Will be called when AR session ends
+     * @param xrNoPoseCallback  function           Will be called when no pose was found
+     * @param setup  function               Specific setup for AR mode or experiment
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(updateCallback, endedCallback, noPoseCallback,
+    export function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
                                  setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
@@ -97,7 +97,7 @@
             options.domOverlay = {root: overlay};
         }
 
-        let promise = xrEngine.startSession(canvas, updateCallback, options, setup);
+        let promise = xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
 
         // NOTE: screen orientation cannot be changed between user click and WebXR startSession,
         // and it cannot be changed after the XR Session started, so the only place to change it is here
@@ -107,7 +107,7 @@
         }
 
         promise.then(() => {
-                xrEngine.setCallbacks(endedCallback, noPoseCallback);
+                xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
                 tdEngine.init();
             })
             .catch(error => {
@@ -125,7 +125,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    export function update(time, frame, floorPose) {
+    export function onXrFrameUpdate(time, frame, floorPose) {
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
