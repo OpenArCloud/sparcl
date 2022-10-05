@@ -43,7 +43,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = false;
+    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in update(), move into context.
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -165,19 +165,22 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        if (optionalScrs) {
+                            return [optionalScrs];
                         } else {
                             return getContent();
                         }
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
@@ -282,12 +285,37 @@
                         $context.showFooter = false;
                         $context.isLocalisationDone = true;
                     });
+                    console.log("GPP response:");
+                    console.log(data);
+
+                    // GeoPoseResp
+                    // https://github.com/OpenArCloud/oscp-geopose-protocol
+                    let cameraGeoPose = null
+                    if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
+                        // data is AugmentedCity format which contains other entries too
+                        // (for example AC /scrs/geopose_objs_local endpoint)
+                        cameraGeoPose = data.geopose.geopose;
+                    } else if (data.geopose != undefined) {
+                        // data is GeoPoseResp
+                        // (for example AC /scrs/geopose endpoint)
+                        cameraGeoPose = data.geopose;
+                    } else {
+                        errorMessage = "GPP response has no geopose field";
+                        console.log(errorMessage);
+                        throw errorMessage;
+                    }
 
                     console.log("IMAGE GeoPose:");
-                    // TODO: data.pose by Augmented.City is deprecated
-                    console.log(data.geopose || data.pose);
+                    console.log(cameraGeoPose);
 
-                    resolve([data.geopose || data.pose, data.scrs]);
+                    // NOTE: AugmentedCity also returns neighboring objects in the GPP response
+                    let optionalScrs = undefined;
+                    if (data.scrs != undefined) {
+                        optionalScrs = data.scrs;
+                        console.log("GPP response also contains " + optionalScrs.length + " SCRs.");
+                    }
+
+                    resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
@@ -332,16 +360,16 @@
      *
      * @param localPose XRPose      The pose of the device when localisation was started in local reference space
      * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
-     * @param scr  [SCR]        Content Records with the result from the selected content services
+     * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(localPose, globalPose, scr) {
+    export function placeContent(localPose, globalPose, scrs) {
         let localImagePose = localPose.transform
         let globalImagePose = globalPose
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
-        scr.forEach(response => {
-            console.log('Number of content items received: ', response.length);
+        scrs.forEach(response => {
+            //console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
                 // TODO: validate here whether we received a proper SCR
