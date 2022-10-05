@@ -116,6 +116,7 @@
             });
     }
 
+    // TODO: rename to onXrFrameUpdate
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -460,11 +461,12 @@
 
     // TODO: rename to onEventReceived()
     /**
-     * Receives data from the application to be applied to current scene.
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function updateReceived(events) {
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+    export function onNetworkEvent(events) {
+        // simply print for now
+        console.log('Viewer: event received:');
         console.log(events);
     }
 
