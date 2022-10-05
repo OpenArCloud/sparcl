@@ -460,7 +460,7 @@
             "content": content,
             "id": object_id,
             "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
+            "type": "ephemeral",
             "timestamp": timestamp
         }
 
