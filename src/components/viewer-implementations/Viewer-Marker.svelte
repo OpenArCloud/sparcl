@@ -541,19 +541,22 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        if (optionalScrs) {
+                            return [optionalScrs];
                         } else {
                             return getContent();
                         }
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
