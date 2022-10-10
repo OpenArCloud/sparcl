@@ -27,7 +27,7 @@ When initializing the XR session, the DOM-overlay feature needs to be requested 
 
 ```svelte
 function startSession() {
-    parentInstance.startSession(update, onSessionEnded, onNoPose,
+    parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
         () => {},
         ['dom-overlay', ...]
     );

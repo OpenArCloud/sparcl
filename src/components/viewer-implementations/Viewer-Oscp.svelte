@@ -29,17 +29,64 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        parentInstance.startSession(parentInstance.update, parentInstance.onSessionEnded, parentInstance.onNoPose,
+        let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
+        let optionalXrFeatures = [];
+        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
             },
-            ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
+            requiredXrFeatures,
+            optionalXrFeatures
         );
     }
+    /**
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
+     */
+    export function onNetworkEvent(events) {
+        // Viewer-Oscp cannot handle any events currently
+        console.log('Viewer-Oscp: Unknown event received:');
+        console.log(events);
+        // pass on to parent
+        return parentInstance.onNetworkEvent(events);
+    }
+
+    /**
+     * Handles update loop when AR Cloud mode is used.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame     The XRFrame provided to the update loop
+     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param floorSpaceReference
+     */
+    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
+        parentInstance.onXrFrameUpdate(time, frame, floorPose);
+    }
+
+    /**
+     * Called when no pose was reported from WebXR.
+     *
+     * @param time  DOMHighResTimeStamp     time offset at which the updated
+     *      viewer state was received from the WebXR device.
+     * @param frame  XRFrame        The XRFrame provided to the update loop
+     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     */
+    function onXrNoPose(time, frame, floorPose) {
+        parentInstance.onXrNoPose(time, frame, floorPose);
+    }
+
+    /**
+     * Called when the XRSession was closed.
+     */
+    function onXrSessionEnded() {
+        parentInstance.onXrSessionEnded();
+    }
+
 </script>
 
-<Parent 
+<Parent
     bind:this={parentInstance}
     on:arSessionEnded
     on:broadcast>
