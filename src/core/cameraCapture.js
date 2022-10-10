@@ -126,6 +126,15 @@ export function getCameraIntrinsics(projectionMatrix, viewport) {
         console.log(intrinsicString);
         intrinsicsPrinted[intrinsicString] = true;
     }
+
+    const cameraIntrinsics = {
+        "fx": ax,
+        "fy": ay,
+        "cx": u0,
+        "cy": v0,
+        "s": gamma,
+    };
+    return cameraIntrinsics;
 }
 
 export function initCameraCaptureScene(gl) {
