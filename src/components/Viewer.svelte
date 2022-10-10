@@ -15,6 +15,7 @@
     import {sendRequest, validateRequest} from '@oarc/gpp-access';
     import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
+    import {CameraParam, CAMERAMODEL} from '@oarc/gpp-access/request/options/CameraParam.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
     import {getContentsAtLocation} from '@oarc/scd-access';
@@ -43,7 +44,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = false;
+    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -79,14 +80,14 @@
     /**
      * Setup required AR features and start the XRSession.
      *
-     * @param updateCallback  function      Will be called from animation loop
-     * @param endedCallback  function       Will be called when AR session ends
-     * @param noPoseCallback  function      Will be called when no pose was found
-     * @param setup  function       Specific setup for AR mode or experiment
+     * @param xrFrameUpdateCallback  function      Will be called from animation loop
+     * @param xrSessionEndedCallback  function     Will be called when AR session ends
+     * @param xrNoPoseCallback  function           Will be called when no pose was found
+     * @param setup  function               Specific setup for AR mode or experiment
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(updateCallback, endedCallback, noPoseCallback,
+    export function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
                                  setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
@@ -97,7 +98,7 @@
             options.domOverlay = {root: overlay};
         }
 
-        let promise = xrEngine.startSession(canvas, updateCallback, options, setup);
+        let promise = xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
 
         // NOTE: screen orientation cannot be changed between user click and WebXR startSession,
         // and it cannot be changed after the XR Session started, so the only place to change it is here
@@ -107,7 +108,7 @@
         }
 
         promise.then(() => {
-                xrEngine.setCallbacks(endedCallback, noPoseCallback);
+                xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
                 tdEngine.init();
             })
             .catch(error => {
@@ -116,6 +117,7 @@
             });
     }
 
+    // TODO: rename to onXrFrameUpdate
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -124,7 +126,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    export function update(time, frame, floorPose) {
+    export function onXrFrameUpdate(time, frame, floorPose) {
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -141,9 +143,14 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
+            let cameraIntrinsics = null;
+            let cameraViewport = null;
             if (!$context.isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
-                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
+                const res = xrEngine.getCameraTexture2(view); // new Chrome 92
+                cameraTexture = res.cameraTexture
+                cameraIntrinsics = res.cameraIntrinsics;
+                cameraViewport = res.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -151,8 +158,10 @@
 
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
-                const imageWidth = view.camera.width; // new Chrome 92
-                const imageHeight = view.camera.height; // new Chrome 92
+                //const imageWidth = view.camera.width; // new Chrome 92
+                //const imageHeight = view.camera.height; // new Chrome 92
+                const imageWidth = cameraViewport.width;
+                const imageHeight = cameraViewport.height;
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
@@ -163,7 +172,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, imageWidth, imageHeight)
+                localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
@@ -174,7 +183,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-                        
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -194,7 +202,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    export function onSessionEnded() {
+    export function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if ($debug_useGeolocationSensors) {
@@ -213,7 +221,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    export function onNoPose(time, frame, floorPose) {
+    export function onXrNoPose(time, frame, floorPose) {
         hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -247,8 +255,9 @@
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
+     * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    export function localize(image, width, height) {
+    export function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn("There is no available GeoPose service. Trying to use the on-board sensors instead.")
@@ -258,7 +267,7 @@
                 getSensorEstimatedGeoPose()
                     .then(selfEstimatedGeoPose => {
                         $context.isLocalizing = false;
-                        $context.isLocalized = true; 
+                        $context.isLocalized = true;
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
                             $context.showFooter = false;
@@ -271,9 +280,13 @@
                 return;
             }
 
+            let cameraParams = new CameraParam();
+            cameraParams.model = CAMERAMODEL.PINHOLE;
+            cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet
@@ -368,11 +381,12 @@
     export function placeContent(localPose, globalPose, scrs) {
         let localImagePose = localPose.transform
         let globalImagePose = globalPose
+        let showContentsLog = false;
 
         tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
         scrs.forEach(response => {
-            console.log('Number of content items received: ', response.length);
+            //console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
                 // TODO: validate here whether we received a proper SCR
@@ -383,14 +397,21 @@
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
 
-                $receivedScrs.push(record);
-                $context.receivedContentTitles.push(record.content.title);
+
+                if (record.content.type === "placeholder") {
+                    // only list the 3D models and not ephemeral objects nor stream objects
+                    $receivedScrs.push(record);
+                    $context.receivedContentTitles.push(record.content.title);
+                }
 
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
-                if (record.content.type === 'placeholder') {
+                switch (record.content.type) {
+                // TODO: placeholder is a temporary type we use in all demos until we come up with a good list
+                case "placeholder":
+                    showContentsLog = true; // show log if at least one 3D object was received
 
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
@@ -417,7 +438,7 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype);
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
                         // Orbit custom data type
                         // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
@@ -432,27 +453,31 @@
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
-                } else {
+                    break;
+                case "ephemeral":
+                    // ISMAR2021 demo
+                    if (record.tenant === 'ISMAR2021demo') {
+                        console.log("ISMAR2021demo object received!")
+                        let object_description = record.content.object_description;
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                    }
+                    break;
+                default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
+                    console.log(record.content);
                 }
-
-                if (record.tenant === 'ISMAR2021demo') {
-                    console.log("ISMAR2021demo object received!")
-                    let object_description = record.content.object_description;
-                    let globalObjectPose = record.content.geopose;
-                    let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                    //printOglTransform("localObjectPose", localObjectPose);
-                    tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
-                }
-
             })
         })
 
         // DEBUG
-        console.log("Received contents: ");
-        $receivedScrs.forEach(record => {
-            console.log("  " + record.content.title);
-        });
+        if (showContentsLog) {
+            console.log("Received contents: ");
+            $receivedScrs.forEach(record => {
+                console.log("  " + record.content.title);
+            });
+        }
 
         tdEngine.endSpatialContentRecords();
 
@@ -492,11 +517,12 @@
 
     // TODO: rename to onEventReceived()
     /**
-     * Receives data from the application to be applied to current scene.
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function updateReceived(events) {
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+    export function onNetworkEvent(events) {
+        // simply print for now
+        console.log('Viewer: event received:');
         console.log(events);
     }
 

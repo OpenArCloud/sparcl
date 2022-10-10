@@ -79,47 +79,16 @@
     }
 
     /**
-     * Receives data from the application to be applied to current scene.
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function updateReceived(events) {
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+    export function onNetworkEvent(events) {
+        // Viewer-Marker cannot handle any events currently
+        console.log('Viewer-Marker: Unknown event received:');
         console.log(events);
-
-        if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log("message from " + data.sender + ": \n  " + data.message);
-                }
-//            }
-        }
-
-        if ('object_created' in events) {
-            let data = events.object_created;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                data = data.scr;
-                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
-                    let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose;
-                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
-                }
-//            }
-        }
-
-        // TODO: Receive list of events to fire from SCD
-        if ('setrotation' in events) {
-            //let data = events.setrotation;
-            // todo app.fire('setrotation', data);
-        }
-
-        if ('setcolor' in events) {
-            //let data = events.setcolor;
-            // todo app.fire('setcolor', data);
-        }
+        // pass on to parent
+        return parentInstance.onNetworkEvent(events);
     }
-
 
     /**
      * Setup required AR features and start the XRSession.
@@ -164,7 +133,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -192,7 +161,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -270,7 +239,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -548,9 +517,14 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
+            let cameraIntrinsics = null;
+            let cameraViewport = null;
             if (!isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
-                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
+                const res = xrEngine.getCameraTexture2(view); // new Chrome 92
+                cameraTexture = res.cameraTexture
+                cameraIntrinsics = res.cameraIntrinsics;
+                cameraViewport = res.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -558,8 +532,10 @@
 
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
-                const imageWidth = view.camera.width; // new Chrome 92
-                const imageHeight = view.camera.height; // new Chrome 92
+                //const imageWidth = view.camera.width; // new Chrome 92
+                //const imageHeight = view.camera.height; // new Chrome 92
+                const imageWidth = cameraViewport.width;
+                const imageHeight = cameraViewport.height;
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
@@ -570,7 +546,10 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, imageWidth, imageHeight)
+                // TODO(soeroesg): downsize image if too large
+
+
+                localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
@@ -581,7 +560,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-                        
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -607,12 +585,17 @@
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
+     * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    function localize(image, width, height) {
+    function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
+            let cameraParams = new CameraParam();
+            cameraParams.model = CAMERAMODEL.PINHOLE;
+            cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet
