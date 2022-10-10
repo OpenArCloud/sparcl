@@ -147,8 +147,7 @@ export default class webxr {
             x: 0,
             y: 0
         };
-        getCameraIntrinsics(view.projectionMatrix, cameraViewport);
-
+        const cameraIntrinsics = getCameraIntrinsics(view.projectionMatrix, cameraViewport);
         const cameraTexture = this.glBinding.getCameraImage(view.camera);
 
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
@@ -157,7 +156,11 @@ export default class webxr {
 
         checkGLError(gl, "getCameraTexture2() end");
 
-        return cameraTexture;
+        return {
+            "cameraTexture": cameraTexture,
+            "cameraIntrinsics": cameraIntrinsics,
+            "cameraViewport": cameraViewport
+        };
     }
 
     /**
