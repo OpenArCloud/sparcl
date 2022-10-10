@@ -102,7 +102,7 @@ export function send(data) {
 /**
  * Called when an update was received over the network.
  */
-function updateReceived() {
+function onNetworkEvent() {
     //console.log('Received', JSON.stringify(docSet.docs, null, 2));
 
     if (updateFunction) {
@@ -159,7 +159,7 @@ function setupPergeWithUrl(peerId, url, port) {
     // subscribe returns an unsubscribe function
     unsubscribeFunction = instance.subscribe(() => {
         //console.log('instance.subscribe');
-        updateReceived();
+        onNetworkEvent();
     })
 }
 

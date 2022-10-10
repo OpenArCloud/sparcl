@@ -81,9 +81,17 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(events) {
+    export function onNetworkEvent(events) {
+        // Simply print any other events and return
+        if (!('message_broadcasted' in events) && !('object_created' in events)
+                && !('setrotation' in events) && !('setcolor' in events)) {
+            console.log('Viewer-Experiment: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
         // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+        console.log('Viewer-Experiment: event received:');
         console.log(events);
 
         if ('message_broadcasted' in events) {
@@ -164,7 +172,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -192,7 +200,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -270,7 +278,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -452,7 +460,7 @@
             "content": content,
             "id": object_id,
             "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
+            "type": "ephemeral",
             "timestamp": timestamp
         }
 
@@ -649,9 +657,14 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
+            let cameraIntrinsics = null;
+            let cameraViewport = null;
             if (!isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
-                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
+                const res = xrEngine.getCameraTexture2(view); // new Chrome 92
+                cameraTexture = res.cameraTexture
+                cameraIntrinsics = res.cameraIntrinsics;
+                cameraViewport = res.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -659,8 +672,10 @@
 
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
-                const imageWidth = view.camera.width; // new Chrome 92
-                const imageHeight = view.camera.height; // new Chrome 92
+                //const imageWidth = view.camera.width; // new Chrome 92
+                //const imageHeight = view.camera.height; // new Chrome 92
+                const imageWidth = cameraViewport.width;
+                const imageHeight = cameraViewport.height;
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
@@ -671,7 +686,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, imageWidth, imageHeight)
+                localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
@@ -682,7 +697,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-                        
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -708,12 +722,18 @@
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
+     * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    function localize(image, width, height) {
+    function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
+            let cameraParams = new CameraParam();
+            cameraParams.model = CAMERAMODEL.PINHOLE;
+            cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
+
+            
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet
@@ -744,7 +764,6 @@
                         console.log(errorMessage);
                         throw errorMessage;
                     }
-                    
                     console.log("IMAGE GeoPose:");
                     console.log(cameraGeoPose);
 
@@ -754,7 +773,6 @@
                         optionalScrs = data.scrs;
                         console.log("GPP response also contains " + optionalScrs.length + " SCRs");
                     }
-                    
                     resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
@@ -845,7 +863,7 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype)
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
                         // Orbit custom data type
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
