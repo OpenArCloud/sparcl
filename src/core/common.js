@@ -49,7 +49,7 @@ export const SCR = {
 /**
  * Empty GeoPose object to initialize variables.
  *
- * @type {{quaternion: [], latitude: number, longitude: number, ellipsoidHeight: number}}
+ * @type {{position: {lat: number, lon: number, h: number}, quaternion: {x: number, y: number, z: number, w: number}}}
  */
 export const GEOPOSE = {
     position: {

@@ -24,7 +24,18 @@
         }).addTo(map);
     }
 
-    export function updateReceived(events) {
+    /**
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
+     */
+    export function onNetworkEvent(events) {
+        // Simply print any other events and return
+        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+            console.log('Spectator: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
         // Log the messages received form others
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
@@ -52,12 +63,6 @@
                     }
                 }
 //            }
-        }
-
-        // Simply print any other events
-        if (!('message_broadcasted' in events) && !('object_created' in events)) {
-            console.log('Spectator event received:');
-            console.log(events);
         }
     }
 
