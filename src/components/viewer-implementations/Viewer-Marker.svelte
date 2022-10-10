@@ -133,7 +133,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -161,7 +161,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -239,7 +239,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
