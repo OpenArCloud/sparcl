@@ -144,7 +144,7 @@ export const ssr = writable([]);
  */
 export const availableGeoPoseServices = derived(ssr, ($ssr, set) => {
     selectedGeoPoseService.set('none')
-    
+
     let geoposeServices = [];
     for (let record of $ssr) {
         geoposeServices.concat(record.services
@@ -188,13 +188,15 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
 
     set(contentServices);
 
-    // If none selected yet, set the first available as selected
+    // If none selected yet, set all available as selected
     if (Object.keys(get(selectedContentServices)).length === 0 && contentServices.length > 0) {
-        const id = contentServices[0].id
         let selection = {};
-        selection[id] = {}
-        selection[id].isSelected = true;
-        selection[id].selectedTopic = 'history'; // TODO: get first topic from service
+        for (const [key, service] of contentServices.entries()) {
+            const id = service.id;
+            selection[id] = {}
+            selection[id].isSelected = true;
+            selection[id].selectedTopic = 'history'; // TODO: get first topic from service (As of 2021, we put everything under the history topic)
+        }
         selectedContentServices.set(selection);
     }
 }, []);
@@ -207,7 +209,7 @@ export const availableContentServices = derived(ssr, ($ssr, set) => {
  */
 export const availableP2pServices = derived(ssr, ($ssr, set) => {
     selectedP2pService.set('none')
-    
+
     let p2pServices = [];
     for (let record of $ssr) {
         p2pServices.concat(record.services

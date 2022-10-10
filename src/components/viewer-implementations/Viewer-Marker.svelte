@@ -79,47 +79,16 @@
     }
 
     /**
-     * Receives data from the application to be applied to current scene.
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function updateReceived(events) {
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+    export function onNetworkEvent(events) {
+        // Viewer-Marker cannot handle any events currently
+        console.log('Viewer-Marker: Unknown event received:');
         console.log(events);
-
-        if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log("message from " + data.sender + ": \n  " + data.message);
-                }
-//            }
-        }
-
-        if ('object_created' in events) {
-            let data = events.object_created;
-//            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                data = data.scr;
-                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
-                    let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose;
-                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
-                }
-//            }
-        }
-
-        // TODO: Receive list of events to fire from SCD
-        if ('setrotation' in events) {
-            //let data = events.setrotation;
-            // todo app.fire('setrotation', data);
-        }
-
-        if ('setcolor' in events) {
-            //let data = events.setcolor;
-            // todo app.fire('setcolor', data);
-        }
+        // pass on to parent
+        return parentInstance.onNetworkEvent(events);
     }
-
 
     /**
      * Setup required AR features and start the XRSession.
@@ -164,7 +133,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -192,7 +161,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -270,7 +239,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -571,19 +540,22 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        if (optionalScrs) {
+                            return [optionalScrs];
                         } else {
                             return getContent();
                         }
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }

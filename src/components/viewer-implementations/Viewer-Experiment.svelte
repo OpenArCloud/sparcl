@@ -81,9 +81,17 @@
     /**
      * Receives data from the application to be applied to current scene.
      */
-    export function updateReceived(events) {
+    export function onNetworkEvent(events) {
+        // Simply print any other events and return
+        if (!('message_broadcasted' in events) && !('object_created' in events)
+                && !('setrotation' in events) && !('setcolor' in events)) {
+            console.log('Viewer-Experiment: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
         // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer event received:');
+        console.log('Viewer-Experiment: event received:');
         console.log(events);
 
         if ('message_broadcasted' in events) {
@@ -164,7 +172,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -192,7 +200,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -270,7 +278,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -452,7 +460,7 @@
             "content": content,
             "id": object_id,
             "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
+            "type": "ephemeral",
             "timestamp": timestamp
         }
 
@@ -672,19 +680,22 @@
                 }
 
                 localize(image, imageWidth, imageHeight)
-                    .then(([geoPose, scr]) => {
+                    .then(([geoPose, optionalScrs]) => {
+                        // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
 
-                        // There are GeoPose services that return directly content
-                        // TODO: Request content even when there is already content provided from GeoPose call. Not sure how...
-                        if (scr) {
-                            return [scr];
-                        } else {
+                        // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                        // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                        if (optionalScrs) {
+                            return [optionalScrs];
+                        }
                             return getContent();
                         }
                     })
                     .then(scrs => {
+                        // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                        console.log("Received " + scrs.length + " SCRs");
                         placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
                     })
             }
@@ -722,8 +733,34 @@
                         isLocalisationDone = true;
                     });
 
-                    //TODO: data.pose from AugmentedCity is deprecated
-                    resolve([data.geopose || data.pose, data.scrs]);
+                    // GeoPoseResp
+                    // https://github.com/OpenArCloud/oscp-geopose-protocol
+                    let cameraGeoPose = null
+                    if (data.geopose != undefined && data.scrs != undefined && data.geopose.geopose != undefined) {
+                        // data is AugmentedCity format which contains other entries too
+                        // (for example AC /scrs/geopose_objs_local endpoint)
+                        cameraGeoPose = data.geopose.geopose;
+                    } else if (data.geopose != undefined) {
+                        // data is GeoPoseResp
+                        // (for example AC /scrs/geopose endpoint)
+                        cameraGeoPose = data.geopose;
+                    } else {
+                        errorMessage = "GPP response has no geopose field";
+                        console.log(errorMessage);
+                        throw errorMessage;
+                    }
+
+                    console.log("IMAGE GeoPose:");
+                    console.log(cameraGeoPose);
+
+                    // NOTE: AugmentedCity also returns neighboring objects in the GPP response
+                    let optionalScrs = undefined;
+                    if (data.scrs != undefined) {
+                        optionalScrs = data.scrs;
+                        console.log("GPP response also contains " + optionalScrs.length + " SCRs");
+                    }
+
+                    resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
                     // TODO: Inform user
@@ -814,7 +851,7 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype)
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
                         // Orbit custom data type
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;

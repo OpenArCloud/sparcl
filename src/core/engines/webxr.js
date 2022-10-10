@@ -6,8 +6,10 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
 import { checkGLError } from '@core/devTools'
 
+// TODO(soeroesg): xrNoPoseCallback does not seem to be triggered ever
 
-let endedCallback, frameCallback, markerFrameCallback, noExperimentResultCallback, onFrameUpdate;
+let xrSessionEndedCallback, xrFrameUpdateCallback, xrMarkerFrameUpdateCallback, xrNoPoseCallback;
+let animationFrameCallback;
 let floorSpaceReference, localSpaceReference, gl;
 
 
@@ -19,13 +21,13 @@ export default class webxr {
      * Setup regular use session.
      *
      * @param canvas  Canvas        The element to use
-     * @param callback  function        Callback to call for every frame
+     * @param onXrFrameUpdateCallback  function        Callback to call for every frame
      * @param options  {}       Settings to use to setup the AR session
      * @param setup  function       Allows to execute setup functions for session
      * @returns {Promise}
      */
-    startSession(canvas, callback, options, setup = () => {}) {
-        frameCallback = callback;
+    startSession(canvas, onXrFrameUpdateCallback, options, setup = () => {}) {
+        xrFrameUpdateCallback = onXrFrameUpdateCallback;
 
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
@@ -43,8 +45,8 @@ export default class webxr {
      * @param options  {}       Settings to use to setup the AR session
      * @returns {Promise}
      */
-    startMarkerSession(canvas, callback, options) {
-        markerFrameCallback = callback;
+    startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options) {
+        xrMarkerFrameUpdateCallback = onXrMarkerFrameUpdateCallback;
 
         return navigator.xr.requestSession('immersive-ar', options)
             .then((result) => {
@@ -177,31 +179,19 @@ export default class webxr {
      *
      * @param session  XRSession        The session to end
      */
-    onEndSession(session) {
+    endSession(session) {
         session.end();
     }
 
     /**
      * Set callbacks that should be called for certain situations.
      *
-     * @param ended  function       The function to call when session ends
-     * @param noPose  function      The function to call when no pose was reported for experiment mode
+     * @param onXrSessionEndedCallback  function       The function to call when session ends
+     * @param onXrNoPoseCallback  function      The function to call when no pose was reported for experiment mode
      */
-    setCallbacks(ended, noPose) {
-        endedCallback = ended;
-        noExperimentResultCallback = noPose;
-    }
-
-    /**
-     * Handler for session ended event. Used to clean up allocated memory and handler.
-     */
-    onSessionEnded() {
-        this.session = null;
-        gl = null;
-
-        if (endedCallback) {
-            endedCallback();
-        }
+    setCallbacks(onXrSessionEndedCallback, onXrNoPoseCallback) {
+        xrSessionEndedCallback = onXrSessionEndedCallback;
+        xrNoPoseCallback = onXrNoPoseCallback;
     }
 
     /**
@@ -242,16 +232,15 @@ export default class webxr {
      * Initializes a new session.
      *
      * @param canvas  Canvas        The canvas element to use
-     * @param result  XRSession     The session created by caller
+     * @param xrSession  XRSession     The session created by caller
      */
-    _initSession(canvas, result) {
-        this.session = result;
-
-        onFrameUpdate = this._onFrameUpdate;
+    _initSession(canvas, xrSession) {
+        this.session = xrSession;
+        animationFrameCallback = this._onXrFrameUpdate; // NOTE: recursion of _onXrFrameUpdate alone seems invalid, so we store a reference to it
 
         gl = canvas.getContext('webgl2', { xrCompatible: true });
 
-        this.session.addEventListener('end', this.onSessionEnded);
+        this.session.addEventListener('end', this._onXrSessionEnded);
         this.session.updateRenderState({ baseLayer: new XRWebGLLayer(this.session, gl) });
 
         Promise.all(
@@ -259,7 +248,7 @@ export default class webxr {
             .then((values => {
                 floorSpaceReference = values[0];
                 localSpaceReference = values[1];
-                this.session.requestAnimationFrame(this._onFrameUpdate);
+                this.session.requestAnimationFrame(animationFrameCallback);
             }));
     }
 
@@ -268,28 +257,41 @@ export default class webxr {
      * Animation loop for WebXR.
      *
      * @param time  DOMHighResTimeStamp      indicates the time at which the frame was scheduled for rendering
-     * @param frame  XRFrame        The frame to handle
+     * @param xrFrame  XRFrame        The frame to handle
      */
-    _onFrameUpdate(time, frame) {
-        const session = frame.session;
-        session.requestAnimationFrame(onFrameUpdate);
+    _onXrFrameUpdate(time, xrFrame) {
+        const session = xrFrame.session; // NOTE: session of the frame (should be the same as this.session)
+        
+        session.requestAnimationFrame(animationFrameCallback);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
 
-        const floorPose = frame.getViewerPose(floorSpaceReference);
-
+        // TODO(soeroesg): we could query the pose in multiple reference frames and trigger respective callbacks
+        const floorPose = xrFrame.getViewerPose(floorSpaceReference);
         if (floorPose) {
-            if (frameCallback) {
-                frameCallback(time, frame, floorPose, floorSpaceReference);
+            if (xrFrameUpdateCallback) {
+                xrFrameUpdateCallback(time, xrFrame, floorPose, floorSpaceReference);
             }
 
-            if (markerFrameCallback) {
-                const results = frame.getImageTrackingResults();
+            if (xrMarkerFrameUpdateCallback) {
+                const results = xrFrame.getImageTrackingResults();
                 if (results.length > 0) {
-                    const localPose = frame.getPose(results[0].imageSpace, floorSpaceReference);
-                    markerFrameCallback(time, frame, floorPose, localPose, results[0]);
+                    const localPose = xrFrame.getPose(results[0].imageSpace, floorSpaceReference);
+                    xrMarkerFrameUpdateCallback(time, xrFrame, floorPose, localPose, results[0]);
                 }
             }
+        }
+    }
+
+    /**
+     * Handler for session ended event. Used to clean up allocated memory and handler.
+     */
+     _onXrSessionEnded() {
+        this.session = null;
+        gl = null;
+
+        if (xrSessionEndedCallback) {
+            xrSessionEndedCallback();
         }
     }
 }

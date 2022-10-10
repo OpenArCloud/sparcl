@@ -177,7 +177,7 @@ When doing so, the lifecycle functions of the component and their minimal implem
 - AR session startup
 
         function startSession() {
-            parentInstance.startSession(<updatecallback>, sessionendedcallback, noposecallback,
+            parentInstance.startSession(<xrFrameUpdateCallback>, xrSessionEndedCallback, xrNoposeCallback,
                 setupFunction(),
                 [<requiredfeatures>],
                 [<optionalfeatures>]
@@ -186,22 +186,22 @@ When doing so, the lifecycle functions of the component and their minimal implem
 
 - Animation loop
 
-        function update(time, frame, floorPose) {
+        function onXrFrameUpdate(time, frame, floorPose) {
             // Update your 3D models according the pose provided in the frame
         }
 
 - No pose available handling
 
-        function onNoPose(time, frame, floorPose) {
+        function onXrNoPose(time, frame, floorPose) {
             // Use to inform user that the XR implementation couldn't determin a pose
         }
 
 - AR session end
 
-        function onSessionEnded() {
+        function onXrSessionEnded() {
             // Free all the resources created before
         
-            parentInstance.onSessionEnded();
+            parentInstance.onXrSessionEnded();
         }
 
 ### State
