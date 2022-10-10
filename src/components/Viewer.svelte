@@ -15,6 +15,7 @@
     import {sendRequest, validateRequest} from '@oarc/gpp-access';
     import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
     import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
+    import {CameraParam, CAMERAMODEL} from '@oarc/gpp-access/request/options/CameraParam.js';
     import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
 
     import {getContentsAtLocation} from '@oarc/scd-access';
@@ -142,9 +143,14 @@
 
             // Currently necessary to keep camera image capture alive.
             let cameraTexture = null;
+            let cameraIntrinsics = null;
+            let cameraViewport = null;
             if (!$context.isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
-                cameraTexture = xrEngine.getCameraTexture2(view); // new Chrome 92
+                const res = xrEngine.getCameraTexture2(view); // new Chrome 92
+                cameraTexture = res.cameraTexture
+                cameraIntrinsics = res.cameraIntrinsics;
+                cameraViewport = res.cameraViewport;
             }
 
             if (doCaptureImage) {
@@ -152,8 +158,10 @@
 
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
-                const imageWidth = view.camera.width; // new Chrome 92
-                const imageHeight = view.camera.height; // new Chrome 92
+                //const imageWidth = view.camera.width; // new Chrome 92
+                //const imageHeight = view.camera.height; // new Chrome 92
+                const imageWidth = cameraViewport.width;
+                const imageHeight = cameraViewport.height;
 
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
@@ -164,7 +172,7 @@
                     document.body.appendChild(img);
                 }
 
-                localize(image, imageWidth, imageHeight)
+                localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
@@ -172,11 +180,14 @@
 
                         // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                         // We could return those as [optionalScrs], however, this means all other content services are ignored...
-                        if (optionalScrs) {
-                            return [optionalScrs];
-                        } else {
-                            return getContent();
-                        }
+                        //if (optionalScrs) {
+                        //    return [optionalScrs];
+                        //}
+
+                        // Instead of returning [optionalScrs], we request content from all available content services
+                        // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                        let scrsPromises = getContentsInH3Cell();
+                        return scrsPromises;
                     })
                     .then(scrs => {
                         // NOTE: the next step expects an array of array of SCRs in the scrs variable
@@ -245,8 +256,9 @@
      * @param image  string     Camera image to use for localisation
      * @param width  Number     Width of the camera image
      * @param height  Number    Height of the camera image
+     * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    export function localize(image, width, height) {
+    export function localize(image, width, height, cameraIntrinsics) {
         return new Promise((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn("There is no available GeoPose service. Trying to use the on-board sensors instead.")
@@ -269,9 +281,13 @@
                 return;
             }
 
+            let cameraParams = new CameraParam();
+            cameraParams.model = CAMERAMODEL.PINHOLE;
+            cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet
@@ -343,12 +359,13 @@
     /**
      * Request content from SCD available around the current location.
      */
-    export function getContent() {
+    export function getContentsInH3Cell() {
         const servicePromises = $availableContentServices.reduce((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
+                // TODO: H3 cell ID and topic should be be customizable
+                let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index)
+                result.push(scrs_);
             }
-
             return result
         }, [])
 
