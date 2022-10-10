@@ -192,7 +192,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    export function onSessionEnded() {
+    export function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if ($debug_useGeolocationSensors) {
@@ -211,7 +211,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    export function onNoPose(time, frame, floorPose) {
+    export function onXrNoPose(time, frame, floorPose) {
         hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }

@@ -172,7 +172,7 @@
         if (promise) {
             promise
                 .then(() => {
-                    xrEngine.setCallbacks(onSessionEnded, onNoExperimentResult);
+                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
                 .catch(error => {
@@ -200,7 +200,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         firstPoseReceived = false;
 
         if (experimentIntervallId) {
@@ -278,7 +278,7 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onNoExperimentResult(time, frame, floorPose, frameDuration, passedMaxSlow) {
+    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
         experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -749,7 +749,7 @@
                         console.log(errorMessage);
                         throw errorMessage;
                     }
-                    
+
                     console.log("IMAGE GeoPose:");
                     console.log(cameraGeoPose);
 
@@ -759,7 +759,7 @@
                         optionalScrs = data.scrs;
                         console.log("GPP response also contains " + optionalScrs.length + " SCRs");
                     }
-                    
+
                     resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
@@ -851,7 +851,7 @@
                                 console.log("Error: unexpected sticker subtype: " + subtype)
                                 break;
                         }
-                    } else if (record.content.refs != undefined && record.content.refs.length > 0) { 
+                    } else if (record.content.refs != undefined && record.content.refs.length > 0) {
                         // Orbit custom data type
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
