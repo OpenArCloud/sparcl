@@ -36,7 +36,7 @@
      * Setup required AR features and start the XRSession.
      */
     function startSession() {
-        parentInstance.startSession(update, parentInstance.onSessionEnded, parentInstance.onNoPose,
+        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
             () => {},
             ['dom-overlay', 'anchors', 'local-floor'],
         );
@@ -50,7 +50,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose     The pose of the device as reported by the XRFrame
      */
-    function update(time, frame, floorPose) {
+    function onXrFrameUpdate(time, frame, floorPose) {
         xrEngine.setViewPort();
 
         if (firstPoseReceived === false) {
