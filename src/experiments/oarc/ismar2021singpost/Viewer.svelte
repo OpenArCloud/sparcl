@@ -78,12 +78,22 @@
 </script>
 
 <!-- <div style="position:fixed; top:0; left: 0; width:50%; height:50%; background:black; color: white;">Test</div> -->
-<Parent bind:this={parentInstance} on:arSessionEnded>
-    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized
-                     let:isLocalisationDone let:firstPoseReceived>
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded>
+    <svelte:fragment slot="overlay"
+        let:isLocalizing
+        let:isLocalized
+        let:isLocalisationDone
+        let:firstPoseReceived
+        >
         {#if $settings.localisation && !isLocalisationDone}
-            <ArCloudOverlay hasPose="{firstPoseReceived}" {isLocalizing} {isLocalized}
-                            on:startLocalisation={() => parentInstance.startLocalisation()} />
+            <ArCloudOverlay
+                hasPose="{firstPoseReceived}"
+                {isLocalizing}
+                {isLocalized}
+                on:startLocalisation={() => parentInstance.startLocalisation()}
+            />
         {/if}
     </svelte:fragment>
 </Parent>
