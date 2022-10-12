@@ -658,7 +658,7 @@ export default class ogl {
         //TODO: do proper conversion here!
         // See https://www.movable-type.co.uk/scripts/latlong.html
         //const R = 6371009; // Earth radius (assuming a sphere)
-        const R = getEarthRadiusAt(refGeoPose.latitude);
+        const R = getEarthRadiusAt(refGeoPose.position.lat);
         let dLon = toDegrees(Math.atan2(dE, R));
         let dLat = toDegrees(Math.atan2(dN, R));
         let dHeight = dU;

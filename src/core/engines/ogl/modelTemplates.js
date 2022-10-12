@@ -245,7 +245,7 @@ export function getAxes(gl) {
     zAxis.scale.set(0.1);
     zAxis.setParent(container);
 
-    const zero = createModel(gl,PRIMITIVES.box, [1, 0, 0, 1]);
+    const zero = createModel(gl,PRIMITIVES.box, [1, 1, 1, 1]);
     zero.scale.set(0.05);
     zero.setParent(container);
 

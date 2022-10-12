@@ -106,8 +106,8 @@
 
                         if (headlessPeerId && !headlessPeerId?.empty) {
                             p2p.connect(headlessPeerId, false, (data) => {
-                                viewerInstance?.updateReceived(data); //TODO: why does it not work with viewer?
-                                spectator?.updateReceived(data);
+                                viewerInstance?.onNetworkEvent(data); //TODO: why does it not work with viewer?
+                                spectator?.onNetworkEvent(data);
                             });
                         }
                     }
@@ -117,7 +117,6 @@
             p2p = null;
         }
     }
-
 
     /**
      * Initial setup of the viewer. Called after the component is first rendered to the DOM.
