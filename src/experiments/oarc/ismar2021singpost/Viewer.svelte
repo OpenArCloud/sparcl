@@ -32,7 +32,7 @@
      * Setup required AR features and start the XRSession.
      */
     function startSession() {
-        parentInstance.startSession(update, onSessionEnded, onNoPose,
+        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -50,16 +50,16 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-     function update(time, frame, floorPose) {
+     function onXrFrameUpdate(time, frame, floorPose) {
         hasLostTracking = false;
-        parentInstance.update(time, frame, floorPose);
+        parentInstance.onXrFrameUpdate(time, frame, floorPose);
     }
 
     /**
      * Let's the app know that the XRSession was closed.
      */
-     function onSessionEnded() {
-         parentInstance.onSessionEnded();
+     function onXrSessionEnded() {
+         parentInstance.onXrSessionEnded();
     }
 
     /**
@@ -70,8 +70,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-     function onNoPose(time, frame, floorPose) {
-        parentInstance.onNoPose(time, frame, floorPose);
+     function onXrNoPose(time, frame, floorPose) {
+        parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }
 
