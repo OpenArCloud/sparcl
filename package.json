@@ -34,7 +34,7 @@
     "snowpack-plugin-glslify": "^1.0.0"
   },
   "dependencies": {
-    "@oarc/gpp-access": "0.0.6",
+    "@oarc/gpp-access": "^0.0.9",
     "@oarc/scd-access": "^0.1.11",
     "@oarc/ssd-access": "^0.2.9",
     "automerge": "^0.14.2",

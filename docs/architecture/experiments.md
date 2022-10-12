@@ -65,11 +65,11 @@ The lifecycle functions are:
   - Initialisation of the experiment implementation
 - startSession()
   - Initialisation of WebXR, when used, respectively your own implementation for XR
-- update()
+- onXrFrameUpdate()
   - animation loop call, use to update the 3D scene
-- noPose();
+- onXrNoPose();
   - WebXR hasn't found a valid pose for the device
-- sessionEnded()
+- onXrSessionEnded()
   - Use to release resources
 
 ![image](https://user-images.githubusercontent.com/231274/122675675-d154bf80-d1da-11eb-9eb0-e6975eb548bd.png)
