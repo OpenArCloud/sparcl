@@ -47,7 +47,7 @@
      * Setup required AR features and start the XRSession.
      */
     function startSession() {
-        parentInstance.startSession(update, onSessionEnded, onNoPose,
+        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -71,7 +71,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function update(time, frame, floorPose, floorSpaceReference) {
+    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
         hasLostTracking = false;
 
         if (hitTestSource) {
@@ -80,7 +80,7 @@
                 const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
 
                 if ($settings.localisation && !$parentState.isLocalized) {
-                    parentInstance.update(time, frame, floorPose);
+                    parentInstance.onXrFrameUpdate(time, frame, floorPose);
                 } else {
                     $parentState.showFooter = $settings.showstats
                         || ($settings.localisation && !$parentState.isLocalisationDone);
@@ -105,7 +105,7 @@
     /**
      * Let's the app know that the XRSession was closed.
      */
-    function onSessionEnded() {
+    function onXrSessionEnded() {
         if (hitTestSource) {
             hitTestSource.cancel();
             hitTestSource = null;
@@ -114,7 +114,7 @@
             clearInterval(experimentIntervalId);
             experimentIntervalId = null;
         }
-        parentInstance.onSessionEnded();
+        parentInstance.onXrSessionEnded();
     }
 
     /**
@@ -125,8 +125,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onNoPose(time, frame, floorPose) {
-        parentInstance.onNoPose(time, frame, floorPose);
+    function onXrNoPose(time, frame, floorPose) {
+        parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }
 
@@ -225,9 +225,11 @@
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "longitude": globalObjectPose.longitude,
-            "latitude": globalObjectPose.latitude,
-            "ellipsoidHeight": globalObjectPose.ellipsoidHeight,
+            "position": {
+                "lat": globalObjectPose.position.lat,
+                "lon": globalObjectPose.position.lon,
+                "h": globalObjectPose.position.h
+            },
             "quaternion": {
                 "x": globalObjectPose.quaternion.x,
                 "y": globalObjectPose.quaternion.y,
@@ -250,7 +252,7 @@
             "content": content,
             "id": object_id,
             "tenant": "ISMAR2021demo",
-            "type": "scr-ephemeral",
+            "type": "ephemeral",
             "timestamp": timestamp
         }
         let message_body = {
@@ -267,10 +269,17 @@
             });
     }
 
-    /*
-     * Handle messages from the application or from the P2P network
+    /**
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function updateReceived(events) {
+    export function onNetworkEvent(events) {
+        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+            console.log('Viewer-ISMAR2021Multi: Unknown event received:');
+            console.log(events);
+            // pass on to parent
+            return parentInstance.onNetworkEvent(events);
+        }
 
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
@@ -292,11 +301,6 @@
                     parentInstance.placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
                 }
             }
-        }
-
-        if (!('message_broadcasted' in events) && !('object_created' in events)) {
-            // let the parent Viewer process it
-            parentInstance.updateReceived(events);
         }
     }
 </script>
