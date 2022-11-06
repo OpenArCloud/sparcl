@@ -697,7 +697,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -765,7 +764,6 @@
                         console.log(errorMessage);
                         throw errorMessage;
                     }
-
                     console.log("IMAGE GeoPose:");
                     console.log(cameraGeoPose);
 
@@ -775,7 +773,6 @@
                         optionalScrs = data.scrs;
                         console.log("GPP response also contains " + optionalScrs.length + " SCRs");
                     }
-
                     resolve([cameraGeoPose, optionalScrs]);
                 })
                 .catch(error => {
