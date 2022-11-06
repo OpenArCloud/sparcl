@@ -560,7 +560,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -675,14 +674,17 @@
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
-                if (record.content.type === 'placeholder') {
-
+                switch (record.content.type) {
+                case 'MODEL_3D':
+                case '3D': // TODO: should be removed // AC added it in Nov.2022
+                case 'placeholder': // TODO: should be removed // AC removed it in Nov.2022
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                     let position = localObjectPose.position;
                     let orientation = localObjectPose.quaternion;
 
-                    // Augmented City proprietary structure
+                    // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
+                    // kept for backward compatibility and will be removed
                     //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
                     if (record.content.custom_data?.sticker_subtype != undefined) {
                         const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
@@ -703,9 +705,17 @@
                                 break;
                         }
                     } else {
+                        // we cannot load anything else but AC-compliant 3D models
+                        // so draw a placeholder instead
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
+                    break;
+
+                default:
+                    console.log(record.content.title + " has unexpected content type: " + record.content.type);
+                    console.log(record.content);
+                    break;
                 }
 
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer

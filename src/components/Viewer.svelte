@@ -183,7 +183,6 @@
                         //if (optionalScrs) {
                         //    return [optionalScrs];
                         //}
-
                         // Instead of returning [optionalScrs], we request content from all available content services
                         // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                         let scrsPromises = getContentsInH3Cell();
@@ -410,8 +409,9 @@
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
-                // TODO: placeholder is a temporary type we use in all demos until we come up with a good list
-                case "placeholder":
+                case "MODEL_3D":
+                case "3D": // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
+                case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                     showContentsLog = true; // show log if at least one 3D object was received
 
                     let globalObjectPose = record.content.geopose;
@@ -419,7 +419,8 @@
                     let position = localObjectPose.position;
                     let orientation = localObjectPose.quaternion;
 
-                    // Augmented City proprietary structure
+                    // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
+                    // kept for backward compatibility and will be removed
                     //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
                     if (record.content.custom_data?.sticker_subtype != undefined) {
                         const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
@@ -440,21 +441,26 @@
                                 break;
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) {
-                        // Orbit custom data type
+                        // OSCP-compliant 3D content structure 
                         // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
                         if (contentType.includes("gltf")) {
                             tdEngine.addModel(position, orientation, url);
                         } else {
+                            // we cannot load anything else but GLTF
+                            // so draw a placeholder instead
                             const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                             handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                         }
                     } else {
+                        // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
+                        // so draw a placeholder instead
                         const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
                     break;
+
                 case "ephemeral":
                     // ISMAR2021 demo
                     if (record.tenant === 'ISMAR2021demo') {
@@ -465,6 +471,7 @@
                         tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                     }
                     break;
+
                 default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);
                     console.log(record.content);
