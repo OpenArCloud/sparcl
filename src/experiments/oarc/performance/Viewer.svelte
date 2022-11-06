@@ -239,18 +239,32 @@
 </script>
 
 
-<Parent bind:this={parentInstance} on:arSessionEnded>
-    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized
-                     let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded>
+    <svelte:fragment slot="overlay"
+        let:isLocalizing
+        let:isLocalized
+        let:isLocalisationDone
+        let:receivedContentNames
+        let:firstPoseReceived
+        >
         {#if $settings.localisation && !isLocalisationDone}
             <p>{receivedContentNames.join()}</p>
-            <ArCloudOverlay hasPose="{firstPoseReceived}" {isLocalizing} {isLocalized}
-                            on:startLocalisation={() => parentInstance.startLocalisation()} />
+            <ArCloudOverlay
+                hasPose="{firstPoseReceived}"
+                {isLocalizing}
+                {isLocalized}
+                on:startLocalisation={() => parentInstance.startLocalisation()}
+            />
         {:else}
             <p>{receivedContentNames.join()}</p>
-            <ArExperimentOverlay bind:this={experimentOverlay} {settings}
-                                 on:toggleAutoPlacement={toggleExperimentalPlacement}
-                                 on:relocalize={() => parentInstance.relocalize()} />
+            <ArExperimentOverlay
+                bind:this={experimentOverlay}
+                {settings}
+                on:toggleAutoPlacement={toggleExperimentalPlacement}
+                on:relocalize={() => parentInstance.relocalize()}
+            />
         {/if}
     </svelte:fragment>
 </Parent>
