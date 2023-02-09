@@ -22,11 +22,12 @@
 
     import {handlePlaceholderDefinitions} from "@core/definitionHandlers";
 
-    import {arMode, availableContentServices, debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors,
+    import {arMode, availableContentServices,
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage,
         initialLocation, receivedScrs, recentLocalisation, selectedContentServices, selectedGeoPoseService} from '@src/stateStore';
 
     import {ARMODES, wait} from "@core/common";
-    import {printOglTransform} from '@core/devTools';
+    import {loadImageBase64, saveImageBase64, saveText} from '@core/devTools';
     import {upgradeGeoPoseStandard} from '@core/locationTools';
     import {getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor,
          stopOrientationSensor, unlockScreenOrientation} from "@core/sensors";
@@ -163,13 +164,24 @@
                 const imageWidth = cameraViewport.width;
                 const imageHeight = cameraViewport.height;
 
-                const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
+                let image = null; // base64 encoded
+                if ($debug_loadCameraImage) {
+                    // TODO: intrinsics could be also loaded separately
+                    let url = "/photos/your_photo.jpg"; // place the photo into the photos subfolder
+                    image = loadImageBase64(debug_CameraImageUrl);
+                } else {
+                    image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
+                }
 
-                // Append captured camera image to body to verify if it was captured correctly
-                if ($debug_appendCameraImage) {
-                    const img = new Image();
-                    img.src = image;
-                    document.body.appendChild(img);
+                // Save image and append captured camera image to body to verify if it was captured correctly
+                if ($debug_saveCameraImage) {
+                    const docImage = new Image();
+                    docImage.src = image;
+                    document.body.appendChild(docImage);
+
+                    saveImageBase64(image, 'your_photo');
+                    saveText(JSON.stringify(cameraIntrinsics), 'your_photo_intrinsics');
+                    saveText(JSON.stringify(cameraViewport), 'your_photo_viewport');
                 }
 
                 localize(image, imageWidth, imageHeight, cameraIntrinsics)
@@ -441,7 +453,7 @@
                                 break;
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) {
-                        // OSCP-compliant 3D content structure 
+                        // OSCP-compliant 3D content structure
                         // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
