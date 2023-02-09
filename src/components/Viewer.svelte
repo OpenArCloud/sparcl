@@ -358,6 +358,7 @@
      */
     export function relocalize() {
         $context.isLocalized = false;
+        $context.isLocalizing = false;
         $context.isLocalisationDone = false;
         $receivedScrs = [];
         $context.receivedContentTitles = [];
