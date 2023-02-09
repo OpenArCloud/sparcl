@@ -2,6 +2,7 @@
 import { quat, vec3 } from 'gl-matrix';
 import { getEuler, getRelativeOrientation, toRadians, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
+import {Buffer} from 'buffer'
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -10,10 +11,10 @@ import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 // https://www.movable-type.co.uk/scripts/latlong.html
 
 /*
-* Redirects logging from console to logger widget (preformatted text), 
+* Redirects logging from console to logger widget (preformatted text),
 * code inspired by https://stackoverflow.com/a/45387558
 *
-* Example use: 
+* Example use:
 * <pre id="logger"></pre>
   <script> logToElement(document.getElementById("logger")); </script>
 */
@@ -96,8 +97,8 @@ export function logToConsole() {
 /**
  * Checks for pending OpenGL errors
  * @param {glBinding} gl OpenGL binding
- * @param {string} message 
- * @returns {boolean} false if no error, true if there was an error 
+ * @param {string} message
+ * @returns {boolean} false if no error, true if there was an error
  */
 export function checkGLError(gl, message) {
     if (gl == null) {
@@ -110,6 +111,49 @@ export function checkGLError(gl, message) {
         return true;
     }
     return false;
+}
+
+/**
+* Loads an image from a given URL and returns it in base64 encoding
+* @param url The URL to load
+*/
+export async function loadImageBase64(url) {
+    // TODO: also read EXIF entries
+    let response = await fetch(url);
+    let buffer = await response.arrayBuffer();
+    const imageBase64 = 'data:image/jpeg;base64,' + btoa(new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), ''));
+    return imageBase64;
+}
+
+/**
+* Saves a base64-encoded jpeg, png, or gif image into a file in the default Download folder
+* @param imageBase64 The URL to load
+* @param fileNameStem filename without extension
+*/
+// code adapted from https://gist.github.com/madhums/e749dca107e26d72b64d
+export function saveImageBase64(imageBase64, fileNameStem) {
+    // Grab the extension to resolve any image error
+    let ext = imageBase64.split(';')[0].match(/jpeg|png|gif/)[0];
+    // strip off the data: url prefix to get just the base64-encoded bytes
+    let data = imageBase64.replace(/^data:image\/\w+;base64,/, "");
+    let buf = Buffer.from(data, 'base64');
+    let a = document.createElement("a");
+    a.href = window.URL.createObjectURL(new Blob([buf], {type: 'image' + '/' + ext}));
+    a.download = fileNameStem + '.' + ext;
+    a.click();
+}
+
+/**
+* Saves text into a text file in the default Download folder
+* @param string text
+* @param fileNameStem filename without extension
+*/
+// code adapted from https://code-boxx.com/create-save-files-javascript/
+export function saveText(string, fileNameStem) {
+    let a = document.createElement("a");
+    a.href = window.URL.createObjectURL(new Blob([string], {type: 'text/plain'}));
+    a.download = fileNameStem + '.' + 'txt';
+    a.click();
 }
 
 /**

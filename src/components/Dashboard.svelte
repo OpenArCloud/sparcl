@@ -17,7 +17,7 @@
         currentMarkerImage, currentMarkerImageWidth, recentLocalisation,
         allowP2pNetwork, p2pNetworkState, isLocationAccessAllowed, dashboardDetail,
         creatorModeSettings, experimentModeSettings,
-        debug_appendCameraImage, debug_showLocalAxes, debug_useGeolocationSensors
+        debug_showLocalAxes, debug_useGeolocationSensors, debug_saveCameraImage, debug_loadCameraImage
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -447,13 +447,18 @@
 <details class="dashboard" bind:open="{$dashboardDetail.debug}">
     <summary>Debug settings</summary>
     <div>
-        <input id="appendcameraimage" type="checkbox" bind:checked={$debug_appendCameraImage} />
-        <label for="appendcameraimage">Append captured image</label>
+        <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
+        <label for="showlocalaxes">Show local coordinate axes</label>
     </div>
 
     <div>
-        <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
-        <label for="showlocalaxes">Show local coordinate axes</label>
+        <input id="savecameraimage" type="checkbox" bind:checked={$debug_saveCameraImage} />
+        <label for="savecameraimage">Save captured localization image</label>
+    </div>
+
+    <div>
+        <input id="loadcameraimage" type="checkbox" bind:checked={$debug_loadCameraImage} />
+        <label for="loadcameraimage">Load an existing localization image</label>
     </div>
 
     <div>
