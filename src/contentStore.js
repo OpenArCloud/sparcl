@@ -64,7 +64,7 @@ export const markerInfo = readable('', (set) => {
 // Informs about unavailability of service coverage
 export const unavailableInfo = readable('', (set) => {
     set(`
-        No service coverage available in your current area. 
+        No service coverage available in your current area.
         Open Dashboard to select developer or creator modes.
     `)
     return () => set('');
@@ -133,13 +133,13 @@ export const dashboardOkLabel = readable('', (set) => {
     return () => set('');
 })
 
-// Button label in DOM-overlay to start localisation
+// Button label in DOM-overlay to start localization
 export const localizeLabel = readable('', (set) => {
     set('Localize');
     return () => set('');
 })
 
-// Button label in DOM-overlay to start localisation
+// Button label in DOM-overlay for relocalization
 export const resetLabel = readable('', (set) => {
     set('Reset');
     return () => set('');
