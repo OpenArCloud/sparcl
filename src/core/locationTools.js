@@ -89,8 +89,7 @@ export function getCurrentLocation() {
             const lonAngle = position.coords.longitude;
 
             // WARNING: more than 1 request in a second leads to IP address ban!
-            fetch(`https://nominatim.openstreetmap.org/reverse?
-                    lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
                 .then((response) => {
                     if (response.ok) {
                         return response.json();
