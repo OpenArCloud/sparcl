@@ -23,7 +23,7 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
+            debug_saveCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
@@ -540,7 +540,7 @@
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
                 // Append captured camera image to body to verify if it was captured correctly
-                if ($debug_appendCameraImage) {
+                if ($debug_saveCameraImage) {
                     const img = new Image();
                     img.src = image;
                     document.body.appendChild(img);

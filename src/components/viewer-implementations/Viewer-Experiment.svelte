@@ -23,7 +23,8 @@
     import { handlePlaceholderDefinitions } from "@core/definitionHandlers";
 
     import { arMode, availableContentServices, creatorModeSettings, currentMarkerImage, currentMarkerImageWidth,
-            debug_appendCameraImage, debug_showLocalAxes, experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
+            debug_saveCameraImage, debug_showLocalAxes,
+            experimentModeSettings, initialLocation, receivedScrs, recentLocalisation,
             selectedContentServices, selectedGeoPoseService, peerIdStr } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, debounce, wait } from "@core/common";
@@ -680,7 +681,7 @@
                 const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
                 // Append captured camera image to body to verify if it was captured correctly
-                if ($debug_appendCameraImage) {
+                if ($debug_saveCameraImage) {
                     const img = new Image();
                     img.src = image;
                     document.body.appendChild(img);
@@ -730,7 +731,7 @@
             cameraParams.model = CAMERAMODEL.PINHOLE;
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
 
-            
+
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
@@ -839,7 +840,7 @@
                 switch (record.content.type) {
                 case "MODEL_3D":
                 case "3D": // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
-                case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022            
+                case "placeholder": // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                     let globalObjectPose = record.content.geopose;
                     let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                     let position = localObjectPose.position;
@@ -867,7 +868,7 @@
                                 break;
                         }
                     } else if (record.content.refs != undefined && record.content.refs.length > 0) {
-                        // OSCP-compliant 3D content structure      
+                        // OSCP-compliant 3D content structure
                         // TODO load all, not only first reference
                         const contentType = record.content.refs[0].contentType;
                         const url = record.content.refs[0].url;
@@ -886,7 +887,7 @@
                         handlePlaceholderDefinitions(tdEngine, placeholder, /* record.content.definition */);
                     }
                     break;
-                
+
                 case 'ephemeral':
                     // ISMAR2021 demo
                     if (record.tenant === 'ISMAR2021demo') {
@@ -896,7 +897,7 @@
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                         tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                     }
-                    break;  
+                    break;
 
                 default:
                     console.log(record.content.title + " has unexpected content type: " + record.content.type);

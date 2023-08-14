@@ -313,15 +313,26 @@ export const p2pNetworkState = writable('not connected');
 export const peerIdStr = writable('none');
 
 /**
- * Appends the captured image used for localisation to the body an an image element.
+ * Save the captured image used for localisation and append it to the body as an image element.
  *
  * @type {Writable<boolean>}
  */
-const storedDebug_appendCameraImage = localStorage.getItem('debug_appendCameraImage') === 'true';
-export const debug_appendCameraImage = writable(storedDebug_appendCameraImage);
-debug_appendCameraImage.subscribe(value => {
-    localStorage.setItem('debug_appendCameraImage', value === true ? 'true' : 'false');
+const storedDebug_saveCameraImage = localStorage.getItem('debug_saveCameraImage') === 'true';
+export const debug_saveCameraImage = writable(storedDebug_saveCameraImage);
+debug_saveCameraImage.subscribe(value => {
+    localStorage.setItem('debug_saveCameraImage', value === true ? 'true' : 'false');
 })
+
+/**
+ * Load an existing photo for localization (for example an image saved with debug_saveCameraImage)
+ *
+ * @type {Writable<boolean>}
+ */
+ const storedDebug_loadCameraImage = localStorage.getItem('debug_loadCameraImage') === 'true';
+ export const debug_loadCameraImage = writable(storedDebug_loadCameraImage);
+ debug_loadCameraImage.subscribe(value => {
+     localStorage.setItem('debug_loadCameraImage', value === true ? 'true' : 'false');
+ })
 
 /**
  * Display axis markers for the local coordinate system.
