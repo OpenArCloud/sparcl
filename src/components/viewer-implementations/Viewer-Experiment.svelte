@@ -81,6 +81,7 @@
 
     /**
      * Receives data from the application to be applied to current scene.
+     * NOTE: sometimes multiple events are bundled!
      */
     export function onNetworkEvent(events) {
         // Simply print any other events and return
@@ -91,12 +92,15 @@
             return;
         }
 
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer-Experiment: event received:');
-        console.log(events);
+        if (get(recentLocalisation)?.geopose?.position == undefined) {
+            // we need to localize at least once to be able to do anything
+            console.log('Network event received but we are not localized yet!');
+            console.log(events);
+            return;
+        }
 
         if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
+            const data = events.message_broadcasted;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
                 if ('message' in data && 'sender' in data) {
                     console.log("message from " + data.sender + ": \n  " + data.message);
@@ -105,10 +109,10 @@
         }
 
         if ('object_created' in events) {
-            let data = events.object_created;
+            const data = events.object_created;
 //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-                data = data.scr;
-                if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+                const scr = data.scr;
+                if ('tenant' in scr && scr.tenant == 'ISMAR2021demo') {
                     experimentOverlay?.objectReceived();
                     placeContent([[scr]]); // WARNING: wrap into an array
                 }

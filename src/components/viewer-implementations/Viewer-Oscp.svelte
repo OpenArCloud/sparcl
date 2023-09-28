@@ -62,7 +62,7 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-        parentInstance.onXrFrameUpdate(time, frame, floorPose);
+        parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 
     /**
