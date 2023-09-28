@@ -45,7 +45,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
+    let firstPoseReceived = false, hasLostTracking = true;
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -88,7 +88,7 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
+    export async function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
                                  setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
@@ -128,6 +128,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrFrameUpdate(time, frame, floorPose) {
+        hasLostTracking = false;
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
