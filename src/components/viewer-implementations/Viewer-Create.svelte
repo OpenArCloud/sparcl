@@ -38,7 +38,7 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
             () => {},
             ['dom-overlay', 'anchors', 'local-floor'],
         );
