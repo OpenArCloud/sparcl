@@ -31,7 +31,7 @@
     async function startSession() {
         let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
         let optionalXrFeatures = [];
-        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -62,7 +62,7 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
-        parentInstance.onXrFrameUpdate(time, frame, floorPose);
+        parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 
     /**

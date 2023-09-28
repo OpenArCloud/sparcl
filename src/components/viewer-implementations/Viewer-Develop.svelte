@@ -35,8 +35,8 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
+    async function startSession() {
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
             () => {},
             ['dom-overlay', 'anchors', 'local-floor'],
         );
@@ -64,14 +64,15 @@
             }
 
             for (let view of floorPose.views) {
-                console.log('fake localisation');
 
+                console.log('fake localisation');
+                const geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
                 wait(1000).then(showFooter = false);
 
-                let geoPose = fakeLocationResult.geopose.pose;
-                let data = fakeLocationResult.scrs;
-                parentInstance.placeContent(floorPose, geoPose, [data]);
+                const scrs = fakeLocationResult.scrs;
+                parentInstance.placeContent([scrs]);
             }
         }
 

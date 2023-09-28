@@ -16,15 +16,16 @@ import {printOglTransform, checkGLError} from '@core/devTools';
 
 import {quat, vec3} from 'gl-matrix';
 
-
-let scene, camera, renderer, gl;
-let updateHandlers = {}, eventHandlers = {}, uniforms = { time: []};
+let gl, renderer;
+let lastRenderTime = 0;
+let scene, camera, axesHelper;
+let updateHandlers = {}, eventHandlers = {};
+let uniforms = { time: []};
 let _geo2ArTransformNode;
 let _ar2GeoTransformNode;
 let _globalImagePose;
 let _localImagePose;
 let experimentTapHandler = null;
-let lastTime = 0;
 
 
 /**
@@ -398,8 +399,8 @@ export default class ogl {
 
         Object.values(updateHandlers).forEach(handler => handler());
 
-        const relTime = time - lastTime;
-        lastTime = time;
+        const relTime = time - lastRenderTime;
+        lastRenderTime = time;
         uniforms.time.forEach(model => model.program.uniforms.uTime.value = time * 0.001);  // Time in seconds
 
         renderer.render({scene, camera});
@@ -427,10 +428,12 @@ export default class ogl {
         const eventMeshes = Object.values(eventHandlers).map(handler => handler.model);
         const hits = raycast.intersectBounds(eventMeshes);
 
+        // if an OGL object is hit, execute its handler
         hits.forEach((hit) => {
             eventHandlers[hit.id].handler();
         })
 
+        // if no OGL object is hit, forward the event to the base tap handler
         if (hits.length === 0 && experimentTapHandler) {
             experimentTapHandler(event);
         }
@@ -442,7 +445,7 @@ export default class ogl {
      * @param {*} localImagePose The local pose of the photo
      * @param {*} globalImagePose The global pose of the photo
      */
-    beginSpatialContentRecords(localImagePose, globalImagePose) {
+    updateGeoAlignment(localImagePose, globalImagePose) {
 
         // NOTE:
         // The GeoPose location coordinates are in local tangent plane (LTP) approximation, in
@@ -585,9 +588,9 @@ export default class ogl {
     }
 
     /**
-     * This recursively updates the whole scene graph after all SCRs are placed
+     * This recursively updates the world matrices in the whole scene graph
      */
-    endSpatialContentRecords() {
+    updateSceneGraphTransforms() {
         scene.updateMatrixWorld(true);
     }
 
