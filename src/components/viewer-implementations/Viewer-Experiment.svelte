@@ -110,9 +110,7 @@
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
                     experimentOverlay?.objectReceived();
-                    let latestGlobalPose = $recentLocalisation.geopose;
-                    let latestLocalPose = $recentLocalisation.floorpose;
-                    placeContent(latestLocalPose, latestGlobalPose, [[data]]); // WARNING: wrap into an array
+                    placeContent([[scr]]); // WARNING: wrap into an array
                 }
 //            }
         }
@@ -519,15 +517,13 @@
 
             for (let view of floorPose.views) {
                 xrEngine.setViewportForView(view);
-
                 console.log('fake localisation');
-
+                const geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
                 wait(1000).then(showFooter = false);
-
-                let geoPose = fakeLocationResult.geopose.pose;
-                let data = fakeLocationResult.scrs;
-                placeContent(floorPose, geoPose, [data]);
+                const scrs = fakeLocationResult.scrs;
+                placeContent([scrs]);
             }
         }
 
@@ -692,6 +688,7 @@
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
+                        onLocalizationSuccess(floorPose, geoPose);
 
                         // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                         // We could return those as [optionalScrs], however, this means all other content services are ignored...
@@ -706,7 +703,7 @@
                     .then(scrs => {
                         // NOTE: the next step expects an array of array of SCRs in the scrs variable
                         console.log("Received " + scrs.length + " SCRs");
-                        placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
+                        placeContent(scrs);
                     })
             }
 
@@ -813,20 +810,23 @@
         return Promise.all(servicePromises);
     }
 
-    /**
-     *  Places the content provided by a call to Spacial Content Discovery providers.
-     *
-     * @param localPose XRPose      The pose of the device when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
-     * @param scr  [SCR]        Content Records with the result from the selected content services
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
-    function placeContent(localPose, globalPose, scr) {
-        let localImagePose = localPose.transform
-        let globalImagePose = globalPose
+     export function onLocalizationSuccess(localPose, globalPose,) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
 
-        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
+    /**
+     *  Places the contents provided by a call to Spacial Content Discovery providers.
+     * @param scrs  [[SCR]]        Content Records with the result from the selected content services
+     */
+    function placeContent(scrs) {
 
-        scr.forEach(response => {
+        scrs.forEach(response => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach(record => {
@@ -904,13 +904,14 @@
                     console.log(record.content);
                     break;
                 }
+
+                tdEngine.updateSceneGraphTransforms();
+
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             })
         })
-
-        tdEngine.endSpatialContentRecords();
     }
 
     /**

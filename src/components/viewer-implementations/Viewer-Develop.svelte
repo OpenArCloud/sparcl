@@ -64,14 +64,15 @@
             }
 
             for (let view of floorPose.views) {
-                console.log('fake localisation');
 
+                console.log('fake localisation');
+                const geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
                 wait(1000).then(showFooter = false);
 
-                let geoPose = fakeLocationResult.geopose.pose;
-                let data = fakeLocationResult.scrs;
-                parentInstance.placeContent(floorPose, geoPose, [data]);
+                const scrs = fakeLocationResult.scrs;
+                parentInstance.placeContent([scrs]);
             }
         }
 
