@@ -7,8 +7,8 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import Parent from '@components/Viewer';
-    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay';
+    import Parent from '@components/Viewer.svelte';
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
 
     let parentInstance;
 

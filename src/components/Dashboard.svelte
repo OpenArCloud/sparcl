@@ -22,7 +22,7 @@
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
-    import Selector from '@experiments/Selector';
+    import Selector from '@experiments/Selector.svelte';
 
 
     // Used to dispatch events to parent
