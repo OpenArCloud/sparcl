@@ -59,7 +59,7 @@
                         return import('@oarc/ssd-access');
                     })
                     .then(ssdModule => {
-                        const ssdUrl = __SNOWPACK_ENV__.SNOWPACK_PUBLIC_SSD_ROOT_URL;
+                        const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
                         if (ssdUrl != undefined && ssdUrl != "") {
                             ssdModule.setSsdUrl(ssdUrl);
                             console.log("Setting SSD URL to " +  ssdUrl);
