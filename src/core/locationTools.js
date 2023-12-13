@@ -4,8 +4,8 @@
 */
 
 /*
-    Utility function helping with calculations around GeoPose.
- */
+  Utility functions helping with calculations around GeoPose.
+*/
 
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
 import {quat, vec3} from 'gl-matrix';
@@ -26,7 +26,7 @@ export const locationAccessOptions = {
  * @returns The same GeoPose formatted according to the new (March 2022) standard
  */
 export function upgradeGeoPoseStandard(geoPose) {
-    if (geoPose.position != undefined) { 
+    if (geoPose.position != undefined) {
         return geoPose;
     }
     geoPose["position"] = {
@@ -62,6 +62,7 @@ export function getEarthRadiusAt(latitude) {
     return Math.sqrt(numerator / denominator);
 }
 
+
 // stores the UTC timestamp of the last query to getCurrentLocation(). We must not call the OpenStreetMap API higher than 1 Hz.
 // This is important in case the SSD is not available and the client keeps retrying this call.
 let lastTimeCurrentLocationQuery = 0;
@@ -87,6 +88,7 @@ export function getCurrentLocation() {
         navigator.geolocation.getCurrentPosition((position) => {
             const latAngle = position.coords.latitude;
             const lonAngle = position.coords.longitude;
+            console.log("GPS location: (" + latAngle + ", " + lonAngle + ")");
 
             // WARNING: more than 1 request in a second leads to IP address ban!
             fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
@@ -279,7 +281,7 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
 */
 export function convertSensor2AugmentedCityCam(sensorQuat) {
     // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
-    // This is only correct because instead of the actual camera image, 
+    // This is only correct because instead of the actual camera image,
     // we capture the camera texture which is always rotated according to the screen orientation.
 
     // At unit quaternion orientation in the WebXR coordinate system, the (back) camera looks in the direction of North
@@ -306,7 +308,7 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
         console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
         quat.fromEuler(displayTransform, 0, 0, 0);
     }
-    
+
     let screenQuat = quat.create();
     quat.multiply(screenQuat, displayTransform, sensorQuat);
     */
@@ -417,53 +419,170 @@ export function getRelativeOrientation(q1, q2) {
 }
 
 
-const a = 6378137;
-const b = 6356752.3142;
+// Constants of the WGS84 Earth ellipsoid
+const a = 6378137.000;  // Earth ellipsoid radius at equator
+const b = 6356752.3142; // Earth ellipsoid radius at poles
 const f = (a - b) / a;
 const e_sq = f * (2 - f);
 
 /**
-* Converts WGS-84 Geodetic point (lat, lon, h) to the
-* Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
-*/
-export function geodetic_to_ecef(lat, lon, h) {
-    let lamb = toRadians(lat);
-    let phi = toRadians(lon);
-    let s = Math.sin(lamb);
-    let N = a / Math.sqrt(1 - e_sq * s * s);
+ * Converts WGS-84 Geodetic point (lat, lon, h) to the
+ * Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
+ */
+export function convertGeodeticToEcef(lat, lon, h) {
+    const lamb = toRadians(lat);
+    const phi = toRadians(lon);
 
-    let sin_lambda = Math.sin(lamb);
-    let cos_lambda = Math.cos(lamb);
-    let sin_phi = Math.sin(phi);
-    let cos_phi = Math.cos(phi);
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
 
-    let x = (h + N) * cos_lambda * cos_phi;
-    let y = (h + N) * cos_lambda * sin_phi;
-    let z = (h + (1 - e_sq) * N) * sin_lambda;
+    const nu = a / Math.sqrt(1 - e_sq * sin_lambda * sin_lambda);
 
-    return { "x": x, "y": y, "z": z };
+    const x = (h + nu) * cos_lambda * cos_phi;
+    const y = (h + nu) * cos_lambda * sin_phi;
+    const z = (h + (1 - e_sq) * nu) * sin_lambda;
+
+    return { x: x, y: y, z: z };
 }
 
 /**
-* Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
-* East-North-Up coordinates in a Local Tangent Plane that is centered at the
-* (WGS-84) Geodetic point (lat_ref, lon_ref, h_ref).
-*/
-export function ecef_to_enu(x, y, z, lat_ref, lon_ref, h_ref) {
-    let { x0, y0, z0} = geodetic_to_ecef(lat_ref, lon_ref, h_ref);
+ * Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
+ * East-North-Up coordinates in a Local Tangent Plane that is centered at the
+ * (WGS-84) Geodetic point (lat0, lon0, h0).
+ */
+export function convertEcefToEnu(x, y, z, lat0, lon0, h0) {
+    const ecef_ref = convertGeodeticToEcef(lat0, lon0, h0);
 
-    let xd = x - x0;
-    let yd = y - y0;
-    let zd = z - z0;
+    const xd = x - ecef_ref.x;
+    const yd = y - ecef_ref.y;
+    const zd = z - ecef_ref.z;
 
-    let xEast = -sin_phi * xd + cos_phi * yd;
-    let yNorth = -cos_phi * sin_lambda * xd - sin_lambda * sin_phi * yd + cos_lambda * zd;
-    let zUp = cos_lambda * cos_phi * xd + cos_lambda * sin_phi * yd + sin_lambda * zd;
+    const lamb = toRadians(lat0);
+    const phi = toRadians(lon0);
 
-    return { "x": xEast, "y": yNorth, "z": zUp }
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
+
+    const t = -cos_phi * xd - sin_phi * yd;
+
+    const xEast = -sin_phi * xd + cos_phi * yd;
+    const yNorth = t * sin_lambda + cos_lambda * zd;
+    const zUp = cos_lambda * cos_phi * xd + cos_lambda * sin_phi * yd + sin_lambda * zd;
+
+    return { x: xEast, y: yNorth, z: zUp };
 }
 
-export function geodetic_to_enu(lat, lon, h, lat_ref, lon_ref, h_ref) {
-    let ecef = geodetic_to_ecef(lat, lon, h);
-    return ecef_to_enu(ecef.x, ecef.y, ecef.z, lat_ref, lon_ref, h_ref);
+export function convertGeodeticToEnu(lat, lon, h, lat0, lon0, h0) {
+    let ecef = convertGeodeticToEcef(lat, lon, h);
+    return convertEcefToEnu(ecef.x, ecef.y, ecef.z, lat0, lon0, h0);
+}
+
+
+export function convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0) {
+    const lamb = toRadians(lat0);
+    const phi = toRadians(lon0);
+
+    const sin_lambda = Math.sin(lamb);
+    const cos_lambda = Math.cos(lamb);
+    const sin_phi = Math.sin(phi);
+    const cos_phi = Math.cos(phi);
+
+    const nu = a / Math.sqrt(1 - e_sq * sin_lambda * sin_lambda);
+
+    const x0 = (h0 + nu) * cos_lambda * cos_phi;
+    const y0 = (h0 + nu) * cos_lambda * sin_phi;
+    const z0 = (h0 + (1 - e_sq) * nu) * sin_lambda;
+
+    const t = cos_lambda * zUp - sin_lambda * yNorth;
+
+    const zd = sin_lambda * zUp + cos_lambda * yNorth;
+    const xd = cos_phi * t - sin_phi * xEast;
+    const yd = sin_phi * t + cos_phi * xEast;
+
+    const x = xd + x0;
+    const y = yd + y0;
+    const z = zd + z0;
+
+    return { x: x, y: y, z: z };
+}
+
+// Convert from ECEF cartesian coordinates to
+// latitude, longitude and height (WGS-84)
+// Uses Bowring’s (1985) formulation for μm precision in concise form; ‘The accuracy of geodetic
+// latitude and height equations’, B R Bowring, Survey Review vol 28, 218, Oct 1985.
+// ported from https://github.com/chrisveness/geodesy/blob/master/latlon-ellipsoidal.js#L378
+// Formula from http://www.movable-type.co.uk/scripts/latlong-os-gridref.html#cartesian-to-geodetic
+export function convertEcefToGeodetic(x, y, z) {
+    const e1_sq = 2 * f - f * f; // 1st eccentricity squared = (a^2 − b^2) / a^2
+    const e2_sq = e1_sq / (1 - e1_sq); // 2nd eccentricity squared = (a^2 − b^2) / b^2
+    const p = Math.sqrt(x * x + y * y); // distance from minor axis
+    const R = Math.sqrt(p * p + z * z); // polar radius
+
+    // parametric latitude (Bowring eqn.17, replacing tanBeta = z*a / p*b)
+    const tanBeta = (b * z) / (a * p) * (1 + e2_sq * b / R);
+    const sinBeta = tanBeta / Math.sqrt(1 + tanBeta * tanBeta);
+    const cosBeta = sinBeta / tanBeta;
+
+    // geodetic latitude (Bowring eqn.18: tanPhi = z + e2_sq * b * (sinBeta)^3 / p − e1_sq * (cosBeta)^3)
+    let latRad = 0.0;
+    if (!Number.isNaN(cosBeta)) {
+        latRad = Math.atan2(z + e2_sq * b* sinBeta * sinBeta * sinBeta, p - e1_sq * a * cosBeta * cosBeta * cosBeta);
+    }
+
+    // longitude
+    const lonRad = Math.atan2(y, x);
+
+    // height above ellipsoid (Bowring eqn.7)
+    const sinLat = Math.sin(latRad);
+    const cosLat = Math.cos(latRad);
+    const nu = a / Math.sqrt(1 - e1_sq * sinLat * sinLat); // length of the normal terminated by the minor axis
+    const height = p * cosLat + z * sinLat - (a * a / nu);
+
+    return { lat: toDegrees(latRad), lon: toDegrees(lonRad), h: height };
+}
+
+export function convertEnuToGeodetic(xEast, yNorth, zUp, lat0, lon0, h0){
+    const enu = convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0);
+    const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
+    return geodetic;
+}
+
+export function convertLocalPoseToEnu(localPose, T_local_to_enu) {
+    const enuPose = localPose.clone().multiplyLeft(T_local_to_enu);
+    return enuPose;
+}
+
+
+export function convertLocalPoseToGeoPose(localPose, T_local_to_enu, refGeoPose) {
+    const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
+    const enuPosition = enuPose.getTranslation();
+    const enuRotMat = enuPose.getRotationMatrix3();
+    const enuQuaternion = new Quaternion().fromMatrix3(enuRotMat);
+
+    const dE = enuPosition[0];
+    const dN = enuPosition[1];
+    const dU = enuPosition[2];
+    const lat_ref = refGeoPose.position.lat;
+    const lon_ref = refGeoPose.position.lon;
+    const h_ref = refGeoPose.position.h
+    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
+
+    const geoPose = {
+        "position": {
+            "lat": geodetic.lat,
+            "lon": geodetic.lon,
+            "h": geodetic.h,
+        },
+        "quaternion": {
+            "x": enuQuaternion.x,
+            "y": enuQuaternion.y,
+            "z": enuQuaternion.z,
+            "w": enuQuaternion.w
+        }
+    }
+    return geoPose;
 }
