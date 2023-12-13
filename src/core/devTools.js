@@ -29,7 +29,7 @@ export function logToElement(loggerElement) {
         var output = "", arg, i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += "<span class=\"log-" + (typeof arg) + "\">";
+            output += "<span style=\"white-space: normal; word-wrap: break-word;\" class=\"log-" + (typeof arg) + "\">";
             if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
                 output += JSON.stringify(arg);
             } else {
@@ -46,7 +46,7 @@ export function logToElement(loggerElement) {
         var output = "", arg, i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += "<span class=\"warning-" + (typeof arg) + "\">";
+            output += "<span style=\"white-space: normal; word-wrap: break-word;\" class=\"warning-" + (typeof arg) + "\">";
             if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
                 output += JSON.stringify(arg);
             } else {
@@ -63,7 +63,7 @@ export function logToElement(loggerElement) {
         var output = "", arg, i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += "<span class=\"error-" + (typeof arg) + "\">";
+            output += "<span style=\"white-space: normal; word-wrap: break-word;\" class=\"error-" + (typeof arg) + "\">";
             if (typeof arg === "object" && typeof JSON === "object" && typeof JSON.stringify === "function") {
                 output += JSON.stringify(arg);
             } else {

@@ -110,7 +110,11 @@ export function createModel(gl,
     }
 
     const program = createDefaultProgram(gl, color, translucent);
-    const mesh = new Mesh(gl, { geometry: geometry, program });
+    const mesh = new Mesh(gl, {
+        geometry: geometry,
+        program: program,
+        frustumCulled: false // TODO: is this needed?
+    });
     mesh.scale.set(scale);
     return mesh;
 }
@@ -214,8 +218,8 @@ export function getExperiencePlaceholder(gl) {
  * @returns {Mesh}
  */
 export function getDefaultMarkerObject(gl) {
-    const object = createModel(gl, PRIMITIVES.box, [.5, 1, 0]);
-    object.scale.set(0.1);
+    const object = createModel(gl, PRIMITIVES.box, [0.75, 0.75, 0.75, 1.0]);
+    object.scale.set(0.01);
     return object;
 }
 
@@ -270,5 +274,9 @@ export function getReticle(gl) {
     });
 
     const program = createDefaultProgram(gl, [1, 1, 1, 1], false);
-    return new Mesh(gl, { geometry: placeholder, program });
+    return new Mesh(gl, {
+        geometry: placeholder,
+        program: program,
+        frustumCulled: false // TODO: is this needed?
+    });
 }
