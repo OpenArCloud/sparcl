@@ -7,7 +7,7 @@
   Utility functions helping with calculations around GeoPose.
 */
 
-import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
+import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
 import {quat, vec3} from 'gl-matrix';
 import * as h3 from "h3-js";
 import {supportedCountries} from '@oarc/ssd-access';

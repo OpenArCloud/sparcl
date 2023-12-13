@@ -13,10 +13,10 @@
     import {v4 as uuidv4} from 'uuid';
 
     import {sendRequest, validateRequest} from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
-    import {CameraParam, CAMERAMODEL} from '@oarc/gpp-access/request/options/CameraParam.js';
-    import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals.js';
+    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest';
+    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation';
+    import {CameraParam, CAMERAMODEL} from '@oarc/gpp-access/request/options/CameraParam';
+    import {IMAGEFORMAT} from '@oarc/gpp-access/GppGlobals';
 
     import {getContentsAtLocation} from '@oarc/scd-access';
 
