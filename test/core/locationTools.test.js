@@ -4,7 +4,7 @@
 */
 
 import chai from 'chai';
-import { calculateLocalLocation } from '../../src/core/locationTools.js';
+import { calculateLocalLocation } from '../../src/core/locationTools';
 
 const expect = chai.expect;
 
