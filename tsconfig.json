@@ -1,6 +1,18 @@
 {
     "extends": "@tsconfig/svelte/tsconfig.json",
     "compilerOptions": {
+        "noImplicitAny": true,
+        "strictPropertyInitialization": true,
+        "baseUrl": ".",
+        "paths": {
+            "@src/*": ["src/*"],
+            "@components/*": ["src/components/*"],
+            "@core/*": ["src/core/*"],
+            "@public/*": ["public/*"],
+            "@shaders/*": ["src/core/engines/ogl/shaders/*"],
+            "@thirdparty/*": ["src/third-party/*"],
+            "@experiments/*": ["src/experiments/*"]
+        },
         "target": "ESNext",
         "useDefineForClassFields": true,
         "module": "ESNext",
@@ -17,5 +29,4 @@
         "isolatedModules": true
     },
     "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"],
-    "references": [{ "path": "./tsconfig.node.json" }]
 }

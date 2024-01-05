@@ -7,16 +7,27 @@
     Content of the outro overlay.
 -->
 
-<script>
+<script lang="ts">
     import { createEventDispatcher } from 'svelte';
 
     import { outroGreeting, outro, doitOkLabel, dashboardOkLabel } from '@src/contentStore';
 
-    export let shouldShowDashboard;
+    export let shouldShowDashboard: boolean | null = null;
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{ okAction: undefined }>();
 </script>
+
+<div class="swipeable">
+    <h3>{$outroGreeting}</h3>
+    <p>{@html $outro}</p>
+
+    <footer>
+        <button on:click={() => dispatch('okAction')}>
+            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
+        </button>
+    </footer>
+</div>
 
 <style>
     h3 {
@@ -45,15 +56,3 @@
         margin-bottom: 65px;
     }
 </style>
-
-
-<div class="swipeable">
-    <h3>{$outroGreeting}</h3>
-    <p>{@html $outro}</p>
-
-    <footer>
-        <button on:click={() => dispatch('okAction')}>
-            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
-        </button>
-    </footer>
-</div>

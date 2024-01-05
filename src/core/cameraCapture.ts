@@ -6,15 +6,16 @@
 // See more details here: https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
 
 import { checkGLError } from '@core/devTools';
+import type { OGLRenderingContext } from 'ogl';
 
-let shaderProgram = null;
-let vertexBuffer = null;
-let aCoordLoc = null;
-let uSamplerLoc = null;
+let shaderProgram: WebGLProgram | null = null;
+let vertexBuffer: WebGLBuffer | null = null;
+let aCoordLoc: number | null = null;
+let uSamplerLoc: WebGLUniformLocation | null = null;
 
 
 // Only print each unique intrinsic string once.
-const intrinsicsPrinted = {};
+const intrinsicsPrinted: Record<string, boolean> = {};
 
 /** Calculates the camera intrinsics matrix from a projection matrix and viewport
 *
@@ -103,7 +104,7 @@ const intrinsicsPrinted = {};
 * Code from https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
 *
 */
-export function getCameraIntrinsics(projectionMatrix, viewport) {
+export function getCameraIntrinsics(projectionMatrix: Float32Array, viewport: XRViewport) {
     const p = projectionMatrix;
     // Principal point in pixels (typically at or near the center of the viewport)
     let u0 = (1 - p[8]) * viewport.width / 2 + viewport.x;
@@ -137,7 +138,7 @@ export function getCameraIntrinsics(projectionMatrix, viewport) {
     return cameraIntrinsics;
 }
 
-export function initCameraCaptureScene(gl) {
+export function initCameraCaptureScene(gl: OGLRenderingContext) {
     checkGLError(gl, "initCameraCaptureScene() begin")
 
     var vertices = [
@@ -156,8 +157,10 @@ export function initCameraCaptureScene(gl) {
         'gl_PointSize = 1.0;'+
     '}';
     var vertShader = gl.createShader(gl.VERTEX_SHADER);
-    gl.shaderSource(vertShader, vertCode);
-    gl.compileShader(vertShader);
+    if (vertShader) {
+        gl.shaderSource(vertShader, vertCode);
+        gl.compileShader(vertShader);
+    }
 
     // NOTE: we must explicitly use the camera texture in drawing,
     // otherwise uSampler gets optimized away, and the
@@ -168,23 +171,32 @@ export function initCameraCaptureScene(gl) {
         'gl_FragColor = texture2D(uSampler, vec2(0,0));' +
     '}';
     var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-    gl.shaderSource(fragShader, fragCode);
-    gl.compileShader(fragShader);
+    if (fragShader) {
+        gl.shaderSource(fragShader, fragCode);
+        gl.compileShader(fragShader);
+    }
 
     shaderProgram = gl.createProgram();
-    gl.attachShader(shaderProgram, vertShader);
-    gl.attachShader(shaderProgram, fragShader);
-    gl.linkProgram(shaderProgram);
+    if (shaderProgram && vertShader && fragShader) {
+        gl.attachShader(shaderProgram, vertShader);
+        gl.attachShader(shaderProgram, fragShader);
+        gl.linkProgram(shaderProgram);
+    }
 
-    aCoordLoc = gl.getAttribLocation(shaderProgram, "coordinates");
-    uSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
+    if (shaderProgram) {
+        aCoordLoc = gl.getAttribLocation(shaderProgram, "coordinates");
+        uSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
+    }
 
     checkGLError(gl, "initCameraCaptureScene() end");
 }
 
 
-export function drawCameraCaptureScene(gl, cameraTexture) {
+export function drawCameraCaptureScene(gl: OGLRenderingContext, cameraTexture: WebGLTexture) {
     checkGLError(gl, "drawCameraCaptureScene() begin");
+    if(aCoordLoc == null)  {
+        throw new Error('aCoordLoc is null')
+    }
 
     // Save ID of the previous shader
     const prevShaderId = gl.getParameter(gl.CURRENT_PROGRAM);
@@ -218,7 +230,7 @@ export function drawCameraCaptureScene(gl, cameraTexture) {
     checkGLError(gl, "drawCameraCaptureScene() end");
 }
 
-let readback_pixels = null; // buffer that stores the last image read from the GPU
+let readback_pixels: Uint8Array | null = null; // buffer that stores the last image read from the GPU
 
 /**
  * Converting a WebGLTexture to base64 encoded image.
@@ -232,7 +244,7 @@ let readback_pixels = null; // buffer that stores the last image read from the G
  * @param imageHeight    Height of the resulting image
  * @returns {string}     base64 encoded string of the image (will likely change)
  */
- export function createImageFromTexture(gl, texture, imageWidth, imageHeight) {
+ export function createImageFromTexture(gl: OGLRenderingContext, texture: WebGLTexture, imageWidth: number, imageHeight: number): string {
     checkGLError(gl, "createImageFromTexture() begin");
 
     const prev_framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING); // save the screen framebuffer ID
@@ -280,8 +292,11 @@ let readback_pixels = null; // buffer that stores the last image read from the G
     const context = canvas.getContext('2d');
 
     // Copy the pixels to a 2D canvas
-    const imageData = context.createImageData(imageWidth, imageHeight);
-    imageData.data.set(readback_pixels);
+    const imageData = context?.createImageData(imageWidth, imageHeight);
+    if (!imageData) {
+        throw new Error('imageData is undefined!')
+    }
+    imageData?.data.set(readback_pixels);
 
     // Image is vertically flipped
     // Didn't find a better way to flip the image back
@@ -298,7 +313,7 @@ let readback_pixels = null; // buffer that stores the last image read from the G
         imageFlip.data[offsetFlip + 3] = imageData.data[offset + 3] ;
     }
 
-    context.putImageData(imageFlip, 0, 0);
+    context?.putImageData(imageFlip, 0, 0);
     let imageBase64 = canvas.toDataURL('image/jpeg');
 
     checkGLError(gl, "createImageFromTexture() end");
@@ -306,7 +321,7 @@ let readback_pixels = null; // buffer that stores the last image read from the G
     return imageBase64;
 }
 
-function flip_index (kPel, width, height) {
+function flip_index (kPel: number, width: number, height: number) {
     var i     = Math.floor (kPel / width) ;
     var j     = kPel % width ;
 
