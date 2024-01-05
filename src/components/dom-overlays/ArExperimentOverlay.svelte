@@ -7,11 +7,10 @@
     Content of the experiment overlay.
 -->
 
-<script>
+<script lang="ts">
     import { createEventDispatcher } from 'svelte';
 
-    import { experimentModeSettings} from "@src/stateStore";
-
+    import { experimentModeSettings } from '@src/stateStore';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -21,14 +20,13 @@
     let objectsPlacedCount = 0;
     let objectsReceivedCount = 0;
 
-
     /**
      * Receives timing data from the WebGL frame.
      *
      * @param frameTime  integer        Duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    export function setPerformanceValues(frameTime, passedMaxSlow) {
+    export function setPerformanceValues(frameTime: number, passedMaxSlow: boolean) {
         prevFrameTime = frameTime;
         hasPassedMaxSlow = passedMaxSlow;
     }
@@ -42,6 +40,19 @@
     }
 </script>
 
+{#if $experimentModeSettings.game.showstats}
+    <p>Objects placed: {objectsPlacedCount}</p>
+    <!--<p>Objects received: {objectsReceivedCount}</p>-->
+    <p>ISMAR 2021 demo</p>
+    <!--<p>Frame time: {prevFrameTime}</p>-->
+    <!--<p>Max slow passed: {hasPassedMaxSlow}</p>-->
+    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+    {#if $experimentModeSettings.game.localisation}
+        <button class="secondary" on:click={() => dispatch('relocalize')}>
+            <img src="/media/refresh.svg" />
+        </button>
+    {/if}
+{/if}
 
 <style>
     button {
@@ -57,18 +68,3 @@
         width: 20px;
     }
 </style>
-
-
-{#if $experimentModeSettings.game.showstats}
-    <p>Objects placed: {objectsPlacedCount}</p>
-    <!--<p>Objects received: {objectsReceivedCount}</p>-->
-    <p>ISMAR 2021 demo</p>
-    <!--<p>Frame time: {prevFrameTime}</p>-->
-    <!--<p>Max slow passed: {hasPassedMaxSlow}</p>-->
-    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings.game.localisation}
-    <button class="secondary" on:click={() => dispatch('relocalize')}>
-        <img src="/media/refresh.svg" />
-    </button>
-    {/if}
-{/if}
