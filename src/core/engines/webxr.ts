@@ -19,7 +19,7 @@ let xrReferenceSpaceResetCallback: (transform: XRRigidTransform) => void;
 let xrNoPoseCallback: XrNoPoseCallbackType | null;
 let animationFrameCallback: (time: DOMHighResTimeStamp, xrFrame: XRFrame) => void;
 let floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace;
-let localSpaceReference;
+let localSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace;
 let gl: OGLRenderingContext | null;
 
 /**
@@ -250,6 +250,7 @@ export default class webxr {
         // Note: reference spaces viewer, local, and local-floor are always available, but others may not
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
         Promise.all([this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')]).then((values) => {
+            const a = values[1];
             floorSpaceReference = values[0];
             localSpaceReference = values[1];
             // TODO: use unbounded space, if available

@@ -9,7 +9,7 @@ import type { GeoposeResponse } from '@oarc/gpp-access';
 // so that we do not need to deal with interface orientation:
 // https://w3c.github.io/accelerometer/#screen-coordinate-system
 
-// TODO: AbsoluteOrientationSensor is not defined!
+// TODO: add proper typings for this!
 let sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
 let sensorMat4 = new Float32Array(16);
 let sensorQuat = quat.create();
@@ -28,7 +28,9 @@ export function startOrientationSensor() {
             sensor.onreading = () => {
                 sensor.populateMatrix(sensorMat4);
                 // both sensor.quaternion and gl-matrix.quat have x,y,z,w order within the float[4] array
-                quat.set(sensorQuat, sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]);
+                if (sensor.quaternion) {
+                    quat.set(sensorQuat, sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]);
+                }
             };
             sensor.start();
         } else {

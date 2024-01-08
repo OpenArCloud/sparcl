@@ -193,8 +193,8 @@
                 let image: Promise<string> | null = null; // base64 encoded
                 if ($debug_loadCameraImage) {
                     // TODO: intrinsics could be also loaded separately
-                    let url = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
-                    image = loadImageBase64(debug_CameraImageUrl); // HACK: what is this?
+                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
+                    image = loadImageBase64(debug_CameraImageUrl);
                 } else if (cameraTexture && imageWidth && imageHeight) {
                     image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
                 }
@@ -466,27 +466,28 @@
                         let position = localObjectPose.position;
                         let orientation = localObjectPose.quaternion;
 
+                        // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
                         // kept for backward compatibility and will be removed
                         //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        if (record.content.custom_data?.sticker_subtype != undefined) {
-                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                            const url = record.content.custom_data.path;
+                        // if (record.content.custom_data?.sticker_subtype != undefined) {
+                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        //     const url = record.content.custom_data.path;
 
-                            // TODO: Receive list of events to register to from SCD and register them here
-                            switch (subtype) {
-                                case 'scene':
-                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                    break;
-                                case 'gltf':
-                                    tdEngine.addModel(position, orientation, url);
-                                    break;
-                                default:
-                                    console.log('Error: unexpected sticker subtype: ' + subtype);
-                                    break;
-                            }
-                        } else if (record.content.refs != undefined && record.content.refs.length > 0) {
+                        //     // TODO: Receive list of events to register to from SCD and register them here
+                        //     switch (subtype) {
+                        //         case 'scene':
+                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                        //             break;
+                        //         case 'gltf':
+                        //             tdEngine.addModel(position, orientation, url);
+                        //             break;
+                        //         default:
+                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
+                        //             break;
+                        //     }
+                        if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
                             // TODO load all, not only first reference
                             const contentType = record.content.refs[0].contentType;
@@ -511,7 +512,8 @@
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
                             console.log('ISMAR2021demo object received!');
-                            let object_description = record.content.object_description;
+                            // TODO: the object_description is not standard data; it is only used for the ismar2021 demo
+                            let object_description = (record.content as any).object_description;
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);

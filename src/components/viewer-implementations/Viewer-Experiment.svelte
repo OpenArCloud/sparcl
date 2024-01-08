@@ -161,44 +161,13 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        let promise;
+        // TODO: correct as any type cast
+        const promise = xrEngine?.startSession(canvas, handleExperiment as any, {
+            requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
+            domOverlay: { root: overlay },
+        });
 
-        if ($arMode === ARMODES.experiment) {
-            promise = xrEngine?.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-
-            tdEngine.setExperimentTapHandler(() => experimentTapHandler);
-        } else if ($arMode === ARMODES.develop) {
-            promise = xrEngine?.startDevSession(canvas, handleDevelopment, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.create) {
-            promise = xrEngine.startCreativeSession(canvas, handleCreator, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.oscp) {
-            promise = xrEngine.startOscpSession(canvas, handleOscp, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.marker) {
-            const bitmap = await loadDefaultMarker();
-            const options = {
-                requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-                trackedImages: [
-                    {
-                        image: bitmap,
-                        widthInMeters: $currentMarkerImageWidth,
-                    },
-                ],
-            };
-            promise = xrEngine.startMarkerSession(canvas, handleMarker, options);
-        }
+        tdEngine.setExperimentTapHandler(() => experimentTapHandler);
 
         if (promise) {
             promise
@@ -288,11 +257,12 @@
                 reticle = tdEngine.addReticle();
             }
 
-            const position = reticlePose.transform.position;
-            const orientation = reticlePose.transform.orientation;
-            tdEngine.updateReticlePose(reticle, position, orientation);
-
-            experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+            if (reticlePose && frameDuration && passedMaxSlow) {
+                const position = reticlePose.transform.position;
+                const orientation = reticlePose.transform.orientation;
+                tdEngine.updateReticlePose(reticle, position, orientation);
+                experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+            }
 
             tdEngine.render(time, floorPose.views[0]);
         }
@@ -860,27 +830,28 @@
                         let position = localObjectPose.position;
                         let orientation = localObjectPose.quaternion;
 
+                        // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
                         // kept for backward compatibility and will be removed
                         //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        if (record.content.custom_data?.sticker_subtype != undefined) {
-                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                            const url = record.content.custom_data.path;
+                        // if (record.content.custom_data?.sticker_subtype != undefined) {
+                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        //     const url = record.content.custom_data.path;
 
-                            // TODO: Receive list of events to register to from SCD and register them here
-                            switch (subtype) {
-                                case 'scene':
-                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                    break;
-                                case 'gltf':
-                                    tdEngine.addModel(position, orientation, url);
-                                    break;
-                                default:
-                                    console.log('Error: unexpected sticker subtype: ' + subtype);
-                                    break;
-                            }
-                        } else if (record.content.refs != undefined && record.content.refs.length > 0) {
+                        //     // TODO: Receive list of events to register to from SCD and register them here
+                        //     switch (subtype) {
+                        //         case 'scene':
+                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                        //             break;
+                        //         case 'gltf':
+                        //             tdEngine.addModel(position, orientation, url);
+                        //             break;
+                        //         default:
+                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
+                        //             break;
+                        //     }
+                        if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
                             // TODO load all, not only first reference
                             const contentType = record.content.refs[0].contentType;
@@ -905,7 +876,8 @@
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
                             console.log('ISMAR2021demo object received!');
-                            let object_description = record.content.object_description;
+                            // TODO: the object_description is not standard data; it is only used for the ismar2021 demo
+                            let object_description = (record.content as any).object_description;
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);

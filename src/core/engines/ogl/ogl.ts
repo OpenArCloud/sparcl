@@ -76,10 +76,7 @@ export default class ogl {
 
         scene = new Transform();
 
-        camera = new Camera(gl);
-        camera.position.set(0, 0, 0);
-
-        this.initScene();
+        this.setupEnvironment(gl);
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
@@ -90,32 +87,11 @@ export default class ogl {
     }
 
     /**
-     * Initialize the virtual environment
+     * Set up the 3D environment as required according to the current real environment.*
      */
-    initScene() {
-        if (!gl) {
-            console.log('GL is not initilized yet!');
-            return;
-        }
-
-        // Visualize axes
-        axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
-        axesHelper.setParent(scene);
-
-        // Our camera images are captured into texture 0, and therefore the first loaded textured object (that normally gets text id 0)
-        // in the scene sometimes is painted not from its own texture but from the camera image texture.
-        // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
-        loadLogoTexture(gl, '/media/icons/icon_x48.png').then((texture) => {
-            console.log('DUmmy TEXID: ' + texture?.id);
-            const dummyProgram = createLogoProgram(gl, texture);
-            const dummyGeometry = new Plane(gl, { width: 0.1, height: 0.1 });
-            const dummyMesh = new Mesh(gl, {
-                geometry: dummyGeometry,
-                program: dummyProgram,
-                frustumCulled: false,
-            });
-            dummyMesh.setParent(scene);
-        });
+    setupEnvironment(gl: OGLRenderingContext) {
+        camera = new Camera(gl);
+        camera.position.set(0, 0, 0);
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -342,6 +318,7 @@ export default class ogl {
      */
     getExternalCameraPose(view: XRView, experienceMatrix: Mat4) {
         const cameraMatrix = new Mat4();
+        // TODO: make sure that fromArray understands matrix in correct order
         cameraMatrix.copy(experienceMatrix).inverse().multiply(new Mat4().fromArray(view.transform.matrix));
 
         return {
@@ -444,6 +421,7 @@ export default class ogl {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
+        // TODO: make sure that fromArray understands matrix in correct order
         camera.projectionMatrix.copy(new Mat4().fromArray(view.projectionMatrix));
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
@@ -613,7 +591,7 @@ export default class ogl {
     /**
      * This recursively updates the world matrices in the whole scene graph
      */
-    updateSceneGraphTransforms() {
+    endSpatialContentRecords() {
         scene.updateMatrixWorld(true);
     }
 
