@@ -82,5 +82,4 @@
     }
 </script>
 
-<!-- TODO: showFooter and isLocalized are not passed correctly -->
-<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:broadcast />
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />

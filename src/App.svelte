@@ -184,9 +184,9 @@
             shouldShowDashboard = $showDashboard;
 
             if (urlParams.has('create')) {
-                $arMode = ARMODES.creator;
+                $arMode = ARMODES.create;
             } else if (urlParams.has('develop')) {
-                $arMode = ARMODES.dev;
+                $arMode = ARMODES.develop;
             } else if (urlParams.has('dashboard')) {
                 shouldShowDashboard = true;
             }
@@ -325,7 +325,7 @@
                 </div>
             </aside>
         {:else if !$arIsAvailable}
-            <Spectator bind:this={spectator} {isHeadless} />
+            <Spectator bind:this={spectator} />
         {/if}
     {:else}
         <!-- Just for development to verify some internal values -->

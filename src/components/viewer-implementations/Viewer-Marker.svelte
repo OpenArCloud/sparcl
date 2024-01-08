@@ -116,54 +116,25 @@
         // Viewer-Marker cannot handle any events currently
         console.log('Viewer-Marker: Unknown event received:');
         console.log(events);
-        // pass on to parent
-        // TODO: no parent instance.
-        return parentInstance.onNetworkEvent(events);
     }
 
     /**
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        let promise;
-
-        if ($arMode === ARMODES.experiment) {
-            promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-
-            tdEngine.setExperimentTapHandler(experimentTapHandler);
-        } else if ($arMode === ARMODES.develop) {
-            promise = xrEngine.startDevSession(canvas, handleDevelopment, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.create) {
-            promise = xrEngine.startCreativeSession(canvas, handleCreator, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.oscp) {
-            promise = xrEngine.startOscpSession(canvas, handleOscp, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.marker) {
-            const bitmap = await loadDefaultMarker();
-            const options = {
-                requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-                // hack to circumvent exhaustive type checking of object literals, because trackedImages does not exist on XRSessionInit
-                trackedImages: [
-                    {
-                        image: bitmap,
-                        widthInMeters: $currentMarkerImageWidth,
-                    },
-                ],
-            };
-            promise = xrEngine.startMarkerSession(canvas, handleMarker, options);
-        }
+        const bitmap = await loadDefaultMarker();
+        const options = {
+            requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
+            domOverlay: { root: overlay },
+            // hack to circumvent exhaustive type checking of object literals, because trackedImages does not exist on XRSessionInit
+            trackedImages: [
+                {
+                    image: bitmap,
+                    widthInMeters: $currentMarkerImageWidth,
+                },
+            ],
+        };
+        const promise = xrEngine.startMarkerSession(canvas, handleMarker, options);
 
         if (promise) {
             promise
@@ -710,32 +681,31 @@
                         let position = localObjectPose.position;
                         let orientation = localObjectPose.quaternion;
 
+                        // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
                         // kept for backward compatibility and will be removed
                         //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        if (record.content.custom_data?.sticker_subtype != undefined) {
-                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                            const url = record.content.custom_data.path;
+                        // if (record.content.custom_data?.sticker_subtype != undefined) {
+                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        //     const url = record.content.custom_data.path;
 
-                            // TODO: Receive list of events to register to from SCD and register them here
-                            switch (subtype) {
-                                case 'scene':
-                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                    break;
-                                case 'gltf':
-                                    tdEngine.addModel(position, orientation, url);
-                                    break;
-                                default:
-                                    console.log('Error: unexpected sticker subtype: ' + subtype);
-                                    break;
-                            }
-                        } else {
-                            // we cannot load anything else but AC-compliant 3D models
-                            // so draw a placeholder instead
-                            const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                            handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
-                        }
+                        //     // TODO: Receive list of events to register to from SCD and register them here
+                        //     switch (subtype) {
+                        //         case 'scene':
+                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                        //             break;
+                        //         case 'gltf':
+                        //             tdEngine.addModel(position, orientation, url);
+                        //             break;
+                        //         default:
+                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
+                        //             break;
+                        //     }
+                        // we cannot load anything else but AC-compliant 3D models
+                        // so draw a placeholder instead
+                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                        handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         break;
 
                     default:

@@ -96,5 +96,4 @@
     }
 </script>
 
-<!-- TODO: showFooter is not passed correctly -->
-<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:broadcast />
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />
