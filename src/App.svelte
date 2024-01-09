@@ -320,7 +320,7 @@
                             on:requestLocation={requestLocationAccess}
                         />
                     {:else if showOutro}
-                        <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(false)} />
+                        <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(true)} />
                     {/if}
                 </div>
             </aside>
