@@ -1,6 +1,6 @@
 import { quat, vec3 } from 'gl-matrix';
 import { convertSensor2AugmentedCityCam } from '@core/locationTools';
-import type { GeoposeResponse } from '@oarc/gpp-access';
+import type { GeoposeResponseType } from '@oarc/gpp-access';
 
 // https://w3c.github.io/orientation-sensor
 // We currently use the 'device' reference coordinate system:
@@ -62,7 +62,7 @@ export function getSensorEstimatedGeoPose() {
         maximumAge: 0,
     };
 
-    return new Promise<GeoposeResponse['geopose']>((resolve, reject) => {
+    return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
