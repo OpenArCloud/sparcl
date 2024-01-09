@@ -13,11 +13,11 @@
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { sendRequest, validateRequest, type GeoposeResponse } from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation';
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access/request/options/CameraParam';
-    import { IMAGEFORMAT } from '@oarc/gpp-access/GppGlobals';
+    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { GeoPoseRequest } from '@oarc/gpp-access';
+    import { ImageOrientation } from '@oarc/gpp-access';
+    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
+    import { IMAGEFORMAT } from '@oarc/gpp-access';
 
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
@@ -306,7 +306,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<GeoposeResponse['geopose']>((resolve, reject) => {
+        return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }

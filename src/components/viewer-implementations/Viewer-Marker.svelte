@@ -13,11 +13,11 @@
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access/request/options/CameraParam';
-    import { sendRequest, validateRequest, type GeoposeResponse } from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation';
-    import { IMAGEFORMAT } from '@oarc/gpp-access/GppGlobals';
+    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { GeoPoseRequest } from '@oarc/gpp-access';
+    import { ImageOrientation } from '@oarc/gpp-access';
+    import { IMAGEFORMAT } from '@oarc/gpp-access';
     import { debounce } from 'lodash';
 
     import { getContentsAtLocation, type SCR } from '@oarc/scd-access';
@@ -591,8 +591,8 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<GeoposeResponse['geopose']>((resolve, reject) => {
-            let cameraParams = new CameraParam(); // TODO: where is this coming from?
+        return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
+            let cameraParams = new CameraParam();
             cameraParams.model = CAMERAMODEL.PINHOLE;
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy].map((el) => `${el}`);
 
