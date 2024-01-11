@@ -60,7 +60,11 @@
     }
 </script>
 
-<button on:click={() => dispatch('okClicked')}>Go immersive</button>
+<button
+    on:click={() => dispatch('okClicked')}
+    on:keydown={() => dispatch('okClicked')}>
+    Go immersive
+</button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>
@@ -153,8 +157,8 @@
                     />
                     <label for="selectedContentService_{service.id}">{service.title}</label>
                     <pre class="serviceurl">
-                <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-            </pre>
+                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
+                    </pre>
 
                     {#if service?.properties}
                         <ul>
@@ -231,8 +235,8 @@
 
     {#if $arMode === ARMODES.experiment}
         <dl>
-            <dt><label>Type</label></dt>
-            <dd class="select">
+            <dt><label for="experimentselector">Type</label></dt>
+            <dd class="select" id="experimentselector">
                 <Selector
                     on:change={(event) => {
                         experimentDetail = event.detail;
