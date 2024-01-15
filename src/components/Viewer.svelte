@@ -222,12 +222,14 @@
                             // Save the local pose and the global pose of the image for alignment in a later step
                             $recentLocalisation.geopose = geoPose;
                             $recentLocalisation.floorpose = floorPose;
+                            onLocalizationSuccess(floorPose, geoPose);
 
                             // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                             // We could return those as [optionalScrs], however, this means all other content services are ignored...
                             //if (optionalScrs) {
                             //    return [optionalScrs];
                             //}
+
                             // Instead of returning [optionalScrs], we request content from all available content services
                             // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                             let scrsPromises = getContentsInH3Cell();
@@ -278,6 +280,16 @@
     export function startLocalisation() {
         doCaptureImage = true;
         $context.isLocalizing = true;
+    }
+
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
 
     /**
