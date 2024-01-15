@@ -10,7 +10,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import Perge from 'perge';
 import Automerge, { change } from 'automerge';
-import Peer, { DataConnection } from 'peerjs';
+import Peer, { type DataConnection } from 'peerjs';
 import { p2pNetworkState, peerIdStr } from '@src/stateStore';
 import { get } from 'svelte/store';
 import { availableP2pServices, selectedP2pService } from '@src/stateStore';
