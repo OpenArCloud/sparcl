@@ -14,6 +14,7 @@
     import { debug_showLocalAxes } from '@src/stateStore';
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
+    import type { Geopose } from '@oarc/scd-access';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -41,6 +42,16 @@
         parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
     }
 
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
+
     /**
      * Special mode for sparcl development
      *
@@ -66,9 +77,11 @@
                 console.log('fake localisation');
 
                 isLocalized = true;
-                wait(1000).then(() => (showFooter = false));
 
                 let geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
+                wait(1000).then(() => (showFooter = false));
+
                 let data = fakeLocationResult.scrs;
                 parentInstance.placeContent([data]);
             }

@@ -20,7 +20,7 @@
     import { IMAGEFORMAT } from '@oarc/gpp-access';
     import { debounce } from 'lodash';
 
-    import { getContentsAtLocation, type SCR } from '@oarc/scd-access';
+    import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
@@ -386,9 +386,10 @@
                 console.log('fake localisation');
 
                 isLocalized = true;
+                let geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
                 wait(1000).then(() => (showFooter = false));
 
-                let geoPose = fakeLocationResult.geopose.pose;
                 let data = fakeLocationResult.scrs;
                 placeContent([data]);
             }
@@ -489,6 +490,16 @@
         tdEngine.render(time, floorPose.views[0]);
     }
 
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
+
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -555,6 +566,7 @@
                                 // Save the local pose and the global pose of the image for alignment in a later step
                                 $recentLocalisation.geopose = geoPose;
                                 $recentLocalisation.floorpose = floorPose;
+                                onLocalizationSuccess(floorPose, geoPose);
 
                                 // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                                 // We could return those as [optionalScrs], however, this means all other content services are ignored...
