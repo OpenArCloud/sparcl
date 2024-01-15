@@ -28,6 +28,7 @@
 </script>
 
 <select id="experimenttype" on:change={(event) => importExperiment(event.currentTarget.value)} disabled={Object.keys(EXPERIMENTTYPES).length === 0}>
+    <!-- TODO: why is this none? -->
     <option value="none">None</option>
     {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
         <option value={key}>{value}</option>

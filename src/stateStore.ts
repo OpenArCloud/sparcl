@@ -284,6 +284,7 @@ export const p2pNetworkState = writable('not connected');
  *
  * @type {Writable<string>}
  */
+// TODO: change to null or empty string instead
 export const peerIdStr = writable('none');
 
 /**
