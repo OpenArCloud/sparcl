@@ -237,7 +237,10 @@
                         })
                         .then((scrs) => {
                             // NOTE: the next step expects an array of array of SCRs in the scrs variable
-                            console.log('Received ' + scrs.length + ' SCRs');
+                            console.log(`Received scrs from ${scrs.length} servers`);
+                            scrs.forEach((scr) => {
+                                console.log(`Received ${scr.length} scrs from this server`);
+                            });
                             placeContent(scrs);
                         });
                 }
