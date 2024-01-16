@@ -37,6 +37,7 @@
      */
     async function startSession() {
         let requiredXrFeatures: XrFeatures[] = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
+        let optionalXrFeatures: XrFeatures[] = [];
         parentInstance.startSession(
             onXrFrameUpdate,
             onXrSessionEnded,
@@ -49,7 +50,7 @@
                 xr.initCameraCapture(gl);
             },
             requiredXrFeatures,
-            [],
+            optionalXrFeatures,
         );
     }
     /**
