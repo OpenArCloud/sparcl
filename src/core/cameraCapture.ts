@@ -149,7 +149,7 @@ export function getCameraIntrinsics(projectionMatrix: Float32Array, viewport: XR
 export function initCameraCaptureScene(gl: OGLRenderingContext) {
     checkGLError(gl, "initCameraCaptureScene() begin")
 
-    var vertices = [
+    const vertices = [
         -1.0, 1.0, 0.0
     ];
 
@@ -158,43 +158,44 @@ export function initCameraCaptureScene(gl: OGLRenderingContext) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-    var vertCode =
+    const vertCode =
     'attribute vec3 coordinates;' +
     'void main(void) {' +
         'gl_Position = vec4(coordinates, 1.0);' +
         'gl_PointSize = 1.0;'+
     '}';
-    var vertShader = gl.createShader(gl.VERTEX_SHADER);
-    if (vertShader) {
-        gl.shaderSource(vertShader, vertCode);
-        gl.compileShader(vertShader);
+    const vertShader = gl.createShader(gl.VERTEX_SHADER);
+    if (vertShader == null) {
+        throw new Error("Cannot create camera vertex shader");
     }
+    gl.shaderSource(vertShader!, vertCode);
+    gl.compileShader(vertShader!);
 
     // NOTE: we must explicitly use the camera texture in drawing,
     // otherwise uSampler gets optimized away, and the
     // camera texture gets destroyed before we could capture it.
-    var fragCode =
+    const fragCode =
     'uniform sampler2D uSampler;' +
     'void main(void) {' +
         'gl_FragColor = texture2D(uSampler, vec2(0,0));' +
     '}';
-    var fragShader = gl.createShader(gl.FRAGMENT_SHADER);
-    if (fragShader) {
-        gl.shaderSource(fragShader, fragCode);
-        gl.compileShader(fragShader);
+    const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
+    if (fragShader == null) {
+        throw new Error("Cannot create camera fragment shader");
     }
+    gl.shaderSource(fragShader, fragCode);
+    gl.compileShader(fragShader);
 
     shaderProgram = gl.createProgram();
-    if (shaderProgram && vertShader && fragShader) {
-        gl.attachShader(shaderProgram, vertShader);
-        gl.attachShader(shaderProgram, fragShader);
-        gl.linkProgram(shaderProgram);
+    if (shaderProgram == null) {
+        throw new Error("Cannot create camera shader program");
     }
+    gl.attachShader(shaderProgram!, vertShader!);
+    gl.attachShader(shaderProgram!, fragShader!);
+    gl.linkProgram(shaderProgram!);
 
-    if (shaderProgram) {
-        aCoordLoc = gl.getAttribLocation(shaderProgram, "coordinates");
-        uSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
-    }
+    aCoordLoc = gl.getAttribLocation(shaderProgram, "coordinates");
+    uSamplerLoc = gl.getUniformLocation(shaderProgram, "uSampler");
 
     checkGLError(gl, "initCameraCaptureScene() end");
 }
@@ -298,13 +299,15 @@ let readback_pixels: Uint8Array | null = null; // buffer that stores the last im
     canvas.width = imageWidth;
     canvas.height = imageHeight;
     const context = canvas.getContext('2d');
-
-    // Copy the pixels to a 2D canvas
-    const imageData = context?.createImageData(imageWidth, imageHeight);
-    if (!imageData) {
-        throw new Error('imageData is undefined!')
+    if (context == null) {
+        throw new Error('createImageFromTexture: context is undefined!')
     }
-    imageData?.data.set(readback_pixels);
+    // Copy the pixels to a 2D canvas
+    const imageData = context.createImageData(imageWidth, imageHeight);
+    if (imageData == null) {
+        throw new Error('createImageFromTexture: imageData is undefined!')
+    }
+    imageData.data.set(readback_pixels);
 
     // Image is vertically flipped
     // Didn't find a better way to flip the image back
@@ -321,7 +324,7 @@ let readback_pixels: Uint8Array | null = null; // buffer that stores the last im
         imageFlip.data[offsetFlip + 3] = imageData.data[offset + 3] ;
     }
 
-    context?.putImageData(imageFlip, 0, 0);
+    context.putImageData(imageFlip, 0, 0);
     let imageBase64 = canvas.toDataURL('image/jpeg');
 
     checkGLError(gl, "createImageFromTexture() end");
