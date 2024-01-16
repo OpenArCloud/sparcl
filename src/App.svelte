@@ -51,7 +51,7 @@
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
     let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ExperimentsViewers> | null | undefined;
-    let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
+    let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
     let spectator: Spectator | null = null;
     let shouldShowDashboard: boolean;
     let shouldShowUnavailableInfo: boolean | null = null;
@@ -259,7 +259,7 @@
         Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]).then((values) => {
             viewer = values[2]?.default;
             tick().then(() => {
-                viewerInstance?.startAr(new values[1].default(), new values[0].default()); //, options);
+                viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
             });
         });
     }
