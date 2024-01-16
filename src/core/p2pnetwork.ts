@@ -1,6 +1,10 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
 /*
@@ -8,19 +12,19 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import Perge from '@thirdparty/perge.modern';
-import Automerge, {change} from 'automerge'
-import Peer from 'peerjs';
+import Perge from 'perge';
+import Automerge, { change } from 'automerge';
+import Peer, { type DataConnection } from 'peerjs';
 import { p2pNetworkState, peerIdStr } from '@src/stateStore';
 import { get } from 'svelte/store';
 import { availableP2pServices, selectedP2pService } from '@src/stateStore';
 
-
-let instance;
+let instance: Perge;
+let peerServerHeartbeater: PeerJSHeartbeater | undefined;
 const docSet = new Automerge.DocSet();
 
-let updateFunction = undefined;
-let unsubscribeFunction = undefined;
+let updateFunction: ((data: any) => void) | undefined = undefined;
+let unsubscribeFunction: (() => void) | undefined = undefined;
 
 /**
  * Can be used to put initial values into the docset.
@@ -39,16 +43,16 @@ export function initialSetup() {
  * @param isHeadless  boolean       true when the current device should be set up as headless client
  * @param updateftn  Function       Function to call when updated values arrived
  */
-export function connect(headlessPeerId, isHeadless = false, updateftn) {
+export function connect(headlessPeerId: string, isHeadless = false, updateftn: (data: any) => void) {
     updateFunction = updateftn;
 
-    const localPeerId = isHeadless ? headlessPeerId :uuidv4();
+    const localPeerId = isHeadless ? headlessPeerId : uuidv4();
 
     setupPerge(localPeerId);
     setupPeerEvents(headlessPeerId, isHeadless);
 }
 
-export function connectWithUrl(headlessPeerId, isHeadless = true, url, port, updateftn) {
+export function connectWithUrl(headlessPeerId: string, isHeadless = true, url: string, port: number, updateftn: (data: any) => void) {
     updateFunction = updateftn;
 
     setupPergeWithUrl(headlessPeerId, url, port);
@@ -73,14 +77,13 @@ export function disconnect() {
 
         // manually close the peer connections
         // see https://github.com/peers/peerjs/issues/636
-        for (let conns in instance.peer.connections) {
-            instance.peer.connections[conns].forEach((conn, index, array) => {
-            console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
-            conn.peerConnection.close();
+        for (let conns in Object.values(instance.peer.connections)) {
+            (instance.peer.connections as Record<string, DataConnection[]>)[conns].forEach((conn, index, array) => {
+                console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
+                conn.peerConnection.close();
 
-            // close it using peerjs methods
-            if (conn.close)
-                conn.close();
+                // close it using peerjs methods
+                if (conn.close) conn.close();
             });
         }
     }
@@ -91,12 +94,12 @@ export function disconnect() {
  *
  * @param data      The data as Javascript types to send out. Will be stringified later
  */
-export function send(data) {
+export function send(data: { event: any; value: any }) {
     if (!instance) return;
 
-    instance.select('event')(change, doc => {
+    instance.select('event')(change, (doc: any) => {
         doc[data.event] = data.value;
-    })
+    });
 }
 
 /**
@@ -107,7 +110,7 @@ function onNetworkEvent() {
 
     if (updateFunction) {
         // TODO: There has to be a better way to get to the content of a doc
-        updateFunction(JSON.parse(JSON.stringify(docSet.docs)).event);
+        updateFunction(JSON.parse(JSON.stringify((docSet as any).docs)).event);
     }
 }
 
@@ -116,51 +119,56 @@ function onNetworkEvent() {
  *
  * @param peerId  String        The peer ID to register with on the signaling server
  */
-function setupPerge(peerId) {
+function setupPerge(peerId: string) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected.id ? service : result, {});
-    const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
+    const service = get(availableP2pServices).find((service) => service.id === selected?.id);
+    const port = service?.properties?.reduce((result, prop) => (prop.type === 'port' ? prop.value : result), '');
 
-    setupPergeWithUrl(peerId, service?.url, port)
+    if (port !== undefined && service?.url) {
+        setupPergeWithUrl(peerId, service?.url, parseInt(port));
+    }
 }
 
-function setupPergeWithUrl(peerId, url, port) {
+function setupPergeWithUrl(peerId: string, url: string, port: number) {
     //NOTE: servers in use:
     //{} // default, hosted by peerjs.com, see https://peerjs.com/peerserver.html
     //{host: 'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
     //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
 
-    const options = url && port ? {
-        host: url,
-        secure: true,
-        port: port
-        //,config: {
-        //    iceServers: [
-        //        { url: 'stun:stun.l.google.com:19302' },
-        //        { url: 'stun:stun1.l.google.com:19302' },
-        //        { url: 'stun:stun2.l.google.com:19302' },
-        //    ]
-        //}
-    } : {};
+    const options =
+        url && port
+            ? {
+                  host: url,
+                  secure: true,
+                  port: port,
+                  //,config: {
+                  //    iceServers: [
+                  //        { url: 'stun:stun.l.google.com:19302' },
+                  //        { url: 'stun:stun1.l.google.com:19302' },
+                  //        { url: 'stun:stun2.l.google.com:19302' },
+                  //    ]
+                  //}
+              }
+            : {};
 
-    console.log("Creating P2P network:");
-    console.log("  Server URL: " + (url!=null ? url : "PeerJS default"));
-    console.log("  Server port: " + (port!=null ? port : "PeerJS default"));
-    console.log("  PeerId: " + peerId);
+    console.log('Creating P2P network:');
+    console.log('  Server URL: ' + (url != null ? url : 'PeerJS default'));
+    console.log('  Server port: ' + (port != null ? port : 'PeerJS default'));
+    console.log('  PeerId: ' + peerId);
 
     const peer = new Peer(peerId, options);
     instance = new Perge(peerId, {
         decode: JSON.parse, // msgpack or protobuf would also be a good option
         encode: JSON.stringify,
         peer: peer,
-        docSet: docSet
-    })
+        docSet: docSet,
+    });
 
     // subscribe returns an unsubscribe function
     unsubscribeFunction = instance.subscribe(() => {
         //console.log('instance.subscribe');
         onNetworkEvent();
-    })
+    });
 }
 
 /**
@@ -171,12 +179,12 @@ function setupPergeWithUrl(peerId, url, port) {
  * @param headlessPeerId  String        The headless client to connect to
  * @param isHeadless  boolean       true when this client is an headless client, false otherwise
  */
-function setupPeerEvents(headlessPeerId, isHeadless) {
+function setupPeerEvents(headlessPeerId: string, isHeadless: boolean) {
     //Emitted when a connection to the PeerServer is established.
     instance.peer.on('open', (id) => {
         let msg = 'Connection to the PeerServer established. Peer ID ' + id;
         console.log(msg);
-        p2pNetworkState.set(msg)
+        p2pNetworkState.set(msg);
         peerIdStr.set(id);
 
         if (!isHeadless) {
@@ -193,9 +201,9 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         }
 
         // Send heartbeat to keep the connection alive
-        if (instance.peerServerHeartbeater === undefined) {
-            instance.peerServerHeartbeater = new PeerJSHeartbeater(instance.peer);
-            instance.peerServerHeartbeater.start();
+        if (peerServerHeartbeater === undefined) {
+            peerServerHeartbeater = new PeerJSHeartbeater(instance.peer);
+            peerServerHeartbeater.start();
         }
     });
 
@@ -206,7 +214,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         p2pNetworkState.set(msg);
 
         connection.on('close', () => {
-            console.log("Connection closed.");
+            console.log('Connection closed.');
         });
     });
 
@@ -214,29 +222,29 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
     instance.peer.on('error', (error) => {
         let msg = error; // 'Error: ' is already prefixed to the incoming error message
         console.error(msg);
-        p2pNetworkState.set(msg);
-    })
+        p2pNetworkState.set(`${msg}`);
+    });
 
     // Emitted when the peer is disconnected from the signalling server
     // either manually or because the connection to the signalling server was lost.
-    // When a peer is disconnected, its existing connections will stay alive, 
-    // but the peer cannot accept or create any new connections. 
+    // When a peer is disconnected, its existing connections will stay alive,
+    // but the peer cannot accept or create any new connections.
     // You can reconnect to the server by calling peer.reconnect().
     instance.peer.on('disconnected', () => {
         let msg = 'Disconnected from PeerServer';
         console.log(msg);
         p2pNetworkState.set(msg);
 
-        if (instance.peerServerHeartbeater != undefined) {
-            instance.peerServerHeartbeater.stop();
-            instance.peerServerHeartbeater = undefined;
+        if (peerServerHeartbeater != undefined) {
+            peerServerHeartbeater.stop();
+            peerServerHeartbeater = undefined;
         }
     });
 
     // Emitted when the peer is destroyed and can no longer accept or create any new connections
     // At this time, the peer's connections will all be closed.
     instance.peer.on('close', () => {
-        let msg = "Connection closed";
+        let msg = 'Connection closed';
         console.log(msg);
         p2pNetworkState.set(msg);
     });
@@ -244,25 +252,29 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
 
 // Code from https://github.com/peers/peerjs/issues/295
 class PeerJSHeartbeater {
-    constructor(peer) {
+    private peer: Peer;
+    private timeoutID: undefined | ReturnType<typeof setTimeout>;
+    constructor(peer: Peer) {
         this.peer = peer;
         //this.start();
     }
     start() {
-        console.log("PeerJSHeartbeater start")
+        console.log('PeerJSHeartbeater start');
         if (this.timeoutID === undefined) {
             this.beat();
         }
     }
     stop() {
-        console.log("PeerJSHeartbeater stop")
+        console.log('PeerJSHeartbeater stop');
         clearTimeout(this.timeoutID);
         this.timeoutID = undefined;
     }
     beat() {
-        console.log("PeerJS heartbeat from " + this.peer.id)
-        this.timeoutID = setTimeout(() => {this.beat();}, 10000);
-        if (this.peer.socket._wsOpen()) {
+        console.log('PeerJS heartbeat from ' + this.peer.id);
+        this.timeoutID = setTimeout(() => {
+            this.beat();
+        }, 10000);
+        if (this.peer.open) {
             this.peer.socket.send({ type: 'HEARTBEAT' });
         }
     }
