@@ -1,6 +1,6 @@
 {
   "name": "spARcl",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "Generic OSCP client prototype with WebXR",
   "type": "module",
   "main": "src/index.js",
@@ -49,9 +49,9 @@
     "vite-plugin-glsl": "^1.2.0"
   },
   "dependencies": {
-    "@oarc/gpp-access": "^0.0.9",
-    "@oarc/scd-access": "^0.1.11",
-    "@oarc/ssd-access": "^0.2.10",
+    "@oarc/gpp-access": "^0.1.0",
+    "@oarc/scd-access": "^0.2.0",
+    "@oarc/ssd-access": "^0.3.0",
     "automerge": "^0.14.2",
     "chai": "^4.2.0",
     "geodesy": "^2.2.1",
