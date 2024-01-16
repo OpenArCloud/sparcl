@@ -222,19 +222,20 @@
                         .then((img) => {
                             return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                         })
-                        .then((geoPose) => {
+                        .then(({cameraGeoPose, optionalScrs}) => {
                             // Save the local pose and the global pose of the image for alignment in a later step
-                            $recentLocalisation.geopose = geoPose;
+                            $recentLocalisation.geopose = cameraGeoPose;
                             $recentLocalisation.floorpose = floorPose;
-                            onLocalizationSuccess(floorPose, geoPose);
+                            onLocalizationSuccess(floorPose, cameraGeoPose);
 
-                            // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
-                            // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                            // There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
+                            // We could return only those as [optionalScrs], however, this means all other content services are ignored...
                             //if (optionalScrs) {
-                            //    return [optionalScrs];
+                                //return [optionalScrs];
                             //}
+                            // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
-                            // Instead of returning [optionalScrs], we request content from all available content services
+                            // We request content from all available content services
                             // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
                             let scrsPromises = getContentsInH3Cell();
                             return scrsPromises;
@@ -325,7 +326,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
+        return new Promise<{cameraGeoPose: GeoposeResponseType['geopose'], optionalScrs: SCR[]}>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -341,7 +342,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve(selfEstimatedGeoPose);
+                    resolve({cameraGeoPose: selfEstimatedGeoPose, optionalScrs: []});
                 });
                 return;
             }
@@ -375,13 +376,17 @@
                         // GeoPoseResp
                         // https://github.com/OpenArCloud/oscp-geopose-protocol
                         let cameraGeoPose = null;
+                        // NOTE: AugmentedCity also can also return neighboring objects in the GPP response
+                        let optionalScrs: SCR[] = [];
                         if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
                             // data is AugmentedCity format which contains other entries too
-                            // (for example AC /scrs/geopose_objs_local endpoint)
+                            // (for example AC /geopose_objs endpoint)
                             cameraGeoPose = (data.geopose as any).geopose;
+                            optionalScrs = (data as any).scrs;
+                            console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
                         } else if (data.geopose != undefined) {
                             // data is GeoPoseResp
-                            // (for example AC /scrs/geopose endpoint)
+                            // (for example AC /geopose endpoint)
                             cameraGeoPose = data.geopose;
                         } else {
                             const errorMessage = 'GPP response has no geopose field';
@@ -392,14 +397,7 @@
                         console.log('IMAGE GeoPose:');
                         console.log(cameraGeoPose);
 
-                        // NOTE: AugmentedCity also returns neighboring objects in the GPP response
-                        let optionalScrs = undefined;
-                        if ((data as any).scrs != undefined) {
-                            optionalScrs = (data as any).scrs;
-                            console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
-                        }
-
-                        resolve(cameraGeoPose);
+                        resolve({cameraGeoPose, optionalScrs});
                     })
                     .catch((error) => {
                         // TODO: Inform user
