@@ -7,7 +7,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import Parent from '@components/Viewer';
+    import Parent from '@components/Viewer.svelte';
 
     import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
     import { CREATIONTYPES } from '@core/common';

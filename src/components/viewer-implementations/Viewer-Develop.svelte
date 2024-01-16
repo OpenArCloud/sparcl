@@ -7,7 +7,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import Parent from '@components/Viewer';
+    import Parent from '@components/Viewer.svelte';
 
     import { fakeLocationResult } from "@core/devTools";
     import { wait } from "@core/common";
