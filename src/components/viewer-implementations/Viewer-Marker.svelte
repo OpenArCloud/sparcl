@@ -566,11 +566,11 @@
                     // TODO(soeroesg): downsize image if too large
                     if (cameraIntrinsics) {
                         localize(image, imageWidth, imageHeight, cameraIntrinsics)
-                            .then((geoPose) => {
+                            .then((cameraGeoPose) => {
                                 // Save the local pose and the global pose of the image for alignment in a later step
-                                $recentLocalisation.geopose = geoPose;
+                                $recentLocalisation.geopose = cameraGeoPose;
                                 $recentLocalisation.floorpose = floorPose;
-                                onLocalizationSuccess(floorPose, geoPose);
+                                onLocalizationSuccess(floorPose, cameraGeoPose);
 
                                 // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                                 // We could return those as [optionalScrs], however, this means all other content services are ignored...
@@ -630,8 +630,7 @@
                             isLocalisationDone = true;
                         });
 
-                        // TODO: data.pose from AugmentedCity is deprecated
-                        resolve(data.geopose || (data as any).pose);
+                        resolve(data.geopose);
                     })
                     .catch((error) => {
                         // TODO: Inform user
