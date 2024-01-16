@@ -1,4 +1,13 @@
 
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';

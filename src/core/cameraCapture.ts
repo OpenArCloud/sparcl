@@ -1,3 +1,11 @@
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
 
 // This code draws a single pixel textured by the camera background at every frame,
 // in order to keep the camera texture in GPU memory, so that we can read it back.
@@ -262,7 +270,7 @@ let readback_pixels: Uint8Array | null = null; // buffer that stores the last im
     readback_pixels.fill(0); // init with black
 
     gl.readPixels(0, 0, imageWidth, imageHeight, gl.RGBA, gl.UNSIGNED_BYTE, readback_pixels);
-    
+
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, prev_framebuffer); // bind back the screen framebuffer
     gl.deleteFramebuffer(framebuffer);
