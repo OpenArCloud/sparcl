@@ -21,15 +21,12 @@ The app can be used / installed as:
 
 ## Development
 
-npm needs to be installed, because dependencies are handled with it. 
+npm needs to be installed, because dependencies are handled with it.
 
-Steps to setup the project: 
+Steps to setup the project:
 * clone this repository
 * run `npm install` in the project folder to download the dependencies
-* run `npx devcert-cli generate localhost` to create self-signed certificates
-* rename certificates to snowpack.key and snowpack.crt
-* in your local snowpack.config.js, change the value devOptions.secure:=true (location access requires HTTPS connection)
-* run `npm run start`
+* run `npm run dev`
 * note the URL shown in the terminal after the server started (note http or https!)
 * open Chrome on an AR capable device, enter `chrome://flags` and enable _WebXR Incubations_
 
@@ -41,7 +38,7 @@ Steps to setup the project:
 ## Production
 Create `.env` file containing the URL to OSCP SSD
 ```
-SNOWPACK_PUBLIC_SSD_ROOT_URL=
+VITE_SSD_ROOT_URL=
 ```
 
 Build:
