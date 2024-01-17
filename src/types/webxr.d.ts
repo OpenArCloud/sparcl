@@ -7,7 +7,7 @@
   SPDX-License-Identifier: MIT
 */
 
-// https://immersive-web.github.io/raw-camera-access/#idl-index
+// https://immersive-web.github.io/
 
 declare interface XRWebGLBinding {
     getCameraImage(camera: XRCamera): WebGLTexture | null;
@@ -33,11 +33,7 @@ declare interface XRImageTrackingResult {
     measuredWidthInMeters: number;
 }
 
-declare enum XRImageTrackingState {
-    'untracked',
-    'tracked',
-    'emulated',
-}
+declare type XRImageTrackingState = 'untracked' | 'tracked' | 'emulated'; // TODO: should be enum
 
 declare interface XRAnchor {
     context?: { rootUpdater: rootUpdater };
