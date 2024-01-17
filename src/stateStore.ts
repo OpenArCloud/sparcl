@@ -96,7 +96,7 @@ export const creatorModeSettings = writable<{ shape: string; style: []; type: st
         style: [],
         modelurl: '',
         sceneurl: '',
-    }
+    },
 );
 creatorModeSettings.subscribe((value) => {
     localStorage.setItem('creatormodesettings', JSON.stringify(value));
@@ -163,7 +163,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
             debug_useGeolocationSensors.set(true);
         }
     },
-    []
+    [],
 );
 
 /**
@@ -190,7 +190,7 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
             selectedContentServices.set(selection);
         }
     },
-    []
+    [],
 );
 
 /**
@@ -216,7 +216,7 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
             selectedP2pService.set(p2pServices[0]);
         }
     },
-    []
+    [],
 );
 
 /**

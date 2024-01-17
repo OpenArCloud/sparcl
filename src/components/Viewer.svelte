@@ -222,7 +222,7 @@
                         .then((img) => {
                             return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                         })
-                        .then(({cameraGeoPose, optionalScrs}) => {
+                        .then(({ cameraGeoPose, optionalScrs }) => {
                             // Save the local pose and the global pose of the image for alignment in a later step
                             $recentLocalisation.geopose = cameraGeoPose;
                             $recentLocalisation.floorpose = floorPose;
@@ -231,7 +231,7 @@
                             // There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
                             // We could return only those as [optionalScrs], however, this means all other content services are ignored...
                             //if (optionalScrs) {
-                                //return [optionalScrs];
+                            //return [optionalScrs];
                             //}
                             // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
@@ -326,7 +326,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{cameraGeoPose: GeoposeResponseType['geopose'], optionalScrs: SCR[]}>((resolve, reject) => {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -342,7 +342,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({cameraGeoPose: selfEstimatedGeoPose, optionalScrs: []});
+                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
                 });
                 return;
             }
@@ -397,7 +397,7 @@
                         console.log('IMAGE GeoPose:');
                         console.log(cameraGeoPose);
 
-                        resolve({cameraGeoPose, optionalScrs});
+                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error) => {
                         // TODO: Inform user

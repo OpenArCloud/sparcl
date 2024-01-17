@@ -125,7 +125,7 @@ export function getCurrentLocation() {
                 console.log(`Location request failed: ${error}`);
                 reject(error);
             },
-            locationAccessOptions
+            locationAccessOptions,
         );
     });
 }
