@@ -747,7 +747,7 @@
 
             //TODO: check ImageOrientation!
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [`${width}`, `${height}`], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
                 .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
 
             // Services haven't implemented recent changes to the protocol yet

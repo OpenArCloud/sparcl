@@ -49,7 +49,7 @@
     "vite-plugin-glsl": "^1.2.0"
   },
   "dependencies": {
-    "@oarc/gpp-access": "^0.1.0",
+    "@oarc/gpp-access": "^0.1.1",
     "@oarc/scd-access": "^0.2.0",
     "@oarc/ssd-access": "^0.3.0",
     "automerge": "^0.14.2",
