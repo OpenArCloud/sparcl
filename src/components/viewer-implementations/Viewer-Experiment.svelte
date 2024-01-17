@@ -687,7 +687,7 @@
                     }
                     if (cameraIntrinsics) {
                         localize(image, imageWidth, imageHeight, cameraIntrinsics)
-                            .then(({cameraGeoPose, optionalScrs}) => {
+                            .then(({ cameraGeoPose, optionalScrs }) => {
                                 // Save the local pose and the global pose of the image for alignment in a later step
                                 $recentLocalisation.geopose = cameraGeoPose;
                                 $recentLocalisation.floorpose = floorPose;
@@ -696,7 +696,7 @@
                                 /// There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
                                 // We could return only those as [optionalScrs], however, this means all other content services are ignored...
                                 //if (optionalScrs) {
-                                    //return [optionalScrs];
+                                //return [optionalScrs];
                                 //}
                                 // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
@@ -740,7 +740,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{cameraGeoPose: GeoposeResponseType['geopose'], optionalScrs: SCR[]}>((resolve, reject) => {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
             let cameraParams = new CameraParam();
             cameraParams.model = CAMERAMODEL.PINHOLE;
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
@@ -771,7 +771,7 @@
                             // data is AugmentedCity format which contains other entries too
                             // (for example AC /geopose_objs endpoint)
                             cameraGeoPose = (data.geopose as any).geopose;
-                            optionalScrs = (data as any).scrs
+                            optionalScrs = (data as any).scrs;
                         } else if (data.geopose != undefined) {
                             // data is GeoPoseResp
                             // (for example AC /geopose endpoint)
@@ -784,7 +784,7 @@
                         console.log('IMAGE GeoPose:');
                         console.log(cameraGeoPose);
 
-                        resolve({cameraGeoPose, optionalScrs});
+                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error: any) => {
                         // TODO: Inform user
