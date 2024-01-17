@@ -1,10 +1,13 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
 /* Provider for common data types and functions */
-
 
 /**
  * Type for location info, no orientation
@@ -15,8 +18,8 @@ export const LOCATIONINFO = {
     h3Index: 0,
     lat: 0,
     lon: 0,
-    regionCode: ''
-}
+    regionCode: '',
+};
 
 /**
  * Empty Spatial Services Record to initialize variables.
@@ -30,8 +33,8 @@ export const SSR = {
     geometry: {},
     altitude: 0,
     provider: '',
-    timestamp: 0
-}
+    timestamp: 0,
+};
 
 /**
  * Empty Spatial Content Record to initialize variables.
@@ -43,8 +46,8 @@ export const SCR = {
     type: '',
     content: {},
     tenant: '',
-    timestamp: 0
-}
+    timestamp: 0,
+};
 
 /**
  * Empty GeoPose object to initialize variables.
@@ -55,15 +58,15 @@ export const GEOPOSE = {
     position: {
         lat: 0,
         lon: 0,
-        h: 0
+        h: 0,
     },
     quaternion: {
         x: 0,
         y: 0,
         z: 0,
-        w: 0
-    }
-}
+        w: 0,
+    },
+};
 
 /**
  * Definition of the local pose properties.
@@ -71,11 +74,11 @@ export const GEOPOSE = {
  * @type {{inverse: {}, transform: {w: number, x: number, y: number, z: number}, orientation: {w: number, x: number, y: number, z: number}, matrix: {}}}
  */
 export const LOCALPOSE = {
-    transform: {x: 0, y: 0, z: 0, w: 1},
-    orientation: {x: 0, y: 0, z: 0, w: 0},
+    transform: { x: 0, y: 0, z: 0, w: 1 },
+    orientation: { x: 0, y: 0, z: 0, w: 0 },
     matrix: {},
-    inverse: {}
-}
+    inverse: {},
+};
 
 /**
  * Empty service value, contained in the services array of an SSR.
@@ -88,8 +91,8 @@ export const SERVICE = {
     title: '',
     description: '',
     url: '',
-    capabilities: []
-}
+    capabilities: [],
+};
 
 /**
  * Implemented AR modes of the client.
@@ -107,8 +110,8 @@ export const ARMODES = {
     oscp: 'OSCP',
     create: 'Content creation',
     develop: 'Development',
-    experiment: 'Experiment'
-}
+    experiment: 'Experiment',
+};
 
 /**
  * Available types creatable with sparcl.
@@ -120,10 +123,10 @@ export const ARMODES = {
  * @type {{model: string, placeholder: string, scene: string}}
  */
 export const CREATIONTYPES = {
-    placeholder: "Placeholder",
+    placeholder: 'Placeholder',
     model: 'Model',
-    scene: 'Scene'
-}
+    scene: 'Scene',
+};
 
 /**
  * Supported shapes for placeholder content types.
@@ -131,9 +134,9 @@ export const CREATIONTYPES = {
  * @type {{sign: string, pole: string}}
  */
 export const PLACEHOLDERSHAPES = {
-    pole: "Pole",
-    sign: "Sign"
-}
+    pole: 'Pole',
+    sign: 'Sign',
+};
 
 /**
  * Utility function used to delay the execution of the next expression delay milliseconds.
@@ -141,23 +144,8 @@ export const PLACEHOLDERSHAPES = {
  * @param delay
  * @returns {Promise<null>}
  */
-export function wait(delay) {
-    return new Promise(resolve => setTimeout(resolve, delay));
-}
-
-/**
- * Delays the execution of the provided function until timeout expired.
- *
- * @param func  function        Will be executed when timeout expires
- * @param timeout  Number       Duration in milliseconds to delay the execution of the provided function
- * @returns {function(...[*]=): void}
- */
-export function debounce(func, timeout = 300){
-    let timer;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => { func.apply(this, args); }, timeout);
-    };
+export function wait(delay: number) {
+    return new Promise((resolve) => setTimeout(resolve, delay));
 }
 
 /**
@@ -166,6 +154,6 @@ export function debounce(func, timeout = 300){
  * @param integer max
  * @returns integer
  */
-export function randomInteger(min, max) {
+export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }

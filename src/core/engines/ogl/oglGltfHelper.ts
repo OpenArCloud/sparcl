@@ -1,6 +1,15 @@
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import {Program, TextureLoader, Vec3} from 'ogl';
+import {Program, TextureLoader, Transform, Vec3} from 'ogl';
 
 const shader = {
     vertex: /* glsl */ `
@@ -133,7 +142,7 @@ const shader = {
             return pow(color, vec3(1.0 / 2.2));
         }
         vec3 getNormal() ${`{`}
-            #ifdef NORMAL_MAP  
+            #ifdef NORMAL_MAP
                 vec3 pos_dx = dFdx(vMPos.xyz);
                 vec3 pos_dy = dFdy(vMPos.xyz);
                 vec2 tex_dx = dFdx(vUv);
@@ -181,7 +190,7 @@ const shader = {
             float level0 = floor(blend);
             float level1 = min(ENV_LODS, level0 + 1.0);
             blend -= level0;
-            
+
             // Sample the specular env map atlas depending on the roughness value
             vec2 uvSpec = cartesianToPolar(reflection);
             uvSpec.y /= 2.0;
@@ -195,7 +204,7 @@ const shader = {
             vec3 specular1 = RGBMToLinear(texture2D(tEnvSpecular, uv1)).rgb;
             vec3 specularLight = mix(specular0, specular1, blend);
             diffuse = diffuseLight * diffuseColor;
-            
+
             // Bit of extra reflection for smooth materials
             float reflectivity = pow((1.0 - roughness), 2.0) * 0.05;
             specular = specularLight * (specularColor * brdf.x + brdf.y + reflectivity);
@@ -238,7 +247,7 @@ const shader = {
             float D = microfacetDistribution(roughness, NdH);
             vec3 diffuseContrib = (1.0 - F) * (diffuseColor / PI);
             vec3 specContrib = F * G * D / (4.0 * NdL * NdV);
-            
+
             // Shading based off lights
             vec3 color = NdL * uLightColor * (diffuseContrib + specContrib);
             // Add lights spec to alpha for reflections on transparent surfaces (glass)
@@ -251,17 +260,17 @@ const shader = {
             color += diffuseIBL + specularIBL;
             // Add IBL spec to alpha for reflections on transparent surfaces (glass)
             alpha = max(alpha, max(max(specularIBL.r, specularIBL.g), specularIBL.b));
-            #ifdef OCC_MAP  
+            #ifdef OCC_MAP
                 // TODO: figure out how to apply occlusion
                 // color *= SRGBtoLinear(texture2D(tOcclusion, vUv)).rgb;
             #endif
-            #ifdef EMISSIVE_MAP  
+            #ifdef EMISSIVE_MAP
                 vec3 emissive = SRGBtoLinear(texture2D(tEmissive, vUv)).rgb * uEmissive;
                 color += emissive;
             #endif
             // Convert to sRGB to display
             gl_FragColor.rgb = linearToSRGB(color);
-            
+
             // Apply uAlpha uniform at the end to overwrite any specular additions on transparent surfaces
             gl_FragColor.a = alpha * uAlpha;
         }
@@ -269,7 +278,7 @@ const shader = {
 };
 
 
-export function createGltfProgram(node) {
+export function createGltfProgram(node: any) {
     const gltf = node.program.gltfMaterial || {};
     let { vertex, fragment } = shader;
 

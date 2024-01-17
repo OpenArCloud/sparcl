@@ -5,11 +5,11 @@ has_children: true
 nav_order: 2
 ---
 
-# Overall Architecture of sparcl 
+# Overall Architecture of sparcl
 
 Note that sparcl is a proof of concept and experimentation application, a reference client for the OSCP which is never meant to become a product. It is Web-based so that it can be used in a wide range of devices. To implement sparcl, the following main elements were chosen:
 
-* [Svelte](https://svelte.dev/) Web app framework with [snowpack](https://www.snowpack.dev/) for development and with [rollup](https://rollupjs.org/guide/en/) for deployment (Until the snowpack bundler is done, rollup is the most likely one to be used).
+* [Svelte](https://svelte.dev/) Web app framework with [vite](https://vitejs.dev/).
 
 * [WebXR](https://www.w3.org/TR/webxr/) AR-engine
 Tests of the AR features of WebXR have been working very well for us already, so there was no question to go ahead using it for sparcl, even when the specs are still very experimental. Especially after we could make camera access work in some way (definitely needs improvement).
