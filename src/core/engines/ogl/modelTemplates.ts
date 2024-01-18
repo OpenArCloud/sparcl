@@ -5,14 +5,12 @@
 
 /* Provides models for generic content, provided by the content discovery */
 
-
-import {Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4} from 'ogl';
+import { Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4 } from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
-import {randomInteger} from '@src/core/common';
-
+import { randomInteger } from '@src/core/common';
 
 /**
  * The supported WebGL primitives.
@@ -25,12 +23,15 @@ export const PRIMITIVES = Object.freeze({
     plane: 'plane',
     cylinder: 'cylinder',
     cone: 'cone',
-    torus: 'torus'
+    torus: 'torus',
 });
 
-export let createProgram = (gl, {vertex = defaultVertex, fragment = defaultFragment, uniforms = {}}) => new Program(gl, {
-    vertex, fragment, uniforms
-})
+export let createProgram = (gl, { vertex = defaultVertex, fragment = defaultFragment, uniforms = {} }) =>
+    new Program(gl, {
+        vertex,
+        fragment,
+        uniforms,
+    });
 
 /**
  * General use GLSL program.
@@ -40,14 +41,15 @@ export let createProgram = (gl, {vertex = defaultVertex, fragment = defaultFragm
  * @param transparent  Boolean      true to draw translucent according to alpha value in color
  * @returns {Program}
  */
-export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: defaultFragment,
-    transparent: transparent,
-    uniforms: {
-        uColor: {value: new Vec4(...color)}
-    }
-})
+export let createDefaultProgram = (gl, color, transparent) =>
+    new Program(gl, {
+        vertex: defaultVertex,
+        fragment: defaultFragment,
+        transparent: transparent,
+        uniforms: {
+            uColor: { value: new Vec4(...color) },
+        },
+    });
 
 /**
  * GLSL program used for objects offering an interactive feature.
@@ -57,15 +59,16 @@ export let createDefaultProgram = (gl, color, transparent) => new Program(gl, {
  * @param altColor  Color       Alternative color for color animation
  * @returns {Program}
  */
-export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
-    vertex: defaultVertex,
-    fragment: waitingFragment,
-    uniforms: {
-        uColor: {value: new Vec4(...color)},
-        uAltColor: {value: new Vec4(...altColor)},
-        uTime: {value: 0.0}
-    }
-})
+export let createWaitingProgram = (gl, color, altColor) =>
+    new Program(gl, {
+        vertex: defaultVertex,
+        fragment: waitingFragment,
+        uniforms: {
+            uColor: { value: new Vec4(...color) },
+            uAltColor: { value: new Vec4(...altColor) },
+            uTime: { value: 0.0 },
+        },
+    });
 
 /**
  * Simple sample model to place for tests.
@@ -78,19 +81,14 @@ export let createWaitingProgram = (gl, color, altColor) => new Program(gl, {
  * @param scale  number[]       Scale of the model
  * @returns {Mesh}
  */
-export function createModel(gl,
-                            type = PRIMITIVES.box,
-                            color = [0.2, 0.8, 1.0, 1.0],
-                            translucent = false,
-                            options = {},
-                            scale = [1.0, 1.0, 1.0]) {
+export function createModel(gl, type = PRIMITIVES.box, color = [0.2, 0.8, 1.0, 1.0], translucent = false, options = {}, scale = [1.0, 1.0, 1.0]) {
     let geometry;
 
     switch (type) {
         case PRIMITIVES.cone:
             geometry = new Cylinder(gl, {
                 radiusTop: 0,
-                ...options
+                ...options,
             });
             break;
         case PRIMITIVES.cylinder:
@@ -123,7 +121,7 @@ export function createModel(gl,
  * @param showaxes  boolean     show local coordinate system access when true
  * @returns {Mesh}
  */
-export function createAxesBoxPlaceholder(gl, color, showaxes=true) {
+export function createAxesBoxPlaceholder(gl, color, showaxes = true) {
     const placeholder = createModel(gl, PRIMITIVES.box, color, true);
     placeholder.scale.set(0.1, 0.2, 0.3);
     if (!showaxes) {
@@ -157,7 +155,7 @@ export function createAxesBoxPlaceholder(gl, color, showaxes=true) {
  */
 export function getDefaultPlaceholder(gl) {
     const placeholder = createModel(gl, PRIMITIVES.sphere);
-    placeholder.scale.set(.5);
+    placeholder.scale.set(0.5);
     return placeholder;
 }
 
@@ -172,26 +170,25 @@ export function createRandomObjectDescription() {
     let shape = PRIMITIVES[Object.keys(PRIMITIVES)[shape_idx]];
     let color = [Math.random(), Math.random(), Math.random(), 1.0];
     //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
-    let scale = randomInteger(1,10)/50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
+    let scale = randomInteger(1, 10) / 50.0; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
     let object_description = {
-        'version': 2,
-        'color': color,
-        'shape': shape,
-        'scale': scale,
-        'transparent': false,
-        'options': {}
+        version: 2,
+        color: color,
+        shape: shape,
+        scale: scale,
+        transparent: false,
+        options: {},
     };
-    return object_description
+    return object_description;
 }
 
 /** Creates a Mesh with random shape (out of predefined shapes) and random color and size
  * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
  * @returns {Mesh}
-*/
+ */
 export function createRandomObject(gl) {
     let object_description = createRandomObjectDescription();
-    return createModel(gl, object_description.shape, object_description.color,
-        object_description.transparent, object_description.options, object_description.scale);
+    return createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
 }
 
 /**
@@ -202,10 +199,9 @@ export function createRandomObject(gl) {
  */
 export function getExperiencePlaceholder(gl) {
     const placeholder = createModel(gl, PRIMITIVES.box, [1, 1, 0, 1]);
-    placeholder.scale.set(.5);
+    placeholder.scale.set(0.5);
     return placeholder;
 }
-
 
 /**
  * Used when no specific object was declared for a marker.
@@ -214,11 +210,10 @@ export function getExperiencePlaceholder(gl) {
  * @returns {Mesh}
  */
 export function getDefaultMarkerObject(gl) {
-    const object = createModel(gl, PRIMITIVES.box, [.5, 1, 0]);
+    const object = createModel(gl, PRIMITIVES.box, [0.5, 1, 0]);
     object.scale.set(0.1);
     return object;
 }
-
 
 /**
  * Add axes at the zero point of the local coordinate system.
@@ -231,26 +226,26 @@ export function getAxes(gl) {
 
     // add something small at the positive X, Y, Z:
     const xAxis = createModel(gl, PRIMITIVES.box, [1, 0, 0, 1]);
-    xAxis.position.set( 1, 0.05, 0);
+    xAxis.position.set(1, 0.05, 0);
     xAxis.scale.set(0.1);
     xAxis.setParent(container);
 
-    const yAxis = createModel(gl,PRIMITIVES.sphere, [0, 1, 0, 1]);
+    const yAxis = createModel(gl, PRIMITIVES.sphere, [0, 1, 0, 1]);
     yAxis.position.set(0, 1, 0);
     yAxis.scale.set(0.1);
     yAxis.setParent(container);
 
-    const zAxis = createModel(gl,PRIMITIVES.cone, [0, 0, 1, 1]);
+    const zAxis = createModel(gl, PRIMITIVES.cone, [0, 0, 1, 1]);
     zAxis.position.set(0, 0.05, 1);
     zAxis.scale.set(0.1);
     zAxis.setParent(container);
 
-    const zero = createModel(gl,PRIMITIVES.box, [1, 1, 1, 1]);
+    const zero = createModel(gl, PRIMITIVES.box, [1, 1, 1, 1]);
     zero.scale.set(0.05);
     zero.setParent(container);
 
-    const xzPlane = createModel(gl, PRIMITIVES.plane, [1, 1, 1, 0.5], true)
-    xzPlane.rotation.x = (-Math.PI / 2);
+    const xzPlane = createModel(gl, PRIMITIVES.plane, [1, 1, 1, 0.5], true);
+    xzPlane.rotation.x = -Math.PI / 2;
     xzPlane.position.set(0.5, 0, 0.5);
     xzPlane.setParent(container);
 
@@ -266,7 +261,7 @@ export function getAxes(gl) {
 export function getReticle(gl) {
     const placeholder = new Sphere(gl, {
         radius: 0.3,
-        thetaLength: Math.PI / 2
+        thetaLength: Math.PI / 2,
     });
 
     const program = createDefaultProgram(gl, [1, 1, 1, 1], false);

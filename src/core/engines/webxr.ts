@@ -4,7 +4,7 @@
 */
 
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
-import { checkGLError } from '@core/devTools'
+import { checkGLError } from '@core/devTools';
 
 // TODO(soeroesg): xrNoPoseCallback does not seem to be triggered ever
 
@@ -14,7 +14,6 @@ let xrSessionEndedCallback, xrFrameUpdateCallback, xrMarkerFrameUpdateCallback, 
 let animationFrameCallback;
 let floorSpaceReference, localSpaceReference;
 let gl;
-
 
 /**
  * WebXR implementation of the AR engine.
@@ -32,12 +31,11 @@ export default class webxr {
     startSession(canvas, onXrFrameUpdateCallback, options, setup = () => {}) {
         xrFrameUpdateCallback = onXrFrameUpdateCallback;
 
-        return navigator.xr.requestSession('immersive-ar', options)
-            .then((result) => {
-                this._initSession(canvas, result);
+        return navigator.xr.requestSession('immersive-ar', options).then((result) => {
+            this._initSession(canvas, result);
 
-                setup(this, result, gl);
-            })
+            setup(this, result, gl);
+        });
     }
 
     /**
@@ -51,13 +49,14 @@ export default class webxr {
     startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options) {
         xrMarkerFrameUpdateCallback = onXrMarkerFrameUpdateCallback;
 
-        return navigator.xr.requestSession('immersive-ar', options)
+        return navigator.xr
+            .requestSession('immersive-ar', options)
             .then((result) => {
                 this._initSession(canvas, result);
 
                 return this.session.getTrackedImageScores();
             })
-            .then(scores => {
+            .then((scores) => {
                 // Simplified handling for a single marker image
                 if (scores.length > 0) {
                     // When marker image provided by user or server, inform user that marker can't be tracked
@@ -88,7 +87,7 @@ export default class webxr {
             // based on the viewport dimensions:
             getCameraIntrinsics(view.projectionMatrix, viewport);
         } else {
-            this.setViewPort()
+            this.setViewPort();
         }
         return viewport;
     }
@@ -116,7 +115,7 @@ export default class webxr {
         const cameraTexture = this.glBinding.getCameraImage(frame, view); // note: this returns a WebGlTexture
         drawCameraCaptureScene(gl, cameraTexture);
 
-        checkGLError(gl, "getCameraTexture() end");
+        checkGLError(gl, 'getCameraTexture() end');
 
         return cameraTexture;
     }
@@ -147,7 +146,7 @@ export default class webxr {
             width: view.camera.width,
             height: view.camera.height,
             x: 0,
-            y: 0
+            y: 0,
         };
         const cameraIntrinsics = getCameraIntrinsics(view.projectionMatrix, cameraViewport);
         const cameraTexture = this.glBinding.getCameraImage(view.camera); // note: this returns a WebGlTexture
@@ -156,12 +155,12 @@ export default class webxr {
         // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
         drawCameraCaptureScene(gl, cameraTexture);
 
-        checkGLError(gl, "getCameraTexture2() end");
+        checkGLError(gl, 'getCameraTexture2() end');
 
         return {
-            "cameraTexture": cameraTexture,
-            "cameraIntrinsics": cameraIntrinsics,
-            "cameraViewport": cameraViewport
+            cameraTexture: cameraTexture,
+            cameraIntrinsics: cameraIntrinsics,
+            cameraViewport: cameraViewport,
         };
     }
 
@@ -206,13 +205,14 @@ export default class webxr {
      * @param rootUpdater  function     Callback into the 3D engine to adopt changes when anchor is moved
      */
     createRootAnchor(frame, rootUpdater) {
-        frame.createAnchor(new XRRigidTransform(), floorSpaceReference)
+        frame
+            .createAnchor(new XRRigidTransform(), floorSpaceReference)
             .then((anchor) => {
-                anchor.context = {rootUpdater: rootUpdater};
+                anchor.context = { rootUpdater: rootUpdater };
                 return anchor;
             })
             .catch((error) => {
-                console.error("Anchor failed to create: ", error);
+                console.error('Anchor failed to create: ', error);
             });
     }
 
@@ -224,7 +224,7 @@ export default class webxr {
      * @param frame  XRFrame        The current frame to get the image for
      */
     handleAnchors(frame) {
-        frame.trackedAnchors.forEach(anchor => {
+        frame.trackedAnchors.forEach((anchor) => {
             const anchorPose = frame.getPose(anchor.anchorSpace, floorSpaceReference);
             if (anchorPose) {
                 anchor.context.rootUpdater(anchorPose.transform.matrix);
@@ -251,16 +251,14 @@ export default class webxr {
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-spaces
         // Note: reference spaces viewer, local, and local-floor are always available, but others may not
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
-        Promise.all(
-            [this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')])
-            .then(values => {
-                floorSpaceReference = values[0];
-                localSpaceReference = values[1];
-                // TODO: use unbounded space, if available
-                floorSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
-                localSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
-                this.session.requestAnimationFrame(animationFrameCallback);
-            });
+        Promise.all([this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')]).then((values) => {
+            floorSpaceReference = values[0];
+            localSpaceReference = values[1];
+            // TODO: use unbounded space, if available
+            floorSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
+            localSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
+            this.session.requestAnimationFrame(animationFrameCallback);
+        });
     }
 
     /**
@@ -297,7 +295,7 @@ export default class webxr {
     /**
      * Handler for session ended event. Used to clean up allocated memory and handler.
      */
-     _onXrSessionEnded() {
+    _onXrSessionEnded() {
         this.session = null;
         gl = null;
 
@@ -308,7 +306,7 @@ export default class webxr {
 
     _onXrReferenceSpaceReset(xrReferenceSpaceEvent) {
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
-        console.log("Reference space reset happened!")
+        console.log('Reference space reset happened!');
         // Check for the transformation between the previous origin and the current origin
         // This will not always be available, but if it is, developers may choose to use it
         const transform = xrReferenceSpaceEvent.transform;

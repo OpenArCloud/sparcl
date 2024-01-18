@@ -9,12 +9,11 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import Perge from '@thirdparty/perge.modern';
-import Automerge, {change} from 'automerge'
+import Automerge, { change } from 'automerge';
 import Peer from 'peerjs';
 import { p2pNetworkState, peerIdStr } from '@src/stateStore';
 import { get } from 'svelte/store';
 import { availableP2pServices, selectedP2pService } from '@src/stateStore';
-
 
 let instance;
 const docSet = new Automerge.DocSet();
@@ -42,7 +41,7 @@ export function initialSetup() {
 export function connect(headlessPeerId, isHeadless = false, updateftn) {
     updateFunction = updateftn;
 
-    const localPeerId = isHeadless ? headlessPeerId :uuidv4();
+    const localPeerId = isHeadless ? headlessPeerId : uuidv4();
 
     setupPerge(localPeerId);
     setupPeerEvents(headlessPeerId, isHeadless);
@@ -75,12 +74,11 @@ export function disconnect() {
         // see https://github.com/peers/peerjs/issues/636
         for (let conns in instance.peer.connections) {
             instance.peer.connections[conns].forEach((conn, index, array) => {
-            console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
-            conn.peerConnection.close();
+                console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
+                conn.peerConnection.close();
 
-            // close it using peerjs methods
-            if (conn.close)
-                conn.close();
+                // close it using peerjs methods
+                if (conn.close) conn.close();
             });
         }
     }
@@ -94,9 +92,9 @@ export function disconnect() {
 export function send(data) {
     if (!instance) return;
 
-    instance.select('event')(change, doc => {
+    instance.select('event')(change, (doc) => {
         doc[data.event] = data.value;
-    })
+    });
 }
 
 /**
@@ -118,10 +116,10 @@ function onNetworkEvent() {
  */
 function setupPerge(peerId) {
     const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).reduce((result, service) => service.id === selected.id ? service : result, {});
-    const port = service?.properties?.reduce((result, prop) => prop.type === 'port' ? (prop.value) : result, '');
+    const service = get(availableP2pServices).reduce((result, service) => (service.id === selected.id ? service : result), {});
+    const port = service?.properties?.reduce((result, prop) => (prop.type === 'port' ? prop.value : result), '');
 
-    setupPergeWithUrl(peerId, service?.url, port)
+    setupPergeWithUrl(peerId, service?.url, port);
 }
 
 function setupPergeWithUrl(peerId, url, port) {
@@ -130,37 +128,40 @@ function setupPergeWithUrl(peerId, url, port) {
     //{host: 'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
     //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
 
-    const options = url && port ? {
-        host: url,
-        secure: true,
-        port: port
-        //,config: {
-        //    iceServers: [
-        //        { url: 'stun:stun.l.google.com:19302' },
-        //        { url: 'stun:stun1.l.google.com:19302' },
-        //        { url: 'stun:stun2.l.google.com:19302' },
-        //    ]
-        //}
-    } : {};
+    const options =
+        url && port
+            ? {
+                  host: url,
+                  secure: true,
+                  port: port,
+                  //,config: {
+                  //    iceServers: [
+                  //        { url: 'stun:stun.l.google.com:19302' },
+                  //        { url: 'stun:stun1.l.google.com:19302' },
+                  //        { url: 'stun:stun2.l.google.com:19302' },
+                  //    ]
+                  //}
+              }
+            : {};
 
-    console.log("Creating P2P network:");
-    console.log("  Server URL: " + (url!=null ? url : "PeerJS default"));
-    console.log("  Server port: " + (port!=null ? port : "PeerJS default"));
-    console.log("  PeerId: " + peerId);
+    console.log('Creating P2P network:');
+    console.log('  Server URL: ' + (url != null ? url : 'PeerJS default'));
+    console.log('  Server port: ' + (port != null ? port : 'PeerJS default'));
+    console.log('  PeerId: ' + peerId);
 
     const peer = new Peer(peerId, options);
     instance = new Perge(peerId, {
         decode: JSON.parse, // msgpack or protobuf would also be a good option
         encode: JSON.stringify,
         peer: peer,
-        docSet: docSet
-    })
+        docSet: docSet,
+    });
 
     // subscribe returns an unsubscribe function
     unsubscribeFunction = instance.subscribe(() => {
         //console.log('instance.subscribe');
         onNetworkEvent();
-    })
+    });
 }
 
 /**
@@ -176,7 +177,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
     instance.peer.on('open', (id) => {
         let msg = 'Connection to the PeerServer established. Peer ID ' + id;
         console.log(msg);
-        p2pNetworkState.set(msg)
+        p2pNetworkState.set(msg);
         peerIdStr.set(id);
 
         if (!isHeadless) {
@@ -206,7 +207,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         p2pNetworkState.set(msg);
 
         connection.on('close', () => {
-            console.log("Connection closed.");
+            console.log('Connection closed.');
         });
     });
 
@@ -215,12 +216,12 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
         let msg = error; // 'Error: ' is already prefixed to the incoming error message
         console.error(msg);
         p2pNetworkState.set(msg);
-    })
+    });
 
     // Emitted when the peer is disconnected from the signalling server
     // either manually or because the connection to the signalling server was lost.
-    // When a peer is disconnected, its existing connections will stay alive, 
-    // but the peer cannot accept or create any new connections. 
+    // When a peer is disconnected, its existing connections will stay alive,
+    // but the peer cannot accept or create any new connections.
     // You can reconnect to the server by calling peer.reconnect().
     instance.peer.on('disconnected', () => {
         let msg = 'Disconnected from PeerServer';
@@ -236,7 +237,7 @@ function setupPeerEvents(headlessPeerId, isHeadless) {
     // Emitted when the peer is destroyed and can no longer accept or create any new connections
     // At this time, the peer's connections will all be closed.
     instance.peer.on('close', () => {
-        let msg = "Connection closed";
+        let msg = 'Connection closed';
         console.log(msg);
         p2pNetworkState.set(msg);
     });
@@ -249,19 +250,21 @@ class PeerJSHeartbeater {
         //this.start();
     }
     start() {
-        console.log("PeerJSHeartbeater start")
+        console.log('PeerJSHeartbeater start');
         if (this.timeoutID === undefined) {
             this.beat();
         }
     }
     stop() {
-        console.log("PeerJSHeartbeater stop")
+        console.log('PeerJSHeartbeater stop');
         clearTimeout(this.timeoutID);
         this.timeoutID = undefined;
     }
     beat() {
-        console.log("PeerJS heartbeat from " + this.peer.id)
-        this.timeoutID = setTimeout(() => {this.beat();}, 10000);
+        console.log('PeerJS heartbeat from ' + this.peer.id);
+        this.timeoutID = setTimeout(() => {
+            this.beat();
+        }, 10000);
         if (this.peer.socket._wsOpen()) {
             this.peer.socket.send({ type: 'HEARTBEAT' });
         }

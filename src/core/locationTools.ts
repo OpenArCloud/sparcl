@@ -8,17 +8,17 @@
  */
 
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty.js';
-import {quat, vec3} from 'gl-matrix';
-import * as h3 from "h3-js";
-import {supportedCountries} from '@oarc/ssd-access';
+import { quat, vec3 } from 'gl-matrix';
+import * as h3 from 'h3-js';
+import { supportedCountries } from '@oarc/ssd-access';
 
-export const toRadians = (degrees) => degrees / 180 * Math.PI;
-export const toDegrees = (radians) => radians / Math.PI * 180;
+export const toRadians = (degrees) => (degrees / 180) * Math.PI;
+export const toDegrees = (radians) => (radians / Math.PI) * 180;
 
 export const locationAccessOptions = {
     enableHighAccuracy: false,
-    maximumAge: 0
-}
+    maximumAge: 0,
+};
 
 /**
  *
@@ -26,20 +26,19 @@ export const locationAccessOptions = {
  * @returns The same GeoPose formatted according to the new (March 2022) standard
  */
 export function upgradeGeoPoseStandard(geoPose) {
-    if (geoPose.position != undefined) { 
+    if (geoPose.position != undefined) {
         return geoPose;
     }
-    geoPose["position"] = {
-        "lat" : geoPose.latitude,
-        "lon" : geoPose.longitude,
-        "h" : geoPose.ellipsoidHeight
-    }
-    delete geoPose["latitude"];
-    delete geoPose["longitude"];
-    delete geoPose["ellipsoidHeight"];
+    geoPose['position'] = {
+        lat: geoPose.latitude,
+        lon: geoPose.longitude,
+        h: geoPose.ellipsoidHeight,
+    };
+    delete geoPose['latitude'];
+    delete geoPose['longitude'];
+    delete geoPose['ellipsoidHeight'];
     return geoPose;
 }
-
 
 /**
  *
@@ -56,8 +55,8 @@ export function getEarthRadiusAt(latitude) {
     let cosLat = Math.cos(lat);
     let sinLat = Math.sin(lat);
 
-    let numerator = (r1 * r1 * cosLat) * (r1 * r1 * cosLat) + (r2 * r2 * sinLat) * (r2 * r2 * sinLat);
-    let denominator = (r1 * cosLat) * (r1 * cosLat) +  (r2 * sinLat) * (r2 * sinLat);
+    let numerator = r1 * r1 * cosLat * (r1 * r1 * cosLat) + r2 * r2 * sinLat * (r2 * r2 * sinLat);
+    let denominator = r1 * cosLat * (r1 * cosLat) + r2 * sinLat * (r2 * sinLat);
 
     return Math.sqrt(numerator / denominator);
 }
@@ -72,50 +71,55 @@ let lastTimeCurrentLocationQuery = 0;
  * @returns {Promise<LOCATIONINFO>}     Object with lat, lon, regionCode or rejects
  */
 export function getCurrentLocation() {
-    console.log("getCurrentLocation...");
+    console.log('getCurrentLocation...');
     return new Promise((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
 
         let now = Date.now();
-        if (now - lastTimeCurrentLocationQuery < 1200) { // we want at least 1.2 secs between calls
+        if (now - lastTimeCurrentLocationQuery < 1200) {
+            // we want at least 1.2 secs between calls
             reject('Too frequent calls to current location are not allowed (OpenStreetMap)');
         }
         lastTimeCurrentLocationQuery = now;
 
-        navigator.geolocation.getCurrentPosition((position) => {
-            const latAngle = position.coords.latitude;
-            const lonAngle = position.coords.longitude;
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const latAngle = position.coords.latitude;
+                const lonAngle = position.coords.longitude;
 
-            // WARNING: more than 1 request in a second leads to IP address ban!
-            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
-                .then((response) => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        reject(response.text());
-                    }
-                })
-                .then((data) => {
-                    const countryCode = data.address.country_code;
-                    resolve({
-                        h3Index: h3.geoToH3(latAngle, lonAngle, 8),
-                        lat: latAngle,
-                        lon: lonAngle,
-                        countryCode: countryCode,
-                        regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us'
+                // WARNING: more than 1 request in a second leads to IP address ban!
+                fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
+                    .then((response) => {
+                        if (response.ok) {
+                            return response.json();
+                        } else {
+                            reject(response.text());
+                        }
                     })
-                })
-                .catch((error) => {
-                    // TODO: refactor: use US as default and resolve
-                    console.error('Could not retrieve country code.');
-                    reject(error);
-                });
-        }, (error) => {
-            console.log(`Location request failed: ${error}`)
-            reject(error);
-        }, locationAccessOptions);
+                    .then((data) => {
+                        const countryCode = data.address.country_code;
+                        resolve({
+                            h3Index: h3.geoToH3(latAngle, lonAngle, 8),
+                            lat: latAngle,
+                            lon: lonAngle,
+                            countryCode: countryCode,
+                            regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us',
+                        });
+                    })
+                    .catch((error) => {
+                        // TODO: refactor: use US as default and resolve
+                        console.error('Could not retrieve country code.');
+                        reject(error);
+                    });
+            },
+            (error) => {
+                console.log(`Location request failed: ${error}`);
+                reject(error);
+            },
+            locationAccessOptions,
+        );
     });
 }
 
@@ -157,12 +161,14 @@ export function getEuler(out, quat) {
         w2 = w * w;
     let unit = x2 + y2 + z2 + w2;
     let test = x * w - y * z;
-    if (test > 0.499995 * unit) { //TODO: Use glmatrix.EPSILON
+    if (test > 0.499995 * unit) {
+        //TODO: Use glmatrix.EPSILON
         // singularity at the north pole
         out[0] = Math.PI / 2;
         out[1] = 2 * Math.atan2(y, x);
         out[2] = 0;
-    } else if (test < -0.499995 * unit) { //TODO: Use glmatrix.EPSILON
+    } else if (test < -0.499995 * unit) {
+        //TODO: Use glmatrix.EPSILON
         // singularity at the south pole
         out[0] = -Math.PI / 2;
         out[1] = 2 * Math.atan2(y, x);
@@ -257,7 +263,7 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
     let enuQuat = quat.create();
     let rotZm90 = quat.create();
     quat.fromEuler(rotZm90, 0, 0, -90); // [0, 0, -0.7071, 0.7071]
-    quat.multiply(enuQuat, rotZm90, acQuat);  // enuQuat holds the orientation w.r.t North
+    quat.multiply(enuQuat, rotZm90, acQuat); // enuQuat holds the orientation w.r.t North
     // X_ENU = -Y_ACrot = X_AC
     // Y_ENU =  X_ACrot = Y_AC
     // Z_ENU =  Z_ACrot = Z_AC
@@ -272,14 +278,14 @@ export function convertAugmentedCityCam2WebQuat(acQuat) {
 }
 
 /**
-* Converts a quaternion from Sensor ENU (X to right, Y forward, Z up) (for example W3C Sensor API)
-* to AugmentedCity's cameraENU quaternion (X forward, Y to the left, Z up)
-* @param {*} sensorQuat quaternion
-* @returns quat
-*/
+ * Converts a quaternion from Sensor ENU (X to right, Y forward, Z up) (for example W3C Sensor API)
+ * to AugmentedCity's cameraENU quaternion (X forward, Y to the left, Z up)
+ * @param {*} sensorQuat quaternion
+ * @returns quat
+ */
 export function convertSensor2AugmentedCityCam(sensorQuat) {
     // NOTE: In our GeoPoseRequest to AugmentedCity, we always set ImageOrientation.mirrored = false and rotation = 0;
-    // This is only correct because instead of the actual camera image, 
+    // This is only correct because instead of the actual camera image,
     // we capture the camera texture which is always rotated according to the screen orientation.
 
     // At unit quaternion orientation in the WebXR coordinate system, the (back) camera looks in the direction of North
@@ -330,15 +336,15 @@ export function convertSensor2AugmentedCityCam(sensorQuat) {
 }
 
 /**
-*  Calculates the relative position of two geodesic locations.
-*
-*  Used to calculate the relative distance between the device at the moment of localization and the
-*  location of an object received from a content discovery service.
-*
-* @param cameraGeoPose  GeoPose of the camera returned by the localization service
-* @param objectGeoPose  GeoPose of an object
-* @returns vec3         Relative position of the object with respect to the camera
-*/
+ *  Calculates the relative position of two geodesic locations.
+ *
+ *  Used to calculate the relative distance between the device at the moment of localization and the
+ *  location of an object received from a content discovery service.
+ *
+ * @param cameraGeoPose  GeoPose of the camera returned by the localization service
+ * @param objectGeoPose  GeoPose of an object
+ * @returns vec3         Relative position of the object with respect to the camera
+ */
 export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
     // We wrap them into LatLon object for easier calculation of relative displacement
     const cam = new LatLon(cameraGeoPose.position.lat, cameraGeoPose.position.lon);
@@ -364,7 +370,7 @@ export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
     // WARNING: AugmentedCity sometimes returns invalid height!
     // Therefore we set dz to 0
     if (isNaN(dz)) {
-        console.log("WARNING: dz is not a number");
+        console.log('WARNING: dz is not a number');
         dz = 0.0;
     }
 
@@ -373,37 +379,34 @@ export function getRelativeGlobalPosition(cameraGeoPose, objectGeoPose) {
 }
 
 /**
-*  Calculates the relative orientation of two geodesic locations.
-*
-*  Used to calculate the relative orientation between the device at the moment of localization and the
-*  location of an object received from a content discovery service.
-*
-* @param cameraGeoPose  GeoPose of the camera returned by the localization service
-* @param objectGeoPose  GeoPose of an object
-* @returns quat         Relative orientation of the object with respect to the camera
-*/
+ *  Calculates the relative orientation of two geodesic locations.
+ *
+ *  Used to calculate the relative orientation between the device at the moment of localization and the
+ *  location of an object received from a content discovery service.
+ *
+ * @param cameraGeoPose  GeoPose of the camera returned by the localization service
+ * @param objectGeoPose  GeoPose of an object
+ * @returns quat         Relative orientation of the object with respect to the camera
+ */
 export function getRelativeGlobalOrientation(cameraGeoPose, objectGeoPose) {
     // camera orientation
-    const qCam = quat.fromValues(
-        cameraGeoPose.quaternion.x, cameraGeoPose.quaternion.y, cameraGeoPose.quaternion.z, cameraGeoPose.quaternion.w);
+    const qCam = quat.fromValues(cameraGeoPose.quaternion.x, cameraGeoPose.quaternion.y, cameraGeoPose.quaternion.z, cameraGeoPose.quaternion.w);
     // object orientation
-    const qObj = quat.fromValues(
-        objectGeoPose.quaternion.x, objectGeoPose.quaternion.y, objectGeoPose.quaternion.z, objectGeoPose.quaternion.w);
+    const qObj = quat.fromValues(objectGeoPose.quaternion.x, objectGeoPose.quaternion.y, objectGeoPose.quaternion.z, objectGeoPose.quaternion.w);
 
     // WARNING: in the next step, change of coordinate axes might be necessary to match WebXR coordinate system
     return getRelativeOrientation(qCam, qObj);
 }
 
 /**
-*  Calculates the relative orientation between two quaternions
-*  NOTE that they must be defined in the same coordinate system!
-*
-* @param q1  quat First quaternion
-* @param q2  quat Second quaternion
-* @returns  quat  The rotation which brings q1 into q2
-*/
+ *  Calculates the relative orientation between two quaternions
+ *  NOTE that they must be defined in the same coordinate system!
+ *
+ * @param q1  quat First quaternion
+ * @param q2  quat Second quaternion
+ * @returns  quat  The rotation which brings q1 into q2
+ */
 export function getRelativeOrientation(q1, q2) {
-
     // NOTE: if q2 = qdiff * q1, then  qdiff = q2 * inverse(q1)
     let q1Inv = quat.create();
     quat.invert(q1Inv, q1);
@@ -416,16 +419,15 @@ export function getRelativeOrientation(q1, q2) {
     return qNorm;
 }
 
-
 const a = 6378137;
 const b = 6356752.3142;
 const f = (a - b) / a;
 const e_sq = f * (2 - f);
 
 /**
-* Converts WGS-84 Geodetic point (lat, lon, h) to the
-* Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
-*/
+ * Converts WGS-84 Geodetic point (lat, lon, h) to the
+ * Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z).
+ */
 export function geodetic_to_ecef(lat, lon, h) {
     let lamb = toRadians(lat);
     let phi = toRadians(lon);
@@ -441,16 +443,16 @@ export function geodetic_to_ecef(lat, lon, h) {
     let y = (h + N) * cos_lambda * sin_phi;
     let z = (h + (1 - e_sq) * N) * sin_lambda;
 
-    return { "x": x, "y": y, "z": z };
+    return { x: x, y: y, z: z };
 }
 
 /**
-* Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
-* East-North-Up coordinates in a Local Tangent Plane that is centered at the
-* (WGS-84) Geodetic point (lat_ref, lon_ref, h_ref).
-*/
+ * Converts the Earth-Centered Earth-Fixed (ECEF) coordinates (x, y, z) to
+ * East-North-Up coordinates in a Local Tangent Plane that is centered at the
+ * (WGS-84) Geodetic point (lat_ref, lon_ref, h_ref).
+ */
 export function ecef_to_enu(x, y, z, lat_ref, lon_ref, h_ref) {
-    let { x0, y0, z0} = geodetic_to_ecef(lat_ref, lon_ref, h_ref);
+    let { x0, y0, z0 } = geodetic_to_ecef(lat_ref, lon_ref, h_ref);
 
     let xd = x - x0;
     let yd = y - y0;
@@ -460,7 +462,7 @@ export function ecef_to_enu(x, y, z, lat_ref, lon_ref, h_ref) {
     let yNorth = -cos_phi * sin_lambda * xd - sin_lambda * sin_phi * yd + cos_lambda * zd;
     let zUp = cos_lambda * cos_phi * xd + cos_lambda * sin_phi * yd + sin_lambda * zd;
 
-    return { "x": xEast, "y": yNorth, "z": zUp }
+    return { x: xEast, y: yNorth, z: zUp };
 }
 
 export function geodetic_to_enu(lat, lon, h, lat_ref, lon_ref, h_ref) {
