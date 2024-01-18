@@ -365,42 +365,42 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose     The pose of the device as reported by the XRFrame
      */
-    function handleDevelopment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        handlePoseHeartbeat();
+    // function handleDevelopment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    //     handlePoseHeartbeat();
 
-        xrEngine.setViewPort();
+    //     xrEngine.setViewPort();
 
-        if (firstPoseReceived === false) {
-            firstPoseReceived = true;
+    //     if (firstPoseReceived === false) {
+    //         firstPoseReceived = true;
 
-            // TODO: Fails for some reason
-            // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
+    //         // TODO: Fails for some reason
+    //         // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
 
-            if ($debug_showLocalAxes) {
-                tdEngine.addAxes();
-            }
+    //         if ($debug_showLocalAxes) {
+    //             tdEngine.addAxes();
+    //         }
 
-            for (let view of floorPose.views) {
-                xrEngine.setViewportForView(view);
+    //         for (let view of floorPose.views) {
+    //             xrEngine.setViewportForView(view);
 
-                console.log('fake localisation');
-                const geoPose = fakeLocationResult.geopose.pose;
-                onLocalizationSuccess(floorPose, geoPose);
-                isLocalized = true;
-                wait(1000).then(() => (showFooter = false));
+    //             console.log('fake localisation');
+    //             const geoPose = fakeLocationResult.geopose.pose;
+    //             onLocalizationSuccess(floorPose, geoPose);
+    //             isLocalized = true;
+    //             wait(1000).then(() => (showFooter = false));
 
-                let data = fakeLocationResult.scrs;
-                placeContent([data]);
-            }
-        }
+    //             let data = fakeLocationResult.scrs;
+    //             placeContent([data]);
+    //         }
+    //     }
 
-        if (experienceLoaded === true && experienceMatrix) {
-            externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(floorPose.views[0], experienceMatrix), '*');
-        }
+    //     if (experienceLoaded === true && experienceMatrix) {
+    //         externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(floorPose.views[0], experienceMatrix), '*');
+    //     }
 
-        xrEngine.handleAnchors(frame);
-        tdEngine.render(time, floorPose.views[0]);
-    }
+    //     xrEngine.handleAnchors(frame);
+    //     tdEngine.render(time, floorPose.views[0]);
+    // }
 
     /**
      * Special mode for content creators.

@@ -17,7 +17,7 @@
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { sendRequest, validateRequest } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, type GeoposeResponseType, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { GeoPoseRequest } from '@oarc/gpp-access';
     import { ImageOrientation } from '@oarc/gpp-access';
     import { IMAGEFORMAT } from '@oarc/gpp-access';
