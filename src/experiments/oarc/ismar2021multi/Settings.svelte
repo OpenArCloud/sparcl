@@ -1,5 +1,5 @@
-<script>
-    export let settings;
+<script lang="ts">
+    export let settings: { localisation?: boolean; showstats?: boolean };
     if (Object.keys(settings).length === 0) {
         settings.localisation = true;
         settings.showstats = true;
