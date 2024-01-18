@@ -1,4 +1,7 @@
-<script>
+<script lang="ts">
+    import type { Mesh, MeshPhongMaterial, PerspectiveCamera, Scene, Shape, SpotLight, Vector3, WebGLRenderer } from 'three';
+    import type { Font, TextGeometry } from 'three/addons';
+
     // ---------------------------------------------------------- UTILITY FUNCTIONS
 
     /** Creates a DOM element
@@ -9,11 +12,22 @@
      * @param content The HTML content of the element.
      * @param style The style of the element.
      * @returns The generated element. */
-    function createDomElement(type, id, parent, content, classes, style) {
+    function createDomElement<T extends keyof HTMLElementTagNameMap>(
+        type: T,
+        id: string | null,
+        parent: HTMLElement | null,
+        content?: string | null,
+        classes?: string,
+        style?: string,
+    ): HTMLElementTagNameMap[T] {
         // Check if the element already exists and, if not, create it
-        let element = document.getElementById(id);
-        if (element) return element;
-        element = document.createElement(type);
+        if (id) {
+            const element = document.getElementById(id);
+            if (element) {
+                return element as HTMLElementTagNameMap[T];
+            }
+        }
+        const element = document.createElement(type);
 
         // Set the properties of the element
         if (id) element.id = id;
@@ -32,7 +46,7 @@
      * @param selector The CSS selector
      * @param rule The css rule
      * @param override Indicates whether to override rules or not. */
-    function addCssRule(selector, rule, override = false) {
+    function addCssRule(selector: string, rule: string, override = false) {
         // If there is no stylesheet, create it
         if (document.styleSheets.length == 0) document.head.append(document.createElement('style'));
         let stylesheet = document.styleSheets[0];
@@ -56,14 +70,14 @@
 
     /** Defines a basic GeoPose with orientation angles. */
     class GeoPose {
-        constructor(latitude = 0, longitude = 0, altitude = 0, yaw = 0, pitch = 0, roll = 0) {
-            this.latitude = latitude;
-            this.longitude = longitude;
-            this.altitude = altitude;
-            this.yaw = yaw;
-            this.pitch = pitch;
-            this.roll = roll;
-        }
+        constructor(
+            public latitude = 0,
+            public longitude = 0,
+            public altitude = 0,
+            public yaw = 0,
+            public pitch = 0,
+            public roll = 0,
+        ) {}
     }
 
     // Create an instance of the GeoPose class
@@ -75,7 +89,7 @@
         navigator.geolocation.watchPosition((data) => {
             geopose.latitude = data.coords.latitude;
             geopose.longitude = data.coords.longitude;
-            geopose.altitude = data.coords.altitude;
+            geopose.altitude = data.coords.altitude || 0;
             // TODO Adjust the altitude to the WPS84 ellipsoid instead of sea level
             // TODO Check other methods to calculate the height over ellipsoid
             // See https://nextnav.com/
@@ -88,9 +102,11 @@
         window.addEventListener(
             'deviceorientation',
             function (data) {
-                geopose.yaw = data.alpha + yawOffset;
-                geopose.pitch = data.beta - 90;
-                geopose.roll = data.gamma;
+                if (data.alpha && data.beta && data.gamma) {
+                    geopose.yaw = data.alpha + yawOffset;
+                    geopose.pitch = data.beta - 90;
+                    geopose.roll = data.gamma;
+                }
             },
             true,
         );
@@ -429,26 +445,28 @@
     // ----------------------------------------------------------- THREE EXPERIENCE
 
     // The elements of the Three experience
-    let gl,
-        canvas,
-        renderer,
-        scene,
-        camera,
-        light,
-        session,
-        pose,
-        reticle,
-        referenceSpace,
-        viewerSpace,
-        hitTestSource,
-        signPost,
-        font,
+    let gl: WebGLRenderingContext | undefined,
+        canvas: HTMLCanvasElement,
+        renderer: WebGLRenderer,
+        scene: Scene,
+        camera: PerspectiveCamera,
+        light: SpotLight,
+        session: XRSession | null,
+        pose: XRViewerPose | undefined,
+        reticle: Mesh,
+        referenceSpace: XRReferenceSpace,
+        viewerSpace: XRReferenceSpace | XRBoundedReferenceSpace,
+        hitTestSource: XRHitTestSource | undefined,
+        signPost: Post,
+        font: Font,
         currentTime = 0,
         lastTime = 0,
         deltaTime,
         fpsTime = 0,
         fpsCounter = 0,
         fps;
+    let THREE: typeof import('three');
+    let threeAddons: typeof import('three/addons');
 
     /** Initializes the Three experience. */
     async function initThreeExperience() {
@@ -460,8 +478,8 @@
             loaded = THREE !== undefined;
         } catch (e) {}
         if (!loaded) {
-            let script = createDomElement('script', null, document.body);
-            script.src = 'https://unpkg.com/three@0.126.0/build/three.js';
+            THREE = await import('three');
+            threeAddons = await import('three/addons');
             requestAnimationFrame(loadThreeExperience);
         }
     }
@@ -473,7 +491,7 @@
             loaded = THREE !== undefined;
         } catch (e) {}
         if (loaded) {
-            const loader = new THREE.FontLoader();
+            const loader = new threeAddons.FontLoader();
             // loader.load( 'helvetiker_bold.typeface.json',
             // 	function ( response ) {font = response;  startThreeExperience();} );
             font = loader.parse(fontData);
@@ -490,9 +508,10 @@
         mainElement.style.display = 'block';
 
         // Add a canvas element and initialize a WebGL context
-        canvas = document.createElement('canvas', mainElement);
+        // TODO: possibly add back mainElement as second argument
+        canvas = document.createElement('canvas');
         mainElement.appendChild(canvas);
-        gl = canvas.getContext('webgl', { xrCompatible: true });
+        gl = canvas.getContext('webgl', { xrCompatible: true }) ?? undefined;
 
         // Set up the renderer
         renderer = new THREE.WebGLRenderer({ alpha: true, preserveDrawingBuffer: true, canvas: canvas, context: gl });
@@ -535,7 +554,9 @@
             domOverlay: { root: mainElement },
             requiredFeatures: ['hit-test'],
         });
-        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        if (gl) {
+            session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        }
 
         // Free the resources when the XR session ends
         session.onend = (event) => {
@@ -551,7 +572,7 @@
         viewerSpace = await session.requestReferenceSpace('viewer');
 
         // Perform hit testing using the viewer as origin.
-        hitTestSource = await session.requestHitTestSource({ space: viewerSpace });
+        hitTestSource = await session.requestHitTestSource?.({ space: viewerSpace });
 
         // Start updating the XR session
         session.requestAnimationFrame(updateThreeExperience);
@@ -560,7 +581,7 @@
     /** Updates the the demo XR session.
      * @param time The new time.
      * @param frame The frame of reference. */
-    function updateThreeExperience(time, frame) {
+    function updateThreeExperience(time: DOMHighResTimeStamp, frame: XRFrame) {
         // Calculate the FPS
         currentTime = time / 1000;
         deltaTime = currentTime - lastTime;
@@ -597,10 +618,10 @@
             ' }<br>}';
 
         // Queue up the next draw request.
-        session.requestAnimationFrame(updateThreeExperience);
+        session?.requestAnimationFrame(updateThreeExperience);
 
         // Bind the graphics framebuffer to the baseLayer's framebuffer
-        gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
+        gl?.bindFramebuffer(gl.FRAMEBUFFER, session?.renderState?.baseLayer?.framebuffer || null);
 
         // Retrieve the pose of the device. XRFrame.getViewerPose can return
         // null while the session attempts to establish tracking.
@@ -608,8 +629,10 @@
         if (pose) {
             // In mobile AR, we only have one view.
             const view = pose.views[0];
-            const viewport = session.renderState.baseLayer.getViewport(view);
-            renderer.setSize(viewport.width, viewport.height);
+            const viewport = session?.renderState?.baseLayer?.getViewport(view);
+            if (viewport) {
+                renderer.setSize(viewport.width, viewport.height);
+            }
 
             // Use the view's transform matrix and projection matrix to configure
             //the THREE.camera.
@@ -618,18 +641,22 @@
             camera.updateMatrixWorld(true);
 
             // Set the reticle
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            reticle.visible = signPost ? false : true;
-            if (hitTestResults.length > 0 && reticle.visible) {
-                const hitPose = hitTestResults[0].getPose(referenceSpace);
-                let p = hitPose.transform.position,
-                    r = hitPose.transform.orientation;
-                reticle.position.set(p.x, p.y, p.z);
-                reticle.rotation.set(0, 0, 0);
-                // reticle.rotation.setFromQuaternion(new THREE.Quaternion(
-                // 	r.x,r.y,r.z,r.w));
-                // reticle.rotateY(-geopose.yaw * Math.PI/180);
-                reticle.updateMatrixWorld(true);
+            if (hitTestSource) {
+                const hitTestResults = frame.getHitTestResults(hitTestSource);
+                reticle.visible = signPost ? false : true;
+                if (hitTestResults.length > 0 && reticle.visible) {
+                    const hitPose = hitTestResults[0].getPose(referenceSpace);
+                    let p = hitPose?.transform.position;
+                    let r = hitPose?.transform.orientation;
+                    if (p) {
+                        reticle.position.set(p.x, p.y, p.z);
+                    }
+                    reticle.rotation.set(0, 0, 0);
+                    // reticle.rotation.setFromQuaternion(new THREE.Quaternion(
+                    // 	r.x,r.y,r.z,r.w));
+                    // reticle.rotateY(-geopose.yaw * Math.PI/180);
+                    reticle.updateMatrixWorld(true);
+                }
             }
         } else reticle.visible = false;
 
@@ -653,12 +680,17 @@
     /** Defines a post. */
     class Post {
         /** Initializes the Post instance. */
-        constructor(position, rotation, radius, height) {
+        public signs: any[];
+        public object;
+        public animation: number;
+        public maxAnimation: number;
+        constructor(
+            public position: Mesh['position'],
+            public rotation: Mesh['rotation'],
+            public radius: number,
+            public height: number,
+        ) {
             // Create the fields of the instance
-            this.position = position;
-            this.rotation = rotation;
-            this.radius = radius;
-            this.height = height;
             this.signs = [];
             this.object = new THREE.Object3D();
 
@@ -677,7 +709,7 @@
         }
 
         /** Updates the post elements. */
-        update(deltaTime) {
+        update(deltaTime: number) {
             if (deltaTime > 0.1) deltaTime = 0.1;
             if (this.animation < this.maxAnimation) this.animation += deltaTime;
             else this.animation = this.maxAnimation;
@@ -692,18 +724,34 @@
 
     /** Defines a sign. */
     class Sign {
+        public distance: number;
+        public bearing: number;
+        public position: number;
+        public rotation: number;
+        public length: number;
+        public textGeometry: TextGeometry;
+        public textColor: MeshPhongMaterial;
+        public text1: Mesh;
+        public textSize: Vector3;
+        public text2: Mesh;
+        public shape: Shape;
+        public object: Mesh;
+        public animation: number;
+        public maxAnimation: number;
         /** Initializes the Sign instance. */
-        constructor(post, latitude, longitude, height, depth, bevel, text, color, background, animationDelay = 1) {
+        constructor(
+            public post: Post,
+            public latitude: number,
+            public longitude: number,
+            public height: number,
+            public depth: number,
+            public bevel: number,
+            public text: string,
+            public color: number | undefined,
+            public background: number,
+            public animationDelay = 1,
+        ) {
             // Create the fields of the instance
-            this.post = post;
-            this.latitude = latitude;
-            this.longitude = longitude;
-            this.height = height;
-            this.depth = depth;
-            this.bevel = bevel;
-            this.text = text;
-            this.color = color;
-            this.background = background;
 
             // Calculate the distance and the bearing
             // https://www.movable-type.co.uk/scripts/latlong.html
@@ -728,7 +776,7 @@
 
             // Create the two texts (one for each side of the sign)
             this.text = this.text + ' ' + this.distance.toFixed(0) + ' Km';
-            this.textGeometry = new THREE.TextGeometry(this.text, { font: font, size: 0.05, height: 0.002 });
+            this.textGeometry = new threeAddons.TextGeometry(this.text, { font: font, size: 0.05, height: 0.002 });
             this.textColor = new THREE.MeshPhongMaterial({ color: this.color || 0x010101 });
             this.text1 = new THREE.Mesh(this.textGeometry, this.textColor);
             this.text1.receiveShadow = true;
@@ -754,8 +802,8 @@
             );
             this.object.position.set(0, this.position, 0);
             this.object.rotation.set(0, this.rotation, 0);
-            this.post.castShadow = true;
-            post.receiveShadow = true;
+            this.post.object.castShadow = true;
+            this.post.object.receiveShadow = true;
             this.post.object.add(this.object);
             this.object.add(this.text1);
             this.object.add(this.text2);
@@ -765,7 +813,7 @@
         }
 
         /** Updates the sign elements. */
-        update(deltaTime) {
+        update(deltaTime: number) {
             if (this.animation < this.maxAnimation) this.animation += deltaTime;
             else this.animation = this.maxAnimation;
             this.object.scale.x = this.animation / this.maxAnimation;
@@ -909,14 +957,14 @@
 
     /** Sets the debug panel.
      * @param text The text of the panel title. */
-    function setDebugPanelTitle(text) {
+    function setDebugPanelTitle(text: string) {
         debugTitle.innerText = 'Debug: ' + text;
     }
 
     /** Captures console messages and displays them.
      * @param text The text of the debug message.
      * @param type The type of debug message. */
-    function createDebugMessage(text, type = 0) {
+    function createDebugMessage(text: string, type = 0) {
         let element = document.createElement('p');
         switch (type) {
             case 0:
