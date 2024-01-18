@@ -1,6 +1,7 @@
 .snowpack
 build
 node_modules
+dist
 
 /.env
 /snowpack.crt

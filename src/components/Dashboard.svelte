@@ -1,16 +1,20 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     This component displays the internals of the app, and allows to change them when possible.
     Temporary until better UX is found for the settings.
 -->
-<script>
-    import { createEventDispatcher } from 'svelte';
+<script lang="ts">
+    import { createEventDispatcher, type ComponentType } from 'svelte';
 
-    import { supportedCountries } from '@oarc/ssd-access';
+    import { supportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
         showDashboard,
@@ -35,9 +39,7 @@
         debug_useGeolocationSensors,
         debug_saveCameraImage,
         debug_loadCameraImage,
-        selectedMessageBrokerService,
-        allowMessageBroker,
-        messageBrokerAuth,
+        activeExperiment,
     } from '@src/stateStore';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
@@ -47,22 +49,22 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let experimentDetail = null;
+    let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
 
-    function handleContentServiceSelection(event, service) {
+    function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
-            $selectedContentServices[service.id] = {};
+            $selectedContentServices[service.id] = { isSelected: event.currentTarget.checked, selectedTopic: '' };
         }
 
-        $selectedContentServices[service.id].isSelected = event.target.checked;
+        $selectedContentServices[service.id].isSelected = event.currentTarget.checked;
     }
 
-    function handleContentServiceTopicSelection(event, service, topic) {
+    function handleContentServiceTopicSelection(service: Service, topic: string) {
         $selectedContentServices[service.id].selectedTopic = topic;
     }
 </script>
 
-<button on:click={() => dispatch('okClicked')}>Go immersive</button>
+<button on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>
@@ -118,7 +120,7 @@
             <dd class="select">
                 <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
                     {#if $availableGeoPoseServices.length === 0}
-                        <option value="none" disabled selected>Device sensors (no VPS available)</option>
+                        <option value={null} disabled selected>Device sensors (no VPS available)</option>
                         <!--{debug_useGeolocationSensors.set(true)}-->
                     {:else}
                         {#each $availableGeoPoseServices as service}
@@ -155,8 +157,8 @@
                     />
                     <label for="selectedContentService_{service.id}">{service.title}</label>
                     <pre class="serviceurl">
-                <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-            </pre>
+                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
+                    </pre>
 
                     {#if service?.properties}
                         <ul>
@@ -170,7 +172,7 @@
                                                 name={service.id}
                                                 disabled={!$selectedContentServices[service.id]?.isSelected}
                                                 checked={$selectedContentServices[service.id]?.selectedTopic === topic}
-                                                on:change={(event) => handleContentServiceTopicSelection(event, service, topic)}
+                                                on:change={(event) => handleContentServiceTopicSelection(service, topic)}
                                             />
                                             <label for="contenttopic">{topic}</label>
                                         </li>
@@ -233,29 +235,27 @@
 
     {#if $arMode === ARMODES.experiment}
         <dl>
-            <dt><label>Type</label></dt>
-            <dd class="select">
+            <dt><label for="experimentselector">Type</label></dt>
+            <dd class="select" id="experimentselector">
                 <Selector
-                    value={$experimentModeSettings?.active}
                     on:change={(event) => {
                         experimentDetail = event.detail;
 
-                        if ($experimentModeSettings === null) {
-                            $experimentModeSettings = {};
-                        }
+                        $activeExperiment = experimentDetail.key;
 
-                        $experimentModeSettings.active = experimentDetail.key;
                         if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
                     }}
                 />
             </dd>
         </dl>
 
-        {#await experimentDetail?.settings}
-            <p>Loading...</p>
-        {:then setting}
-            <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
-        {/await}
+        {#if experimentDetail != null}
+            {#await experimentDetail?.settings}
+                <p>Loading...</p>
+            {:then setting}
+                <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
+            {/await}
+        {/if}
     {/if}
 </details>
 
@@ -271,7 +271,7 @@
         <dd class="select">
             <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2 || $allowP2pNetwork === false}>
                 {#if $availableP2pServices.length === 0}
-                    <option>None</option>
+                    <option value={null}>None</option>
                 {:else}
                     {#each $availableP2pServices as service}
                         <option value={service}>{service.title}</option>
@@ -281,7 +281,7 @@
         </dd>
         <pre class="serviceurl">
             <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-            {#if $selectedP2pService.properties != undefined && $selectedP2pService.properties.length != 0}
+            {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                 {#each $selectedP2pService.properties as prop}
                     <label>{prop.type}: {prop.value}<br /></label>
                 {/each}

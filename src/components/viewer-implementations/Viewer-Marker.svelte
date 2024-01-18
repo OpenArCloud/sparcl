@@ -2,23 +2,29 @@
 
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
-<script>
+<script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { sendRequest, validateRequest } from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
-    import { IMAGEFORMAT } from '@oarc/gpp-access/GppGlobals.js';
+    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { GeoPoseRequest } from '@oarc/gpp-access';
+    import { ImageOrientation } from '@oarc/gpp-access';
+    import { IMAGEFORMAT } from '@oarc/gpp-access';
+    import { debounce } from 'lodash';
 
-    import { getContentsAtLocation } from '@oarc/scd-access';
+    import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
@@ -39,7 +45,7 @@
         peerIdStr,
     } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, debounce, wait } from '@core/common';
+    import { ARMODES, CREATIONTYPES, wait } from '@core/common';
     import { fakeLocationResult, printOglTransform } from '@core/devTools';
 
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
@@ -49,32 +55,43 @@
 
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
+    import type webxr from '../../core/engines/webxr';
+    import type ogl from '../../core/engines/ogl/ogl';
+    import { Mat4, Transform, type Mesh } from 'ogl';
+    import type { Orientation, Position } from '../../types/xr';
 
-    const message = (msg) => console.log(msg);
+    const message = (msg: string) => console.log(msg);
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let canvas, overlay, externalContent, closeExperience, experimentOverlay;
-    let xrEngine, tdEngine;
+    let canvas: HTMLCanvasElement;
+    let overlay: HTMLElement;
+    let externalContent: HTMLIFrameElement;
+    let closeExperience: HTMLImageElement;
+    let experimentOverlay: ArExperimentOverlay;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
 
-    let doCaptureImage = false,
-        doExperimentAutoPlacement;
+    let doCaptureImage = false;
+    let doExperimentAutoPlacement: boolean;
     let showFooter = false,
-        experienceLoaded = false,
-        experienceMatrix = null;
+        experienceLoaded = false;
+    let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false,
         isLocalizing = false,
         isLocalized = false,
         isLocalisationDone = false,
         hasLostTracking = false;
-    let unableToStartSession = false,
-        experimentIntervallId = null;
+    let unableToStartSession = false;
+    let experimentIntervallId: ReturnType<typeof setInterval> | undefined = undefined;
 
-    let trackedImageObject, creatorObject, reticle;
-    let poseFoundHeartbeat = null;
+    let trackedImageObject: Mesh;
+    let creatorObject: Transform | Mesh;
+    let reticle: Transform | null;
+    let poseFoundHeartbeat: () => boolean | undefined;
 
-    let receivedContentTitles = [];
+    let receivedContentTitles: string[] = [];
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -85,7 +102,7 @@
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
      */
-    export function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
@@ -99,55 +116,29 @@
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function onNetworkEvent(events) {
+    export function onNetworkEvent(events: any) {
         // Viewer-Marker cannot handle any events currently
         console.log('Viewer-Marker: Unknown event received:');
         console.log(events);
-        // pass on to parent
-        return parentInstance.onNetworkEvent(events);
     }
 
     /**
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        let promise;
-
-        if ($arMode === ARMODES.experiment) {
-            promise = xrEngine.startExperimentSession(canvas, handleExperiment, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-
-            tdEngine.setExperimentTapHandler(experimentTapHandler);
-        } else if ($arMode === ARMODES.develop) {
-            promise = xrEngine.startDevSession(canvas, handleDevelopment, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.create) {
-            promise = xrEngine.startCreativeSession(canvas, handleCreator, {
-                requiredFeatures: ['dom-overlay', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.oscp) {
-            promise = xrEngine.startOscpSession(canvas, handleOscp, {
-                requiredFeatures: ['dom-overlay', 'camera-access', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-            });
-        } else if ($arMode === ARMODES.marker) {
-            const bitmap = await loadDefaultMarker();
-            promise = xrEngine.startMarkerSession(canvas, handleMarker, {
-                requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
-                domOverlay: { root: overlay },
-                trackedImages: [
-                    {
-                        image: bitmap,
-                        widthInMeters: $currentMarkerImageWidth,
-                    },
-                ],
-            });
-        }
+        const bitmap = await loadDefaultMarker();
+        const options = {
+            requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
+            domOverlay: { root: overlay },
+            // hack to circumvent exhaustive type checking of object literals, because trackedImages does not exist on XRSessionInit
+            trackedImages: [
+                {
+                    image: bitmap,
+                    widthInMeters: $currentMarkerImageWidth,
+                },
+            ],
+        };
+        const promise = xrEngine.startMarkerSession(canvas, handleMarker, options);
 
         if (promise) {
             promise
@@ -155,7 +146,7 @@
                     xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
                     tdEngine.init();
                 })
-                .catch((error) => {
+                .catch((error: any) => {
                     unableToStartSession = true;
                     message('WebXR Immersive AR failed to start: ' + error);
                 });
@@ -185,17 +176,13 @@
 
         if (experimentIntervallId) {
             clearInterval(experimentIntervallId);
-            experimentIntervallId = null;
+            experimentIntervallId = undefined;
         }
 
         dispatch('arSessionEnded');
     }
 
-    /**
-     * Trigger localisation of the device globally using a GeoPose service.
-     */
     function startLocalisation() {
-        doCaptureImage = true;
         isLocalizing = true;
     }
 
@@ -206,7 +193,7 @@
     function handlePoseHeartbeat() {
         hasLostTracking = false;
         if (poseFoundHeartbeat === null) {
-            poseFoundHeartbeat = debounce(() => (hasLostTracking = true));
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
         }
 
         poseFoundHeartbeat();
@@ -223,13 +210,13 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function handleExperiment(time, frame, floorPose, reticlePose, frameDuration, passedMaxSlow) {
+    function handleExperiment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, reticlePose: XRPose, frameDuration: number, passedMaxSlow: boolean) {
         if ($experimentModeSettings.game.localisation && !isLocalized) {
             handleOscp(time, frame, floorPose);
         } else {
             handlePoseHeartbeat();
 
-            showFooter = $experimentModeSettings.game.showstats || ($experimentModeSettings.game.localisation && !isLocalisationDone);
+            showFooter = ($experimentModeSettings.game.showstats || ($experimentModeSettings.game.localisation && !isLocalisationDone)) as boolean;
 
             xrEngine.setViewPort();
 
@@ -257,8 +244,10 @@
      * @param frameDuration  integer        The duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onXrNoPose(time, frame, floorPose, frameDuration, passedMaxSlow) {
-        experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, frameDuration: number | undefined, passedMaxSlow: boolean | undefined) {
+        if (frameDuration && passedMaxSlow) {
+            experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
+        }
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -267,20 +256,19 @@
      *
      * Not meant for other usage than that.
      *
-     * @param event  Event      The Javascript event object
      * @param auto  boolean     true when called from automatic placement interval
      */
-    function experimentTapHandler(event, auto = false) {
+    function experimentTapHandler(auto = false) {
         if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
-            const options = { attributes: {} };
+            const options: any = { attributes: {} };
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
             let offsetY = 0,
                 offsetZ = 0;
-            let fragmentShader;
+            let fragmentShader: string = '';
 
             switch (shape) {
                 case PRIMITIVES.box:
@@ -363,7 +351,7 @@
         doExperimentAutoPlacement = !doExperimentAutoPlacement;
 
         if (doExperimentAutoPlacement) {
-            experimentIntervallId = setInterval(() => experimentTapHandler(null, true), 1000);
+            experimentIntervallId = setInterval(() => experimentTapHandler(true), 1000);
         } else {
             clearInterval(experimentIntervallId);
         }
@@ -377,7 +365,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose     The pose of the device as reported by the XRFrame
      */
-    function handleDevelopment(time, frame, floorPose) {
+    function handleDevelopment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         handlePoseHeartbeat();
 
         xrEngine.setViewPort();
@@ -399,15 +387,17 @@
                 const geoPose = fakeLocationResult.geopose.pose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
-                wait(1000).then((showFooter = false));
+                let geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
+                wait(1000).then(() => (showFooter = false));
 
-                const scrs = fakeLocationResult.scrs;
-                placeContent([scrs]);
+                let data = fakeLocationResult.scrs;
+                placeContent([data]);
             }
         }
 
-        if (experienceLoaded === true) {
-            externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(floorPose.views[0], experienceMatrix), '*');
+        if (experienceLoaded === true && experienceMatrix) {
+            externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(floorPose.views[0], experienceMatrix), '*');
         }
 
         xrEngine.handleAnchors(frame);
@@ -422,7 +412,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    function handleCreator(time, frame, floorPose) {
+    function handleCreator(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         handlePoseHeartbeat();
 
         showFooter = false;
@@ -451,8 +441,9 @@
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
                 creatorObject = tdEngine.addModel(position, orientation, $creatorModeSettings.modelurl);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
-                creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
-                tdEngine.addClickEvent(creatorObject, () => experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
+                const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
+                creatorObject = experiencePlaceholderObject;
+                tdEngine.addClickEvent(experiencePlaceholderObject, () => experienceLoadHandler(experiencePlaceholderObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');
             }
@@ -461,8 +452,8 @@
         for (let view of floorPose.views) {
             xrEngine.setViewportForView(view);
 
-            if (experienceLoaded === true) {
-                externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            if (experienceLoaded === true && experienceMatrix) {
+                externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
             }
         }
 
@@ -479,7 +470,7 @@
      * @param localPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function handleMarker(time, frame, floorPose, localPose, trackedImage) {
+    function handleMarker(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) {
         handlePoseHeartbeat();
 
         firstPoseReceived = true;
@@ -487,7 +478,7 @@
 
         xrEngine.setViewPort();
 
-        if (trackedImage && trackedImage.trackingState === 'tracked') {
+        if (trackedImage && trackedImage.trackingState === XRImageTrackingState.tracked) {
             if (!trackedImageObject) {
                 trackedImageObject = tdEngine.addMarkerObject();
             }
@@ -500,6 +491,16 @@
         tdEngine.render(time, floorPose.views[0]);
     }
 
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
+
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -508,7 +509,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    function handleOscp(time, frame, floorPose) {
+    function handleOscp(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         handlePoseHeartbeat();
 
         if (firstPoseReceived === false) {
@@ -523,13 +524,13 @@
         for (let view of floorPose.views) {
             let viewport = xrEngine.setViewportForView(view);
 
-            if (experienceLoaded === true) {
-                externalContent.contentWindow.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            if (experienceLoaded === true && experienceMatrix) {
+                externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
             }
 
             // Currently necessary to keep camera image capture alive.
-            let cameraTexture = null;
-            let cameraIntrinsics = null;
+            let cameraTexture: WebGLTexture | undefined | null = null;
+            let cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number } | null | undefined = null;
             let cameraViewport = null;
             if (!isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
@@ -537,29 +538,56 @@
                 cameraTexture = res.cameraTexture;
                 cameraIntrinsics = res.cameraIntrinsics;
                 cameraViewport = res.cameraViewport;
-            }
 
             if (doCaptureImage) {
                 doCaptureImage = false;
-
                 //const imageWidth = viewport.width; // old Chrome 91
                 //const imageHeight = viewport.height; // old Chrome 91
                 //const imageWidth = view.camera.width; // new Chrome 92
                 //const imageHeight = view.camera.height; // new Chrome 92
-                const imageWidth = cameraViewport.width;
-                const imageHeight = cameraViewport.height;
+                const imageWidth = cameraViewport?.width;
+                const imageHeight = cameraViewport?.height;
 
-                const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
+                if (cameraTexture && imageWidth && imageHeight) {
+                    const image = xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight);
 
-                // Append captured camera image to body to verify if it was captured correctly
-                if ($debug_saveCameraImage) {
-                    const img = new Image();
-                    img.src = image;
-                    document.body.appendChild(img);
+                    // Append captured camera image to body to verify if it was captured correctly
+                    if ($debug_saveCameraImage) {
+                        const img = new Image();
+                        img.src = image;
+                        document.body.appendChild(img);
+                    }
+
+                    // TODO(soeroesg): downsize image if too large
+                    if (cameraIntrinsics) {
+                        localize(image, imageWidth, imageHeight, cameraIntrinsics)
+                            .then((cameraGeoPose) => {
+                                // Save the local pose and the global pose of the image for alignment in a later step
+                                $recentLocalisation.geopose = cameraGeoPose;
+                                $recentLocalisation.floorpose = floorPose;
+                                onLocalizationSuccess(floorPose, cameraGeoPose);
+
+                                // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
+                                // We could return those as [optionalScrs], however, this means all other content services are ignored...
+                                //if (optionalScrs) {
+                                //    return [optionalScrs];
+                                //}
+                                // Instead of returning [optionalScrs], we request content from all available content services
+                                // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
+                                let scrsPromises = getContentsInH3Cell();
+                                return scrsPromises;
+                            })
+                            .then((scrs) => {
+                                // NOTE: the next step expects an array of array of SCRs in the scrs variable
+                                console.log('Received ' + scrs.length + ' SCRs');
+                                placeContent(scrs);
+                            });
+                    }
                 }
 
                 // TODO(soeroesg): downsize image if too large
 
+                // TODO: is this localize needed?
                 localize(image, imageWidth, imageHeight, cameraIntrinsics)
                     .then(([geoPose, optionalScrs]) => {
                         // Save the local pose and the global pose of the image for alignment in a later step
@@ -599,8 +627,8 @@
      * @param height  Number    Height of the camera image
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
-    function localize(image, width, height, cameraIntrinsics) {
-        return new Promise((resolve, reject) => {
+    function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
+        return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
             let cameraParams = new CameraParam();
             cameraParams.model = CAMERAMODEL.PINHOLE;
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
@@ -613,24 +641,25 @@
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
 
-            sendRequest($selectedGeoPoseService.url, JSON.stringify(geoPoseRequest))
-                .then((data) => {
-                    isLocalizing = false;
-                    isLocalized = true;
-                    wait(4000).then(() => {
-                        showFooter = false;
-                        isLocalisationDone = true;
-                    });
+            if ($selectedGeoPoseService?.url) {
+                sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
+                    .then((data) => {
+                        isLocalizing = false;
+                        isLocalized = true;
+                        wait(4000).then(() => {
+                            showFooter = false;
+                            isLocalisationDone = true;
+                        });
 
-                    // TODO: data.pose from AugmentedCity is deprecated
-                    resolve([data.geopose || data.pose, data.scrs]);
-                })
-                .catch((error) => {
-                    // TODO: Inform user
-                    isLocalizing = false;
-                    console.error(error);
-                    reject(error);
-                });
+                        resolve(data.geopose);
+                    })
+                    .catch((error) => {
+                        // TODO: Inform user
+                        isLocalizing = false;
+                        console.error(error);
+                        reject(error);
+                    });
+            }
         });
     }
 
@@ -652,7 +681,7 @@
      * Request content from SCD available around the current location.
      */
     function getContentsInH3Cell() {
-        const servicePromises = $availableContentServices.reduce((result, service) => {
+        const servicePromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
                 result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
             }
@@ -662,22 +691,13 @@
         return Promise.all(servicePromises);
     }
 
-    /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
-     */
-    export function onLocalizationSuccess(localPose, globalPose) {
-        let localImagePose = localPose.transform;
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
-    }
-
     /**
-     *  Places the contents provided by a call to Spacial Content Discovery providers.
-     * @param scrs  [[SCR]]        Content Records with the result from the selected content services
+     *  Places the content provided by a call to Spacial Content Discovery providers.
+     *
+     * @param scr  [SCR]        Content Records with the result from the selected content services
      */
-    function placeContent(scrs) {
-        scrs.forEach((response) => {
+    function placeContent(scr: SCR[][]) {
+        scr.forEach((response) => {
             console.log('Number of content items received: ', response.length);
 
             response.forEach((record) => {
@@ -697,32 +717,31 @@
                         let position = localObjectPose.position;
                         let orientation = localObjectPose.quaternion;
 
+                        // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
                         // kept for backward compatibility and will be removed
                         //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        if (record.content.custom_data?.sticker_subtype != undefined) {
-                            const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                            const url = record.content.custom_data.path;
+                        // if (record.content.custom_data?.sticker_subtype != undefined) {
+                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
+                        //     const url = record.content.custom_data.path;
 
-                            // TODO: Receive list of events to register to from SCD and register them here
-                            switch (subtype) {
-                                case 'scene':
-                                    const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                                    tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                                    break;
-                                case 'gltf':
-                                    tdEngine.addModel(position, orientation, url);
-                                    break;
-                                default:
-                                    console.log('Error: unexpected sticker subtype: ' + subtype);
-                                    break;
-                            }
-                        } else {
-                            // we cannot load anything else but AC-compliant 3D models
-                            // so draw a placeholder instead
-                            const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                            handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
-                        }
+                        //     // TODO: Receive list of events to register to from SCD and register them here
+                        //     switch (subtype) {
+                        //         case 'scene':
+                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
+                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
+                        //             break;
+                        //         case 'gltf':
+                        //             tdEngine.addModel(position, orientation, url);
+                        //             break;
+                        //         default:
+                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
+                        //             break;
+                        //     }
+                        // we cannot load anything else but AC-compliant 3D models
+                        // so draw a placeholder instead
+                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                        handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         break;
 
                     default:
@@ -738,6 +757,8 @@
                 // TODO: Anchor placeholder for better visual stability?!
             });
         });
+
+        tdEngine.endSpatialContentRecords();
     }
 
     /**
@@ -748,7 +769,7 @@
      * @param orientation  Orientation      The orientation of the experience
      * @param url  String       The URL to load the experience from
      */
-    function experienceLoadHandler(placeholder, position, orientation, url) {
+    function experienceLoadHandler(placeholder: Mesh, position: Position, orientation: Orientation, url: string) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;

@@ -1,34 +1,38 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Content shown to non AR devices.
 -->
 
-<script>
+<script lang="ts">
     import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState } from '@src/stateStore';
 
-    import L from 'leaflet';
+    import L, { Map } from 'leaflet';
+    let map: Map | null;
 
-    export let isHeadless = false;
-    let map;
-
-    function placeMarker(lat, lon, color) {
-        L.circle([lat, lon], {
-            color: color,
-            fillColor: color,
-            fillOpacity: 0.5,
-            radius: 1,
-        }).addTo(map);
+    function placeMarker(lat: number, lon: number, color: string) {
+        if (map) {
+            L.circle([lat, lon], {
+                color: color,
+                fillColor: color,
+                fillOpacity: 0.5,
+                radius: 1,
+            }).addTo(map);
+        }
     }
 
     /**
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function onNetworkEvent(events) {
+    export function onNetworkEvent(events: any) {
         // Simply print any other events and return
         if (!('message_broadcasted' in events) && !('object_created' in events)) {
             console.log('Spectator: Unknown event received:');
@@ -66,7 +70,7 @@
         }
     }
 
-    function mapAction(container) {
+    function mapAction(container: HTMLElement) {
         if ('geolocation' in navigator) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
@@ -84,7 +88,7 @@
 
                     return {
                         destroy: () => {
-                            map.remove();
+                            map?.remove();
                             map = null;
                         },
                     };
@@ -128,8 +132,8 @@
             </select>
         </dd>
         <pre class="serviceurl">
-            <label>URL: {$selectedP2pService.url || 'no url'}</label>
-            {#if $selectedP2pService.properties != undefined && $selectedP2pService.properties.length != 0}
+            <label>URL: {$selectedP2pService?.url || 'no url'}</label>
+            {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                 {#each $selectedP2pService.properties as prop}
                     <label>{prop.type}: {prop.value}<br /></label>
                 {/each}
