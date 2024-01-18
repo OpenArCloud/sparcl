@@ -7,7 +7,7 @@
   SPDX-License-Identifier: MIT
 */
 
-import { DOMAttributes, HTMLProps, HTMLAttributes, AriaAttributes } from 'svelte/elements';
+import 'svelte/elements';
 
 declare module 'svelte/elements' {
     export interface DOMAttributes<T extends EventTarget> {

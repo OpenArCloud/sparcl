@@ -12,6 +12,9 @@ import type { PRIMITIVES } from '../core/engines/ogl/modelTemplates';
 import type webxr from '../core/engines/webxr';
 import type ogl from '../core/engines/ogl/ogl';
 import type { OGLRenderingContext } from 'ogl';
+import type IsmarViewer1 from '../experiments/oarc/ismar2021singpost/Viewer.svelte';
+import type IsmarViewer2 from '../experiments/oarc/ismar2021multi/Viewer.svelte';
+import type IsmarViewer3 from '../experiments/oarc/performance/Viewer.svelte';
 
 export type ValueOf<T> = T[keyof T];
 
@@ -29,7 +32,7 @@ export type ObjectDescription = {
     options: {};
 };
 
-export type ExperimentsViewers = never; // TODO: this needs to be a union type of all the possible experiment views, eg.: @experiments/<subroot>/<experimentname1>/Viewer.svelte | @experiments/<subroot>/<experimentname2>/Viewer.svelte
+export type ExperimentsViewers = IsmarViewer1 | IsmarViewer2 | IsmarViewer3;
 
 export type Position = { x: number; y: number; z: number };
 export type Orientation = { x: number; y: number; z: number; w: number };
