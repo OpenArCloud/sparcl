@@ -7,7 +7,7 @@
     Content of the introduction overlay.
 -->
 
-<script>
+<script lang="ts">
     import { createEventDispatcher } from 'svelte';
 
     import { Swipeable, Screen, Controls } from 'thumb-ui';
@@ -31,8 +31,8 @@
     import { ARMODES } from '@core/common';
 
     export let withOkFooter = true;
-    export let shouldShowDashboard;
-    export let shouldShowUnavailableInfo;
+    export let shouldShowDashboard: boolean;
+    export let shouldShowUnavailableInfo: boolean | null;
     export let isLocationAccessRefused = false;
 
     // Used to dispatch events to parent

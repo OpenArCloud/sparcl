@@ -18,11 +18,12 @@
     import { v4 as uuidv4 } from 'uuid';
 
     import { sendRequest, validateRequest } from '@oarc/gpp-access';
-    import GeoPoseRequest from '@oarc/gpp-access/request/GeoPoseRequest.js';
-    import ImageOrientation from '@oarc/gpp-access/request/options/ImageOrientation.js';
+    import { GeoPoseRequest } from '@oarc/gpp-access';
+    import { ImageOrientation } from '@oarc/gpp-access';
     import { IMAGEFORMAT } from '@oarc/gpp-access';
 
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
+    import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
     import {
         arMode,
@@ -56,6 +57,7 @@
     import type webxr from '@src/core/engines/webxr';
     import type { ObjectDescription, Orientation, Position } from '../../types/xr';
     import type { Mat4, Mesh, Quat, Transform, Vec3 } from 'ogl';
+    import { get } from 'svelte/store';
 
     const message = (msg: string) => console.log(msg);
 
@@ -84,6 +86,11 @@
     let experimentIntervallId: ReturnType<typeof setInterval> | undefined = undefined;
 
     let receivedContentTitles: string[] = [];
+
+    let trackedImageObject: Mesh;
+    let creatorObject: Transform | Mesh;
+    let reticle: Transform | null;
+    let poseFoundHeartbeat: () => boolean | undefined;
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -935,7 +942,7 @@
             });
         });
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateSceneGraphTransforms();
     }
 
     /**

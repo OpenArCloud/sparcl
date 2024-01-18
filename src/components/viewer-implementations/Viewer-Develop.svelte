@@ -83,8 +83,6 @@
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
 
-                let geoPose = fakeLocationResult.geopose.pose;
-                onLocalizationSuccess(floorPose, geoPose);
                 wait(1000).then(() => (showFooter = false));
 
                 let data = fakeLocationResult.scrs;
