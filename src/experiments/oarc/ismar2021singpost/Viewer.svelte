@@ -1,10 +1,14 @@
-<script>
+<script lang="ts">
     import { setContext } from 'svelte';
-    import { writable } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import Parent from '@components/Viewer.svelte';
-    let parentInstance, settings;
-    let xrEngine, tdEngine;
+    import type webxr from '../../../core/engines/webxr';
+    import type ogl from '../../../core/engines/ogl/ogl';
+    let parentInstance: Parent;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
+    let settings: Writable<Record<string, unknown>> = writable({});
 
     let parentState = writable();
     setContext('state', parentState);
@@ -18,12 +22,14 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
-        settings = options?.settings || {};
+        if (options?.settings) {
+            settings = options?.settings;
+        }
 
         startSession();
     }
@@ -37,8 +43,10 @@
             onXrSessionEnded,
             onXrNoPose,
             (xr, result, gl) => {
-                xr.glBinding = new XRWebGLBinding(result, gl);
-                xr.initCameraCapture(gl);
+                if (gl) {
+                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.initCameraCapture(gl);
+                }
                 result.requestReferenceSpace('viewer');
             },
             ['dom-overlay', 'camera-access', 'local-floor'],
@@ -53,7 +61,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time, frame, floorPose) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         hasLostTracking = false;
         parentInstance.onXrFrameUpdate(time, frame, floorPose);
     }
@@ -73,7 +81,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time, frame, floorPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }

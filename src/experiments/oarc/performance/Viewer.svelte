@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
     import { setContext } from 'svelte';
-    import { writable } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
 
     import Parent from '@components/Viewer.svelte';
 
@@ -10,22 +10,27 @@
     import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
+    import type { Transform } from 'ogl';
+    import type webxr from '../../../core/engines/webxr';
+    import type ogl from '../../../core/engines/ogl/ogl';
 
-    let parentInstance, xrEngine, tdEngine;
-    let hitTestSource,
-        reticle,
-        hasLostTracking = true;
-    let experimentIntervalId,
-        doExperimentAutoPlacement = false;
-    let settings;
-    let experimentOverlay;
+    let parentInstance: Parent;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
+    let hitTestSource: XRHitTestSource | undefined;
+    let reticle: Transform | undefined;
+    let hasLostTracking = true;
+    let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
+    let doExperimentAutoPlacement = false;
+    let experimentOverlay: ArExperimentOverlay;
+    let settings: Writable<Record<string, unknown>> = writable({});
 
     let previousTime = performance.now(),
         slowCount = 0,
         maxSlow = 10,
         maximumFrameTime = 1000 / 30; // 30 FPS
 
-    let parentState = writable();
+    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     /**
@@ -35,12 +40,14 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
-        settings = options?.settings || {};
+        if (options?.settings) {
+            settings = options?.settings;
+        }
 
         startSession();
     }
@@ -54,18 +61,20 @@
             onXrSessionEnded,
             onXrNoPose,
             (xr, result, gl) => {
-                xr.glBinding = new XRWebGLBinding(result, gl);
-                xr.initCameraCapture(gl);
+                if (gl) {
+                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.initCameraCapture(gl);
+                }
 
                 result
                     .requestReferenceSpace('viewer')
-                    .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                    .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
         );
 
-        tdEngine.setExperimentTapHandler(experimentTapHandler);
+        tdEngine.setExperimentTapHandler(() => experimentTapHandler());
     }
 
     /**
@@ -76,12 +85,12 @@
      * @param event  Event      The Javascript event object
      * @param auto  boolean     true when called from automatic placement interval
      */
-    function experimentTapHandler(event, auto = false) {
+    function experimentTapHandler(auto = false) {
         if (!hasLostTracking && reticle && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
-            const options = { attributes: {} };
+            const options: any = { attributes: {} };
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
             let offsetY = 0,
@@ -158,7 +167,7 @@
         doExperimentAutoPlacement = !doExperimentAutoPlacement;
 
         if (doExperimentAutoPlacement) {
-            experimentIntervalId = setInterval(() => experimentTapHandler(null, true), 1000);
+            experimentIntervalId = setInterval(() => experimentTapHandler(true), 1000);
         } else {
             clearInterval(experimentIntervalId);
         }
@@ -173,7 +182,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         hasLostTracking = false;
 
         if (hitTestSource) {
@@ -193,7 +202,7 @@
                 if ($settings.localisation && !$parentState.isLocalized) {
                     parentInstance.onXrFrameUpdate(time, frame, floorPose);
                 } else {
-                    $parentState.showFooter = $settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone);
+                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
 
                     xrEngine.setViewPort();
 
@@ -201,9 +210,11 @@
                         reticle = tdEngine.addReticle();
                     }
 
-                    const position = reticlePose.transform.position;
-                    const orientation = reticlePose.transform.orientation;
-                    tdEngine.updateReticlePose(reticle, position, orientation);
+                    const position = reticlePose?.transform.position;
+                    const orientation = reticlePose?.transform.orientation;
+                    if (position && orientation) {
+                        tdEngine.updateReticlePose(reticle, position, orientation);
+                    }
                     tdEngine.render(time, floorPose.views[0]);
 
                     experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
@@ -223,7 +234,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time, frame, floorPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }
@@ -234,12 +245,12 @@
     function onXrSessionEnded() {
         if (hitTestSource) {
             hitTestSource.cancel();
-            hitTestSource = null;
+            hitTestSource = undefined;
         }
 
         if (experimentIntervalId) {
             clearInterval(experimentIntervalId);
-            experimentIntervalId = null;
+            experimentIntervalId = undefined;
         }
 
         parentInstance.onXrSessionEnded();
@@ -247,13 +258,13 @@
 </script>
 
 <Parent bind:this={parentInstance} on:arSessionEnded>
-    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
-            <p>{receivedContentNames.join()}</p>
+            <p>{receivedContentTitles.join()}</p>
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
-            <p>{receivedContentNames.join()}</p>
-            <ArExperimentOverlay bind:this={experimentOverlay} {settings} on:toggleAutoPlacement={toggleExperimentalPlacement} on:relocalize={() => parentInstance.relocalize()} />
+            <p>{receivedContentTitles.join()}</p>
+            <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} on:relocalize={() => parentInstance.relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>

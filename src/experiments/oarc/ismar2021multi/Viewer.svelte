@@ -1,7 +1,7 @@
-<script>
+<script lang="ts">
     import { setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
-    import { writable } from 'svelte/store';
+    import { get, writable, type Writable } from 'svelte/store';
 
     import Parent from '@components/Viewer.svelte';
 
@@ -12,17 +12,25 @@
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
     import { peerIdStr, recentLocalisation } from '@src/stateStore';
     import { v4 as uuidv4 } from 'uuid';
+    import type webxr from '../../../core/engines/webxr';
+    import type ogl from '../../../core/engines/ogl/ogl';
+    import type { Quat, Transform, Vec3 } from 'ogl';
+    import { debounce } from 'lodash';
+    import type { ObjectDescription } from '../../../types/xr';
 
-    let parentInstance, xrEngine, tdEngine;
-    let hitTestSource,
-        reticle,
-        hasLostTracking = true;
-    let experimentIntervalId,
-        doExperimentAutoPlacement = false;
-    let settings;
-    let experimentOverlay;
+    let parentInstance: Parent;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
+    let hitTestSource: XRHitTestSource | undefined;
+    let reticle: Transform | undefined;
+    let hasLostTracking = true;
+    let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
+    let doExperimentAutoPlacement = false;
+    let experimentOverlay: ArExperimentOverlay;
+    let settings: Writable<Record<string, unknown>> = writable({});
+    let poseFoundHeartbeat: () => boolean | undefined;
 
-    let parentState = writable();
+    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     // Used to dispatch events to parent
@@ -35,12 +43,13 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
-
-        settings = options?.settings || {};
+        if (options?.settings) {
+            settings = options?.settings;
+        }
 
         startSession();
     }
@@ -54,12 +63,14 @@
             onXrSessionEnded,
             onXrNoPose,
             (xr, result, gl) => {
-                xr.glBinding = new XRWebGLBinding(result, gl);
-                xr.initCameraCapture(gl);
+                if (gl) {
+                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.initCameraCapture(gl);
+                }
 
                 result
                     .requestReferenceSpace('viewer')
-                    .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                    .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
@@ -77,7 +88,7 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      * @param floorSpaceReference
      */
-    function onXrFrameUpdate(time, frame, floorPose, floorSpaceReference) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         hasLostTracking = false;
 
         if (hitTestSource) {
@@ -88,7 +99,7 @@
                 if ($settings.localisation && !$parentState.isLocalized) {
                     parentInstance.onXrFrameUpdate(time, frame, floorPose);
                 } else {
-                    $parentState.showFooter = $settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone);
+                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
 
                     xrEngine.setViewPort();
 
@@ -96,9 +107,11 @@
                         reticle = tdEngine.addReticle();
                     }
 
-                    const position = reticlePose.transform.position;
-                    const orientation = reticlePose.transform.orientation;
-                    tdEngine.updateReticlePose(reticle, position, orientation);
+                    const position = reticlePose?.transform.position;
+                    const orientation = reticlePose?.transform.orientation;
+                    if (position && orientation) {
+                        tdEngine.updateReticlePose(reticle, position, orientation);
+                    }
                     tdEngine.render(time, floorPose.views[0]);
                 }
             } else {
@@ -113,11 +126,11 @@
     function onXrSessionEnded() {
         if (hitTestSource) {
             hitTestSource.cancel();
-            hitTestSource = null;
+            hitTestSource = undefined;
         }
         if (experimentIntervalId) {
             clearInterval(experimentIntervalId);
-            experimentIntervalId = null;
+            experimentIntervalId = undefined;
         }
         parentInstance.onXrSessionEnded();
     }
@@ -130,14 +143,14 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time, frame, floorPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }
 
     function relocalize() {
         parentInstance.relocalize();
-        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        reticle = undefined; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
     //////////////////////////////////
@@ -148,7 +161,7 @@
     function handlePoseHeartbeat() {
         hasLostTracking = false;
         if (poseFoundHeartbeat === null) {
-            poseFoundHeartbeat = debounce(() => (hasLostTracking = true));
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
         }
         poseFoundHeartbeat();
     }
@@ -161,7 +174,7 @@
      * @param event  Event      The Javascript event object
      * @param auto  boolean     true when called from automatic placement interval
      */
-    function experimentTapHandler(event) {
+    function experimentTapHandler() {
         if (!hasLostTracking && reticle) {
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
@@ -189,14 +202,14 @@
         doExperimentAutoPlacement = !doExperimentAutoPlacement;
 
         if (doExperimentAutoPlacement) {
-            experimentIntervalId = setInterval(() => experimentTapHandler(null, true), 1000);
+            experimentIntervalId = setInterval(() => experimentTapHandler(), 1000);
         } else {
             clearInterval(experimentIntervalId);
         }
     }
 
-    function shareCamera(position, quaternion) {
-        let object_description = {
+    function shareCamera(position: Vec3, quaternion: Quat) {
+        let object_description: ObjectDescription = {
             version: 2,
             color: [1.0, 1.0, 0.0, 0.2],
             shape: PRIMITIVES.box,
@@ -207,7 +220,7 @@
         shareObject(object_description, position, quaternion);
     }
 
-    function shareMessage(str) {
+    function shareMessage(str: string) {
         let message_body = {
             message: str,
             sender: $peerIdStr,
@@ -220,7 +233,7 @@
         console.log('Message sent: ' + message_body);
     }
 
-    function shareObject(object_description, position, quaternion) {
+    function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
         let latestGlobalPose = $recentLocalisation.geopose;
         let latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
@@ -278,7 +291,7 @@
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
-    export function onNetworkEvent(events) {
+    export function onNetworkEvent(events: any) {
         if (!('message_broadcasted' in events) && !('object_created' in events)) {
             console.log('Viewer-ISMAR2021Multi: Unknown event received:');
             console.log(events);
@@ -318,13 +331,13 @@
 </script>
 
 <Parent bind:this={parentInstance} on:arSessionEnded>
-    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
-            <p>{receivedContentNames.join()}</p>
+            <p>{receivedContentTitles.join()}</p>
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
-            <p>{receivedContentNames.join()}</p>
-            <ArExperimentOverlay bind:this={experimentOverlay} {settings} on:toggleAutoPlacement={() => toggleExperimentalPlacement()} on:relocalize={() => relocalize()} />
+            <p>{receivedContentTitles.join()}</p>
+            <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={() => toggleExperimentalPlacement()} on:relocalize={() => relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>
