@@ -387,8 +387,6 @@
                 const geoPose = fakeLocationResult.geopose.pose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
-                let geoPose = fakeLocationResult.geopose.pose;
-                onLocalizationSuccess(floorPose, geoPose);
                 wait(1000).then(() => (showFooter = false));
 
                 let data = fakeLocationResult.scrs;
@@ -535,9 +533,9 @@
             if (!isLocalized) {
                 //cameraTexture = xrEngine.getCameraTexture(frame, view); // old Chrome 91
                 const res = xrEngine.getCameraTexture2(view); // new Chrome 92
-                cameraTexture = res.cameraTexture;
-                cameraIntrinsics = res.cameraIntrinsics;
-                cameraViewport = res.cameraViewport;
+                cameraTexture = res?.cameraTexture;
+                cameraIntrinsics = res?.cameraIntrinsics;
+                cameraViewport = res?.cameraViewport;
 
             if (doCaptureImage) {
                 doCaptureImage = false;
@@ -758,7 +756,7 @@
             });
         });
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateSceneGraphTransforms();
     }
 
     /**

@@ -443,16 +443,6 @@
         return Promise.all(servicePromises);
     }
 
-    /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
-     */
-    export function onLocalizationSuccess(localPose, globalPose) {
-        let localImagePose = localPose.transform;
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
-    }
-
     /**
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
