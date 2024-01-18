@@ -9,17 +9,15 @@
 <script>
     import Parent from '@components/Viewer.svelte';
 
-    import { fakeLocationResult } from "@core/devTools";
-    import { wait } from "@core/common";
+    import { fakeLocationResult } from '@core/devTools';
+    import { wait } from '@core/common';
     import { debug_showLocalAxes } from '@src/stateStore';
-
 
     let parentInstance, xrEngine, tdEngine;
 
     let firstPoseReceived = false;
     let showFooter = false;
     let isLocalized = false;
-
 
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
@@ -36,10 +34,7 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
-            () => {},
-            ['dom-overlay', 'anchors', 'local-floor'],
-        );
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
     }
 
     /**
@@ -64,12 +59,11 @@
             }
 
             for (let view of floorPose.views) {
-
                 console.log('fake localisation');
                 const geoPose = fakeLocationResult.geopose.pose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
-                wait(1000).then(showFooter = false);
+                wait(1000).then((showFooter = false));
 
                 const scrs = fakeLocationResult.scrs;
                 parentInstance.placeContent([scrs]);
@@ -85,9 +79,4 @@
 </script>
 
 <!-- TODO: showFooter and isLocalized are not passed correctly -->
-<Parent bind:this={parentInstance}
-    {showFooter}
-    {isLocalized}
-    on:arSessionEnded
-    on:broadcast
-/>
+<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:broadcast />

@@ -2,8 +2,8 @@
     export let settings;
     if (Object.keys(settings).length === 0) {
         settings.localisation = false;
-        settings.add = "manually";
-        settings.keep = "all";
+        settings.add = 'manually';
+        settings.keep = 'all';
         settings.showstats = true;
     }
 </script>
@@ -16,13 +16,11 @@
     </dd>
     <dt>Add placeholders</dt>
     <dd>
-        <input id="addmanually" type="radio"
-               bind:group={settings.add} value="manually" />
+        <input id="addmanually" type="radio" bind:group={settings.add} value="manually" />
         <label for="addmanually">Manually</label>
     </dd>
     <dd>
-        <input id="addautomatically" type="radio"
-               bind:group={settings.add} value="automatically" />
+        <input id="addautomatically" type="radio" bind:group={settings.add} value="automatically" />
         <label for="addautomatically">Automatically</label>
     </dd>
 

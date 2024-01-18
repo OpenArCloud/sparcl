@@ -12,7 +12,6 @@
 
     let parentInstance;
 
-
     /**
      * Initial setup.
      *
@@ -31,13 +30,16 @@
     async function startSession() {
         let requiredXrFeatures = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
         let optionalXrFeatures = [];
-        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
             },
             requiredXrFeatures,
-            optionalXrFeatures
+            optionalXrFeatures,
         );
     }
     /**
@@ -83,26 +85,15 @@
     function onXrSessionEnded() {
         parentInstance.onXrSessionEnded();
     }
-
 </script>
 
-<Parent
-    bind:this={parentInstance}
-    on:arSessionEnded
-    on:broadcast>
-
-    <svelte:fragment slot="overlay"
-        let:isLocalizing
-        let:isLocalized
-        let:isLocalisationDone
-        let:firstPoseReceived
-        let:receivedContentTitles
-        >
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived let:receivedContentTitles>
         <ArCloudOverlay
-            hasPose="{firstPoseReceived}"
-            isLocalizing="{isLocalizing}"
-            isLocalized="{isLocalized}"
-            receivedContentTitles="{receivedContentTitles}"
+            hasPose={firstPoseReceived}
+            {isLocalizing}
+            {isLocalized}
+            {receivedContentTitles}
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:relocalize={() => parentInstance.relocalize()}
         />

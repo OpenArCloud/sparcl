@@ -17,29 +17,6 @@
     const dispatch = createEventDispatcher();
 </script>
 
-
-<style>
-    .spinner {
-        height: 50px;
-    }
-
-
-    button {
-        width: 100%;
-        height: 49px;
-
-        margin-bottom: 27px;
-
-        font-size: 18px;
-        font-weight: bold;
-
-        background-color: white;
-        border: 2px solid #2E4458;
-        border-radius: var(--ui-radius);
-    }
-</style>
-
-
 {#if !hasPose}
     <p>{$movePhoneMessage}</p>
 {:else if isLocalizing}
@@ -61,3 +38,22 @@
     {/if}
 {/if}
 
+<style>
+    .spinner {
+        height: 50px;
+    }
+
+    button {
+        width: 100%;
+        height: 49px;
+
+        margin-bottom: 27px;
+
+        font-size: 18px;
+        font-weight: bold;
+
+        background-color: white;
+        border: 2px solid #2e4458;
+        border-radius: var(--ui-radius);
+    }
+</style>

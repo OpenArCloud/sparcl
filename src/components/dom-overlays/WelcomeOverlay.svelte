@@ -13,21 +13,112 @@
     import { Swipeable, Screen, Controls } from 'thumb-ui';
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode } from '@src/stateStore';
-    import { infoGreeting, info, introGreeting, intro, arOkMessage, dashboardOkLabel,
-        startedOkLabel, unavailableInfo, allowLocationLabel, locationaccessgranted, locationaccessrequired,
-        locationaccessinfo, noservicesavailable } from '@src/contentStore';
-    import { ARMODES } from "@core/common";
+    import {
+        infoGreeting,
+        info,
+        introGreeting,
+        intro,
+        arOkMessage,
+        dashboardOkLabel,
+        startedOkLabel,
+        unavailableInfo,
+        allowLocationLabel,
+        locationaccessgranted,
+        locationaccessrequired,
+        locationaccessinfo,
+        noservicesavailable,
+    } from '@src/contentStore';
+    import { ARMODES } from '@core/common';
 
     export let withOkFooter = true;
     export let shouldShowDashboard;
     export let shouldShowUnavailableInfo;
     export let isLocationAccessRefused = false;
 
-
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 </script>
 
+{#if $hasIntroSeen}
+    <div class="swipeable" id="welcomebackwrapper">
+        <h3>{$infoGreeting}</h3>
+        <p class="subheader">{$info}</p>
+        {#if isLocationAccessRefused}
+            <p>
+                Location access was refused. See
+                <a href="https://openarcloud.github.io/sparcl/help/locationaccess.html">help</a> for more info
+            </p>
+        {:else if !$isLocationAccessAllowed}
+            <p>{$locationaccessrequired}</p>
+        {:else}
+            <p>{$locationaccessgranted}</p>
+        {/if}
+
+        {#if $arMode !== ARMODES.oscp}
+            <p>{$arMode} mode active</p>
+        {/if}
+
+        {#if withOkFooter}
+            {#if !$isLocationAccessAllowed}
+                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')}>
+                    {$allowLocationLabel}
+                </button>
+            {:else}
+                <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')}>
+                    {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+                </button>
+            {/if}
+        {/if}
+    </div>
+{:else if $arIsAvailable}
+    <Swipeable>
+        <Screen numScreens="4">
+            <div id="welcomewrapper">
+                <h3>{$introGreeting}</h3>
+                <div>{@html $intro}</div>
+            </div>
+        </Screen>
+        <Screen>
+            {#if !$isLocationAccessAllowed}
+                <h4>{$locationaccessrequired}</h4>
+                <p>{@html $locationaccessinfo}</p>
+                <img src="/media/overlay/marker.png" alt="location marker" />
+                <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
+            {:else}
+                <h4 id="locationgranted">{$locationaccessgranted}</h4>
+                <img src="/media/overlay/marker.png" alt="location marker" />
+            {/if}
+        </Screen>
+        <Screen>
+            <h4 id="staysafe">Stay safe</h4>
+            <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+            <p>Always keep aware of your surroundings.</p>
+        </Screen>
+        <Screen>
+            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
+                <h4>{$noservicesavailable}</h4>
+                <div>{$unavailableInfo}</div>
+                {#if withOkFooter}
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('dashboardAction')}>
+                        {$dashboardOkLabel}
+                    </button>
+                {/if}
+            {:else}
+                <div>{@html $arOkMessage}</div>
+                <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
+                {#if $arMode !== ARMODES.oscp}
+                    <p>{$arMode} mode active</p>
+                {/if}
+                {#if withOkFooter}
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')}>
+                        {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+                    </button>
+                {/if}
+            {/if}
+        </Screen>
+        <Controls />
+    </Swipeable>
+{/if}
 
 <style>
     a {
@@ -63,7 +154,8 @@
         text-transform: uppercase;
     }
 
-    #locationgranted, #staysafe {
+    #locationgranted,
+    #staysafe {
         margin-top: 80px;
         margin-bottom: 10px;
     }
@@ -88,11 +180,11 @@
         padding-top: 45px;
 
         font-weight: bold;
-        background: url("/media/overlay/welcome.png") no-repeat;
+        background: url('/media/overlay/welcome.png') no-repeat;
     }
 
     #welcomebackwrapper {
-        background: url("/media/overlay/welcomeback.jpg") no-repeat;
+        background: url('/media/overlay/welcomeback.jpg') no-repeat;
     }
 
     #welcomebackwrapper h3 {
@@ -101,10 +193,10 @@
 
     .subheader {
         margin-top: 0;
-        margin-bottom: 100px
+        margin-bottom: 100px;
     }
 
-    :global(.swipeable)  {
+    :global(.swipeable) {
         position: relative;
         height: 385px !important;
 
@@ -113,89 +205,8 @@
         overflow-x: hidden;
     }
 
-    :global(.prev), :global(.next) {
+    :global(.prev),
+    :global(.next) {
         display: none;
     }
 </style>
-
-
-{#if $hasIntroSeen}
-    <div class="swipeable" id="welcomebackwrapper">
-        <h3>{$infoGreeting}</h3>
-        <p class="subheader">{$info}</p>
-        {#if isLocationAccessRefused}
-            <p>
-                Location access was refused. See
-                <a href="https://openarcloud.github.io/sparcl/help/locationaccess.html">help</a> for more info
-            </p>
-        {:else if !$isLocationAccessAllowed}
-            <p>{$locationaccessrequired}</p>
-        {:else}
-            <p>{$locationaccessgranted}</p>
-        {/if}
-
-        {#if $arMode !== ARMODES.oscp}
-            <p>{$arMode} mode active</p>
-        {/if}
-
-        {#if withOkFooter}
-            {#if !$isLocationAccessAllowed}
-            <button disabled="{isLocationAccessRefused}" on:click={() => dispatch('requestLocation')}>
-                {$allowLocationLabel}
-            </button>
-            {:else}
-            <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
-                {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
-            </button>
-            {/if}
-        {/if}
-    </div>
-{:else if $arIsAvailable}
-    <Swipeable>
-        <Screen numScreens="4">
-            <div id="welcomewrapper">
-                <h3>{$introGreeting}</h3>
-                <div>{@html $intro}</div>
-            </div>
-        </Screen>
-        <Screen>
-            {#if !$isLocationAccessAllowed}
-                <h4>{$locationaccessrequired}</h4>
-                <p>{@html $locationaccessinfo}</p>
-                <img src="/media/overlay/marker.png" alt="location marker" />
-                <button on:click={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
-            {:else}
-                <h4 id="locationgranted">{$locationaccessgranted}</h4>
-                <img src="/media/overlay/marker.png" alt="location marker" />
-            {/if}
-        </Screen>
-        <Screen>
-            <h4 id="staysafe">Stay safe</h4>
-            <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
-            <p>Always keep aware of your surroundings.</p>
-        </Screen>
-        <Screen>
-            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
-                <h4>{$noservicesavailable}</h4>
-                <div>{$unavailableInfo}</div>
-                {#if withOkFooter}
-                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('dashboardAction')}>
-                    {$dashboardOkLabel}
-                </button>
-                {/if}
-            {:else}
-                <div>{@html $arOkMessage}</div>
-                <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
-                {#if $arMode !== ARMODES.oscp}
-                    <p>{$arMode} mode active</p>
-                {/if}
-                {#if withOkFooter}
-                <button disabled="{!$isLocationAccessAllowed}" on:click={() => dispatch('okAction')}>
-                    {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
-                </button>
-                {/if}
-            {/if}
-        </Screen>
-        <Controls/>
-    </Swipeable>
-{/if}

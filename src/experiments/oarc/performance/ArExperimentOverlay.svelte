@@ -9,7 +9,7 @@
 
 <script>
     import { createEventDispatcher } from 'svelte';
-    import { experimentModeSettings} from "@src/stateStore";
+    import { experimentModeSettings } from '@src/stateStore';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -34,6 +34,18 @@
     }
 </script>
 
+{#if $experimentModeSettings.performance.showstats}
+    <p>Objects placed: {objectsPlacedCount}</p>
+    <p>Performance experiment</p>
+    <p>Frame time: {prevFrameTime}</p>
+    <p>Max slow passed: {hasPassedMaxSlow}</p>
+    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+    {#if $experimentModeSettings.performance.localisation}
+        <button class="secondary" on:click={() => dispatch('relocalize')}>
+            <img src="/media/refresh.svg" />
+        </button>
+    {/if}
+{/if}
 
 <style>
     button {
@@ -49,17 +61,3 @@
         width: 20px;
     }
 </style>
-
-
-{#if $experimentModeSettings.performance.showstats}
-    <p>Objects placed: {objectsPlacedCount}</p>
-    <p>Performance experiment</p>
-    <p>Frame time: {prevFrameTime}</p>
-    <p>Max slow passed: {hasPassedMaxSlow}</p>
-    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings.performance.localisation}
-    <button class="secondary" on:click={() => dispatch('relocalize')}>
-        <img src="/media/refresh.svg" />
-    </button>
-    {/if}
-{/if}

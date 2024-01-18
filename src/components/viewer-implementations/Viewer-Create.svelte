@@ -12,7 +12,6 @@
     import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
     import { CREATIONTYPES } from '@core/common';
 
-
     let parentInstance, xrEngine, tdEngine;
 
     let firstPoseReceived = false;
@@ -38,10 +37,7 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
-            () => {},
-            ['dom-overlay', 'anchors', 'local-floor'],
-        );
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
     }
 
     /**
@@ -69,8 +65,8 @@
         }
 
         if (!creatorObject) {
-            const position = {x: 0, y: 0, z: -2};
-            const orientation = {x: 0, y: 0, z: 0, w: 1};
+            const position = { x: 0, y: 0, z: -2 };
+            const orientation = { x: 0, y: 0, z: 0, w: 1 };
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
@@ -78,8 +74,7 @@
                 creatorObject = tdEngine.addModel(position, orientation, $creatorModeSettings.modelurl);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 creatorObject = tdEngine.addExperiencePlaceholder(position, orientation);
-                tdEngine.addClickEvent(creatorObject,
-                    () => parentInstance.experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
+                tdEngine.addClickEvent(creatorObject, () => parentInstance.experienceLoadHandler(creatorObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');
             }
@@ -96,8 +91,4 @@
 </script>
 
 <!-- TODO: showFooter is not passed correctly -->
-<Parent bind:this={parentInstance}
-    {showFooter}
-    on:arSessionEnded
-    on:broadcast
-/>
+<Parent bind:this={parentInstance} {showFooter} on:arSessionEnded on:broadcast />
