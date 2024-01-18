@@ -8,5 +8,4 @@
     import { pointMarkerMessage } from '@src/contentStore';
 </script>
 
-
 <p>{$pointMarkerMessage}</p>

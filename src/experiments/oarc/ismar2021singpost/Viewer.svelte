@@ -1,7 +1,7 @@
 <script>
     import { setContext } from 'svelte';
     import { writable } from 'svelte/store';
-    import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import Parent from '@components/Viewer.svelte';
     let parentInstance, settings;
     let xrEngine, tdEngine;
@@ -18,7 +18,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-     export function startAr(thisWebxr, this3dEngine, options) {
+    export function startAr(thisWebxr, this3dEngine, options) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
@@ -32,7 +32,10 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
@@ -59,7 +62,7 @@
      * Let's the app know that the XRSession was closed.
      */
     function onXrSessionEnded() {
-         parentInstance.onXrSessionEnded();
+        parentInstance.onXrSessionEnded();
     }
 
     /**
@@ -74,26 +77,13 @@
         parentInstance.onXrNoPose(time, frame, floorPose);
         hasLostTracking = true;
     }
-
 </script>
 
 <!-- <div style="position:fixed; top:0; left: 0; width:50%; height:50%; background:black; color: white;">Test</div> -->
-<Parent
-    bind:this={parentInstance}
-    on:arSessionEnded>
-    <svelte:fragment slot="overlay"
-        let:isLocalizing
-        let:isLocalized
-        let:isLocalisationDone
-        let:firstPoseReceived
-        >
+<Parent bind:this={parentInstance} on:arSessionEnded>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
-            <ArCloudOverlay
-                hasPose="{firstPoseReceived}"
-                {isLocalizing}
-                {isLocalized}
-                on:startLocalisation={() => parentInstance.startLocalisation()}
-            />
+            <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {/if}
     </svelte:fragment>
 </Parent>

@@ -9,7 +9,7 @@
 
 <script>
     import { createEventDispatcher } from 'svelte';
-    import { experimentModeSettings} from "@src/stateStore";
+    import { experimentModeSettings } from '@src/stateStore';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -26,6 +26,17 @@
     }
 </script>
 
+{#if $experimentModeSettings.ismar2021multi.showstats}
+    <p>Objects placed: {objectsPlacedCount}</p>
+    <p>Objects received: {objectsReceivedCount}</p>
+    <p>ISMAR 2021 demo</p>
+    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
+    {#if $experimentModeSettings.ismar2021multi.localisation}
+        <button class="secondary" on:click={() => dispatch('relocalize')}>
+            <img src="/media/refresh.svg" />
+        </button>
+    {/if}
+{/if}
 
 <style>
     button {
@@ -41,16 +52,3 @@
         width: 20px;
     }
 </style>
-
-
-{#if $experimentModeSettings.ismar2021multi.showstats}
-    <p>Objects placed: {objectsPlacedCount}</p>
-    <p>Objects received: {objectsReceivedCount}</p>
-    <p>ISMAR 2021 demo</p>
-    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings.ismar2021multi.localisation}
-    <button class="secondary" on:click={() => dispatch('relocalize')}>
-        <img src="/media/refresh.svg" />
-    </button>
-    {/if}
-{/if}

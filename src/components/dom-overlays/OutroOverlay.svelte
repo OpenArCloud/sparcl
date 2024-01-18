@@ -18,6 +18,17 @@
     const dispatch = createEventDispatcher();
 </script>
 
+<div class="swipeable">
+    <h3>{$outroGreeting}</h3>
+    <p>{@html $outro}</p>
+
+    <footer>
+        <button on:click={() => dispatch('okAction')}>
+            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
+        </button>
+    </footer>
+</div>
+
 <style>
     h3 {
         margin-top: 100px;
@@ -45,15 +56,3 @@
         margin-bottom: 65px;
     }
 </style>
-
-
-<div class="swipeable">
-    <h3>{$outroGreeting}</h3>
-    <p>{@html $outro}</p>
-
-    <footer>
-        <button on:click={() => dispatch('okAction')}>
-            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
-        </button>
-    </footer>
-</div>

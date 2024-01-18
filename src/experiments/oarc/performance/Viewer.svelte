@@ -4,24 +4,29 @@
 
     import Parent from '@components/Viewer.svelte';
 
-    import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/performance/ArExperimentOverlay.svelte';
 
-    import { PRIMITIVES } from "@core/engines/ogl/modelTemplates";
+    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
 
     let parentInstance, xrEngine, tdEngine;
-    let hitTestSource, reticle, hasLostTracking = true;
-    let experimentIntervalId, doExperimentAutoPlacement = false;
+    let hitTestSource,
+        reticle,
+        hasLostTracking = true;
+    let experimentIntervalId,
+        doExperimentAutoPlacement = false;
     let settings;
     let experimentOverlay;
 
-    let previousTime = performance.now(), slowCount = 0, maxSlow = 10, maximumFrameTime = 1000/30; // 30 FPS
+    let previousTime = performance.now(),
+        slowCount = 0,
+        maxSlow = 10,
+        maximumFrameTime = 1000 / 30; // 30 FPS
 
     let parentState = writable();
     setContext('state', parentState);
-
 
     /**
      * Initial setup.
@@ -44,14 +49,18 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
 
-                result.requestReferenceSpace('viewer')
-                    .then(refSpace => result.requestHitTestSource({ space: refSpace }))
-                    .then(source => hitTestSource = source);
+                result
+                    .requestReferenceSpace('viewer')
+                    .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                    .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
         );
@@ -72,10 +81,11 @@
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
-            const options = {attributes: {}};
+            const options = { attributes: {} };
             const isHorizontal = tdEngine.isHorizontal(reticle);
 
-            let offsetY = 0, offsetZ = 0;
+            let offsetY = 0,
+                offsetZ = 0;
             let fragmentShader = colorfulFragment;
 
             switch (shape) {
@@ -130,8 +140,7 @@
             }
 
             const scale = 1;
-            const placeholder = tdEngine.addPlaceholderWithOptions(shape,
-                reticle.position, reticle.quaternion, fragmentShader, options);
+            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, fragmentShader, options);
             // TODO: pass the whole program, not only the fragment shader code
             // because we only know here what kind of uniforms will be needed at render time
             // Accordingly, the render code will need to come back here and ask for updates
@@ -184,8 +193,7 @@
                 if ($settings.localisation && !$parentState.isLocalized) {
                     parentInstance.onXrFrameUpdate(time, frame, floorPose);
                 } else {
-                    $parentState.showFooter = $settings.showstats
-                        || ($settings.localisation && !$parentState.isLocalisationDone);
+                    $parentState.showFooter = $settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone);
 
                     xrEngine.setViewPort();
 
@@ -238,33 +246,14 @@
     }
 </script>
 
-
-<Parent
-    bind:this={parentInstance}
-    on:arSessionEnded>
-    <svelte:fragment slot="overlay"
-        let:isLocalizing
-        let:isLocalized
-        let:isLocalisationDone
-        let:receivedContentNames
-        let:firstPoseReceived
-        >
+<Parent bind:this={parentInstance} on:arSessionEnded>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
             <p>{receivedContentNames.join()}</p>
-            <ArCloudOverlay
-                hasPose="{firstPoseReceived}"
-                {isLocalizing}
-                {isLocalized}
-                on:startLocalisation={() => parentInstance.startLocalisation()}
-            />
+            <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
             <p>{receivedContentNames.join()}</p>
-            <ArExperimentOverlay
-                bind:this={experimentOverlay}
-                {settings}
-                on:toggleAutoPlacement={toggleExperimentalPlacement}
-                on:relocalize={() => parentInstance.relocalize()}
-            />
+            <ArExperimentOverlay bind:this={experimentOverlay} {settings} on:toggleAutoPlacement={toggleExperimentalPlacement} on:relocalize={() => parentInstance.relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>

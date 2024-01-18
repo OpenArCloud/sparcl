@@ -1,21 +1,24 @@
 <script>
-    import {setContext} from 'svelte';
-    import {createEventDispatcher} from 'svelte';
-    import {writable} from 'svelte/store';
+    import { setContext } from 'svelte';
+    import { createEventDispatcher } from 'svelte';
+    import { writable } from 'svelte/store';
 
     import Parent from '@components/Viewer.svelte';
 
-    import ArCloudOverlay from "@components/dom-overlays/ArCloudOverlay.svelte";
+    import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
-    import {PRIMITIVES} from "@core/engines/ogl/modelTemplates";
+    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
-    import {createRandomObjectDescription} from '@core/engines/ogl/modelTemplates';
-    import {peerIdStr, recentLocalisation} from '@src/stateStore';
-    import {v4 as uuidv4} from 'uuid';
+    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
+    import { peerIdStr, recentLocalisation } from '@src/stateStore';
+    import { v4 as uuidv4 } from 'uuid';
 
     let parentInstance, xrEngine, tdEngine;
-    let hitTestSource, reticle, hasLostTracking = true
-    let experimentIntervalId, doExperimentAutoPlacement = false;
+    let hitTestSource,
+        reticle,
+        hasLostTracking = true;
+    let experimentIntervalId,
+        doExperimentAutoPlacement = false;
     let settings;
     let experimentOverlay;
 
@@ -24,7 +27,6 @@
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
-
 
     /**
      * Initial setup.
@@ -47,14 +49,18 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);
 
-                result.requestReferenceSpace('viewer')
-                    .then(refSpace => result.requestHitTestSource({ space: refSpace }))
-                    .then(source => hitTestSource = source);
+                result
+                    .requestReferenceSpace('viewer')
+                    .then((refSpace) => result.requestHitTestSource({ space: refSpace }))
+                    .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
         );
@@ -82,8 +88,7 @@
                 if ($settings.localisation && !$parentState.isLocalized) {
                     parentInstance.onXrFrameUpdate(time, frame, floorPose);
                 } else {
-                    $parentState.showFooter = $settings.showstats
-                        || ($settings.localisation && !$parentState.isLocalisationDone);
+                    $parentState.showFooter = $settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone);
 
                     xrEngine.setViewPort();
 
@@ -135,7 +140,7 @@
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
-//////////////////////////////////
+    //////////////////////////////////
     /**
      * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
      * is shown to let the user know that the tracking was lost.
@@ -143,7 +148,7 @@
     function handlePoseHeartbeat() {
         hasLostTracking = false;
         if (poseFoundHeartbeat === null) {
-            poseFoundHeartbeat = debounce(() => hasLostTracking = true);
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true));
         }
         poseFoundHeartbeat();
     }
@@ -164,7 +169,7 @@
             // create SCR from the object and share it with the others
             // when received, place the same way as a downloaded SCR.
             if ($parentState.isLocalisationDone) {
-                shareMessage("Hello from " + $peerIdStr + " sent at " + new Date().getTime());
+                shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
                 let object_description = createRandomObjectDescription();
 
                 tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
@@ -192,81 +197,81 @@
 
     function shareCamera(position, quaternion) {
         let object_description = {
-            'version': 2,
-            'color': [1.0, 1.0, 0.0, 0.2],
-            'shape': PRIMITIVES.box,
-            'scale': [0.05, 0.05, 0.05],
-            'transparent': true,
-            'options': {}
+            version: 2,
+            color: [1.0, 1.0, 0.0, 0.2],
+            shape: PRIMITIVES.box,
+            scale: [0.05, 0.05, 0.05],
+            transparent: true,
+            options: {},
         };
         shareObject(object_description, position, quaternion);
     }
 
     function shareMessage(str) {
         let message_body = {
-            "message": str,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
+            message: str,
+            sender: $peerIdStr,
+            timestamp: new Date().getTime(),
+        };
         dispatch('broadcast', {
-                event: 'message_broadcasted',
-                value: message_body
-            });
-        console.log("Message sent: " + message_body)
+            event: 'message_broadcasted',
+            value: message_body,
+        });
+        console.log('Message sent: ' + message_body);
     }
 
     function shareObject(object_description, position, quaternion) {
         let latestGlobalPose = $recentLocalisation.geopose;
         let latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
-            console.log("There was no successful localization yet, cannot share object");
+            console.log('There was no successful localization yet, cannot share object');
             return;
         }
         // Now calculate the global pose of the reticle
         let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
         let geoPose = {
-            "position": {
-                "lat": globalObjectPose.position.lat,
-                "lon": globalObjectPose.position.lon,
-                "h": globalObjectPose.position.h
+            position: {
+                lat: globalObjectPose.position.lat,
+                lon: globalObjectPose.position.lon,
+                h: globalObjectPose.position.h,
             },
-            "quaternion": {
-                "x": globalObjectPose.quaternion.x,
-                "y": globalObjectPose.quaternion.y,
-                "z": globalObjectPose.quaternion.z,
-                "w": globalObjectPose.quaternion.w
-            }
-        }
+            quaternion: {
+                x: globalObjectPose.quaternion.x,
+                y: globalObjectPose.quaternion.y,
+                z: globalObjectPose.quaternion.z,
+                w: globalObjectPose.quaternion.w,
+            },
+        };
         let content = {
-            "id": "",
-            "type": "", //high-level OSCP type
-            "title": object_description.shape,
-            "refs": [],
-            "geopose": geoPose,
-            "object_description": object_description
-        }
+            id: '',
+            type: '', //high-level OSCP type
+            title: object_description.shape,
+            refs: [],
+            geopose: geoPose,
+            object_description: object_description,
+        };
         let timestamp = new Date().getTime();
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' +  uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        let object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         let scr = {
-            "content": content,
-            "id": object_id,
-            "tenant": "ISMAR2021demo",
-            "type": "ephemeral",
-            "timestamp": timestamp
-        }
+            content: content,
+            id: object_id,
+            tenant: 'ISMAR2021demo',
+            type: 'ephemeral',
+            timestamp: timestamp,
+        };
         let message_body = {
-            "scr": scr,
-            "sender": $peerIdStr,
-            "timestamp": new Date().getTime()
-        }
+            scr: scr,
+            sender: $peerIdStr,
+            timestamp: new Date().getTime(),
+        };
         // share over P2P network
         // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
         // and the value will be forwarded to the p2pnetwork.js
         dispatch('broadcast', {
-                event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
-                value: message_body
-            });
+            event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
+            value: message_body,
+        });
     }
 
     /**
@@ -290,16 +295,18 @@
 
         if ('message_broadcasted' in events) {
             const data = events.message_broadcasted;
-            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            if (data.sender != $peerIdStr) {
+                // ignore own messages which are also delivered
                 if ('message' in data && 'sender' in data) {
-                    console.log("message from " + data.sender + ": \n  " + data.message);
+                    console.log('message from ' + data.sender + ': \n  ' + data.message);
                 }
             }
         }
 
         if ('object_created' in events) {
             const data = events.object_created;
-            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            if (data.sender != $peerIdStr) {
+                // ignore own messages which are also delivered
                 const scr = data.scr;
                 if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
                     experimentOverlay?.objectReceived();
@@ -308,35 +315,16 @@
             }
         }
     }
-
 </script>
 
-<Parent
-    bind:this={parentInstance}
-    on:arSessionEnded>
-    <svelte:fragment slot="overlay"
-        let:isLocalizing
-        let:isLocalized
-        let:isLocalisationDone
-        let:receivedContentNames
-        let:firstPoseReceived
-        >
+<Parent bind:this={parentInstance} on:arSessionEnded>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentNames let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
             <p>{receivedContentNames.join()}</p>
-            <ArCloudOverlay
-                hasPose="{firstPoseReceived}"
-                {isLocalizing}
-                {isLocalized}
-                on:startLocalisation={() => parentInstance.startLocalisation()}
-            />
+            <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
             <p>{receivedContentNames.join()}</p>
-            <ArExperimentOverlay
-                bind:this={experimentOverlay}
-                {settings}
-                on:toggleAutoPlacement={() => toggleExperimentalPlacement()}
-                on:relocalize={() => relocalize()}
-            />
+            <ArExperimentOverlay bind:this={experimentOverlay} {settings} on:toggleAutoPlacement={() => toggleExperimentalPlacement()} on:relocalize={() => relocalize()} />
         {/if}
     </svelte:fragment>
 </Parent>

@@ -8,8 +8,8 @@
     const EXPERIMENTTYPES = {
         //yourkey: 'yourvalue'
         performance: 'Performance',
-        ismar2021multi: "ISMAR 2021 Multi",
-        ismar2021singpost: "ISMAR 2021 Signpost"
+        ismar2021multi: 'ISMAR 2021 Multi',
+        ismar2021singpost: 'ISMAR 2021 Signpost',
     };
 
     export function importExperiment(key) {
@@ -21,7 +21,7 @@
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
             case 'ismar2021singpost':
-                settings = import('@experiments/oarc/ismar2021singpost/Settings.svelte')
+                settings = import('@experiments/oarc/ismar2021singpost/Settings.svelte');
                 viewer = import('@experiments/oarc/ismar2021singpost/Viewer.svelte');
                 break;
 
@@ -40,11 +40,17 @@
         }
         // NOTE: The return value of import is only a Promise, which needs to be resolved later
 
-        dispatch('change', {settings, viewer, key});
-        return {settings, viewer, key};
+        dispatch('change', { settings, viewer, key });
+        return { settings, viewer, key };
     }
 </script>
 
+<select id="experimenttype" on:change={(event) => importExperiment(event.target.value)} disabled={Object.keys(EXPERIMENTTYPES).length === 0}>
+    <option value="none">None</option>
+    {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
+        <option value={key}>{value}</option>
+    {/each}
+</select>
 
 <style>
     select {
@@ -66,14 +72,3 @@
         background: #8e9ca9 0 0 no-repeat padding-box;
     }
 </style>
-
-
-<select id="experimenttype"
-        on:change={(event) => importExperiment(event.target.value)}
-        disabled="{Object.keys(EXPERIMENTTYPES).length === 0}">
-    <option value="none">None</option>
-    {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
-        <option value="{key}">{value}</option>
-    {/each}
-</select>
-

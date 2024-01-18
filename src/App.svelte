@@ -7,24 +7,34 @@
     Handles and coordinates all global aspects of the app.
 -->
 <script>
-    import {onMount, tick} from "svelte";
-    import {writable} from 'svelte/store';
+    import { onMount, tick } from 'svelte';
+    import { writable } from 'svelte/store';
 
-    import {getCurrentLocation, locationAccessOptions} from '@src/core/locationTools'
+    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
 
     import Dashboard from '@components/Dashboard.svelte';
-    import WelcomeOverlay from "@components/dom-overlays/WelcomeOverlay.svelte";
-    import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
-    import Spectator from "@components/dom-overlays/Spectator.svelte";
+    import WelcomeOverlay from '@components/dom-overlays/WelcomeOverlay.svelte';
+    import OutroOverlay from '@components/dom-overlays/OutroOverlay.svelte';
+    import Spectator from '@components/dom-overlays/Spectator.svelte';
 
     import Selector from '@experiments/Selector.svelte';
 
-    import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
-        initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr} from './stateStore';
-    import {ARMODES} from "./core/common";
+    import {
+        allowP2pNetwork,
+        arIsAvailable,
+        arMode,
+        availableP2pServices,
+        experimentModeSettings,
+        hasIntroSeen,
+        initialLocation,
+        isLocationAccessAllowed,
+        selectedP2pService,
+        showDashboard,
+        ssr,
+    } from './stateStore';
+    import { ARMODES } from './core/common';
 
-    import {logToElement} from '@src/core/devTools';
-
+    import { logToElement } from '@src/core/devTools';
 
     let showWelcome, showOutro;
     let dashboard, viewer, viewerInstance, spectator;
@@ -37,7 +47,6 @@
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
-
 
     /**
      * Reactive function to define if the AR viewer can be shown.
@@ -58,34 +67,34 @@
                         $initialLocation = currentLocation;
                         return import('@oarc/ssd-access');
                     })
-                    .then(ssdModule => {
+                    .then((ssdModule) => {
                         const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
-                        if (ssdUrl != undefined && ssdUrl != "") {
+                        if (ssdUrl != undefined && ssdUrl != '') {
                             ssdModule.setSsdUrl(ssdUrl);
-                            console.log("Setting SSD URL to " +  ssdUrl);
+                            console.log('Setting SSD URL to ' + ssdUrl);
                         } else {
-                            console.error("Cannot determine SSD URL!");
-                            throw new Error("Cannot determine SSD URL!");
+                            console.error('Cannot determine SSD URL!');
+                            throw new Error('Cannot determine SSD URL!');
                         }
                         // TODO: we could also query all the neighboring hexagons
-                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index)
+                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index);
                     })
-                    .then(services => {
+                    .then((services) => {
                         haveReceivedServices = true;
                         $ssr = services;
 
                         if (services.length === 0) {
                             shouldShowUnavailableInfo = true;
-                            console.error("No available services found");
+                            console.error('No available services found');
                         } else {
-                            console.log("Retrieved " + services.length + " SSRs");
+                            console.log('Retrieved ' + services.length + ' SSRs');
                         }
                     })
-                    .catch(error => {
-                        console.error("Could not retrieve spatial services");
+                    .catch((error) => {
+                        console.error('Could not retrieve spatial services');
                         console.error(error);
                     });
-            })
+            });
         }
     }
 
@@ -94,24 +103,22 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            import('@src/core/p2pnetwork')
-                .then(p2pModule => {
-                    if (!p2p) {
-                        p2p = p2pModule;
+            import('@src/core/p2pnetwork').then((p2pModule) => {
+                if (!p2p) {
+                    p2p = p2pModule;
 
-                        const selected = $selectedP2pService;
-                        const service = $availableP2pServices.reduce((result, service) => service.id === selected.id ? service : result, {});
-                        const headlessPeerId = service.properties
-                            .reduce((result, property) => property.type === 'peerid' ? property.value : result, null);
+                    const selected = $selectedP2pService;
+                    const service = $availableP2pServices.reduce((result, service) => (service.id === selected.id ? service : result), {});
+                    const headlessPeerId = service.properties.reduce((result, property) => (property.type === 'peerid' ? property.value : result), null);
 
-                        if (headlessPeerId && !headlessPeerId?.empty) {
-                            p2p.connect(headlessPeerId, false, (data) => {
-                                viewerInstance?.onNetworkEvent(data); //TODO: why does it not work with viewer?
-                                spectator?.onNetworkEvent(data);
-                            });
-                        }
+                    if (headlessPeerId && !headlessPeerId?.empty) {
+                        p2p.connect(headlessPeerId, false, (data) => {
+                            viewerInstance?.onNetworkEvent(data); //TODO: why does it not work with viewer?
+                            spectator?.onNetworkEvent(data);
+                        });
                     }
-                });
+                }
+            });
         } else if (!isHeadless) {
             p2p?.disconnect();
             p2p = null;
@@ -122,7 +129,7 @@
      * Initial setup of the viewer. Called after the component is first rendered to the DOM.
      */
     onMount(() => {
-        logToElement(document.getElementById("logger"));
+        logToElement(document.getElementById('logger'));
 
         const urlParams = new URLSearchParams(location.search);
 
@@ -131,28 +138,27 @@
             isHeadless = true;
             $allowP2pNetwork = true;
 
-            import('@src/core/p2pnetwork')
-                .then(p2pModule => {
-                    p2p = p2pModule;
+            import('@src/core/p2pnetwork').then((p2pModule) => {
+                p2p = p2pModule;
 
-                    // TODO: these are only used in the headless client.
-                    // normal clients take them from an SSR instead
-                    const headlessPeerId = urlParams.get('peerid')
-                    const url = urlParams.get('signal');
-                    const port = urlParams.get('port');
+                // TODO: these are only used in the headless client.
+                // normal clients take them from an SSR instead
+                const headlessPeerId = urlParams.get('peerid');
+                const url = urlParams.get('signal');
+                const port = urlParams.get('port');
 
-                    console.log("Starting headless client...");
-                    console.log("  peerid: " + headlessPeerId);
-                    console.log("  signal: " + (url ? url : "PeerJS default"));
-                    console.log("  port: "   + (port? port : "PeerJS default"));
+                console.log('Starting headless client...');
+                console.log('  peerid: ' + headlessPeerId);
+                console.log('  signal: ' + (url ? url : 'PeerJS default'));
+                console.log('  port: ' + (port ? port : 'PeerJS default'));
 
-                    p2p.initialSetup();
-                    p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
-                        // Just for development
-                        console.log(data);
-                        currentSharedValues = data;
-                    });
-                })
+                p2p.initialSetup();
+                p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
+                    // Just for development
+                    console.log(data);
+                    currentSharedValues = data;
+                });
+            });
         } else {
             // Start as AR client
             // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
@@ -170,7 +176,7 @@
                 shouldShowDashboard = true;
             }
         }
-    })
+    });
 
     /**
      * Decides what's next after the intro is closed by the user.
@@ -185,7 +191,7 @@
         $hasIntroSeen = true;
         showWelcome = false;
         showOutro = false;
-        shouldShowDashboard = openDashboard || shouldShowDashboard
+        shouldShowDashboard = openDashboard || shouldShowDashboard;
 
         if (!shouldShowDashboard) {
             startAr();
@@ -215,15 +221,15 @@
                 break;
             case ARMODES.experiment:
                 if ($experimentModeSettings.active) {
-                    const selector = new Selector({target: document.createElement('div')})
-                    const {_, viewer, key} = selector.importExperiment($experimentModeSettings.active);
+                    const selector = new Selector({ target: document.createElement('div') });
+                    const { _, viewer, key } = selector.importExperiment($experimentModeSettings.active);
                     options.settings = writable($experimentModeSettings[key]);
                     viewerImplementation = viewer;
-                    if(viewer === undefined) {
-                        console.warn("The experiment's Viewer is undefined!")
+                    if (viewer === undefined) {
+                        console.warn("The experiment's Viewer is undefined!");
                     }
-                    if(viewer === null) {
-                        console.warn("The experiment's Viewer is null!")
+                    if (viewer === null) {
+                        console.warn("The experiment's Viewer is null!");
                     }
                 }
                 break;
@@ -231,16 +237,12 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        Promise.all([
-                import('@core/engines/ogl/ogl'),
-                import('@core/engines/webxr'),
-                viewerImplementation])
-            .then(values => {
-                viewer = values[2]?.default;
-                tick().then(() => {
-                    viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
-                });
+        Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]).then((values) => {
+            viewer = values[2]?.default;
+            tick().then(() => {
+                viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
             });
+        });
     }
 
     /**
@@ -269,12 +271,65 @@
      * {@link isLocationAccessAllowed} store.
      */
     function requestLocationAccess() {
-        navigator.geolocation.getCurrentPosition(() => {}, (error) => {
-            isLocationAccessRefused = true;
-        }, locationAccessOptions);
+        navigator.geolocation.getCurrentPosition(
+            () => {},
+            (error) => {
+                isLocationAccessRefused = true;
+            },
+            locationAccessOptions,
+        );
     }
 </script>
 
+<header>
+    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
+</header>
+
+<main>
+    {#if !isHeadless}
+        {#if shouldShowDashboard && $arIsAvailable}
+            <Dashboard bind:this={dashboard} on:okClicked={startAr} />
+        {/if}
+
+        {#if (showWelcome || showOutro) && $arIsAvailable}
+            <aside>
+                <div id="frame">
+                    {#if showWelcome}
+                        <WelcomeOverlay
+                            withOkFooter={$arIsAvailable}
+                            {shouldShowDashboard}
+                            {shouldShowUnavailableInfo}
+                            {isLocationAccessRefused}
+                            on:okAction={() => closeIntro(false)}
+                            on:dashboardAction={() => closeIntro(true)}
+                            on:requestLocation={requestLocationAccess}
+                        />
+                    {:else if showOutro}
+                        <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
+                    {/if}
+                </div>
+            </aside>
+        {:else if !$arIsAvailable}
+            <Spectator bind:this={spectator} {isHeadless} />
+        {/if}
+    {:else}
+        <!-- Just for development to verify some internal values -->
+        <h1>Headless Mode</h1>
+        <pre>{JSON.stringify(currentSharedValues, null, 2)}</pre>
+    {/if}
+</main>
+
+{#if showAr && viewer}
+    <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+{:else if showAr && $arMode === ARMODES.experiment}
+    <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
+    <button on:click={sessionEnded}>Go back</button>
+{/if}
+
+<div id="showdashboard" on:click={() => (shouldShowDashboard = true)}>&nbsp;</div>
+
+<!-- logger widget (preformatted text), see devTools logToElement() -->
+<pre id="logger"></pre>
 
 <style>
     header {
@@ -283,7 +338,7 @@
 
         margin-bottom: 63px;
 
-        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231F20 98%) 0 0 no-repeat padding-box;
+        background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231f20 98%) 0 0 no-repeat padding-box;
     }
 
     main {
@@ -292,7 +347,10 @@
 
         margin: 0 48px 90px;
 
-        font: normal 18px/24px Trebuchet, Arial, sans-serif;
+        font:
+            normal 18px/24px Trebuchet,
+            Arial,
+            sans-serif;
         color: var(--theme-color);
     }
 
@@ -307,7 +365,7 @@
         align-items: center;
         justify-content: center;
 
-        background-color: rgba(128 128 128 / 60%)
+        background-color: rgba(128 128 128 / 60%);
     }
 
     #frame {
@@ -341,66 +399,3 @@
         z-index: 100;
     }
 </style>
-
-
-<header>
-    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
-</header>
-
-<main>
-{#if !isHeadless}
-    {#if shouldShowDashboard && $arIsAvailable}
-        <Dashboard bind:this={dashboard} on:okClicked={startAr} />
-    {/if}
-
-    {#if (showWelcome || showOutro) && $arIsAvailable}
-    <aside>
-        <div id="frame">
-        {#if showWelcome}
-            <WelcomeOverlay
-                withOkFooter="{$arIsAvailable}"
-                {shouldShowDashboard}
-                {shouldShowUnavailableInfo}
-                {isLocationAccessRefused}
-                on:okAction={() => closeIntro(false)}
-                on:dashboardAction={() => closeIntro(true)}
-                on:requestLocation={requestLocationAccess}
-            />
-        {:else if showOutro}
-            <OutroOverlay
-                {shouldShowDashboard}
-                on:okAction={closeIntro}
-            />
-        {/if}
-        </div>
-    </aside>
-    {:else if !$arIsAvailable}
-        <Spectator
-            bind:this={spectator}
-            {isHeadless}
-        />
-    {/if}
-
-{:else}
-    <!-- Just for development to verify some internal values -->
-    <h1>Headless Mode</h1>
-    <pre>{JSON.stringify(currentSharedValues, null, 2)}</pre>
-{/if}
-</main>
-
-{#if showAr && viewer}
-    <svelte:component
-        bind:this={viewerInstance}
-        this="{viewer}"
-        on:arSessionEnded={sessionEnded}
-        on:broadcast={handleBroadcast}
-    />
-{:else if showAr && $arMode === ARMODES.experiment}
-    <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-    <button on:click={sessionEnded}>Go back</button>
-{/if}
-
-<div id="showdashboard" on:click={() => shouldShowDashboard = true}>&nbsp;</div>
-
-<!-- logger widget (preformatted text), see devTools logToElement() -->
-<pre id="logger"></pre>
