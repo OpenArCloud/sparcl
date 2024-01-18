@@ -1,6 +1,15 @@
-import { quat, vec3 } from 'gl-matrix';
-import { getEuler, getRelativeOrientation, toRadians, toDegrees } from '@core/locationTools';
-import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
+import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
+import { getEuler, toDegrees } from '@core/locationTools';
+import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
 
 // Here a good source of test quaternions:
@@ -17,7 +26,7 @@ import { Buffer } from 'buffer';
 * <pre id="logger"></pre>
   <script> logToElement(document.getElementById("logger")); </script>
 */
-export function logToElement(loggerElement) {
+export function logToElement(loggerElement: HTMLElement) {
     if (console.oldlog != null) {
         // We already redefined the logging, so do nothing
         return;
@@ -30,7 +39,7 @@ export function logToElement(loggerElement) {
             i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += '<span class="log-' + typeof arg + '">';
+            output += '<span style="white-space: normal; word-wrap: break-word;" class="log-' + typeof arg + '">';
             if (typeof arg === 'object' && typeof JSON === 'object' && typeof JSON.stringify === 'function') {
                 output += JSON.stringify(arg);
             } else {
@@ -39,7 +48,7 @@ export function logToElement(loggerElement) {
             output += '</span>&nbsp;';
         }
         loggerElement.innerHTML += output + '<br>';
-        console.oldlog.apply(undefined, arguments);
+        console.oldlog?.apply(undefined, arguments as any);
     };
 
     console.oldwarn = console.warn;
@@ -49,7 +58,7 @@ export function logToElement(loggerElement) {
             i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += '<span class="warning-' + typeof arg + '">';
+            output += '<span style="white-space: normal; word-wrap: break-word;" class="warning-' + typeof arg + '">';
             if (typeof arg === 'object' && typeof JSON === 'object' && typeof JSON.stringify === 'function') {
                 output += JSON.stringify(arg);
             } else {
@@ -58,7 +67,7 @@ export function logToElement(loggerElement) {
             output += '</span>&nbsp;';
         }
         loggerElement.innerHTML += output + '<br>';
-        console.oldwarn.apply(undefined, arguments);
+        console.oldwarn?.apply(undefined, arguments as any);
     };
 
     console.olderror = console.error;
@@ -68,7 +77,7 @@ export function logToElement(loggerElement) {
             i;
         for (i = 0; i < arguments.length; i++) {
             arg = arguments[i];
-            output += '<span class="error-' + typeof arg + '">';
+            output += '<span style="white-space: normal; word-wrap: break-word;" class="error-' + typeof arg + '">';
             if (typeof arg === 'object' && typeof JSON === 'object' && typeof JSON.stringify === 'function') {
                 output += JSON.stringify(arg);
             } else {
@@ -77,7 +86,7 @@ export function logToElement(loggerElement) {
             output += '</span>&nbsp;';
         }
         loggerElement.innerHTML += output + '<br>';
-        console.olderror.apply(undefined, arguments);
+        console.olderror?.apply(undefined, arguments as any);
     };
 }
 
@@ -105,7 +114,7 @@ export function logToConsole() {
  * @param {string} message
  * @returns {boolean} false if no error, true if there was an error
  */
-export function checkGLError(gl, message) {
+export function checkGLError(gl: OGLRenderingContext, message: string) {
     if (gl == null) {
         console.warn('checkGLError called but there is no GL context');
         return true;
@@ -122,7 +131,7 @@ export function checkGLError(gl, message) {
  * Loads an image from a given URL and returns it in base64 encoding
  * @param url The URL to load
  */
-export async function loadImageBase64(url) {
+export async function loadImageBase64(url: string) {
     // TODO: also read EXIF entries
     let response = await fetch(url);
     let buffer = await response.arrayBuffer();
@@ -136,9 +145,9 @@ export async function loadImageBase64(url) {
  * @param fileNameStem filename without extension
  */
 // code adapted from https://gist.github.com/madhums/e749dca107e26d72b64d
-export function saveImageBase64(imageBase64, fileNameStem) {
+export function saveImageBase64(imageBase64: string, fileNameStem: string) {
     // Grab the extension to resolve any image error
-    let ext = imageBase64.split(';')[0].match(/jpeg|png|gif/)[0];
+    let ext = imageBase64.split(';')[0].match(/jpeg|png|gif/)?.[0];
     // strip off the data: url prefix to get just the base64-encoded bytes
     let data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
     let buf = Buffer.from(data, 'base64');
@@ -154,7 +163,7 @@ export function saveImageBase64(imageBase64, fileNameStem) {
  * @param fileNameStem filename without extension
  */
 // code adapted from https://code-boxx.com/create-save-files-javascript/
-export function saveText(string, fileNameStem) {
+export function saveText(string: string, fileNameStem: string) {
     let a = document.createElement('a');
     a.href = window.URL.createObjectURL(new Blob([string], { type: 'text/plain' }));
     a.download = fileNameStem + '.' + 'txt';
@@ -166,7 +175,7 @@ export function saveText(string, fileNameStem) {
  * @param name The name to print
  * @param qquat quat from gl-matrix package
  */
-export function printGlmQuat(name, qquat) {
+export function printGlmQuat(name: string, qquat: ReadonlyQuat) {
     console.log(name + ':');
     let axis = vec3.create();
     let angle = quat.getAxisAngle(axis, qquat);
@@ -191,7 +200,7 @@ export function printGlmQuat(name, qquat) {
  * @param  {z} float quaternion component z
  * @param  {w} float quaternion component w
  */
-export function printQuat(name, x, y, z, w) {
+export function printQuat(name: string, x: number, y: number, z: number, w: number) {
     // With gl-matrix quat
     let qquat = quat.fromValues(x, y, z, w);
     printGlmQuat(name, qquat);
@@ -203,7 +212,7 @@ export function printQuat(name, x, y, z, w) {
  * @param  {string} order any permutation of XYZ
  * @return {Vec3} Euler angles in radians
  */
-export function getEulerAnglesOgl(quat, order = 'XYZ') {
+export function getEulerAnglesOgl(quat: Quat, order = 'XYZ') {
     let euler = new Euler();
     euler.fromQuaternion(quat, (order = 'XYZ'));
     let vec3 = new Vec3();
@@ -217,7 +226,7 @@ export function getEulerAnglesOgl(quat, order = 'XYZ') {
  * @param  {string} order any permutation of XYZ
  * @return {Vec3} Euler angles in degrees
  */
-export function getEulerDegreesOgl(quat, order = 'XYZ') {
+export function getEulerDegreesOgl(quat: Quat, order = 'XYZ') {
     let eulerRad = getEulerAnglesOgl(quat, order);
     let eulerDeg = new Vec3();
     eulerRad.toArray(eulerDeg);
@@ -232,7 +241,7 @@ export function getEulerDegreesOgl(quat, order = 'XYZ') {
  * @param  {name} string The name to print
  * @param  {transform} Transform An OGL Transform object
  */
-export function printOglTransform(name, transform) {
+export function printOglTransform(name: string, transform: Transform) {
     let tPos = new Vec3(transform.position[0], transform.position[1], transform.position[2]);
     let tQuat = new Quat(transform.quaternion[0], transform.quaternion[1], transform.quaternion[2], transform.quaternion[3]);
     let tEuler = getEulerDegreesOgl(tQuat, 'XYZ');

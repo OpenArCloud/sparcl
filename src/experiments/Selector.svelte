@@ -1,18 +1,25 @@
-<script>
-    import { createEventDispatcher } from 'svelte';
-    const dispatch = createEventDispatcher();
+<!--
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
 
-    export let settings = undefined; // TODO: is this needed?
-    export let value = undefined; // TODO: is this needed?
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+-->
 
-    const EXPERIMENTTYPES = {
+<script lang="ts">
+    import { type ComponentType, createEventDispatcher } from 'svelte';
+    import type { ExperimentsViewers } from '../types/xr';
+    const dispatch = createEventDispatcher<{ change: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ExperimentsViewers }> | null; key: string } }>();
+
+    const EXPERIMENTTYPES: Record<string, string> = {
         //yourkey: 'yourvalue'
         performance: 'Performance',
         ismar2021multi: 'ISMAR 2021 Multi',
         ismar2021singpost: 'ISMAR 2021 Signpost',
     };
 
-    export function importExperiment(key) {
+    export function importExperiment(key: string): { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ExperimentsViewers }> | null; key: string } {
         let settings = null;
         let viewer = null;
         switch (key) {
@@ -45,7 +52,8 @@
     }
 </script>
 
-<select id="experimenttype" on:change={(event) => importExperiment(event.target.value)} disabled={Object.keys(EXPERIMENTTYPES).length === 0}>
+<select id="experimenttype" on:change={(event) => importExperiment(event.currentTarget.value)} disabled={Object.keys(EXPERIMENTTYPES).length === 0}>
+    <!-- TODO: why is this none? -->
     <option value="none">None</option>
     {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
         <option value={key}>{value}</option>

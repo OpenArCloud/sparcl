@@ -1,13 +1,17 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Content of the experiment overlay.
 -->
 
-<script>
+<script lang="ts">
     import { createEventDispatcher } from 'svelte';
 
     import { experimentModeSettings } from '@src/stateStore';
@@ -26,7 +30,7 @@
      * @param frameTime  integer        Duration of the previous frame
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    export function setPerformanceValues(frameTime, passedMaxSlow) {
+    export function setPerformanceValues(frameTime: number, passedMaxSlow: boolean) {
         prevFrameTime = frameTime;
         hasPassedMaxSlow = passedMaxSlow;
     }

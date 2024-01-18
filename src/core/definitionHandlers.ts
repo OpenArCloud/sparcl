@@ -1,7 +1,14 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
+
+import type { Mesh } from 'ogl';
+import type ogl from './engines/ogl/ogl';
 
 /*
     Class to handle the definitions added to the content record for an entry of type placeholder.
@@ -23,4 +30,4 @@ const definition = [
  * @param placeholder  Mesh     3D object to apply the definitions to
  * @param definitions  String       The definitions to apply
  */
-export function handlePlaceholderDefinitions(tdEngine, placeholder, definitions) {}
+export function handlePlaceholderDefinitions(tdEngine: ogl, placeholder: Mesh, definitions?: string) {}

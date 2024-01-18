@@ -1,19 +1,28 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
-<script>
+<script lang="ts">
     import Parent from '@components/Viewer.svelte';
 
     import { fakeLocationResult } from '@core/devTools';
     import { wait } from '@core/common';
     import { debug_showLocalAxes } from '@src/stateStore';
+    import type webxr from '../../core/engines/webxr';
+    import type ogl from '../../core/engines/ogl/ogl';
+    import type { Geopose } from '@oarc/scd-access';
 
-    let parentInstance, xrEngine, tdEngine;
+    let parentInstance: Parent;
+    let xrEngine: webxr;
+    let tdEngine: ogl;
 
     let firstPoseReceived = false;
     let showFooter = false;
@@ -22,7 +31,7 @@
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
      */
-    export function startAr(thisWebxr, this3dEngine) {
+    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
@@ -33,8 +42,18 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
+    function startSession() {
+        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
+    }
+
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
 
     /**
@@ -45,7 +64,7 @@
      * @param frame     The XRFrame provided to the update loop
      * @param floorPose     The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time, frame, floorPose) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         xrEngine.setViewPort();
 
         if (firstPoseReceived === false) {
@@ -63,10 +82,13 @@
                 const geoPose = fakeLocationResult.geopose.pose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
-                wait(1000).then((showFooter = false));
 
-                const scrs = fakeLocationResult.scrs;
-                parentInstance.placeContent([scrs]);
+                let geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
+                wait(1000).then(() => (showFooter = false));
+
+                let data = fakeLocationResult.scrs;
+                parentInstance.placeContent([data]);
             }
         }
 
@@ -78,5 +100,4 @@
     }
 </script>
 
-<!-- TODO: showFooter and isLocalized are not passed correctly -->
-<Parent bind:this={parentInstance} {showFooter} {isLocalized} on:arSessionEnded on:broadcast />
+<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />

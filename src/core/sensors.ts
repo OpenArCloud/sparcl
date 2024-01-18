@@ -1,5 +1,15 @@
+/*
+  (c) 2021 Open AR Cloud
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 import { quat, vec3 } from 'gl-matrix';
 import { convertSensor2AugmentedCityCam } from '@core/locationTools';
+import type { GeoposeResponseType } from '@oarc/gpp-access';
 
 // https://w3c.github.io/orientation-sensor
 // We currently use the 'device' reference coordinate system:
@@ -7,21 +17,29 @@ import { convertSensor2AugmentedCityCam } from '@core/locationTools';
 // TODO: we could ask for reference coordinate system 'screen',
 // so that we do not need to deal with interface orientation:
 // https://w3c.github.io/accelerometer/#screen-coordinate-system
+
+// TODO: add proper typings for this!
 let sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
 let sensorMat4 = new Float32Array(16);
-let sensorQuat = new quat.create();
+let sensorQuat = quat.create();
 
 /**
  * Requests access to AbsoluteOrientationSensor (accelerometer, gyroscope, magnetometer) and then starts these sensors
  */
 export function startOrientationSensor() {
-    Promise.all([navigator.permissions.query({ name: 'accelerometer' }), navigator.permissions.query({ name: 'magnetometer' }), navigator.permissions.query({ name: 'gyroscope' })]).then((results) => {
+    Promise.all([
+        navigator.permissions.query({ name: 'accelerometer' as any }),
+        navigator.permissions.query({ name: 'magnetometer' as any }),
+        navigator.permissions.query({ name: 'gyroscope' as any }),
+    ]).then((results) => {
         if (results.every((result) => result.state === 'granted')) {
-            sensor.onerror = (event) => console.log(event.error.name, event.error.message);
+            sensor.onerror = (event: any) => console.log(event.error.name, event.error.message);
             sensor.onreading = () => {
                 sensor.populateMatrix(sensorMat4);
                 // both sensor.quaternion and gl-matrix.quat have x,y,z,w order within the float[4] array
-                quat.set(sensorQuat, sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]);
+                if (sensor.quaternion) {
+                    quat.set(sensorQuat, sensor.quaternion[0], sensor.quaternion[1], sensor.quaternion[2], sensor.quaternion[3]);
+                }
             };
             sensor.start();
         } else {
@@ -53,7 +71,7 @@ export function getSensorEstimatedGeoPose() {
         maximumAge: 0,
     };
 
-    return new Promise((resolve, reject) => {
+    return new Promise<GeoposeResponseType['geopose']>((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
@@ -137,7 +155,7 @@ export function getSensorEstimatedGeoPose() {
  * @param orientation  String, one of the values from
  * https://w3c.github.io/screen-orientation/#screen-orientation-types-and-locks
  */
-export function lockScreenOrientation(orientation) {
+export function lockScreenOrientation(orientation: string) {
     // Code from https://code-boxx.com/lock-screen-orientation/
 
     document.addEventListener('fullscreenerror', (event) => {
@@ -146,7 +164,7 @@ export function lockScreenOrientation(orientation) {
     });
 
     if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        let de = document.documentElement;
+        let de: any = document.documentElement;
         if (de.requestFullscreen) {
             de.requestFullscreen();
         } else if (de.mozRequestFullScreen) {
@@ -158,11 +176,11 @@ export function lockScreenOrientation(orientation) {
         }
     }
 
-    screen.orientation.lock(orientation).then(
-        (success) => {
+    (screen.orientation as any).lock(orientation).then(
+        (success: string) => {
             console.log(success);
         },
-        (failure) => {
+        (failure: string) => {
             console.error('Could not lock screen orientation');
             console.log(failure);
         },

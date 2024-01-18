@@ -1,6 +1,10 @@
 /*
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 */
 
 /* Provider for common data types and functions */
@@ -140,25 +144,8 @@ export const PLACEHOLDERSHAPES = {
  * @param delay
  * @returns {Promise<null>}
  */
-export function wait(delay) {
+export function wait(delay: number) {
     return new Promise((resolve) => setTimeout(resolve, delay));
-}
-
-/**
- * Delays the execution of the provided function until timeout expired.
- *
- * @param func  function        Will be executed when timeout expires
- * @param timeout  Number       Duration in milliseconds to delay the execution of the provided function
- * @returns {function(...[*]=): void}
- */
-export function debounce(func, timeout = 300) {
-    let timer;
-    return (...args) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-            func.apply(this, args);
-        }, timeout);
-    };
 }
 
 /**
@@ -167,6 +154,6 @@ export function debounce(func, timeout = 300) {
  * @param integer max
  * @returns integer
  */
-export function randomInteger(min, max) {
+export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }

@@ -1,14 +1,19 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
     Handles and coordinates all global aspects of the app.
 -->
-<script>
-    import { onMount, tick } from 'svelte';
-    import { writable } from 'svelte/store';
+<script lang="ts">
+    import { onMount, tick, type ComponentType, SvelteComponent } from 'svelte';
+    import { writable, type Writable } from 'svelte/store';
+    import type { Service } from '@oarc/ssd-access';
 
     import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
 
@@ -20,6 +25,7 @@
     import Selector from '@experiments/Selector.svelte';
 
     import {
+        activeExperiment,
         allowP2pNetwork,
         arIsAvailable,
         arMode,
@@ -35,15 +41,25 @@
     import { ARMODES } from './core/common';
 
     import { logToElement } from '@src/core/devTools';
-
-    let showWelcome, showOutro;
-    let dashboard, viewer, viewerInstance, spectator;
-    let shouldShowDashboard, shouldShowUnavailableInfo;
+    import type ViewerOscp from '@components/viewer-implementations/Viewer-Oscp.svelte';
+    import type ViewerCreate from '@components/viewer-implementations/Viewer-Create.svelte';
+    import type ViewerDevelop from '@components/viewer-implementations/Viewer-Develop.svelte';
+    import type webxr from '@core/engines/webxr';
+    import type ogl from '@core/engines/ogl/ogl';
+    import type { ExperimentsViewers } from './types/xr';
+    let showWelcome: boolean | null = null;
+    let showOutro: boolean | null = null;
+    let dashboard: Dashboard | null = null;
+    let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ExperimentsViewers> | null | undefined;
+    let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
+    let spectator: Spectator | null = null;
+    let shouldShowDashboard: boolean;
+    let shouldShowUnavailableInfo: boolean | null = null;
 
     let isLocationAccessRefused = false;
     let isHeadless = false;
     let currentSharedValues = {};
-    let p2p;
+    let p2p: typeof import('@src/core/p2pnetwork') | null = null;
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
@@ -108,12 +124,13 @@
                     p2p = p2pModule;
 
                     const selected = $selectedP2pService;
-                    const service = $availableP2pServices.reduce((result, service) => (service.id === selected.id ? service : result), {});
-                    const headlessPeerId = service.properties.reduce((result, property) => (property.type === 'peerid' ? property.value : result), null);
 
-                    if (headlessPeerId && !headlessPeerId?.empty) {
-                        p2p.connect(headlessPeerId, false, (data) => {
-                            viewerInstance?.onNetworkEvent(data); //TODO: why does it not work with viewer?
+                    const service = $availableP2pServices.find((service) => service.id === selected?.id);
+                    const headlessPeerId = service?.properties?.find((property) => property.type === 'peerid')?.value;
+
+                    if (headlessPeerId) {
+                        p2p.connect(headlessPeerId, false, (data: any) => {
+                            viewerInstance?.onNetworkEvent?.(data); //TODO: why does it not work with viewer?
                             spectator?.onNetworkEvent(data);
                         });
                     }
@@ -129,7 +146,7 @@
      * Initial setup of the viewer. Called after the component is first rendered to the DOM.
      */
     onMount(() => {
-        logToElement(document.getElementById('logger'));
+        logToElement(document.getElementById('logger')!);
 
         const urlParams = new URLSearchParams(location.search);
 
@@ -153,11 +170,13 @@
                 console.log('  port: ' + (port ? port : 'PeerJS default'));
 
                 p2p.initialSetup();
-                p2p.connectWithUrl(headlessPeerId, true, url, port, (data) => {
-                    // Just for development
-                    console.log(data);
-                    currentSharedValues = data;
-                });
+                if (headlessPeerId && url && port) {
+                    p2p.connectWithUrl(headlessPeerId, true, url, parseInt(port), (data: any) => {
+                        // Just for development
+                        console.log(data);
+                        currentSharedValues = data;
+                    });
+                }
             });
         } else {
             // Start as AR client
@@ -169,9 +188,9 @@
             shouldShowDashboard = $showDashboard;
 
             if (urlParams.has('create')) {
-                $arMode = ARMODES.creator;
+                $arMode = ARMODES.create;
             } else if (urlParams.has('develop')) {
-                $arMode = ARMODES.dev;
+                $arMode = ARMODES.develop;
             } else if (urlParams.has('dashboard')) {
                 shouldShowDashboard = true;
             }
@@ -187,7 +206,7 @@
      * When there are no discovery services available, another dialog is shown, informing the user about the marker
      * alternative.
      */
-    function closeIntro(openDashboard) {
+    function closeIntro(openDashboard: boolean) {
         $hasIntroSeen = true;
         showWelcome = false;
         showOutro = false;
@@ -205,8 +224,8 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        let viewerImplementation;
-        let options = {};
+        let viewerImplementation: Promise<{ default: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ExperimentsViewers> }> | null = null;
+        let options: { settings?: Writable<Record<string, unknown>> } = {};
 
         // Unfortunately, the import function does accept string literals only
         switch ($arMode) {
@@ -220,9 +239,9 @@
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Develop.svelte');
                 break;
             case ARMODES.experiment:
-                if ($experimentModeSettings.active) {
+                if ($activeExperiment) {
                     const selector = new Selector({ target: document.createElement('div') });
-                    const { _, viewer, key } = selector.importExperiment($experimentModeSettings.active);
+                    const { viewer, key } = selector.importExperiment($activeExperiment);
                     options.settings = writable($experimentModeSettings[key]);
                     viewerImplementation = viewer;
                     if (viewer === undefined) {
@@ -262,7 +281,7 @@
      *
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
-    function handleBroadcast(event) {
+    function handleBroadcast(event: CustomEvent<any>) {
         p2p?.send(event.detail);
     }
 
@@ -305,12 +324,12 @@
                             on:requestLocation={requestLocationAccess}
                         />
                     {:else if showOutro}
-                        <OutroOverlay {shouldShowDashboard} on:okAction={closeIntro} />
+                        <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(true)} />
                     {/if}
                 </div>
             </aside>
         {:else if !$arIsAvailable}
-            <Spectator bind:this={spectator} {isHeadless} />
+            <Spectator bind:this={spectator} />
         {/if}
     {:else}
         <!-- Just for development to verify some internal values -->
@@ -323,10 +342,10 @@
     <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {:else if showAr && $arMode === ARMODES.experiment}
     <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-    <button on:click={sessionEnded}>Go back</button>
+    <button on:click={sessionEnded} on:keydown={sessionEnded}> Go back </button>
 {/if}
 
-<div id="showdashboard" on:click={() => (shouldShowDashboard = true)}>&nbsp;</div>
+<div id="showdashboard" role="button" tabindex="0" on:click={() => (shouldShowDashboard = true)} on:keydown={() => (shouldShowDashboard = true)}>&nbsp;</div>
 
 <!-- logger widget (preformatted text), see devTools logToElement() -->
 <pre id="logger"></pre>
