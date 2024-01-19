@@ -12,7 +12,7 @@ import type { PRIMITIVES } from '../core/engines/ogl/modelTemplates';
 import type webxr from '../core/engines/webxr';
 import type ogl from '../core/engines/ogl/ogl';
 import type { OGLRenderingContext } from 'ogl';
-import type IsmarViewer1 from '../experiments/oarc/ismar2021singpost/Viewer.svelte';
+import type IsmarViewer1 from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
 import type IsmarViewer2 from '../experiments/oarc/ismar2021multi/Viewer.svelte';
 import type IsmarViewer3 from '../experiments/oarc/performance/Viewer.svelte';
 
