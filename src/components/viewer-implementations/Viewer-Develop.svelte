@@ -79,11 +79,10 @@
 
             for (let view of floorPose.views) {
                 console.log('fake localisation');
-
+                const geoPose = fakeLocationResult.geopose.pose;
+                onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
 
-                let geoPose = fakeLocationResult.geopose.pose;
-                onLocalizationSuccess(floorPose, geoPose);
                 wait(1000).then(() => (showFooter = false));
 
                 let data = fakeLocationResult.scrs;

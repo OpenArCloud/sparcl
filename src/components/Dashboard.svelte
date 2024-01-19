@@ -64,11 +64,7 @@
     }
 </script>
 
-<button
-    on:click={() => dispatch('okClicked')}
-    on:keydown={() => dispatch('okClicked')}>
-    Go immersive
-</button>
+<button on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>

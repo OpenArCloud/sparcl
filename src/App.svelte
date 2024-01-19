@@ -342,21 +342,10 @@
     <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {:else if showAr && $arMode === ARMODES.experiment}
     <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-    <button
-        on:click={sessionEnded}
-        on:keydown={sessionEnded}>
-        Go back
-    </button>
+    <button on:click={sessionEnded} on:keydown={sessionEnded}> Go back </button>
 {/if}
 
-<div
-    id="showdashboard"
-    role="button"
-    tabindex="0"
-    on:click={() => (shouldShowDashboard = true)}
-    on:keydown={() => (shouldShowDashboard = true)}>
-    &nbsp;
-</div>
+<div id="showdashboard" role="button" tabindex="0" on:click={() => (shouldShowDashboard = true)} on:keydown={() => (shouldShowDashboard = true)}>&nbsp;</div>
 
 <!-- logger widget (preformatted text), see devTools logToElement() -->
 <pre id="logger"></pre>

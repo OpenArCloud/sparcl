@@ -90,7 +90,7 @@ export function createModel(
     color: [number, number, number, number] = [0.2, 0.8, 1.0, 1.0],
     translucent = false,
     options: any = {},
-    scale: [number, number, number] = [1.0, 1.0, 1.0]
+    scale: [number, number, number] = [1.0, 1.0, 1.0],
 ) {
     let geometry;
 

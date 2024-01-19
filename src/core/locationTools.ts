@@ -125,7 +125,7 @@ export function getCurrentLocation() {
                 console.log(`Location request failed: ${error}`);
                 reject(error);
             },
-            locationAccessOptions
+            locationAccessOptions,
         );
     });
 }
@@ -319,7 +319,6 @@ export function convertSensor2AugmentedCityCam(sensorQuat: ReadonlyQuat) {
         console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
         quat.fromEuler(displayTransform, 0, 0, 0);
     }
-
     let screenQuat = quat.create();
     quat.multiply(screenQuat, displayTransform, sensorQuat);
     */
