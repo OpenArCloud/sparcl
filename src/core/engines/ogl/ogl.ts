@@ -164,7 +164,7 @@ export default class ogl {
         console.log('Loading ' + url);
         GLTFLoader.load(gl, url)
             .then((gltf) => {
-                const s = gltf.scene || gltf.scenes[0];
+                const s = (gltf.scene || gltf.scenes[0]) as Transform[];
                 s.forEach((root) => {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
@@ -595,7 +595,7 @@ export default class ogl {
     /**
      * This recursively updates the world matrices in the whole scene graph
      */
-    endSpatialContentRecords() {
+    updateSceneGraphTransforms() {
         scene.updateMatrixWorld(true);
     }
 

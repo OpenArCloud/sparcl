@@ -145,7 +145,7 @@ export function getSensorEstimatedGeoPose() {
                 console.log(`Location request failed: ${error}`);
                 reject(error);
             },
-            accessOptions
+            accessOptions,
         );
     });
 }
@@ -183,7 +183,7 @@ export function lockScreenOrientation(orientation: string) {
         (failure: string) => {
             console.error('Could not lock screen orientation');
             console.log(failure);
-        }
+        },
     );
 }
 
