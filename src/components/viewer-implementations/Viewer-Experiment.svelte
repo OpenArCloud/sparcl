@@ -910,8 +910,6 @@
                         break;
                 }
 
-                tdEngine.updateSceneGraphTransforms();
-
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
