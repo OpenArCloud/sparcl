@@ -186,7 +186,11 @@ void main(void) {
     // NOTE: we must explicitly use the camera texture in drawing,
     // otherwise uSampler gets optimized away, and the
     // camera texture gets destroyed before we could capture it.
-    const fragCode = 'uniform sampler2D uSampler;' + 'void main(void) {' + 'gl_FragColor = texture2D(uSampler, vec2(0,0));' + '}';
+    const fragCode = `
+uniform sampler2D uSampler;
+void main(void) {
+    gl_FragColor = texture2D(uSampler, vec2(0,0));
+};`;
     const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     if (fragShader == null) {
         throw new Error('Cannot create camera fragment shader');
