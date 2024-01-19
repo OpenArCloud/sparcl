@@ -170,7 +170,12 @@ export function initCameraCaptureScene(gl: OGLRenderingContext) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
-    const vertCode = 'attribute vec3 coordinates;' + 'void main(void) {' + 'gl_Position = vec4(coordinates, 1.0);' + 'gl_PointSize = 1.0;' + '}';
+    const vertCode = `
+attribute vec3 coordinates;
+void main(void) {
+    gl_Position = vec4(coordinates, 1.0);
+    gl_PointSize = 1.0;
+}`;
     const vertShader = gl.createShader(gl.VERTEX_SHADER);
     if (vertShader == null) {
         throw new Error('Cannot create camera vertex shader');

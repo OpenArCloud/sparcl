@@ -10,11 +10,10 @@
 import type { Geopose } from '@oarc/scd-access';
 import type { PRIMITIVES } from '../core/engines/ogl/modelTemplates';
 import type webxr from '../core/engines/webxr';
-import type ogl from '../core/engines/ogl/ogl';
 import type { OGLRenderingContext } from 'ogl';
-import type IsmarViewer1 from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
-import type IsmarViewer2 from '../experiments/oarc/ismar2021multi/Viewer.svelte';
-import type IsmarViewer3 from '../experiments/oarc/performance/Viewer.svelte';
+import type Ismar2021SignPostViewer from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
+import type Ismar2021MultiViewer from '../experiments/oarc/ismar2021multi/Viewer.svelte';
+import type Ismar2021PerformanceViewer from '../experiments/oarc/performance/Viewer.svelte';
 
 export type ValueOf<T> = T[keyof T];
 
@@ -32,7 +31,7 @@ export type ObjectDescription = {
     options: {};
 };
 
-export type ExperimentsViewers = IsmarViewer1 | IsmarViewer2 | IsmarViewer3;
+export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer;
 
 export type Position = { x: number; y: number; z: number };
 export type Orientation = { x: number; y: number; z: number; w: number };
