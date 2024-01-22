@@ -43,8 +43,8 @@
     /**
      * Setup required AR features and start the XRSession.
      */
-    function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
+    async function startSession() {
+        await parentInstance.startSession(onXrFrameUpdate, onXrSessionEnded, onXrNoPose,
             (xr, result, gl) => {
                 xr.glBinding = new XRWebGLBinding(result, gl);
                 xr.initCameraCapture(gl);

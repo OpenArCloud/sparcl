@@ -8,9 +8,12 @@ import { checkGLError } from '@core/devTools'
 
 // TODO(soeroesg): xrNoPoseCallback does not seem to be triggered ever
 
-let xrSessionEndedCallback, xrFrameUpdateCallback, xrMarkerFrameUpdateCallback, xrNoPoseCallback;
+// TODO(soeroesg): coordinate system reset must be handled https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
+
+let xrSessionEndedCallback, xrFrameUpdateCallback, xrMarkerFrameUpdateCallback, xrNoPoseCallback, xrReferenceSpaceResetCallback;
 let animationFrameCallback;
-let floorSpaceReference, localSpaceReference, gl;
+let floorSpaceReference, localSpaceReference;
+let gl;
 
 
 /**
@@ -78,10 +81,9 @@ export default class webxr {
      */
     setViewportForView(view) {
         const viewport = this.session.renderState.baseLayer.getViewport(view);
-
         if (viewport) {
             gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-            
+
             // For an application working in viewport space, get the camera intrinsics
             // based on the viewport dimensions:
             getCameraIntrinsics(view.projectionMatrix, viewport);
@@ -111,7 +113,7 @@ export default class webxr {
         // We want to capture the camera image, however, it is not directly available here,
         // but only as a GPU texture. We draw something textured with the camera image at every frame,
         // so that the texture is kept in GPU memory. We can then capture it below.
-        const cameraTexture = this.glBinding.getCameraImage(frame, view);
+        const cameraTexture = this.glBinding.getCameraImage(frame, view); // note: this returns a WebGlTexture
         drawCameraCaptureScene(gl, cameraTexture);
 
         checkGLError(gl, "getCameraTexture() end");
@@ -148,7 +150,7 @@ export default class webxr {
             y: 0
         };
         const cameraIntrinsics = getCameraIntrinsics(view.projectionMatrix, cameraViewport);
-        const cameraTexture = this.glBinding.getCameraImage(view.camera);
+        const cameraTexture = this.glBinding.getCameraImage(view.camera); // note: this returns a WebGlTexture
 
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
         // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
@@ -246,13 +248,19 @@ export default class webxr {
         this.session.addEventListener('end', this._onXrSessionEnded);
         this.session.updateRenderState({ baseLayer: new XRWebGLLayer(this.session, gl) });
 
+        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-spaces
+        // Note: reference spaces viewer, local, and local-floor are always available, but others may not
+        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
         Promise.all(
             [this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')])
-            .then((values => {
+            .then(values => {
                 floorSpaceReference = values[0];
                 localSpaceReference = values[1];
+                // TODO: use unbounded space, if available
+                floorSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
+                localSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
                 this.session.requestAnimationFrame(animationFrameCallback);
-            }));
+            });
     }
 
     /**
@@ -264,7 +272,7 @@ export default class webxr {
      */
     _onXrFrameUpdate(time, xrFrame) {
         const session = xrFrame.session; // NOTE: session of the frame (should be the same as this.session)
-        
+
         session.requestAnimationFrame(animationFrameCallback);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, session.renderState.baseLayer.framebuffer);
@@ -295,6 +303,17 @@ export default class webxr {
 
         if (xrSessionEndedCallback) {
             xrSessionEndedCallback();
+        }
+    }
+
+    _onXrReferenceSpaceReset(xrReferenceSpaceEvent) {
+        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
+        console.log("Reference space reset happened!")
+        // Check for the transformation between the previous origin and the current origin
+        // This will not always be available, but if it is, developers may choose to use it
+        const transform = xrReferenceSpaceEvent.transform;
+        if (xrReferenceSpaceResetCallback != undefined) {
+            xrReferenceSpaceResetCallback(transform);
         }
     }
 }
