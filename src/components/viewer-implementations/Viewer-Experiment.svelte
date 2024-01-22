@@ -17,14 +17,12 @@
 
     import { v4 as uuidv4 } from 'uuid';
 
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
-    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, type GeoposeResponseType, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { GeoPoseRequest } from '@oarc/gpp-access';
     import { ImageOrientation } from '@oarc/gpp-access';
     import { IMAGEFORMAT } from '@oarc/gpp-access';
 
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
 
     import {
@@ -59,6 +57,7 @@
     import type webxr from '@src/core/engines/webxr';
     import type { ObjectDescription, Orientation, Position } from '../../types/xr';
     import type { Mat4, Mesh, Quat, Transform, Vec3 } from 'ogl';
+    import { get } from 'svelte/store';
 
     const message = (msg: string) => console.log(msg);
 
@@ -86,12 +85,12 @@
     let unableToStartSession = false;
     let experimentIntervallId: ReturnType<typeof setInterval> | undefined = undefined;
 
+    let receivedContentTitles: string[] = [];
+
     let trackedImageObject: Mesh;
     let creatorObject: Transform | Mesh;
     let reticle: Transform | null;
     let poseFoundHeartbeat: () => boolean | undefined;
-
-    let receivedContentTitles: string[] = [];
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -114,6 +113,7 @@
 
     /**
      * Receives data from the application to be applied to current scene.
+     * NOTE: sometimes multiple events are bundled!
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
@@ -123,9 +123,12 @@
             return;
         }
 
-        // NOTE: sometimes multiple events are bundled!
-        console.log('Viewer-Experiment: event received:');
-        console.log(events);
+        if (get(recentLocalisation)?.geopose?.position == undefined) {
+            // we need to localize at least once to be able to do anything
+            console.log('Network event received but we are not localized yet!');
+            console.log(events);
+            return;
+        }
 
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
@@ -519,12 +522,10 @@
 
             for (let view of floorPose.views) {
                 xrEngine.setViewportForView(view);
-
                 console.log('fake localisation');
-
-                isLocalized = true;
-                let geoPose = fakeLocationResult.geopose.pose;
+                const geoPose = fakeLocationResult.geopose.pose;
                 onLocalizationSuccess(floorPose, geoPose);
+                isLocalized = true;
                 wait(1000).then(() => (showFooter = false));
 
                 let data = fakeLocationResult.scrs;
@@ -687,7 +688,7 @@
                     }
                     if (cameraIntrinsics) {
                         localize(image, imageWidth, imageHeight, cameraIntrinsics)
-                            .then(({cameraGeoPose, optionalScrs}) => {
+                            .then(({ cameraGeoPose, optionalScrs }) => {
                                 // Save the local pose and the global pose of the image for alignment in a later step
                                 $recentLocalisation.geopose = cameraGeoPose;
                                 $recentLocalisation.floorpose = floorPose;
@@ -696,7 +697,7 @@
                                 /// There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
                                 // We could return only those as [optionalScrs], however, this means all other content services are ignored...
                                 //if (optionalScrs) {
-                                    //return [optionalScrs];
+                                //return [optionalScrs];
                                 //}
                                 // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
@@ -740,7 +741,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{cameraGeoPose: GeoposeResponseType['geopose'], optionalScrs: SCR[]}>((resolve, reject) => {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
             let cameraParams = new CameraParam();
             cameraParams.model = CAMERAMODEL.PINHOLE;
             cameraParams.modelParams = [cameraIntrinsics.fx, cameraIntrinsics.fx, cameraIntrinsics.cx, cameraIntrinsics.cy];
@@ -771,7 +772,7 @@
                             // data is AugmentedCity format which contains other entries too
                             // (for example AC /geopose_objs endpoint)
                             cameraGeoPose = (data.geopose as any).geopose;
-                            optionalScrs = (data as any).scrs
+                            optionalScrs = (data as any).scrs;
                         } else if (data.geopose != undefined) {
                             // data is GeoPoseResp
                             // (for example AC /geopose endpoint)
@@ -784,7 +785,7 @@
                         console.log('IMAGE GeoPose:');
                         console.log(cameraGeoPose);
 
-                        resolve({cameraGeoPose, optionalScrs});
+                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error: any) => {
                         // TODO: Inform user
@@ -825,9 +826,8 @@
     }
 
     /**
-     *  Places the content provided by a call to Spacial Content Discovery providers.
-     *
-     * @param scr  [SCR]        Content Records with the result from the selected content services
+     *  Places the contents provided by a call to Spacial Content Discovery providers.
+     * @param scrs  [[SCR]]        Content Records with the result from the selected content services
      */
     function placeContent(scr: SCR[][]) {
         scr.forEach((response) => {
@@ -909,13 +909,14 @@
                         console.log(record.content);
                         break;
                 }
+
                 //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
 
                 // TODO: Anchor placeholder for better visual stability?!
             });
         });
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateSceneGraphTransforms();
     }
 
     /**

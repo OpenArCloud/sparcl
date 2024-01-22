@@ -10,13 +10,16 @@
 <script lang="ts">
     import { type ComponentType, createEventDispatcher } from 'svelte';
     import type { ExperimentsViewers } from '../types/xr';
-    const dispatch = createEventDispatcher<{ change: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ExperimentsViewers }> | null; key: string } }>();
+    const dispatch = createEventDispatcher<{ change: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType<ExperimentsViewers> }> | null; key: string } }>();
 
     const EXPERIMENTTYPES: Record<string, string> = {
         //yourkey: 'yourvalue'
+        performance: 'Performance',
+        ismar2021multi: 'ISMAR 2021 Multi',
+        ismar2021signpost: 'ISMAR 2021 Signpost',
     };
 
-    export function importExperiment(key: string): { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ExperimentsViewers }> | null; key: string } {
+    export function importExperiment(key: string): { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType<ExperimentsViewers> }> | null; key: string } {
         let settings = null;
         let viewer = null;
         switch (key) {
@@ -24,6 +27,19 @@
             //    settings = import('@experiments/<subroot>/<experimentname>/Settings.svelte')
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
+            case 'ismar2021signpost':
+                settings = import('@experiments/oarc/ismar2021signpost/Settings.svelte');
+                viewer = import('@experiments/oarc/ismar2021signpost/Viewer.svelte');
+                break;
+
+            case 'ismar2021multi':
+                settings = import('@experiments/oarc/ismar2021multi/Settings.svelte');
+                viewer = import('@experiments/oarc/ismar2021multi/Viewer.svelte');
+                break;
+            case 'performance':
+                settings = import('@experiments/oarc/performance/Settings.svelte');
+                viewer = import('@experiments/oarc/performance/Viewer.svelte');
+                break;
             default:
                 settings = null;
                 viewer = null;
