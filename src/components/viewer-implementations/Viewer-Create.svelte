@@ -7,7 +7,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script>
-    import Parent from '@components/Viewer';
+    import Parent from '@components/Viewer.svelte';
 
     import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
     import { CREATIONTYPES } from '@core/common';
@@ -38,7 +38,7 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose,
             () => {},
             ['dom-overlay', 'anchors', 'local-floor'],
         );

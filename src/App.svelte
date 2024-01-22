@@ -17,7 +17,7 @@
     import OutroOverlay from "@components/dom-overlays/OutroOverlay.svelte";
     import Spectator from "@components/dom-overlays/Spectator.svelte";
 
-    import Selector from '@experiments/Selector';
+    import Selector from '@experiments/Selector.svelte';
 
     import {allowP2pNetwork, arIsAvailable, arMode, availableP2pServices, experimentModeSettings, hasIntroSeen,
         initialLocation, isLocationAccessAllowed, selectedP2pService, showDashboard, ssr} from './stateStore';
@@ -59,7 +59,7 @@
                         return import('@oarc/ssd-access');
                     })
                     .then(ssdModule => {
-                        const ssdUrl = __SNOWPACK_ENV__.SNOWPACK_PUBLIC_SSD_ROOT_URL;
+                        const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
                         if (ssdUrl != undefined && ssdUrl != "") {
                             ssdModule.setSsdUrl(ssdUrl);
                             console.log("Setting SSD URL to " +  ssdUrl);
@@ -205,13 +205,13 @@
         // Unfortunately, the import function does accept string literals only
         switch ($arMode) {
             case ARMODES.oscp:
-                viewerImplementation = import('@components/viewer-implementations/Viewer-Oscp');
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Oscp.svelte');
                 break;
             case ARMODES.create:
-                viewerImplementation = import('@components/viewer-implementations/Viewer-Create');
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Create.svelte');
                 break;
             case ARMODES.develop:
-                viewerImplementation = import('@components/viewer-implementations/Viewer-Develop');
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Develop.svelte');
                 break;
             case ARMODES.experiment:
                 if ($experimentModeSettings.active) {

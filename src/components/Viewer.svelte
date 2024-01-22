@@ -45,7 +45,7 @@
 
     let doCaptureImage = false;
     let experienceLoaded = false, experienceMatrix = null;
-    let firstPoseReceived = false, hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
+    let firstPoseReceived = false, hasLostTracking = true;
     let unableToStartSession = false;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -88,7 +88,7 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
+    export async function startSession(xrFrameUpdateCallback, xrSessionEndedCallback, xrNoPoseCallback,
                                  setup = () => {}, requiredFeatures = [], optionalFeatures = []) {
         const options = {
             requiredFeatures: requiredFeatures,
@@ -128,6 +128,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrFrameUpdate(time, frame, floorPose) {
+        hasLostTracking = false;
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -189,6 +191,7 @@
                         // Save the local pose and the global pose of the image for alignment in a later step
                         $recentLocalisation.geopose = geoPose;
                         $recentLocalisation.floorpose = floorPose;
+                        onLocalizationSuccess(floorPose, geoPose);
 
                         // There are GeoPose services (ex. Augmented City) that also return content (an array of SCRs) in the localization response.
                         // We could return those as [optionalScrs], however, this means all other content services are ignored...
@@ -203,7 +206,7 @@
                     .then(scrs => {
                         // NOTE: the next step expects an array of array of SCRs in the scrs variable
                         console.log("Received " + scrs.length + " SCRs");
-                        placeContent($recentLocalisation.floorpose, $recentLocalisation.geopose, scrs);
+                        placeContent(scrs);
                     })
             }
 
@@ -387,19 +390,22 @@
         return Promise.all(servicePromises);
     }
 
+    /*
+     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     */
+    export function onLocalizationSuccess(localPose, globalPose) {
+        let localImagePose = localPose.transform;
+        let globalImagePose = globalPose;
+        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    }
+
     /**
-     *  Places the content provided by a call to Spacial Content Discovery providers.
-     *
-     * @param localPose XRPose      The pose of the device when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
+     *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(localPose, globalPose, scrs) {
-        let localImagePose = localPose.transform
-        let globalImagePose = globalPose
+    export function placeContent(scrs) {
         let showContentsLog = false;
-
-        tdEngine.beginSpatialContentRecords(localImagePose, globalImagePose)
 
         scrs.forEach(response => {
             //console.log('Number of content items received: ', response.length);
@@ -414,7 +420,10 @@
                 // TODO: first save the records and then start to instantiate the objects
 
 
-                if (record.content.type === "placeholder") {
+                if (record.content.type === "placeholder" ||
+                        record.content.type === "3D" ||
+                        record.content.type === "MODEL_3D" ||
+                        record.content.type === "ICON") {
                     // only list the 3D models and not ephemeral objects nor stream objects
                     $receivedScrs.push(record);
                     $context.receivedContentTitles.push(record.content.title);
@@ -503,7 +512,7 @@
             });
         }
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateSceneGraphTransforms();
 
         wait(3000).then(() => $context.receivedContentTitles = []); // clear the list after a timer
     }
