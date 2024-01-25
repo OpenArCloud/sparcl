@@ -22,7 +22,7 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | undefined;
+    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
     let hasLostTracking = true;
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
@@ -91,7 +91,7 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         hasLostTracking = false;
 
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             const hitTestResults = frame.getHitTestResults(hitTestSource);
             if (hitTestResults.length > 0) {
                 const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
@@ -103,7 +103,7 @@
 
                     xrEngine.setViewPort();
 
-                    if (!reticle) {
+                    if (reticle === null) {
                         reticle = tdEngine.addReticle();
                     }
 
@@ -124,7 +124,7 @@
      * Let's the app know that the XRSession was closed.
      */
     function onXrSessionEnded() {
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;
         }
@@ -150,7 +150,7 @@
 
     function relocalize() {
         parentInstance.relocalize();
-        reticle = undefined; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
     //////////////////////////////////
@@ -175,7 +175,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if (!hasLostTracking && reticle) {
+        if (hasLostTracking == false && reticle != null) {
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
             // when tapped, determine the global position of the tap, and save the global location of the object
@@ -188,7 +188,6 @@
                 tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
 
                 shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
                 experimentOverlay?.objectPlaced();
             }
@@ -206,18 +205,6 @@
         } else {
             clearInterval(experimentIntervalId);
         }
-    }
-
-    function shareCamera(position: Vec3, quaternion: Quat) {
-        let object_description: ObjectDescription = {
-            version: 2,
-            color: [1.0, 1.0, 0.0, 0.2],
-            shape: PRIMITIVES.box,
-            scale: [0.05, 0.05, 0.05],
-            transparent: true,
-            options: {},
-        };
-        shareObject(object_description, position, quaternion);
     }
 
     function shareMessage(str: string) {

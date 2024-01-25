@@ -44,7 +44,7 @@
     }
 </script>
 
-{#if $experimentModeSettings.game.showstats}
+{#if $experimentModeSettings?.game.showstats}
     <p>Objects placed: {objectsPlacedCount}</p>
     <!--<p>Objects received: {objectsReceivedCount}</p>-->
     <p>ISMAR 2021 demo</p>

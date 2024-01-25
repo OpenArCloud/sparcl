@@ -12,8 +12,8 @@
     Temporary until better UX is found for the settings.
 -->
 <script lang="ts">
-    import { createEventDispatcher, type ComponentType } from 'svelte';
-
+    import ColorPicker from 'svelte-awesome-color-picker';
+    import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
     import { supportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
@@ -39,8 +39,18 @@
         debug_useGeolocationSensors,
         debug_saveCameraImage,
         debug_loadCameraImage,
+        debug_enablePointCloudContents,
+        myAgentColor,
+        myAgentName,
+        availableMessageBrokerServices,
         activeExperiment,
+        selectedMessageBrokerService,
+        messageBrokerAuth,
+        allowMessageBroker,
     } from '@src/stateStore';
+
+    import { testRmqConnection } from '@src/core/rmqnetwork';
+    import Select from './dom-overlays/Select.svelte';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
@@ -50,6 +60,12 @@
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
+
+    let rmqTestPromise: Promise<boolean>;
+    onMount(() => {
+        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+            rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
+    });
 
     function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
@@ -64,7 +80,7 @@
     }
 </script>
 
-<button on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
+<button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
     <summary>Application state</summary>
@@ -241,21 +257,73 @@
                     on:change={(event) => {
                         experimentDetail = event.detail;
 
-                        $activeExperiment = experimentDetail.key;
+                        if ($experimentModeSettings === null) {
+                            $experimentModeSettings = {};
+                        }
 
+                        $activeExperiment = experimentDetail.key;
                         if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
                     }}
                 />
             </dd>
         </dl>
 
-        {#if experimentDetail != null}
-            {#await experimentDetail?.settings}
-                <p>Loading...</p>
-            {:then setting}
+        {#await experimentDetail?.settings}
+            <p>Loading...</p>
+        {:then setting}
+            {#if experimentDetail?.key && $experimentModeSettings}
                 <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
-            {/await}
-        {/if}
+            {/if}
+        {/await}
+    {/if}
+    {#if $availableMessageBrokerServices.length > 0}
+        <dl>
+            <dt><label for="message-broker-server">Message Broker Services</label></dt>
+            <div>
+                <input id="allowMessageBroker" type="checkbox" bind:checked={$allowMessageBroker} />
+                <label for="allowMessageBroker">Connect to a message broker</label>
+            </div>
+            {#if $allowMessageBroker}
+                <dd class="select">
+                    <Select bind:value={$selectedMessageBrokerService} displayFunc={(option) => option.description} options={Object.values($availableMessageBrokerServices)}></Select>
+                </dd>
+                {#if $selectedMessageBrokerService?.properties?.find((prop) => prop.type === 'authentication' && prop.value === 'password')}
+                    {#if $messageBrokerAuth?.[$selectedMessageBrokerService.guid]}
+                        <form>
+                            <div>
+                                <label style="display: inline-block; min-width: 100px;" for="username">username:</label>
+                                <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].username} name="username" />
+                            </div>
+                            <div>
+                                <label style="display: inline-block; min-width: 100px;" for="password">password:</label>
+                                <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
+                            </div>
+                        </form>
+                        <div class="center" style="padding-top: 1rem;">
+                            <button
+                                id="test-rmq-auth-button"
+                                on:click={() =>
+                                    (rmqTestPromise =
+                                        $selectedMessageBrokerService && $messageBrokerAuth
+                                            ? testRmqConnection({ url: $selectedMessageBrokerService?.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] })
+                                            : Promise.reject('no message broker service selected'))}>Test Authentication</button
+                            >
+                        </div>
+                        {#if rmqTestPromise != null}
+                            {#await rmqTestPromise}
+                                <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+                            {:then}
+                                <p class="center" style="color: green">Authentication successful</p>
+                            {:catch error}
+                                <p class="center" style="color: red">Authentication unsuccessful {error}</p>
+                            {/await}
+                        {/if}
+                    {:else}
+                        <p>Internal error while handlind message broker state</p>
+                    {/if}
+                {/if}
+            {/if}
+        </dl>
     {/if}
 </details>
 
@@ -265,6 +333,15 @@
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>
     </div>
+    <dl>
+        <dt>Choose your name</dt>
+        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
+    </dl>
+    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
+    <dl>
+        <dt>Recent GeoPose</dt>
+        <dd><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
+    </dl>
 
     <dl>
         <dt><label for="p2pserver">P2P Service</label></dt>
@@ -317,6 +394,11 @@
         <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
         <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
     </div>
+
+    <div>
+        <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
+        <label for="enablePointCloudContents">Enable point cloud contents</label>
+    </div>
 </details>
 
 {@html supportedCountries}
@@ -336,7 +418,7 @@
         margin-bottom: 0;
     }
 
-    button {
+    #go-immersive-button {
         width: 100%;
         height: 50px;
 
@@ -347,6 +429,27 @@
         font-size: 25px;
         letter-spacing: 0;
 
+        background-color: white;
+    }
+
+    .center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .center-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    #test-rmq-auth-button {
+        border: 2px solid var(--theme-color);
+        border-radius: 0.5rem;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
         background-color: white;
     }
 
@@ -505,5 +608,9 @@
 
     .serviceurl {
         font-size: 8px;
+    }
+
+    .spinner {
+        height: 50px;
     }
 </style>
