@@ -15,6 +15,15 @@
     export let hasPose = false;
     export let isLocalizing = false;
     export let isLocalized = false;
+    let showIsLocalizedMessage: boolean = false;
+    $: {
+        if (isLocalized) {
+            showIsLocalizedMessage = true;
+            setTimeout(() => {
+                showIsLocalizedMessage = false;
+            }, 3000);
+        }
+    }
     export let receivedContentTitles: string[] = [];
 
     // Used to dispatch events to parent
@@ -30,7 +39,10 @@
     <p>{$localizeMessage}</p>
     <button on:click={() => dispatch('startLocalisation')}>{$localizeLabel}</button>
 {:else if isLocalized}
-    <p>{$isLocalizedMessage}</p>
+    <div style="padding-top: 10px;"></div>
+    {#if showIsLocalizedMessage}
+        <p>{$isLocalizedMessage}</p>
+    {/if}
     <button on:click={() => dispatch('relocalize')}>{$resetLabel}</button>
     {#if receivedContentTitles.length > 0}
         <div align="left">
@@ -40,6 +52,7 @@
             {/each}
         </div>
     {/if}
+    <div style="padding-top: 10px"></div>
 {/if}
 
 <style>

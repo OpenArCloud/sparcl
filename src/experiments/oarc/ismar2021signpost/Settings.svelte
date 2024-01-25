@@ -641,7 +641,7 @@
             camera.updateMatrixWorld(true);
 
             // Set the reticle
-            if (hitTestSource) {
+            if (hitTestSource != undefined) {
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 reticle.visible = signPost ? false : true;
                 if (hitTestResults.length > 0 && reticle.visible) {

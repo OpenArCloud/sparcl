@@ -34,6 +34,7 @@
         debug_useGeolocationSensors,
         debug_saveCameraImage,
         debug_loadCameraImage,
+        debug_enablePointCloudContents,
         initialLocation,
         receivedScrs,
         recentLocalisation,
@@ -109,7 +110,7 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(
+    export async function startSession(
         xrFrameUpdateCallback: XrFrameUpdateCallbackType,
         xrSessionEndedCallback: () => void,
         xrNoPoseCallback: XrNoPoseCallbackType,
@@ -148,7 +149,6 @@
         }
     }
 
-    // TODO: rename to onXrFrameUpdate
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -196,8 +196,9 @@
 
                 let image: Promise<string> | null = null; // base64 encoded
                 if ($debug_loadCameraImage) {
+                    // This is only for development while running your own Sparcl server.
                     // TODO: intrinsics could be also loaded separately
-                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
+                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the public/photos subfolder
                     image = loadImageBase64(debug_CameraImageUrl);
                 } else if (cameraTexture && imageWidth && imageHeight) {
                     image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
@@ -454,17 +455,26 @@
 
             response.forEach((record) => {
                 // TODO: validate here whether we received a proper SCR
-
-                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard
-                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
-
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
-
                 if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
                     // only list the 3D models and not ephemeral objects nor stream objects
                     $receivedScrs.push(record);
                     $context.receivedContentTitles.push(record.content.title);
+                }
+
+                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
+                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+
+                const content_definitions: Record<string, string> = {};
+                if (record.content.definitions != undefined) {
+                    const d_entries = record.content.definitions.entries();
+                    //console.log(" -definitions:")
+                    for (let d_entry of d_entries) {
+                        const d = d_entry[1];
+                        //console.log("  -" + d.type + ": " + d.value);
+                        content_definitions[d.type] = d.value;
+                    }
                 }
 
                 // TODO: this method could handle any type of content:
@@ -474,7 +484,8 @@
                 switch (record.content.type) {
                     case 'MODEL_3D':
                     case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
-                    case 'placeholder': // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
+                    case 'placeholder': {
+                        // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                         showContentsLog = true; // show log if at least one 3D object was received
 
                         let globalObjectPose = record.content.geopose;
@@ -523,8 +534,9 @@
                             handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         }
                         break;
+                    }
 
-                    case 'ephemeral':
+                    case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
                             console.log('ISMAR2021demo object received!');
@@ -535,10 +547,52 @@
                             tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                         }
                         break;
+                    }
+                    case 'POINTCLOUD': {
+                        if ($debug_enablePointCloudContents) {
+                            const globalObjectPose = record.content.geopose;
+                            const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            const position = localObjectPose.position;
+                            const orientation = localObjectPose.quaternion;
+                            let url = '';
+                            if (content_definitions['url'] != undefined) {
+                                url = content_definitions['url'];
+                            } else {
+                                url = record.content.refs ? record.content.refs[0].url : '';
+                            }
+                            tdEngine.addPointCloud(url, position, orientation);
+                        } else {
+                            console.log('A POINTCLOUD content was received but this type is disabled');
+                        }
+                        break;
+                    }
 
-                    default:
+                    case 'ICON': {
+                        const globalObjectPose = record.content.geopose;
+                        const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        const localPosition = localObjectPose.position;
+                        const localQuaternion = localObjectPose.quaternion;
+                        let url = '';
+                        if (content_definitions['url'] != undefined) {
+                            url = content_definitions['url'];
+                        } else {
+                            url = record.content.refs ? record.content.refs[0].url : '';
+                        }
+                        let width = 1.0;
+                        if (content_definitions['width'] != undefined) {
+                            width = parseFloat(content_definitions['width']);
+                        }
+                        let height = 1.0;
+                        if (content_definitions['height'] != undefined) {
+                            height = parseFloat(content_definitions['height']);
+                        }
+                        tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
+                        break;
+                    }
+                    default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
+                    }
                 }
             });
         });
@@ -592,6 +646,10 @@
             },
             { once: true },
         );
+    }
+
+    export function getRenderer() {
+        return tdEngine;
     }
 
     // TODO: rename to onEventReceived()

@@ -16,6 +16,7 @@
 
     import L, { Map } from 'leaflet';
     let map: Map | null;
+    export let isHeadless = false; // TODO: is this still needed?
 
     function placeMarker(lat: number, lon: number, color: string) {
         if (map) {
