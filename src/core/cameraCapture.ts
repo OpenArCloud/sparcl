@@ -190,7 +190,7 @@ void main(void) {
 uniform sampler2D uSampler;
 void main(void) {
     gl_FragColor = texture2D(uSampler, vec2(0,0));
-};`;
+}`;
     const fragShader = gl.createShader(gl.FRAGMENT_SHADER);
     if (fragShader == null) {
         throw new Error('Cannot create camera fragment shader');

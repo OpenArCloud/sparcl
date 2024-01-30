@@ -18,7 +18,7 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | undefined;
+    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
     let hasLostTracking = true;
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
@@ -86,7 +86,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (!hasLostTracking && reticle && ($settings.add === 'manually' || auto)) {
+        if (hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -185,7 +185,7 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         hasLostTracking = false;
 
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             const t = performance.now();
             const elapsed = t - previousTime;
             previousTime = t;
@@ -206,7 +206,7 @@
 
                     xrEngine.setViewPort();
 
-                    if (!reticle) {
+                    if (reticle === null) {
                         reticle = tdEngine.addReticle();
                     }
 
@@ -243,7 +243,7 @@
      * Let's the app know that the XRSession was closed.
      */
     function onXrSessionEnded() {
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;
         }
