@@ -321,7 +321,6 @@
 </script>
 
 <header>
-    <img class="logo" id="nokia-logo" alt="Nokia logo" src="/media/Nokia-logo-white.png" />
     <img class="logo" id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 

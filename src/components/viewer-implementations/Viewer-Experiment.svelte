@@ -14,8 +14,10 @@
 -->
 <script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
-
+    import { get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
+    import { debounce } from 'lodash';
+    import type { Mat4, Mesh, Quat, Transform, Vec3 } from 'ogl';
 
     import { sendRequest, validateRequest, type GeoposeResponseType, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { GeoPoseRequest } from '@oarc/gpp-access';
@@ -24,9 +26,7 @@
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-
     import { ARMODES, CREATIONTYPES, wait } from '@core/common';
-
     import {
         arMode,
         availableContentServices,
@@ -42,23 +42,19 @@
         selectedContentServices,
         selectedGeoPoseService,
         peerIdStr,
-    } from '@src/stateStore';
-
-    import { debounce } from 'lodash';
+    } from '../../stateStore';
     import { fakeLocationResult, printOglTransform } from '@core/devTools';
-
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import ArExperimentOverlay from '@components/dom-overlays/ArExperimentOverlay.svelte';
     import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
-
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
     import ogl from '@src/core/engines/ogl/ogl';
     import type webxr from '@src/core/engines/webxr';
     import type { ObjectDescription, Orientation, Position } from '../../types/xr';
-    import type { Mat4, Mesh, Quat, Transform, Vec3 } from 'ogl';
-    import { get } from 'svelte/store';
+
+
 
     const message = (msg: string) => console.log(msg);
 
