@@ -350,7 +350,7 @@
                 </div>
             </aside>
         {:else if !$arIsAvailable}
-            <Spectator bind:this={spectator} {isHeadless} />
+            <Spectator bind:this={spectator} {isHeadless} on:broadcast={handleBroadcast} />
         {/if}
     {:else}
         <!-- Just for development to verify some internal values -->
