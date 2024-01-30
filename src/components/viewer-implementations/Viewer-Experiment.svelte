@@ -21,9 +21,11 @@
     import { GeoPoseRequest } from '@oarc/gpp-access';
     import { ImageOrientation } from '@oarc/gpp-access';
     import { IMAGEFORMAT } from '@oarc/gpp-access';
-
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
+
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
+
+    import { ARMODES, CREATIONTYPES, wait } from '@core/common';
 
     import {
         arMode,
@@ -42,7 +44,6 @@
         peerIdStr,
     } from '@src/stateStore';
 
-    import { ARMODES, CREATIONTYPES, wait } from '@core/common';
     import { debounce } from 'lodash';
     import { fakeLocationResult, printOglTransform } from '@core/devTools';
 
@@ -73,9 +74,9 @@
     let tdEngine: ogl;
 
     let doCaptureImage = false;
-    let doExperimentAutoPlacement: boolean;
-    let showFooter = false,
-        experienceLoaded = false;
+    let doExperimentAutoPlacement: boolean; // TODO: this is only for performance experiment
+    let showFooter = false;
+    let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false,
         isLocalizing = false,
@@ -87,9 +88,9 @@
 
     let receivedContentTitles: string[] = [];
 
-    let trackedImageObject: Mesh;
-    let creatorObject: Transform | Mesh;
-    let reticle: Transform | null;
+    let trackedImageObject: Mesh; // TODO: this is probably only for Marker mode
+    let creatorObject: Transform | Mesh; // TODO: this is probably only for creator mode
+    let reticle: Transform | null = null;
     let poseFoundHeartbeat: () => boolean | undefined;
 
     // TODO: Setup event target array, based on info received from SCD
@@ -131,25 +132,23 @@
         }
 
         if ('message_broadcasted' in events) {
-            let data = events.message_broadcasted;
-            //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            const data = events.message_broadcasted;
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
             if ('message' in data && 'sender' in data) {
                 console.log('message from ' + data.sender + ': \n  ' + data.message);
             }
-            //            }
+            //}
         }
 
         if ('object_created' in events) {
-            let data = events.object_created;
-            //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-            data = data.scr;
-            if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
+            const data = events.object_created;
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            const scr = data.scr;
+            if ('tenant' in scr && scr.tenant == 'ISMAR2021demo') {
                 experimentOverlay?.objectReceived();
-                let latestGlobalPose = $recentLocalisation.geopose;
-                let latestLocalPose = $recentLocalisation.floorpose;
-                placeContent([[data]]); // WARNING: wrap into an array
+                placeContent([[scr]]); // WARNING: wrap into an array
             }
-            //            }
+            //}
         }
 
         // TODO: Receive list of events to fire from SCD
@@ -174,7 +173,7 @@
             domOverlay: { root: overlay },
         });
 
-        tdEngine.setExperimentTapHandler(() => experimentTapHandler);
+        tdEngine.setExperimentTapHandler(() => experimentTapHandler());
 
         if (promise) {
             promise
@@ -251,16 +250,16 @@
      * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
     function handleExperiment(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, reticlePose: XRPose, frameDuration: number, passedMaxSlow: boolean) {
-        if ($experimentModeSettings.game.localisation && !isLocalized) {
+        if ($experimentModeSettings?.game.localisation && !isLocalized) {
             handleOscp(time, frame, floorPose);
         } else {
             handlePoseHeartbeat();
 
-            showFooter = ($experimentModeSettings.game.showstats || ($experimentModeSettings.game.localisation && !isLocalisationDone)) as boolean;
+            showFooter = ($experimentModeSettings?.game.showstats || ($experimentModeSettings?.game.localisation && !isLocalisationDone)) as boolean;
 
             xrEngine.setViewPort();
 
-            if (!reticle) {
+            if (reticle === null) {
                 reticle = tdEngine.addReticle();
             }
 
@@ -300,7 +299,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (!hasLostTracking && reticle && ($experimentModeSettings.game.add === 'manually' || auto)) {
+        if (!hasLostTracking && reticle && ($experimentModeSettings?.game.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -393,23 +392,10 @@
                 let object_description = createRandomObjectDescription();
                 //tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
                 shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
                 experimentOverlay?.objectPlaced();
             }
         }
-    }
-
-    function shareCamera(position: any, quaternion: any) {
-        let object_description: ObjectDescription = {
-            version: 2,
-            color: [1.0, 1.0, 0.0, 0.2],
-            shape: PRIMITIVES.box,
-            scale: [0.05, 0.05, 0.05],
-            transparent: true,
-            options: {},
-        };
-        shareObject(object_description, position, quaternion);
     }
 
     function shareMessage(str: string) {
@@ -528,8 +514,8 @@
                 isLocalized = true;
                 wait(1000).then(() => (showFooter = false));
 
-                let data = fakeLocationResult.scrs;
-                placeContent([data]);
+                const scrs = fakeLocationResult.scrs;
+                placeContent([scrs]);
             }
         }
 
@@ -981,7 +967,7 @@
             {:else if $arMode === ARMODES.develop}
                 <!--TODO: Add development mode ui -->
             {:else if $arMode === ARMODES.experiment}
-                {#if $experimentModeSettings.game.localisation && !isLocalisationDone}
+                {#if $experimentModeSettings?.game.localisation && !isLocalisationDone}
                     <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} {receivedContentTitles} on:startLocalisation={startLocalisation} />
                 {:else}
                     <ArExperimentOverlay bind:this={experimentOverlay} on:toggleAutoPlacement={toggleExperimentalPlacement} on:relocalize={relocalize} />

@@ -224,8 +224,8 @@ export function getExperiencePlaceholder(gl: OGLRenderingContext) {
  * @returns {Mesh}
  */
 export function getDefaultMarkerObject(gl: OGLRenderingContext) {
-    const object = createModel(gl, PRIMITIVES.box, [0.75, 0.75, 0.75, 1.0]);
-    object.scale.set(0.01);
+    const object = createModel(gl, PRIMITIVES.box, [0.75, 0.0, 0.0, 1.0]);
+    object.scale.set(0.02);
     return object;
 }
 

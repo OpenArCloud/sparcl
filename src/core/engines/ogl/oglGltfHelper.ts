@@ -9,9 +9,9 @@
 
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import { Program, TextureLoader, Transform, Vec3 } from 'ogl';
+import { Mesh, Program, TextureLoader, Transform, Vec3 } from 'ogl';
 
-const shader = {
+const complex_shader = {
     vertex: /* glsl */ `
         attribute vec3 position;
         #ifdef UV
@@ -279,7 +279,7 @@ const shader = {
 
 export function createGltfProgram(node: any) {
     const gltf = node.program.gltfMaterial || {};
-    let { vertex, fragment } = shader;
+    let { vertex, fragment } = complex_shader;
 
     // luckily these are passed along with the node
     let gl = node.gl;
@@ -364,7 +364,80 @@ export function createGltfProgram(node: any) {
             uAlphaCutoff: { value: gltf.alphaCutoff },
         },
         transparent: gltf.alphaMode === 'BLEND',
-        cullFace: gltf.doubleSided ? null : gl.BACK,
+        cullFace: gltf.doubleSided ? gl.NONE : gl.BACK,
+    });
+
+    return program;
+}
+
+const simple_shader = {
+    vertex: /* glsl */ `
+        attribute vec3 position;
+        #ifdef UV
+            attribute vec2 uv;
+        #else
+            const vec2 uv = vec2(0);
+        #endif
+        #ifdef NORMAL
+            attribute vec3 normal;
+        #else
+            const vec3 normal = vec3(0);
+        #endif
+        uniform mat4 modelViewMatrix;
+        uniform mat4 projectionMatrix;
+
+        varying vec2 vUv;
+
+        void main() ${`{`}
+            vec4 pos = vec4(position, 1);
+            vUv = uv;
+            vec4 vMVPos = modelViewMatrix * pos;
+            gl_Position = projectionMatrix * vMVPos;
+        }
+        `,
+
+    fragment: /* glsl */ `
+        precision highp float;
+        uniform vec4 uBaseColorFactor;
+        uniform sampler2D tBaseColor;
+
+        varying vec2 vUv;
+
+        void main() ${`{`}
+            vec4 baseColor = uBaseColorFactor;
+            #ifdef COLOR_MAP
+                baseColor *= texture2D(tBaseColor, vUv);
+            #endif
+            gl_FragColor.rgb = baseColor.rgb;
+            gl_FragColor.a = baseColor.a;
+        }
+    `,
+};
+
+export function createSimpleGltfProgram(node: Mesh) {
+    // TODO: gltfMaterial does not exist on program
+    const gltf = (node.program as any).gltfMaterial || {};
+    let { vertex, fragment } = simple_shader;
+
+    let defines = `
+        ${node.geometry.attributes.uv ? `#define UV` : ``}
+        ${node.geometry.attributes.normal ? `#define NORMAL` : ``}
+        ${gltf.baseColorTexture ? `#define COLOR_MAP` : ``}
+    `;
+
+    vertex = defines + vertex;
+    fragment = defines + fragment;
+
+    let gl = node.gl;
+    const program = new Program(gl, {
+        vertex,
+        fragment,
+        uniforms: {
+            uBaseColorFactor: { value: gltf.baseColorFactor || [1, 1, 1, 1] },
+            tBaseColor: { value: gltf.baseColorTexture ? gltf.baseColorTexture.texture : null },
+        },
+        transparent: gltf.alphaMode === 'BLEND',
+        cullFace: gltf.doubleSided ? gl.NONE : gl.BACK,
     });
 
     return program;

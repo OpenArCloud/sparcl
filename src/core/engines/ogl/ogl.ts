@@ -7,8 +7,8 @@
   SPDX-License-Identifier: MIT
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color, type OGLRenderingContext, Program, Quat, Vec3 } from 'ogl';
-import { createGltfProgram } from '@core/engines/ogl/oglGltfHelper';
+import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, Mesh, Plane, Geometry, type OGLRenderingContext, Program, Quat, Vec3, Polyline, Color, type Vec3Tuple } from 'ogl';
+import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 
 import {
@@ -42,7 +42,7 @@ import { printOglTransform, checkGLError } from '@core/devTools';
 
 import { quat, vec3 } from 'gl-matrix';
 import type { ObjectDescription, Orientation, Position, ValueOf } from '../../../types/xr';
-import type { Geopose } from '@oarc/scd-access';
+import type { Geopose, SCR } from '@oarc/scd-access';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -58,6 +58,9 @@ let _ar2GeoTransformNode: Transform;
 let _globalImagePose: Geopose;
 let _localImagePose: { position: Position; orientation: Orientation };
 let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
+
+let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
+let dynamic_objects_meshes: Record<string, Mesh> = {};
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -80,7 +83,10 @@ export default class ogl {
 
         scene = new Transform();
 
-        this.setupEnvironment(gl);
+        camera = new Camera(gl);
+        camera.position.set(0, 0, 0);
+
+        this.initScene();
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
@@ -91,11 +97,36 @@ export default class ogl {
     }
 
     /**
-     * Set up the 3D environment as required according to the current real environment.*
+     * Initialize the virtual environment
      */
-    setupEnvironment(gl: OGLRenderingContext) {
-        camera = new Camera(gl);
-        camera.position.set(0, 0, 0);
+    initScene() {
+        if (!gl) {
+            console.log('GL is not initilized yet!');
+            return;
+        }
+
+        // Visualize axes
+        axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
+        axesHelper.setParent(scene);
+
+        // Our camera images are captured into texture 0, and therefore the first loaded textured object (that normally gets text id 0)
+        // in the scene sometimes is painted not from its own texture but from the camera image texture.
+        // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
+        loadLogoTexture(gl, '/media/icons/icon_x48.png').then((texture) => {
+            if (texture === undefined) {
+                console.log('Error: logo texture ID is undefined!');
+                return;
+            }
+            console.log('Dummy TEXTURE ID: ' + texture.id);
+            const dummyProgram = createLogoProgram(gl, texture);
+            const dummyGeometry = new Plane(gl, { width: 0.1, height: 0.1 });
+            const dummyMesh = new Mesh(gl, {
+                geometry: dummyGeometry,
+                program: dummyProgram,
+                frustumCulled: false,
+            });
+            dummyMesh.setParent(scene);
+        });
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -117,6 +148,19 @@ export default class ogl {
         placeholder.setParent(scene);
 
         return placeholder;
+    }
+
+    addPolyline(points: Vec3[], hexColor: string) {
+        const polyline = new Polyline(gl, {
+            points,
+            uniforms: {
+                uColor: { value: new Color(hexColor) },
+                uThickness: { value: 5 },
+            },
+        });
+        const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
+        mesh.setParent(scene);
+        return mesh;
     }
 
     /**
@@ -156,7 +200,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addModel(position: Position, orientation: Orientation, url: string) {
-        const gltfScene = new Transform();
+        const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position.set(position.x, position.y, position.z);
         gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
         gltfScene.setParent(scene);
@@ -169,8 +213,9 @@ export default class ogl {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
                         if ((node as any).program) {
+                            // TODO: cast node to Mesh
                             // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
-                            (node as any).program = createGltfProgram(node);
+                            (node as any).program = createSimpleGltfProgram(node as Mesh);
                         }
                     });
                 });
@@ -266,6 +311,103 @@ export default class ogl {
     }
 
     /**
+     * Create a dynamic object with given properties at the given pose
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @param position  number{x, y, z}        3D position of the object
+     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param object_description {*}    Key-value pairs of object properties
+     * @returns {Mesh}  The newly created mesh
+     */
+    addDynamicObject(object_id: string, position: Vec3, orientation: Quat, object_description: ObjectDescription | null = null) {
+        console.log('OGL addDynamicObject: ' + object_id);
+        let description = object_description || {
+            version: 2,
+            color: [1.0, 1.0, 1.0, 0.5],
+            shape: PRIMITIVES.sphere,
+            scale: [0.25, 0.25, 0.25],
+            transparent: true,
+            options: {},
+        };
+        const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
+        mesh.position.set(position);
+        mesh.quaternion.set(orientation, 0, 0, 1);
+        scene.addChild(mesh);
+        dynamic_objects_descriptions[object_id] = description;
+        dynamic_objects_meshes[object_id] = mesh;
+        return mesh;
+    }
+
+    /**
+     * Update a dynamic object with given properties at the given pose
+     *
+     * @param object_id  User-specified unique ID in the scene
+     * @param position  3D position of the object
+     * @param orientation  Orientation of the object
+     * @param object_description Key-value pairs of object properties
+     * @returns boolean     Whether the update succeeded
+     */
+    updateDynamicObject(object_id: string, position: Vec3 | null = null, orientation: Quat | null = null, object_description: ObjectDescription | null = null) {
+        //console.log("OGL updateDynamicObject: " + object_id);
+        if (!(object_id in dynamic_objects_descriptions)) {
+            console.log('WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
+            return false;
+        }
+        const old_position = dynamic_objects_meshes[object_id].position;
+        let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
+        if (position != null) {
+            new_position = new Vec3(position[0], position[1], position[2]);
+        }
+        dynamic_objects_meshes[object_id].position = new_position;
+
+        const old_orientation = dynamic_objects_meshes[object_id].quaternion;
+        let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
+        if (orientation != null) {
+            new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
+        }
+        dynamic_objects_meshes[object_id].quaternion = new_orientation;
+
+        // check whether anything changed in the description
+        const old_object_description = dynamic_objects_descriptions[object_id];
+        if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
+            // nothing to do
+            return true;
+        }
+        console.log(object_id + ' has changed!');
+        let new_object_description = object_description ? { ...object_description } : null;
+        // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
+        this.removeDynamicObject(object_id);
+        this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        return true;
+    }
+
+    /**
+     * Query the description of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {*}     Key-value pairs of object properties
+     */
+    getDynamicObjectDescription(object_id: string) {
+        if (object_id in dynamic_objects_descriptions) {
+            return dynamic_objects_descriptions[object_id];
+        }
+        return null;
+    }
+
+    /**
+     * Query the mesh of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {Mesh}
+     */
+    getDynamicObjectMesh(object_id: string) {
+        if (object_id in dynamic_objects_meshes) {
+            return dynamic_objects_meshes[object_id];
+        }
+        return null;
+    }
+
+    /**
      * Updates the marker object according the provided position and orientation.
      *
      * Called when marker movement was detected, for example.
@@ -298,6 +440,53 @@ export default class ogl {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
+    }
+
+    addPointCloud(url: string, position: Position, orientation: Orientation) {
+        console.log('Adding point cloud ' + url);
+
+        MyPLYLoader.load(gl, url).then((geometry) => {
+            if (geometry == null) {
+                return; // do nothing
+            }
+
+            const pclProgram = createSimplePointCloudProgram(gl);
+
+            let pclMesh = new Mesh(gl, {
+                mode: gl.POINTS,
+                geometry: geometry,
+                program: pclProgram,
+                //frustumCulled: false, // TODO: try to turn on, maybe it gets faster
+                //renderOrder: 0
+            });
+
+            //console.log(position);
+            //console.log(orientation);
+            pclMesh.position.set(position.x, position.y, position.z);
+            pclMesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+
+            pclMesh.setParent(scene); // this is very slow
+        });
+    }
+
+    addLogoObject(url: string, position: Vec3, orientation: Orientation, width = 1.0, height = 1.0) {
+        console.log('OGL addLogoObject ' + url);
+        loadLogoTexture(gl, url).then((texture) => {
+            const logoProgram = createLogoProgram(gl, texture);
+
+            const planeGeometry = new Plane(gl, {
+                width: width,
+                height: height,
+            }); // by default, the normal vector of the plane is axis Z
+            const plane = new Mesh(gl, {
+                geometry: planeGeometry,
+                program: logoProgram,
+                frustumCulled: false,
+            });
+            plane.position = position;
+            plane.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+            plane.setParent(scene);
+        });
     }
 
     /**
@@ -373,6 +562,18 @@ export default class ogl {
         camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000 });
     }
 
+    removeDynamicObject(object_id: string) {
+        console.log('OGL removeDynamicObject: ' + object_id);
+        if (!(object_id in dynamic_objects_meshes)) {
+            console.log('WARNING: tried to delete object ' + object_id + ' which is not in the scene');
+            return;
+        }
+        const mesh = dynamic_objects_meshes[object_id];
+        this.remove(mesh);
+        delete dynamic_objects_meshes[object_id];
+        delete dynamic_objects_descriptions[object_id];
+    }
+
     /**
      * Removes the provided model from the scene and all the handlers it mit be registered with.
      *
@@ -391,11 +592,19 @@ export default class ogl {
      *  Removes all objects from the scene
      */
     clearScene() {
+        // dynamic objects
+        for (const object_id in dynamic_objects_descriptions) {
+            this.removeDynamicObject(object_id);
+        }
+
+        // normal models
         while (scene.children.length > 0) {
             let child: Transform | null = scene.children[0];
             scene.removeChild(child);
             child = null;
         }
+
+        this.initScene(); // but do any neccessary minimal environment setup
     }
 
     /**
@@ -576,7 +785,9 @@ export default class ogl {
      * @param {*} globalObjectPose GeoPose of the content
      * @param {*} content The content entry
      */
-    addSpatialContentRecord(globalObjectPose: Geopose) {
+    addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
+        // TODO: implement general content placement
+        console.log('Warning: content placement is not implemented yet!');
         const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
 
         // calculate relative position w.r.t the camera in ENU system
