@@ -64,8 +64,7 @@
 
         {#if withOkFooter}
             {#if !$isLocationAccessAllowed}
-                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}
-                    >>
+                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>
                     {$allowLocationLabel}
                 </button>
             {:else}
