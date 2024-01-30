@@ -14,11 +14,12 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
-    import type webxr from '../../core/engines/webxr';
-    import type ogl from '../../core/engines/ogl/ogl';
+    import type webxr from '@core/engines/webxr';
+    import type ogl from '@core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
     import type { OGLRenderingContext, Transform } from 'ogl';
-    import { checkGLError } from '../../core/devTools';
+    import { checkGLError } from '@core/devTools';
+    import { recentLocalisation } from '@src/stateStore';
 
     let parentInstance: Parent;
 

@@ -13,20 +13,13 @@
 <script lang="ts">
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
-    import { type OldFormatGeopose, type Orientation, type Position, type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
-
     import { v4 as uuidv4 } from 'uuid';
-
-    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
-    import { GeoPoseRequest } from '@oarc/gpp-access';
-    import { ImageOrientation } from '@oarc/gpp-access';
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
-    import { IMAGEFORMAT } from '@oarc/gpp-access';
-
+    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-
+    import { type Orientation, type Position, type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -41,12 +34,10 @@
         selectedContentServices,
         selectedGeoPoseService,
     } from '@src/stateStore';
-
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { upgradeGeoPoseStandard } from '@core/locationTools';
     import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
-
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';

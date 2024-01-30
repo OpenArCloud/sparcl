@@ -8,35 +8,36 @@
 -->
 
 <!--
-    Content shown to non AR devices.
+    Spectator view is the content shown on non-AR-capable devices.
 -->
-
 <script lang="ts">
     import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices } from '@src/stateStore';
     import { v4 as uuidv4 } from 'uuid';
-
     import L, { Map } from 'leaflet';
-    import { createRandomObjectDescription } from '../../core/engines/ogl/modelTemplates';
-    import type { ObjectDescription } from '../../types/xr';
+
+    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
+    import { type ObjectDescription } from '../../types/xr';
     import { createEventDispatcher } from 'svelte';
-    import Select from './Select.svelte';
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
-    import { scr_definition } from '@oarc/scd-access';
+
+
+    export const isHeadless = false; // set from App
     let map: Map | null;
-    export let isHeadless = false; // TODO: is this still needed?
     let shouldPlaceRandomObjects = false;
+
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
     function shareObject({ lat, lon, objectDescription }: { lat: number; lon: number; objectDescription: ObjectDescription }) {
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         const scr_id = object_id;
+        const timestamp = new Date().getTime();
         const message_body = {
             scr: {
                 content: {
                     id: object_id,
-                    type: 'ephemeral', //high-level OSCP type
+                    type: 'ephemeral', // high-level OSCP type
                     title: objectDescription.shape,
                     refs: [],
                     geopose: {
@@ -57,13 +58,13 @@
                 id: scr_id,
                 tenant: 'ISMAR2021demo',
                 type: 'scr',
-                timestamp: new Date().getTime(),
+                timestamp: timestamp,
             },
             sender: $peerIdStr,
-            timestamp: new Date().getTime(),
+            timestamp: timestamp,
         };
         dispatch('broadcast', {
-            event: 'object_created', // TODO: should be unique to the object instance or just to the creation event?
+            event: 'object_created',
             value: message_body,
             routing_key: '/exchange/esoptron/object_created',
         });
@@ -206,14 +207,13 @@
                     </select>
                 </dd>
                 <pre class="serviceurl">
-            <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-            {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
+                    <label>URL: {$selectedP2pService?.url || 'no url'}</label>
+                    {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                         {#each $selectedP2pService.properties as prop}
                             <label>{prop.type}: {prop.value}<br /></label>
                         {/each}
                     {/if}
-
-        </pre>
+                </pre>
                 <p class="note">Change active after reload</p>
             </dl>
 
