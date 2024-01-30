@@ -32,6 +32,7 @@ export const arIsAvailable = readable(false, (set) => {
 
 /**
  * Determines and keeps track of the state of the location permission.
+ * @type {Readable<boolean>}
  */
 export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
     let currentResult: PermissionStatus;
@@ -58,7 +59,8 @@ export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
 
 /**
  * Reads and stores the setting whether or not to display the dashboard persistently.
- * true when dashboard should be shown, false otherwise
+ *
+ * @type {boolean}  true when dashboard should be shown, false otherwise
  */
 const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
 export const showDashboard = writable(storedShowDashboard);
@@ -68,7 +70,8 @@ showDashboard.subscribe((value) => {
 
 /**
  * Reads and stores the setting whether or not the user has already seen the intro.
- * true when the intro was already seen, false otherwise
+ *
+ * @type {boolean}  true when the intro was already seen, false otherwise
  */
 const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
@@ -78,6 +81,8 @@ hasIntroSeen.subscribe((value) => {
 
 /**
  * Reads and stores the setting which AR mode should be used.
+ *
+ * @type {string}
  */
 const storedArMode = localStorage.getItem('storedarmode');
 export const arMode = writable(storedArMode || ARMODES.oscp);
@@ -87,6 +92,7 @@ arMode.subscribe((value) => {
 
 /**
  * Available settings for creator mode.
+ * @type {Writable<{shape: string, style: [], type: string, url: string}>}
  */
 const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings') || 'null');
 export const creatorModeSettings = writable<{ shape: string; style: []; type: string; modelurl: string; sceneurl: string }>(
@@ -363,6 +369,7 @@ debug_useGeolocationSensors.subscribe((value) => {
 /**
  * Enable/disable point cloud contents (usually large files)
  *
+ * @type {Writable<boolean>}
  */
 const storedDebug_enablePointCloudContents = localStorage.getItem('debug_enablePointCloudContents') === 'true';
 export const debug_enablePointCloudContents = writable(storedDebug_enablePointCloudContents);
@@ -372,6 +379,8 @@ debug_enablePointCloudContents.subscribe((value) => {
 
 /**
  * Keeps some state of the dashboard.
+ *
+ * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
  */
 const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
     state: false,
