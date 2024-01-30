@@ -34,7 +34,7 @@
     setContext('state', parentState);
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
     /**
      * Initial setup.
@@ -183,7 +183,7 @@
             // when received, place the same way as a downloaded SCR.
             if ($parentState.isLocalisationDone) {
                 shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
-                let object_description = createRandomObjectDescription();
+                const object_description = createRandomObjectDescription();
 
                 tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
 
@@ -221,15 +221,15 @@
     }
 
     function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
-        let latestGlobalPose = $recentLocalisation.geopose;
-        let latestLocalPose = $recentLocalisation.floorpose;
+        const latestGlobalPose = $recentLocalisation.geopose;
+        const latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
         // Now calculate the global pose of the reticle
-        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
-        let geoPose = {
+        const globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+        const geoPose = {
             position: {
                 lat: globalObjectPose.position.lat,
                 lon: globalObjectPose.position.lon,
@@ -242,25 +242,26 @@
                 w: globalObjectPose.quaternion.w,
             },
         };
-        let content = {
-            id: '',
-            type: '', //high-level OSCP type
+        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        const scr_id = object_id;
+        const content = {
+            id: object_id,
+            type: 'ephemeral', //high-level OSCP type
             title: object_description.shape,
             refs: [],
             geopose: geoPose,
             object_description: object_description,
         };
-        let timestamp = new Date().getTime();
-        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
-        let scr = {
+        const timestamp = new Date().getTime();
+        const scr = {
             content: content,
-            id: object_id,
+            id: scr_id,
             tenant: 'ISMAR2021demo',
-            type: 'ephemeral',
+            type: 'scr',
             timestamp: timestamp,
         };
-        let message_body = {
+        const message_body = {
             scr: scr,
             sender: $peerIdStr,
             timestamp: new Date().getTime(),
@@ -295,24 +296,22 @@
 
         if ('message_broadcasted' in events) {
             const data = events.message_broadcasted;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log('message from ' + data.sender + ': \n  ' + data.message);
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            if ('message' in data && 'sender' in data) {
+                console.log('message from ' + data.sender + ': \n  ' + data.message);
             }
+            //}
         }
 
         if ('object_created' in events) {
             const data = events.object_created;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                const scr = data.scr;
-                if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
-                    parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            const scr = data.scr;
+            if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
+                experimentOverlay?.objectReceived();
+                parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
             }
+            //}
         }
     }
 </script>
