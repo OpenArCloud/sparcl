@@ -4,12 +4,12 @@ import stomp, { type Client, type Frame } from 'stompjs';
 let rmqClient: Client | null = null;
 
 export async function testRmqConnection({ url, username, password }: { url: string; username: string; password: string }) {
-    return await new Promise<boolean>((resolve, reject) => {
+    return await new Promise<void>((resolve, reject) => {
         const rmq = stomp.client(url);
         rmq.debug = () => {};
         const onConnect = () => {
             rmq.disconnect(() => {});
-            resolve(true);
+            resolve(undefined);
         };
         const onError = (err: Frame | string) => {
             rmq.disconnect(() => {});
@@ -21,6 +21,8 @@ export async function testRmqConnection({ url, username, password }: { url: stri
 }
 
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
+    // disconnect first if there already was a connection established
+    rmqDisconnect();
     const throttledUpdateFunction = throttle((data) => {
         if (updateFunction) {
             updateFunction(data);
@@ -38,6 +40,15 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     };
     const on_connect = function (x: any) {
         console.log('RMQ connection successful!');
+
+        // Now we can subscribe to topics.
+        // Note: Stomp subscribe for a destination of the form /exchange/<name>[/<pattern>] does 3 things:
+        // 1. creates an exclusive, auto-delete queue on <name> exchange;
+        // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
+        // 3. registers a subscription against the queue, for the current STOMP session.
+
+        // ...
+
     };
 
     const on_error = function (err: Frame | string) {

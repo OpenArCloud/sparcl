@@ -42,6 +42,7 @@
         messageBrokerAuth,
     } from './stateStore';
     import { ARMODES } from './core/common';
+    import * as rmq from '@src/core/rmqnetwork';
 
     import { logToElement } from '@src/core/devTools';
     import type ViewerOscp from '@components/viewer-implementations/Viewer-Oscp.svelte';
@@ -63,7 +64,6 @@
     let isHeadless = false;
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
-    let rmq: typeof import('@src/core/rmqnetwork') | null = null; // RabbitMQ module (optional)
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
@@ -266,18 +266,13 @@
         const tdEngine = new values[0].default();
         viewer = values[2]?.default;
         await tick();
-        if ($allowMessageBroker) {
-            if (!rmq) {
-                rmq = await import('@src/core/rmqnetwork');
-            }
-            if ($selectedMessageBrokerService && $messageBrokerAuth) {
-                rmq.connectWithReceiveCallback({
-                    updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
-                    url: $selectedMessageBrokerService.url,
-                    password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
-                    username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
-                });
-            }
+        if ($allowMessageBroker && $selectedMessageBrokerService && $messageBrokerAuth) {
+            rmq.connectWithReceiveCallback({
+                updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
+                url: $selectedMessageBrokerService.url,
+                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
+            });
         }
         viewerInstance?.startAr(xrEngine, tdEngine, options);
     }
@@ -292,7 +287,7 @@
         shouldShowDashboard = $showDashboard;
 
         viewer = null;
-        rmq?.rmqDisconnect();
+        rmq.rmqDisconnect();
     }
 
     /**
@@ -305,7 +300,7 @@
             p2p.send(event.detail);
         }
 
-        if (rmq != null && event.detail.routing_key != undefined) {
+        if (event.detail.routing_key != undefined) {
             rmq.send(event.detail.routing_key, event.detail.value);
         }
     }
