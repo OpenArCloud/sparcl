@@ -176,7 +176,7 @@
 
         // TODO: Handle multiple views and the localisation correctly
         for (let view of floorPose.views) {
-            let viewport = xrEngine.setViewportForView(view);
+            xrEngine.setViewportForView(view);
 
             handleExternalExperience(view);
 
@@ -434,7 +434,7 @@
         $receivedScrs = [];
         $context.receivedContentTitles = [];
 
-        tdEngine.clearScene();
+        tdEngine.clearScene();  // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
 
         $context.showFooter = true;
     }

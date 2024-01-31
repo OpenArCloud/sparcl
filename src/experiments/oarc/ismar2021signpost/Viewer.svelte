@@ -40,12 +40,12 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr, result, gl) => {
+            (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
-                result.requestReferenceSpace('viewer');
+                session.requestReferenceSpace('viewer');
             },
             ['dom-overlay', 'camera-access', 'local-floor'],
         );

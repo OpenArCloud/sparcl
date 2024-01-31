@@ -72,6 +72,7 @@
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
+            []
         );
 
         tdEngine.setExperimentTapHandler(experimentTapHandler);

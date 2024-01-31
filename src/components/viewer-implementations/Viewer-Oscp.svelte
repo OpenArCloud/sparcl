@@ -37,7 +37,6 @@
      */
     export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         parentInstance.startAr(thisWebxr, this3dEngine);
-
         startSession();
     }
 
@@ -60,20 +59,18 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr: webxr, result: XRSession, gl: OGLRenderingContext | null) => {
+            (xr: webxr, session: XRSession, gl: OGLRenderingContext | null) => {
                 if (!gl) {
                     throw new Error('gl is undefined');
                 }
-                xr.glBinding = new XRWebGLBinding(result, gl);
+                xr.glBinding = new XRWebGLBinding(session, gl);
                 xr.initCameraCapture(gl);
-
                 myGl = gl;
-
                 if (useReticle) {
                     // request hit testing
-                    result
+                    session
                         .requestReferenceSpace('viewer')
-                        .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
+                        .then((refSpace) => session.requestHitTestSource?.({ space: refSpace }))
                         .then((source) => (hitTestSource = source));
                 }
             },
@@ -176,7 +173,7 @@
             {receivedContentTitles}
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:relocalize={() => {
-                reticle = null;
+                reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
                 parentInstance.relocalize();
             }}
         />
