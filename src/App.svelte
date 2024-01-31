@@ -37,8 +37,12 @@
         selectedP2pService,
         showDashboard,
         ssr,
+        allowMessageBroker,
+        selectedMessageBrokerService,
+        messageBrokerAuth,
     } from './stateStore';
     import { ARMODES } from './core/common';
+    import * as rmq from '@src/core/rmqnetwork';
 
     import { logToElement } from '@src/core/devTools';
     import type ViewerOscp from '@components/viewer-implementations/Viewer-Oscp.svelte';
@@ -60,7 +64,7 @@
     let isLocationAccessRefused = false;
     let isHeadless = false;
     let currentSharedValues = {};
-    let p2p: typeof import('@src/core/p2pnetwork') | null = null;
+    let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
 
     // TODO: Find solution for this quick fix to prevent continuous service requests.
     let haveReceivedServices = false;
@@ -128,9 +132,10 @@
 
                     const service = $availableP2pServices.find((service) => service.id === selected?.id);
                     const headlessPeerId = service?.properties?.find((property) => property.type === 'peerid')?.value;
+                    // TODO: this property should be headlessPeerId (need to change the service too!!!)
 
                     if (headlessPeerId) {
-                        p2p.connect(headlessPeerId, false, (data: any) => {
+                        p2p.connect(headlessPeerId, isHeadless, (data: any) => {
                             viewerInstance?.onNetworkEvent?.(data); //TODO: why does it not work with viewer?
                             spectator?.onNetworkEvent(data);
                         });
@@ -172,7 +177,7 @@
 
                 p2p.initialSetup();
                 if (headlessPeerId && url && port) {
-                    p2p.connectWithUrl(headlessPeerId, true, url, parseInt(port), (data: any) => {
+                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, parseInt(port), (data: any) => {
                         // Just for development
                         console.log(data);
                         currentSharedValues = data;
@@ -246,7 +251,7 @@
                 if ($activeExperiment) {
                     const selector = new Selector({ target: document.createElement('div') });
                     const { viewer, key } = selector.importExperiment($activeExperiment);
-                    options.settings = writable($experimentModeSettings[key]);
+                    options.settings = writable($experimentModeSettings?.[key]);
                     viewerImplementation = viewer;
                     if (viewer === undefined) {
                         console.warn("The experiment's Viewer is undefined!");
@@ -260,12 +265,20 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]).then((values) => {
-            viewer = values[2]?.default;
-            tick().then(() => {
-                viewerInstance?.startAr(new values[1].default(), new values[0].default(), options);
+        const values = await Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]);
+        const xrEngine = new values[1].default();
+        const tdEngine = new values[0].default();
+        viewer = values[2]?.default;
+        await tick();
+        if ($allowMessageBroker && $selectedMessageBrokerService && $messageBrokerAuth) {
+            rmq.connectWithReceiveCallback({
+                updateFunction: (data) => viewerInstance?.onNetworkEvent?.(data),
+                url: $selectedMessageBrokerService.url,
+                password: $messageBrokerAuth[$selectedMessageBrokerService.guid].password,
+                username: $messageBrokerAuth[$selectedMessageBrokerService.guid].username,
             });
-        });
+        }
+        viewerInstance?.startAr(xrEngine, tdEngine, options);
     }
 
     /**
@@ -278,6 +291,7 @@
         shouldShowDashboard = $showDashboard;
 
         viewer = null;
+        rmq.rmqDisconnect();
     }
 
     /**
@@ -286,7 +300,13 @@
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
     function handleBroadcast(event: CustomEvent<any>) {
-        p2p?.send(event.detail);
+        if (p2p != null) {
+            p2p.send(event.detail);
+        }
+
+        if (event.detail.routing_key != undefined) {
+            rmq.send(event.detail.routing_key, event.detail.value);
+        }
     }
 
     /**
@@ -305,7 +325,7 @@
 </script>
 
 <header>
-    <img id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
+    <img class="logo" id="logo" alt="OARC logo" src="/media/OARC_Logo_without_BG.png" />
 </header>
 
 <main>
@@ -333,7 +353,7 @@
                 </div>
             </aside>
         {:else if !$arIsAvailable}
-            <Spectator bind:this={spectator} />
+            <Spectator bind:this={spectator} on:broadcast={handleBroadcast} />
         {/if}
     {:else}
         <!-- Just for development to verify some internal values -->
@@ -346,21 +366,10 @@
     <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
 {:else if showAr && $arMode === ARMODES.experiment}
     <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
-    <button
-        on:click={sessionEnded}
-        on:keydown={sessionEnded}>
-        Go back
-    </button>
+    <button on:click={sessionEnded} on:keydown={sessionEnded}> Go back </button>
 {/if}
 
-<div
-    id="showdashboard"
-    role="button"
-    tabindex="0"
-    on:click={() => (shouldShowDashboard = true)}
-    on:keydown={() => (shouldShowDashboard = true)}>
-    &nbsp;
-</div>
+<div id="showdashboard" role="button" tabindex="0" on:click={() => (shouldShowDashboard = true)} on:keydown={() => (shouldShowDashboard = true)}>&nbsp;</div>
 
 <!-- logger widget (preformatted text), see devTools logToElement() -->
 <pre id="logger"></pre>
@@ -369,7 +378,9 @@
     header {
         width: 100vw;
         height: 110px;
-
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 63px;
 
         background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231f20 98%) 0 0 no-repeat padding-box;
@@ -415,12 +426,10 @@
         background-color: white;
     }
 
-    #logo {
-        position: absolute;
-        top: 35px;
-        left: 204px;
-        width: 158px;
-        height: 40px;
+    .logo {
+        width: 138px;
+        padding-left: 20px;
+        padding-right: 20px;
         opacity: 1;
     }
 

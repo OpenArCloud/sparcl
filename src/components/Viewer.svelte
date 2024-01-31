@@ -13,20 +13,14 @@
 <script lang="ts">
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
-    import { type OldFormatGeopose, type Orientation, type Position, type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
-
     import { v4 as uuidv4 } from 'uuid';
-
-    import { sendRequest, validateRequest, type GeoposeResponseType } from '@oarc/gpp-access';
-    import { GeoPoseRequest } from '@oarc/gpp-access';
-    import { ImageOrientation } from '@oarc/gpp-access';
-    import { CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
-    import { IMAGEFORMAT } from '@oarc/gpp-access';
-
+    import { debounce } from 'lodash';
+    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
+    import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-
+    import { type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -34,22 +28,21 @@
         debug_useGeolocationSensors,
         debug_saveCameraImage,
         debug_loadCameraImage,
+        debug_enablePointCloudContents,
         initialLocation,
         receivedScrs,
         recentLocalisation,
         selectedContentServices,
         selectedGeoPoseService,
     } from '@src/stateStore';
-
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { upgradeGeoPoseStandard } from '@core/locationTools';
     import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
-
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';
-    import type { Mat4, Mesh, Quat, Vec3 } from 'ogl';
+    import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
@@ -63,12 +56,14 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
 
+    let unableToStartSession = false;
     let doCaptureImage = false;
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
-    let firstPoseReceived = false,
-        hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
-    let unableToStartSession = false;
+    let firstPoseReceived = false;
+    export let hasLostTracking = true;
+    let poseFoundHeartbeat: () => boolean | undefined;
+
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -109,7 +104,7 @@
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
-    export function startSession(
+    export async function startSession(
         xrFrameUpdateCallback: XrFrameUpdateCallbackType,
         xrSessionEndedCallback: () => void,
         xrNoPoseCallback: XrNoPoseCallbackType,
@@ -148,7 +143,18 @@
         }
     }
 
-    // TODO: rename to onXrFrameUpdate
+    /**
+     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
+     * is shown to let the user know that the tracking was lost.
+     */
+    export function handlePoseHeartbeat() {
+        hasLostTracking = false;
+        if (poseFoundHeartbeat === null) {
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
+        }
+        poseFoundHeartbeat();
+    }
+
     /**
      * Handles update loop when AR Cloud mode is used.
      *
@@ -158,6 +164,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+        handlePoseHeartbeat();
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -168,7 +176,7 @@
 
         // TODO: Handle multiple views and the localisation correctly
         for (let view of floorPose.views) {
-            let viewport = xrEngine.setViewportForView(view);
+            xrEngine.setViewportForView(view);
 
             handleExternalExperience(view);
 
@@ -196,8 +204,9 @@
 
                 let image: Promise<string> | null = null; // base64 encoded
                 if ($debug_loadCameraImage) {
+                    // This is only for development while running your own Sparcl server.
                     // TODO: intrinsics could be also loaded separately
-                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the photos subfolder
+                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the public/photos subfolder
                     image = loadImageBase64(debug_CameraImageUrl);
                 } else if (cameraTexture && imageWidth && imageHeight) {
                     image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
@@ -222,7 +231,7 @@
                         .then((img) => {
                             return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                         })
-                        .then(({cameraGeoPose, optionalScrs}) => {
+                        .then(({ cameraGeoPose, optionalScrs }) => {
                             // Save the local pose and the global pose of the image for alignment in a later step
                             $recentLocalisation.geopose = cameraGeoPose;
                             $recentLocalisation.floorpose = floorPose;
@@ -231,7 +240,7 @@
                             // There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
                             // We could return only those as [optionalScrs], however, this means all other content services are ignored...
                             //if (optionalScrs) {
-                                //return [optionalScrs];
+                            //return [optionalScrs];
                             //}
                             // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
 
@@ -295,7 +304,10 @@
      * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
+        let localImagePose = {
+            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        }
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
@@ -326,7 +338,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{cameraGeoPose: GeoposeResponseType['geopose'], optionalScrs: SCR[]}>((resolve, reject) => {
+        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -342,7 +354,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({cameraGeoPose: selfEstimatedGeoPose, optionalScrs: []});
+                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
                 });
                 return;
             }
@@ -397,7 +409,7 @@
                         console.log('IMAGE GeoPose:');
                         console.log(cameraGeoPose);
 
-                        resolve({cameraGeoPose, optionalScrs});
+                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error) => {
                         // TODO: Inform user
@@ -422,7 +434,7 @@
         $receivedScrs = [];
         $context.receivedContentTitles = [];
 
-        tdEngine.clearScene();
+        tdEngine.clearScene();  // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
 
         $context.showFooter = true;
     }
@@ -444,10 +456,7 @@
     }
 
     /**
-     *  Places the content provided by a call to Spacial Content Discovery providers.
-     *
-     * @param localPose XRPose      The pose of the device when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global GeoPose as returned from GeoPose service
+     *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
     export function placeContent(scrs: SCR[][]) {
@@ -457,17 +466,26 @@
 
             response.forEach((record) => {
                 // TODO: validate here whether we received a proper SCR
-
-                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard
-                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
-
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
-
-                if (record.content.type === 'placeholder') {
+                if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
                     // only list the 3D models and not ephemeral objects nor stream objects
                     $receivedScrs.push(record);
                     $context.receivedContentTitles.push(record.content.title);
+                }
+
+                // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
+                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+
+                const content_definitions: Record<string, string> = {};
+                if (record.content.definitions != undefined) {
+                    const d_entries = record.content.definitions.entries();
+                    //console.log(" -definitions:")
+                    for (let d_entry of d_entries) {
+                        const d = d_entry[1];
+                        //console.log("  -" + d.type + ": " + d.value);
+                        content_definitions[d.type] = d.value;
+                    }
                 }
 
                 // TODO: this method could handle any type of content:
@@ -477,7 +495,8 @@
                 switch (record.content.type) {
                     case 'MODEL_3D':
                     case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
-                    case 'placeholder': // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
+                    case 'placeholder': {
+                        // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                         showContentsLog = true; // show log if at least one 3D object was received
 
                         let globalObjectPose = record.content.geopose;
@@ -526,8 +545,9 @@
                             handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         }
                         break;
+                    }
 
-                    case 'ephemeral':
+                    case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
                             console.log('ISMAR2021demo object received!');
@@ -538,10 +558,52 @@
                             tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
                         }
                         break;
+                    }
+                    case 'POINTCLOUD': {
+                        if ($debug_enablePointCloudContents) {
+                            const globalObjectPose = record.content.geopose;
+                            const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            const position = localObjectPose.position;
+                            const orientation = localObjectPose.quaternion;
+                            let url = '';
+                            if (content_definitions['url'] != undefined) {
+                                url = content_definitions['url'];
+                            } else {
+                                url = record.content.refs ? record.content.refs[0].url : '';
+                            }
+                            tdEngine.addPointCloud(url, position, orientation);
+                        } else {
+                            console.log('A POINTCLOUD content was received but this type is disabled');
+                        }
+                        break;
+                    }
 
-                    default:
+                    case 'ICON': {
+                        const globalObjectPose = record.content.geopose;
+                        const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        const localPosition = localObjectPose.position;
+                        const localQuaternion = localObjectPose.quaternion;
+                        let url = '';
+                        if (content_definitions['url'] != undefined) {
+                            url = content_definitions['url'];
+                        } else {
+                            url = record.content.refs ? record.content.refs[0].url : '';
+                        }
+                        let width = 1.0;
+                        if (content_definitions['width'] != undefined) {
+                            width = parseFloat(content_definitions['width']);
+                        }
+                        let height = 1.0;
+                        if (content_definitions['height'] != undefined) {
+                            height = parseFloat(content_definitions['height']);
+                        }
+                        tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
+                        break;
+                    }
+                    default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
+                    }
                 }
             });
         });
@@ -554,7 +616,7 @@
             });
         }
 
-        tdEngine.endSpatialContentRecords();
+        tdEngine.updateSceneGraphTransforms();
 
         wait(3000).then(() => ($context.receivedContentTitles = [])); // clear the list after a timer
     }
@@ -562,12 +624,12 @@
     /**
      * Handler to load and unload external experiences.
      *
-     * @param placeholder  Model        The initial placeholder placed into the 3D scene
-     * @param position  Position        The position the experience should be placed
-     * @param orientation  Orientation      The orientation of the experience
-     * @param url  String       The URL to load the experience from
+     * @param placeholder  Model    The initial placeholder placed into the 3D scene
+     * @param position  Vec3        The position the experience should be placed
+     * @param orientation  Quat     The orientation of the experience
+     * @param url  String           The URL to load the experience from
      */
-    export function experienceLoadHandler(placeholder: Mesh, position: Position, orientation: Orientation, url: string) {
+    export function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;
@@ -595,6 +657,10 @@
             },
             { once: true },
         );
+    }
+
+    export function getRenderer() {
+        return tdEngine;
     }
 
     // TODO: rename to onEventReceived()
