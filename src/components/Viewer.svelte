@@ -678,7 +678,7 @@
 <canvas id="application" bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
+    <iframe title='externalcontentiframe' class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={closeExperience} />
 
     <!--  Space for UI elements -->
