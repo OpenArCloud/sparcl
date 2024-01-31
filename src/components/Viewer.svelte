@@ -14,7 +14,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce } from 'lodash';
+    import { debounce, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
     import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -62,7 +62,7 @@
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false;
     export let hasLostTracking = true;
-    let poseFoundHeartbeat: () => boolean | undefined;
+    let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
 
 
     // TODO: Setup event target array, based on info received from SCD
@@ -149,7 +149,7 @@
      */
     export function handlePoseHeartbeat() {
         hasLostTracking = false;
-        if (poseFoundHeartbeat === null) {
+        if (poseFoundHeartbeat === undefined) {
             poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
         }
         poseFoundHeartbeat();
