@@ -450,6 +450,7 @@ export default class ogl {
     updateReticlePose(reticle: Transform, position: Vec3, orientation: Quat) {
         reticle.position = position;
         reticle.quaternion = orientation;
+        reticle.scale.set(0.2, 0.2, 0.2);
     }
 
     /**

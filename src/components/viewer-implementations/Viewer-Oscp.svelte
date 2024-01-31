@@ -103,10 +103,7 @@
         if (useReticle && myGl) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
-                //reticle = parentInstance.getRenderer().addReticle();
-                //reticle = parentInstance.getRenderer().addModel({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1}, '/media/models/Duck.glb');
-                //reticle = parentInstance.getRenderer().addPlaceholder([], {x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0, w: 1});
-                reticle = parentInstance.getRenderer().addMarkerObject();
+                reticle = parentInstance.getRenderer().addReticle();
             }
             checkGLError(myGl, 'after creating reticle');
 
