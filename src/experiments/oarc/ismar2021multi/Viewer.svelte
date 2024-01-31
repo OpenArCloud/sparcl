@@ -90,35 +90,33 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         parentInstance.handlePoseHeartbeat();
 
-        if (hitTestSource != undefined) {
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0) {
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+        if (!hitTestSource) {
+            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            return;
+        }
 
-                if ($settings.localisation && !$parentState.isLocalized) {
-                    parentInstance.onXrFrameUpdate(time, frame, floorPose);
-                } else {
-                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
-
-                    xrEngine.setViewPort();
-
-                    if (reticle === null) {
-                        reticle = tdEngine.addReticle();
-                    }
-
-                    const position = reticlePose?.transform.position;
-                    const orientation = reticlePose?.transform.orientation;
-                    if (position && orientation) {
-                        tdEngine.updateReticlePose(reticle,
-                                new Vec3(position.x, position.y, position.z),
-                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
-                    }
-                    tdEngine.render(time, floorPose.views[0]);
-                }
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+        if (hitTestResults.length > 0) {
+            if ($settings.localisation && !$parentState.isLocalized) {
+                parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                tdEngine.render(time, floorPose.views[0]);
+                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                if (reticle === null) {
+                    reticle = tdEngine.addReticle();
+                }
+                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const position = reticlePose?.transform.position;
+                const orientation = reticlePose?.transform.orientation;
+                if (position && orientation) {
+                    tdEngine.updateReticlePose(reticle,
+                            new Vec3(position.x, position.y, position.z),
+                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                }
             }
         }
+
+        xrEngine.setViewportForView(floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
