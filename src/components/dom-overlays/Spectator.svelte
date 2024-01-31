@@ -22,7 +22,6 @@
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
 
 
-    export const isHeadless = false; // set from App
     let map: Map | null;
     let shouldPlaceRandomObjects = false;
 
