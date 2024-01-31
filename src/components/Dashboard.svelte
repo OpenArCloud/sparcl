@@ -83,14 +83,14 @@
 
 <button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
+<div>
+    <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
+    <label for="showagain">Show Dashboard next time</label>
+</div>
+
 <details class="dashboard" bind:open={$dashboardDetail.state}>
+
     <summary>Application state</summary>
-
-    <div>
-        <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
-        <label for="showagain">Show Dashboard next time</label>
-    </div>
-
     <dl>
         <dt>Location access</dt>
         <dd>{$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</dd>
@@ -157,9 +157,6 @@
             <dd class="autoheight">
                 <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
             </dd>
-            <!--    TODO: Values aren't displayed for some reason. Fix. -->
-            <!--    <dt>at</dt>-->
-            <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
         </dl>
 
         <dl class="nested">
@@ -277,32 +274,30 @@
             {/if}
         {/await}
     {/if}
+
+</details>
+
+<details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
+    <summary>Multiplayer</summary>
+    <dl>
+        <dt>Choose your name</dt>
+        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
+    </dl>
+    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
+
     <MessageBrokerSelector
         onSubmit={testRmqConnection}
         submitButtonLabel="Test Authentication"
         submitFailureMessage="Authentication unsuccessful. Reason:"
         submitSuccessMessage="Authentication successful"
     ></MessageBrokerSelector>
-</details>
-
-<details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
-    <summary>Multiplayer</summary>
-    <div>
-        <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
-        <label for="allowP2p">Connect to p2p network</label>
-    </div>
-    <dl>
-        <dt>Choose your name</dt>
-        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
-    </dl>
-    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
-    <dl>
-        <dt>Recent GeoPose</dt>
-        <dd><pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre></dd>
-    </dl>
 
     <dl>
-        <dt><label for="p2pserver">P2P Service</label></dt>
+        <dt><label for="p2pserver">PeerJS Services</label></dt>
+        <div>
+            <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
+            <label for="allowP2p">Connect to p2p network</label>
+        </div>
         <dd class="select">
             <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2 || $allowP2pNetwork === false}>
                 {#if $availableP2pServices.length === 0}
