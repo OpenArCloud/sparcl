@@ -4,20 +4,18 @@
     import { get, writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce } from 'lodash';
+    import { Vec3, Quat, type Transform } from 'ogl';
 
     import Parent from '@components/Viewer.svelte';
-
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
-
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
     import { peerIdStr, recentLocalisation } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
-    import type { Quat, Transform, Vec3 } from 'ogl';
-
     import type { ObjectDescription } from '../../../types/xr';
+
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -111,7 +109,9 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        tdEngine.updateReticlePose(reticle, position, orientation);
+                        tdEngine.updateReticlePose(reticle,
+                                new Vec3(position.x, position.y, position.z),
+                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                     }
                     tdEngine.render(time, floorPose.views[0]);
                 }
