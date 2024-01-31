@@ -17,7 +17,6 @@ import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { Quat, type Vec3 } from 'ogl';
-import type { OldFormatGeopose } from '../types/xr';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
 export const toDegrees = (radians: number) => (radians / Math.PI) * 180;
@@ -26,6 +25,8 @@ export const locationAccessOptions = {
     enableHighAccuracy: false,
     maximumAge: 0,
 };
+
+export type OldFormatGeopose = Omit<Geopose, 'position'> & { latitude: number; longitude: number; ellipsoidHeight: number };
 
 /**
  *

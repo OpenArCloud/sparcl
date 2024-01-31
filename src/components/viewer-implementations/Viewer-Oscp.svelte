@@ -17,7 +17,7 @@
     import type webxr from '@core/engines/webxr';
     import type ogl from '@core/engines/ogl/ogl';
     import type { XrFeatures } from '../../types/xr';
-    import type { OGLRenderingContext, Transform } from 'ogl';
+    import { Quat, type OGLRenderingContext, type Transform, Vec3 } from 'ogl';
     import { checkGLError } from '@core/devTools';
     import { recentLocalisation } from '@src/stateStore';
 
@@ -123,7 +123,9 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        parentInstance.getRenderer().updateReticlePose(reticle, position, orientation);
+                        parentInstance.getRenderer().updateReticlePose(reticle,
+                                new Vec3(position.x, position.y, position.z),
+                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                         reticle.visible = true;
                     }
                 } else {

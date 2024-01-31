@@ -19,7 +19,7 @@
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-    import { type Orientation, type Position, type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
+    import { type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -41,7 +41,7 @@
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import type ogl from '../core/engines/ogl/ogl';
-    import type { Mat4, Mesh, Quat, Vec3 } from 'ogl';
+    import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
@@ -287,7 +287,10 @@
      * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
+        let localImagePose = {
+            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        }
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
@@ -604,12 +607,12 @@
     /**
      * Handler to load and unload external experiences.
      *
-     * @param placeholder  Model        The initial placeholder placed into the 3D scene
-     * @param position  Position        The position the experience should be placed
-     * @param orientation  Orientation      The orientation of the experience
-     * @param url  String       The URL to load the experience from
+     * @param placeholder  Model    The initial placeholder placed into the 3D scene
+     * @param position  Vec3        The position the experience should be placed
+     * @param orientation  Quat     The orientation of the experience
+     * @param url  String           The URL to load the experience from
      */
-    export function experienceLoadHandler(placeholder: Mesh, position: Position, orientation: Orientation, url: string) {
+    export function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;

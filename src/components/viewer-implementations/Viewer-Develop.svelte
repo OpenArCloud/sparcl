@@ -19,6 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
+    import { Quat, Vec3 } from 'ogl';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -51,7 +52,10 @@
      * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
+        let localImagePose = {
+            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        }
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
