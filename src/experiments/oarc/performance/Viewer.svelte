@@ -10,7 +10,7 @@
     import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    import type { Transform } from 'ogl';
+    import { Vec3, type Transform, Quat } from 'ogl';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
 
@@ -184,45 +184,43 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
         parentInstance.handlePoseHeartbeat();
 
-        if (hitTestSource != undefined) {
-            const t = performance.now();
-            const elapsed = t - previousTime;
-            previousTime = t;
+        if (!hitTestSource) {
+            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            return;
+        }
 
-            if (elapsed > maximumFrameTime) {
-                slowCount = Math.max(slowCount++, maxSlow);
-            }
+        const t = performance.now();
+        const elapsed = t - previousTime;
+        previousTime = t;
+        if (elapsed > maximumFrameTime) {
+            slowCount = Math.max(slowCount++, maxSlow);
+        }
 
-            const roundedElapsed = Math.ceil(elapsed);
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0) {
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-
-                if ($settings.localisation && !$parentState.isLocalized) {
-                    parentInstance.onXrFrameUpdate(time, frame, floorPose);
-                } else {
-                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
-
-                    xrEngine.setViewPort();
-
-                    if (reticle === null) {
-                        reticle = tdEngine.addReticle();
-                    }
-
-                    const position = reticlePose?.transform.position;
-                    const orientation = reticlePose?.transform.orientation;
-                    if (position && orientation) {
-                        tdEngine.updateReticlePose(reticle, position, orientation);
-                    }
-                    tdEngine.render(time, floorPose.views[0]);
-
-                    experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
-                }
+        const roundedElapsed = Math.ceil(elapsed);
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+        if (hitTestResults.length > 0) {
+            if ($settings.localisation && !$parentState.isLocalized) {
+                parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
-                tdEngine.render(time, floorPose.views[0]);
+                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                if (reticle === null) {
+                    reticle = tdEngine.addReticle();
+                }
+                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const position = reticlePose?.transform.position;
+                const orientation = reticlePose?.transform.orientation;
+                if (position && orientation) {
+                    tdEngine.updateReticlePose(reticle,
+                            new Vec3(position.x, position.y, position.z),
+                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                }
             }
         }
+
+        experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
+
+        xrEngine.setViewportForView(floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
