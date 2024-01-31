@@ -1,5 +1,3 @@
-<!-- WARNING: this code is left behind from refactoring. do not use it -->
-
 <!--
   (c) 2021 Open AR Cloud
   This code is licensed under MIT license (see LICENSE.md for details)
@@ -15,33 +13,17 @@
 <script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
     import { debounce, type DebouncedFunc } from 'lodash';
-
-    import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-
-    import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
+    import { Mesh, Quat, Vec3 } from 'ogl';
 
     import {
-        availableContentServices,
         currentMarkerImage,
         currentMarkerImageWidth,
-
-        initialLocation,
-        receivedScrs,
-        recentLocalisation,
-        selectedContentServices,
     } from '@src/stateStore';
 
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
-
     import { wait } from '@core/common';
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
-    import { Mat4, Transform, type Mesh } from 'ogl';
-
-    const message = (msg: string) => console.log(msg);
-
-    // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
 
     let canvas: HTMLCanvasElement;
     let overlay: HTMLElement;
@@ -50,28 +32,26 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
 
-    let doCaptureImage = false;
     let showFooter = false;
     let experienceLoaded = false;
     let firstPoseReceived = false;
     let isLocalized = false;
     let hasLostTracking = false;
     let unableToStartSession = false;
-    let experimentIntervallId: ReturnType<typeof setInterval> | undefined = undefined;
 
     let trackedImageObject: Mesh;
     let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined;
 
-    let receivedContentTitles: string[] = [];
+    const message = (msg: string) => console.log(msg);
 
-    // TODO: Setup event target array, based on info received from SCD
-
-    onDestroy(() => {
-        tdEngine.stop();
-    });
+    // Used to dispatch events to parent
+    const dispatch = createEventDispatcher();
 
     /**
-     * Verifies that AR is available as required by the provided configuration data, and starts the session.
+     * Initial setup.
+     *
+     * @param thisWebxr  class instance     Handler class for WebXR
+     * @param this3dEngine  class instance      Handler class for 3D processing
      */
     export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
         xrEngine = thisWebxr;
@@ -81,16 +61,6 @@
         wait(1000).then(() => (showFooter = true));
 
         startSession();
-    }
-
-    /**
-     * Handle events from the application or from the P2P network
-     * NOTE: sometimes multiple events are bundled using different keys!
-     */
-    export function onNetworkEvent(events: any) {
-        // Viewer-Marker cannot handle any events currently
-        console.log('Viewer-Marker: Unknown event received:');
-        console.log(events);
     }
 
     /**
@@ -109,7 +79,7 @@
                 },
             ],
         };
-        const promise = xrEngine.startMarkerSession(canvas, handleMarker, options);
+        const promise = xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
 
         if (promise) {
             promise
@@ -127,6 +97,11 @@
         }
     }
 
+    onDestroy(() => {
+        tdEngine.stop();
+    });
+
+    // TODO: Setup target array based on info received from SCD
     /**
      * Load marker and configure marker tracking.
      *
@@ -144,12 +119,6 @@
      */
     function onXrSessionEnded() {
         firstPoseReceived = false;
-
-        if (experimentIntervallId) {
-            clearInterval(experimentIntervallId);
-            experimentIntervallId = undefined;
-        }
-
         dispatch('arSessionEnded');
     }
 
@@ -173,10 +142,9 @@
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
-     * @param frameDuration  integer        The duration of the previous frame
-     * @param passedMaxSlow  boolean        Max number of slow frames passed
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, frameDuration: number | undefined, passedMaxSlow: boolean | undefined) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+        hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
 
@@ -190,130 +158,35 @@
      * @param localPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function handleMarker(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) {
+    function onXrMarkerFrameUpdateCallback(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) {
         handlePoseHeartbeat();
 
-        firstPoseReceived = true;
         showFooter = false;
-
-        xrEngine.setViewPort();
-
         if (trackedImage && trackedImage.trackingState === 'tracked') { // TODO: use XRImageTrackingState.tracked
             if (!trackedImageObject) {
                 trackedImageObject = tdEngine.addMarkerObject();
             }
 
-            const position = localPose.transform.position;
-            const orientation = localPose.transform.orientation;
+            const localPos = localPose.transform.position;
+            const localOri = localPose.transform.orientation;
+            const position = new Vec3(localPos.x, localPos.y, localPos.z);
+            const orientation = new Quat(localOri.x, localOri.y, localOri.z, localOri.w);
             tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
             isLocalized = true;
         }
 
+        xrEngine.setViewportForView(floorPose.views[0]);
         tdEngine.render(time, floorPose.views[0]);
     }
 
-    /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
-     */
-    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
-    }
-
     /**
-     * Show ui for localisation again.
+     * Handle events from the application or from the P2P network
+     * NOTE: sometimes multiple events are bundled using different keys!
      */
-    function relocalize() {
-        isLocalized = false;
-        receivedContentTitles = [];
-
-        tdEngine.clearScene();
-
-        showFooter = true;
-    }
-
-    /**
-     * Request content from SCD available around the current location.
-     */
-    function getContentsInH3Cell() {
-        const servicePromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
-            if ($selectedContentServices[service.id]?.isSelected) {
-                result.push(getContentsAtLocation(service.url, 'history', $initialLocation.h3Index));
-            }
-            return result;
-        }, []);
-
-        return Promise.all(servicePromises);
-    }
-
-    /**
-     *  Places the content provided by a call to Spacial Content Discovery providers.
-     *
-     * @param scr  [SCR]        Content Records with the result from the selected content services
-     */
-    function placeContent(scr: SCR[][]) {
-        scr.forEach((response) => {
-            console.log('Number of content items received: ', response.length);
-
-            response.forEach((record) => {
-                $receivedScrs.push(record);
-                receivedContentTitles.push(record.content.title);
-
-                // TODO: this method could handle any type of content:
-                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
-
-                // Difficult to generalize, because there are no types defined yet.
-                switch (record.content.type) {
-                    case 'MODEL_3D':
-                    case '3D': // TODO: should be removed // AC added it in Nov.2022
-                    case 'placeholder': // TODO: should be removed // AC removed it in Nov.2022
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        let position = localObjectPose.position;
-                        let orientation = localObjectPose.quaternion;
-
-                        // DEPRECATED
-                        // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
-                        // kept for backward compatibility and will be removed
-                        //if (record.content.custom_data?.sticker_type.toLowerCase() === 'other') { // sticker_type was removed in Nov.2021
-                        // if (record.content.custom_data?.sticker_subtype != undefined) {
-                        //     const subtype = record.content.custom_data.sticker_subtype.toLowerCase();
-                        //     const url = record.content.custom_data.path;
-
-                        //     // TODO: Receive list of events to register to from SCD and register them here
-                        //     switch (subtype) {
-                        //         case 'scene':
-                        //             const experiencePlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
-                        //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
-                        //             break;
-                        //         case 'gltf':
-                        //             tdEngine.addModel(position, orientation, url);
-                        //             break;
-                        //         default:
-                        //             console.log('Error: unexpected sticker subtype: ' + subtype);
-                        //             break;
-                        //     }
-                        // we cannot load anything else but AC-compliant 3D models
-                        // so draw a placeholder instead
-                        const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
-                        handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
-                        break;
-
-                    default:
-                        console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
-                        console.log(record.content);
-                        break;
-                }
-
-                //wait(1000).then(() => receivedContentTitles = []); // clear the list after a timer
-
-                // TODO: Anchor placeholder for better visual stability?!
-            });
-        });
-
-        tdEngine.endSpatialContentRecords();
+    export function onNetworkEvent(events: any) {
+        // Viewer-Marker cannot handle any events currently
+        console.log('Viewer-Marker: Unknown event received:');
+        console.log(events);
     }
 
 </script>
