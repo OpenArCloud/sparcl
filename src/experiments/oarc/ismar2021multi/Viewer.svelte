@@ -3,7 +3,6 @@
     import { createEventDispatcher } from 'svelte';
     import { get, writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce } from 'lodash';
     import { Vec3, Quat, type Transform } from 'ogl';
 
     import Parent from '@components/Viewer.svelte';
@@ -22,7 +21,7 @@
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
     let reticle: Transform | null = null; // TODO: Mesh instead of Transform
-    let hasLostTracking = true;
+
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
@@ -88,7 +87,7 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
-        hasLostTracking = false;
+        parentInstance.handlePoseHeartbeat();
 
         if (hitTestSource != undefined) {
             const hitTestResults = frame.getHitTestResults(hitTestSource);
@@ -146,25 +145,11 @@
      */
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
-        hasLostTracking = true;
     }
 
     function relocalize() {
         parentInstance.relocalize();
         reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
-    }
-
-    //////////////////////////////////
-    /**
-     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
-     * is shown to let the user know that the tracking was lost.
-     */
-    function handlePoseHeartbeat() {
-        hasLostTracking = false;
-        if (poseFoundHeartbeat === null) {
-            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
-        }
-        poseFoundHeartbeat();
     }
 
     /**
@@ -176,7 +161,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if (hasLostTracking == false && reticle != null) {
+        if (parentInstance.hasLostTracking == false && reticle != null) {
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
             // when tapped, determine the global position of the tap, and save the global location of the object

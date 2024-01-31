@@ -13,8 +13,6 @@
     let parentState = writable();
     setContext('state', parentState);
 
-    let hasLostTracking = true;
-
     /**
      * Initial setup.
      *
@@ -62,7 +60,6 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        hasLostTracking = false;
         parentInstance.onXrFrameUpdate(time, frame, floorPose);
     }
 
@@ -83,7 +80,6 @@
      */
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
-        hasLostTracking = true;
     }
 </script>
 

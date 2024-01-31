@@ -19,7 +19,6 @@
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
     let reticle: Transform | null = null; // TODO: Mesh instead of Transform
-    let hasLostTracking = true;
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
@@ -86,7 +85,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
+        if (parentInstance.hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -183,7 +182,7 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
-        hasLostTracking = false;
+        parentInstance.handlePoseHeartbeat();
 
         if (hitTestSource != undefined) {
             const t = performance.now();
@@ -236,7 +235,6 @@
      */
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
-        hasLostTracking = true;
     }
 
     /**
