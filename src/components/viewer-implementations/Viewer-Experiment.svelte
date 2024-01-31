@@ -17,7 +17,7 @@
     import { get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce } from 'lodash';
-    import type { Mat4, Mesh, Quat, Transform, Vec3 } from 'ogl';
+    import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
 
     import { sendRequest, validateRequest, type GeoposeResponseType, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { GeoPoseRequest } from '@oarc/gpp-access';
@@ -52,7 +52,7 @@
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
     import ogl from '@src/core/engines/ogl/ogl';
     import type webxr from '@src/core/engines/webxr';
-    import type { ObjectDescription, Orientation, Position } from '../../types/xr';
+    import type { ObjectDescription } from '../../types/xr';
 
 
 
@@ -262,7 +262,9 @@
             if (reticlePose && frameDuration && passedMaxSlow) {
                 const position = reticlePose.transform.position;
                 const orientation = reticlePose.transform.orientation;
-                tdEngine.updateReticlePose(reticle, position, orientation);
+                tdEngine.updateReticlePose(reticle,
+                        new Vec3(position.x, position.y, position.z),
+                        new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                 experimentOverlay?.setPerformanceValues(frameDuration, passedMaxSlow);
             }
 
@@ -555,8 +557,8 @@
         xrEngine.handleAnchors(frame);
 
         if (!creatorObject) {
-            const position = { x: 0, y: 0, z: -4 };
-            const orientation = { x: 0, y: 0, z: 0, w: 1 };
+            const position = new Vec3(0, 0, -4 );
+            const orientation = new Quat(0, 0, 0, 1);
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
@@ -607,7 +609,9 @@
 
             const position = localPose.transform.position;
             const orientation = localPose.transform.orientation;
-            tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
+            tdEngine.updateMarkerObjectPosition(trackedImageObject,
+                    new Vec3(position.x, position.y, position.z),
+                    new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
         }
 
         tdEngine.render(time, floorPose.views[0]);
@@ -709,7 +713,10 @@
      * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
+        let localImagePose = {
+            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        }
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
@@ -907,12 +914,12 @@
     /**
      * Handler to load and unload external experiences.
      *
-     * @param placeholder  Model        The initial placeholder placed into the 3D scene
-     * @param position  Position        The position the experience should be placed
-     * @param orientation  Orientation      The orientation of the experience
-     * @param url  String       The URL to load the experience from
+     * @param placeholder  Model  The initial placeholder placed into the 3D scene
+     * @param position  Vec3      The position the experience should be placed
+     * @param orientation  Quat   The orientation of the experience
+     * @param url  String         The URL to load the experience from
      */
-    function experienceLoadHandler(placeholder: Mesh, position: Position, orientation: Orientation, url: string) {
+    function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
         tdEngine.setWaiting(placeholder);
 
         externalContent.src = url;
