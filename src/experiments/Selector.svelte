@@ -8,9 +8,13 @@
 -->
 
 <script lang="ts">
-    import { type ComponentType, createEventDispatcher } from 'svelte';
+    import { type ComponentType, createEventDispatcher, onMount } from 'svelte';
     import type { ExperimentsViewers } from '../types/xr';
+    import { activeExperiment } from '../stateStore';
     const dispatch = createEventDispatcher<{ change: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType<ExperimentsViewers> }> | null; key: string } }>();
+    onMount(() => {
+        importExperiment($activeExperiment || '');
+    });
 
     const EXPERIMENTTYPES: Record<string, string> = {
         //yourkey: 'yourvalue'
@@ -56,7 +60,7 @@
     <!-- TODO: why is this none? -->
     <option value="none">None</option>
     {#each Object.entries(EXPERIMENTTYPES) as [key, value]}
-        <option value={key}>{value}</option>
+        <option selected={$activeExperiment === key} value={key}>{value}</option>
     {/each}
 </select>
 
