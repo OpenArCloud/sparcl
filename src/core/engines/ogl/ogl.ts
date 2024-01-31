@@ -230,14 +230,14 @@ export default class ogl {
         console.log('Loading ' + url);
         GLTFLoader.load(gl, url)
             .then((gltf) => {
-                const s = (gltf.scene || gltf.scenes[0]) as Transform[];
+                const s = (gltf.scene || gltf.scenes[0]) as Transform[]; // WARNING: we handle a single scene per GLTF only
                 s.forEach((root) => {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
-                        if ((node as any).program) {
+                        if ((node as Mesh).program) {
                             // TODO: cast node to Mesh
                             // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
-                            (node as any).program = createSimpleGltfProgram(node as Mesh);
+                            (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
                         }
                     });
                 });
@@ -252,7 +252,7 @@ export default class ogl {
             });
 
         scene.updateMatrixWorld();
-        return gltfScene;
+        return gltfScene; // returns a scene graph of Transforms, the root is also of type Transform
     }
 
     /**
