@@ -14,6 +14,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
+    import { debounce } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
     import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -55,12 +56,14 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
 
+    let unableToStartSession = false;
     let doCaptureImage = false;
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
-    let firstPoseReceived = false,
-        hasLostTracking = false; // TODO: init true, set to false in onXrFrameUpdate(), move into context.
-    let unableToStartSession = false;
+    let firstPoseReceived = false;
+    export let hasLostTracking = true;
+    let poseFoundHeartbeat: () => boolean | undefined;
+
 
     // TODO: Setup event target array, based on info received from SCD
 
@@ -141,6 +144,18 @@
     }
 
     /**
+     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
+     * is shown to let the user know that the tracking was lost.
+     */
+    export function handlePoseHeartbeat() {
+        hasLostTracking = false;
+        if (poseFoundHeartbeat === null) {
+            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
+        }
+        poseFoundHeartbeat();
+    }
+
+    /**
      * Handles update loop when AR Cloud mode is used.
      *
      * @param time  DOMHighResTimeStamp     time offset at which the updated
@@ -149,6 +164,8 @@
      * @param floorPose The pose of the device as reported by the XRFrame
      */
     export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+        handlePoseHeartbeat();
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
