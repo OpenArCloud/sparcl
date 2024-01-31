@@ -17,7 +17,6 @@ import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { Quat, type Vec3 } from 'ogl';
-import type { OldFormatGeopose } from '../types/xr';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
 export const toDegrees = (radians: number) => (radians / Math.PI) * 180;
@@ -26,6 +25,8 @@ export const locationAccessOptions = {
     enableHighAccuracy: false,
     maximumAge: 0,
 };
+
+export type OldFormatGeopose = Omit<Geopose, 'position'> & { latitude: number; longitude: number; ellipsoidHeight: number };
 
 /**
  *
@@ -125,28 +126,24 @@ export function getCurrentLocation() {
                 console.log(`Location request failed: ${error}`);
                 reject(error);
             },
-            locationAccessOptions
+            locationAccessOptions,
         );
     });
 }
 
 /**
- * Calculates the distance between two quaternions.
- *
- * Used to calculate the difference between the device rotation at the moment of localisation of the local and
- * global poses.
+ * Calculates the relative orientation between two quaternions and returns the corresponding Euler angles
  *
  * @param localisationQuaternion  Quaternion        Rotation returned by a GeoPose service after localisation (Array)
  * @param localQuaternion  Quaternion       Rotation reported from WebGL at the moment localisation was started
- * @returns {{x, y, z}}
+ * @returns vec3 Euler angles
  */
-// export function calculateEulerRotation(localisationQuaternion: ReadonlyQuat, localQuaternion: ReadonlyQuat) {
-//     const diff = calculateRotation(localisationQuaternion, localQuaternion);
-
-//     const euler = vec3.create();
-//     getEuler(euler, diff);
-//     return euler;
-// }
+export function getRelativeOrientationEuler(localisationQuaternion: ReadonlyQuat, localQuaternion: ReadonlyQuat) {
+    const diff = getRelativeOrientation(localisationQuaternion, localQuaternion);
+    let euler = vec3.create();
+    getEuler(euler, diff);
+    return euler;
+}
 
 /**
  * Returns an euler angle representation of a quaternion.
@@ -319,7 +316,6 @@ export function convertSensor2AugmentedCityCam(sensorQuat: ReadonlyQuat) {
         console.log("Cannot retrieve screen orientation. Assuming landscape-primary");
         quat.fromEuler(displayTransform, 0, 0, 0);
     }
-
     let screenQuat = quat.create();
     quat.multiply(screenQuat, displayTransform, sensorQuat);
     */
@@ -558,13 +554,13 @@ export function convertEnuToGeodetic(xEast: number, yNorth: number, zUp: number,
 }
 
 export function convertLocalPoseToEnu(localPose: any, T_local_to_enu: any) {
-    // TODO: change any to actual type
+    // TODO: change any to actual type (Mat4)
     const enuPose = localPose.clone().multiplyLeft(T_local_to_enu);
     return enuPose;
 }
 
 export function convertLocalPoseToGeoPose(localPose: any, T_local_to_enu: any, refGeoPose: any) {
-    // TODO: change any to actual type
+    // TODO: change any to actual type (Mat4 and Geopose)
     const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
     const enuPosition = enuPose.getTranslation();
     const enuRotMat = enuPose.getRotationMatrix3();

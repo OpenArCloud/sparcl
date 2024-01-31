@@ -64,14 +64,11 @@
 
         {#if withOkFooter}
             {#if !$isLocationAccessAllowed}
-                <button
-                    disabled={isLocationAccessRefused}
-                    on:click={() => dispatch('requestLocation')}
-                    on:keydown={() => dispatch('requestLocation')}>
+                <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>
                     {$allowLocationLabel}
                 </button>
             {:else}
-                <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')}>
+                <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                 </button>
             {/if}
@@ -90,11 +87,7 @@
                 <h4>{$locationaccessrequired}</h4>
                 <p>{@html $locationaccessinfo}</p>
                 <img src="/media/overlay/marker.png" alt="location marker" />
-                <button
-                    on:click={() => dispatch('requestLocation')}
-                    on:keydown={() => dispatch('requestLocation')}>
-                    {$allowLocationLabel}
-                </button>
+                <button on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
             {:else}
                 <h4 id="locationgranted">{$locationaccessgranted}</h4>
                 <img src="/media/overlay/marker.png" alt="location marker" />
@@ -110,10 +103,7 @@
                 <h4>{$noservicesavailable}</h4>
                 <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
-                    <button
-                        disabled={!$isLocationAccessAllowed}
-                        on:click={() => dispatch('dashboardAction')}
-                        on:keydown={() => dispatch('dashboardAction')}>
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('dashboardAction')} on:keydown={() => dispatch('dashboardAction')}>
                         {$dashboardOkLabel}
                     </button>
                 {/if}
@@ -124,10 +114,7 @@
                     <p>{$arMode} mode active</p>
                 {/if}
                 {#if withOkFooter}
-                    <button
-                        disabled={!$isLocationAccessAllowed}
-                        on:click={() => dispatch('okAction')}
-                        on:keydown={() => dispatch('okAction')}>
+                    <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
                         {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
                     </button>
                 {/if}

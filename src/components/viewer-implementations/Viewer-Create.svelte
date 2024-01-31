@@ -17,7 +17,7 @@
     import { CREATIONTYPES } from '@core/common';
     import type webxr from '@src/core/engines/webxr';
     import type ogl from '@src/core/engines/ogl/ogl';
-    import type { Mesh, Transform } from 'ogl';
+    import { Vec3, Mesh, Transform, Quat } from 'ogl';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -38,7 +38,6 @@
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
-
         startSession();
     }
 
@@ -46,7 +45,14 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            parentInstance.onXrSessionEnded,
+            parentInstance.onXrNoPose,
+            () => {},
+            ['dom-overlay', 'anchors', 'local-floor'],
+            []
+        );
     }
 
     /**
@@ -60,8 +66,6 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         showFooter = false;
 
-        xrEngine.setViewPort();
-
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -74,8 +78,8 @@
         }
 
         if (!creatorObject) {
-            const position = { x: 0, y: 0, z: -2 };
-            const orientation = { x: 0, y: 0, z: 0, w: 1 };
+            const position = new Vec3(0, 0, -2);
+            const orientation = new Quat(0, 0, 0, 1);
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
@@ -90,13 +94,12 @@
             }
         }
 
+        xrEngine.handleAnchors(frame);
         for (let view of floorPose.views) {
             xrEngine.setViewportForView(view);
             parentInstance.handleExternalExperience(view);
+            tdEngine.render(time, view);
         }
-
-        xrEngine.handleAnchors(frame);
-        tdEngine.render(time, floorPose.views[0]);
     }
 </script>
 

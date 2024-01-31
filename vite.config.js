@@ -16,6 +16,7 @@ export default defineConfig({
             '@public': path.resolve(__dirname, 'public'),
             '@shaders': path.resolve(__dirname, 'src/core/engines/ogl/shaders'),
             '@thirdparty': path.resolve(__dirname, 'src/third-party'),
+            '@types': path.resolve(__dirname, 'src/types'),
             '@experiments': path.resolve(__dirname, 'src/experiments'),
         },
         extensions: ['.js', '.svelte'],
