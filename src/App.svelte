@@ -51,10 +51,11 @@
     import type webxr from '@core/engines/webxr';
     import type ogl from '@core/engines/ogl/ogl';
     import type { ExperimentsViewers } from './types/xr';
+    import ViewerMarker from '@components/viewer-implementations/Viewer-Marker.svelte';
     let showWelcome: boolean | null = null;
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
-    let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ExperimentsViewers> | null | undefined;
+    let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> | null | undefined;
     let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
     let spectator: Spectator | null = null;
     let shouldShowDashboard: boolean;
@@ -229,7 +230,7 @@
         shouldShowDashboard = false;
         showOutro = false;
 
-        let viewerImplementation: Promise<{ default: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ExperimentsViewers> }> | null = null;
+        let viewerImplementation: Promise<{ default: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> }> | null = null;
         let options: { settings?: Writable<Record<string, unknown>> } = {};
 
         // Unfortunately, the import function does accept string literals only
@@ -242,6 +243,9 @@
                 break;
             case ARMODES.develop:
                 viewerImplementation = import('@components/viewer-implementations/Viewer-Develop.svelte');
+                break;
+            case ARMODES.marker:
+                viewerImplementation = import('@components/viewer-implementations/Viewer-Marker.svelte');
                 break;
             case ARMODES.experiment:
                 if ($activeExperiment) {

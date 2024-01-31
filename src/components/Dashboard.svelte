@@ -118,6 +118,10 @@
             <label for="armodeoscp">{ARMODES.oscp}</label>
         </dd>
         <dd>
+            <input id="marker" type="radio" bind:group={$arMode} value={ARMODES.marker} />
+            <label for="marker">{ARMODES.marker}</label>
+        </dd>
+        <dd>
             <input id="armodecreator" type="radio" bind:group={$arMode} value={ARMODES.create} />
             <label for="armodecreator">{ARMODES.create}</label>
         </dd>
@@ -126,8 +130,8 @@
             <label for="armodedev">{ARMODES.develop}</label>
         </dd>
         <dd>
-            <input id="armodetest" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
-            <label for="armodetest">{ARMODES.experiment}</label>
+            <input id="armodeexperiment" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
+            <label for="armodeexperiment">{ARMODES.experiment}</label>
         </dd>
     </dl>
 
