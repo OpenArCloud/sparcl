@@ -38,7 +38,6 @@
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
-
         startSession();
     }
 
@@ -46,7 +45,14 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            parentInstance.onXrSessionEnded,
+            parentInstance.onXrNoPose,
+            () => {},
+            ['dom-overlay', 'anchors', 'local-floor'],
+            []
+        );
     }
 
     /**
@@ -59,8 +65,6 @@
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         showFooter = false;
-
-        xrEngine.setViewPort();
 
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
@@ -90,13 +94,12 @@
             }
         }
 
+        xrEngine.handleAnchors(frame);
         for (let view of floorPose.views) {
             xrEngine.setViewportForView(view);
             parentInstance.handleExternalExperience(view);
+            tdEngine.render(time, view);
         }
-
-        xrEngine.handleAnchors(frame);
-        tdEngine.render(time, floorPose.views[0]);
     }
 </script>
 

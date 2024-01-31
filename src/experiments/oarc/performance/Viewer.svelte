@@ -59,15 +59,15 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr, result, gl) => {
+            (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
 
-                result
+                session
                     .requestReferenceSpace('viewer')
-                    .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
+                    .then((refSpace) => session.requestHitTestSource?.({ space: refSpace }))
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
