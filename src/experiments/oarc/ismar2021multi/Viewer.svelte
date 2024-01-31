@@ -26,7 +26,6 @@
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
     let settings: Writable<Record<string, unknown>> = writable({});
-    let poseFoundHeartbeat: () => boolean | undefined;
 
     let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
