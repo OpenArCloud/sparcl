@@ -34,7 +34,7 @@
     }
 </script>
 
-{#if $experimentModeSettings.performance.showstats}
+{#if $experimentModeSettings?.performance.showstats}
     <p>Objects placed: {objectsPlacedCount}</p>
     <p>Performance experiment</p>
     <p>Frame time: {prevFrameTime}</p>

@@ -109,6 +109,33 @@ export default class webxr {
         initCameraCaptureScene(gl);
     }
 
+    /**
+     * Current best effort to get the camera image from the WebXR session.
+     *
+     * The implementation has recently changed in Chromium. Will adapt when available for Chrome (beta).
+     *
+     * @param frame  XRFrame        The current frame to get the image for
+     * @param view  XRView      The view to use
+     * @returns {WebGLTexture}
+     */
+    getCameraTexture(frame: XRFrame, view: XRView) {
+        // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
+        // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
+
+        // We want to capture the camera image, however, it is not directly available here,
+        // but only as a GPU texture. We draw something textured with the camera image at every frame,
+        // so that the texture is kept in GPU memory. We can then capture it below.
+        if (!gl || !view.camera) {
+            return;
+        }
+        const cameraTexture = this.glBinding?.getCameraImage(view.camera); // note: this returns a WebGlTexture
+        if (!cameraTexture) {
+            return;
+        }
+        drawCameraCaptureScene(gl, cameraTexture);
+        checkGLError(gl, 'getCameraTexture() end');
+        return cameraTexture;
+    }
     // NOTE: since Chrome update in June 2021, the getCameraImage(frame, view) method is not available anymore
     // Instead we can call getCameraImage(XRCamera)
     // See https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
@@ -254,7 +281,6 @@ export default class webxr {
         // Note: reference spaces viewer, local, and local-floor are always available, but others may not
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
         Promise.all([this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')]).then((values) => {
-            const a = values[1];
             floorSpaceReference = values[0];
             localSpaceReference = values[1];
             // TODO: use unbounded space, if available

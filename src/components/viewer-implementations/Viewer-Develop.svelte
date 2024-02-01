@@ -19,6 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
+    import { Quat, Vec3 } from 'ogl';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -35,15 +36,21 @@
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
-
         startSession();
     }
 
     /**
      * Setup required AR features and start the XRSession.
      */
-    function startSession() {
-        parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor']);
+    async function startSession() {
+        await parentInstance.startSession(
+            onXrFrameUpdate,
+            parentInstance.onXrSessionEnded,
+            parentInstance.onXrNoPose,
+            () => {},
+            ['dom-overlay', 'anchors', 'local-floor'],
+            []
+        );
     }
 
     /*
@@ -51,7 +58,10 @@
      * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = localPose.transform;
+        let localImagePose = {
+            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        }
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
@@ -65,8 +75,6 @@
      * @param floorPose     The pose of the device as reported by the XRFrame
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        xrEngine.setViewPort();
-
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -90,10 +98,9 @@
             }
         }
 
+        xrEngine.handleAnchors(frame);
         xrEngine.setViewportForView(floorPose.views[0]);
         parentInstance.handleExternalExperience(floorPose.views[0]);
-
-        xrEngine.handleAnchors(frame);
         tdEngine.render(time, floorPose.views[0]);
     }
 </script>
