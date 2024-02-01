@@ -29,7 +29,7 @@
         maxSlow = 10,
         maximumFrameTime = 1000 / 30; // 30 FPS
 
-    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
+    let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     /**
@@ -85,7 +85,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (parentInstance.hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
+        if ($parentState.hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
