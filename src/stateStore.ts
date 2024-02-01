@@ -165,7 +165,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
         // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
         if (get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
-        } else {
+        } else if (!get(debug_usePredefinedGeolocation)) {
             debug_useGeolocationSensors.set(true);
         }
     },
@@ -364,6 +364,33 @@ const storedDebug_useGeolocationSensors = localStorage.getItem('debug_useGeoloca
 export const debug_useGeolocationSensors = writable(storedDebug_useGeolocationSensors);
 debug_useGeolocationSensors.subscribe((value) => {
     localStorage.setItem('debug_useGeolocationSensors', value === true ? 'true' : 'false');
+});
+
+/**
+ * Use a predefined geolocation as if you were actually there. This way we can simulate being in an actual location. Useful for home office work when you wish to see the contents placed in the office.
+ */
+const storedDebug_usePredefinedGeolocation = localStorage.getItem('debug_usePredefinedGeolocation') === 'true';
+export const debug_usePredefinedGeolocation = writable(storedDebug_usePredefinedGeolocation);
+debug_usePredefinedGeolocation.subscribe((value) => {
+    localStorage.setItem('debug_usePredefinedGeolocation', value === true ? 'true' : 'false');
+});
+
+const storedDebug_predefinedGeolocation: Geopose = JSON.parse(localStorage.getItem('debug_predefinedGeolocation') || 'null') || {
+    position: {
+        h: 0,
+        lat: 0,
+        lon: 0,
+    },
+    quaternion: {
+        w: 0,
+        x: 0,
+        y: 0,
+        z: 0,
+    },
+};
+export const debug_predefinedGeolocation = writable(storedDebug_predefinedGeolocation);
+debug_predefinedGeolocation.subscribe((value) => {
+    localStorage.setItem('debug_predefinedGeolocation', JSON.stringify(value));
 });
 
 /**
