@@ -27,7 +27,7 @@
     let experimentOverlay: ArExperimentOverlay;
     let settings: Writable<Record<string, unknown>> = writable({});
 
-    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
+    let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     // Used to dispatch events to parent
@@ -159,7 +159,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if (parentInstance.hasLostTracking == false && reticle != null) {
+        if ($parentState.hasLostTracking == false && reticle != null) {
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
             // when tapped, determine the global position of the tap, and save the global location of the object
