@@ -359,7 +359,7 @@
 
     <div>
         <input id="usePredefinedGeoposition" type="checkbox" bind:checked={$debug_usePredefinedGeolocation} />
-        <label for="usePredefinedGeoposition">Use predefined geo position</label>
+        <label for="usePredefinedGeoposition">Use predefined geoposition</label>
     </div>
     {#if $debug_usePredefinedGeolocation}
         <form style="margin-top: 5px;">
