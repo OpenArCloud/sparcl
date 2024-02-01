@@ -126,7 +126,7 @@ function setupPerge(peerId: string) {
 
     if (port !== undefined && service?.url) {
         setupPergeWithUrl(peerId, service?.url, parseInt(port));
-    }
+    } // TODO: handle if port undefined
 }
 
 function setupPergeWithUrl(peerId: string, url: string, port: number) {

@@ -2,39 +2,36 @@
     import { setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
     import { get, writable, type Writable } from 'svelte/store';
+    import { v4 as uuidv4 } from 'uuid';
+    import { Vec3, Quat, type Transform } from 'ogl';
 
     import Parent from '@components/Viewer.svelte';
-
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
-    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
-    import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
-    import { peerIdStr, recentLocalisation } from '@src/stateStore';
-    import { v4 as uuidv4 } from 'uuid';
+    import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
+    import { peerIdStr, recentLocalisation } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
-    import type { Quat, Transform, Vec3 } from 'ogl';
-    import { debounce } from 'lodash';
     import type { ObjectDescription } from '../../../types/xr';
+
 
     let parentInstance: Parent;
     let xrEngine: webxr;
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | undefined;
-    let hasLostTracking = true;
+    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
+
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
     let settings: Writable<Record<string, unknown>> = writable({});
-    let poseFoundHeartbeat: () => boolean | undefined;
 
-    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
+    let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
     /**
      * Initial setup.
@@ -74,6 +71,7 @@
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
+            []
         );
 
         tdEngine.setExperimentTapHandler(experimentTapHandler);
@@ -89,42 +87,42 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
-        hasLostTracking = false;
+        parentInstance.handlePoseHeartbeat();
 
-        if (hitTestSource) {
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0) {
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+        if (!hitTestSource) {
+            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            return;
+        }
 
-                if ($settings.localisation && !$parentState.isLocalized) {
-                    parentInstance.onXrFrameUpdate(time, frame, floorPose);
-                } else {
-                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
-
-                    xrEngine.setViewPort();
-
-                    if (!reticle) {
-                        reticle = tdEngine.addReticle();
-                    }
-
-                    const position = reticlePose?.transform.position;
-                    const orientation = reticlePose?.transform.orientation;
-                    if (position && orientation) {
-                        tdEngine.updateReticlePose(reticle, position, orientation);
-                    }
-                    tdEngine.render(time, floorPose.views[0]);
-                }
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+        if (hitTestResults.length > 0) {
+            if ($settings.localisation && !$parentState.isLocalized) {
+                parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                tdEngine.render(time, floorPose.views[0]);
+                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                if (reticle === null) {
+                    reticle = tdEngine.addReticle();
+                }
+                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const position = reticlePose?.transform.position;
+                const orientation = reticlePose?.transform.orientation;
+                if (position && orientation) {
+                    tdEngine.updateReticlePose(reticle,
+                            new Vec3(position.x, position.y, position.z),
+                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                }
             }
         }
+
+        xrEngine.setViewportForView(floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
      * Let's the app know that the XRSession was closed.
      */
     function onXrSessionEnded() {
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;
         }
@@ -145,25 +143,11 @@
      */
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
-        hasLostTracking = true;
     }
 
     function relocalize() {
         parentInstance.relocalize();
-        reticle = undefined; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
-    }
-
-    //////////////////////////////////
-    /**
-     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
-     * is shown to let the user know that the tracking was lost.
-     */
-    function handlePoseHeartbeat() {
-        hasLostTracking = false;
-        if (poseFoundHeartbeat === null) {
-            poseFoundHeartbeat = debounce(() => (hasLostTracking = true), 300);
-        }
-        poseFoundHeartbeat();
+        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
     /**
@@ -175,7 +159,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if (!hasLostTracking && reticle) {
+        if ($parentState.hasLostTracking == false && reticle != null) {
             //NOTE: ISMAR2021 experiment:
             // keep track of last localization (global and local)
             // when tapped, determine the global position of the tap, and save the global location of the object
@@ -183,12 +167,11 @@
             // when received, place the same way as a downloaded SCR.
             if ($parentState.isLocalisationDone) {
                 shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
-                let object_description = createRandomObjectDescription();
+                const object_description = createRandomObjectDescription();
 
                 tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
 
                 shareObject(object_description, reticle.position, reticle.quaternion);
-                //shareCamera(tdEngine.getCamera().position, tdEngine.getCamera().quaternion);
 
                 experimentOverlay?.objectPlaced();
             }
@@ -208,18 +191,6 @@
         }
     }
 
-    function shareCamera(position: Vec3, quaternion: Quat) {
-        let object_description: ObjectDescription = {
-            version: 2,
-            color: [1.0, 1.0, 0.0, 0.2],
-            shape: PRIMITIVES.box,
-            scale: [0.05, 0.05, 0.05],
-            transparent: true,
-            options: {},
-        };
-        shareObject(object_description, position, quaternion);
-    }
-
     function shareMessage(str: string) {
         let message_body = {
             message: str,
@@ -234,15 +205,15 @@
     }
 
     function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
-        let latestGlobalPose = $recentLocalisation.geopose;
-        let latestLocalPose = $recentLocalisation.floorpose;
+        const latestGlobalPose = $recentLocalisation.geopose;
+        const latestLocalPose = $recentLocalisation.floorpose;
         if (latestGlobalPose === undefined || latestLocalPose === undefined) {
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
         // Now calculate the global pose of the reticle
-        let globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
-        let geoPose = {
+        const globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+        const geoPose = {
             position: {
                 lat: globalObjectPose.position.lat,
                 lon: globalObjectPose.position.lon,
@@ -255,25 +226,26 @@
                 w: globalObjectPose.quaternion.w,
             },
         };
-        let content = {
-            id: '',
-            type: '', //high-level OSCP type
+        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
+        const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
+        const scr_id = object_id;
+        const content = {
+            id: object_id,
+            type: 'ephemeral', //high-level OSCP type
             title: object_description.shape,
             refs: [],
             geopose: geoPose,
             object_description: object_description,
         };
-        let timestamp = new Date().getTime();
-        // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
-        let object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
-        let scr = {
+        const timestamp = new Date().getTime();
+        const scr = {
             content: content,
-            id: object_id,
+            id: scr_id,
             tenant: 'ISMAR2021demo',
-            type: 'ephemeral',
+            type: 'scr',
             timestamp: timestamp,
         };
-        let message_body = {
+        const message_body = {
             scr: scr,
             sender: $peerIdStr,
             timestamp: new Date().getTime(),
@@ -308,24 +280,22 @@
 
         if ('message_broadcasted' in events) {
             const data = events.message_broadcasted;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                if ('message' in data && 'sender' in data) {
-                    console.log('message from ' + data.sender + ': \n  ' + data.message);
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            if ('message' in data && 'sender' in data) {
+                console.log('message from ' + data.sender + ': \n  ' + data.message);
             }
+            //}
         }
 
         if ('object_created' in events) {
             const data = events.object_created;
-            if (data.sender != $peerIdStr) {
-                // ignore own messages which are also delivered
-                const scr = data.scr;
-                if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
-                    experimentOverlay?.objectReceived();
-                    parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
-                }
+            //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            const scr = data.scr;
+            if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
+                experimentOverlay?.objectReceived();
+                parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
             }
+            //}
         }
     }
 </script>

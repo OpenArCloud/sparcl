@@ -14,12 +14,12 @@
 import { readable, writable, derived, get } from 'svelte/store';
 
 import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
+import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';
 
 /**
  * Determines the availability of AR functions on the current device.
- *
  * @type {Readable<boolean>}    true when available, false otherwise
  */
 export const arIsAvailable = readable(false, (set) => {
@@ -32,6 +32,7 @@ export const arIsAvailable = readable(false, (set) => {
 
 /**
  * Determines and keeps track of the state of the location permission.
+ * @type {Readable<boolean>}
  */
 export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
     let currentResult: PermissionStatus;
@@ -58,7 +59,8 @@ export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
 
 /**
  * Reads and stores the setting whether or not to display the dashboard persistently.
- * true when dashboard should be shown, false otherwise
+ *
+ * @type {boolean}  true when dashboard should be shown, false otherwise
  */
 const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
 export const showDashboard = writable(storedShowDashboard);
@@ -68,7 +70,8 @@ showDashboard.subscribe((value) => {
 
 /**
  * Reads and stores the setting whether or not the user has already seen the intro.
- * true when the intro was already seen, false otherwise
+ *
+ * @type {boolean}  true when the intro was already seen, false otherwise
  */
 const storedHasIntroSeen = localStorage.getItem('hasintroseen') === 'true';
 export const hasIntroSeen = writable(storedHasIntroSeen);
@@ -78,6 +81,8 @@ hasIntroSeen.subscribe((value) => {
 
 /**
  * Reads and stores the setting which AR mode should be used.
+ *
+ * @type {string}
  */
 const storedArMode = localStorage.getItem('storedarmode');
 export const arMode = writable(storedArMode || ARMODES.oscp);
@@ -87,6 +92,7 @@ arMode.subscribe((value) => {
 
 /**
  * Available settings for creator mode.
+ * @type {Writable<{shape: string, style: [], type: string, url: string}>}
  */
 const storedCreatorModeSettings = JSON.parse(localStorage.getItem('creatormodesettings') || 'null');
 export const creatorModeSettings = writable<{ shape: string; style: []; type: string; modelurl: string; sceneurl: string }>(
@@ -105,8 +111,8 @@ creatorModeSettings.subscribe((value) => {
 /**
  * Available settings for experiment mode.
  */
-const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings') || '{}');
-export const experimentModeSettings = writable<Record<string, Record<string, unknown>>>(storedExperimentModeSettings);
+const storedExperimentModeSettings = JSON.parse(localStorage.getItem('experimentmodesettings') || 'null');
+export const experimentModeSettings = writable<Record<string, Record<string, unknown>> | null>(storedExperimentModeSettings);
 experimentModeSettings.subscribe((value) => {
     localStorage.setItem('experimentmodesettings', JSON.stringify(value));
 });
@@ -141,7 +147,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     ($ssr, set) => {
         selectedGeoPoseService.set(null);
 
-        let geoposeServices: Service[] = [];
+        const geoposeServices: Service[] = [];
         for (let record of $ssr) {
             record.services.map((service) => {
                 if (service.type === 'geopose') geoposeServices.push(service);
@@ -172,7 +178,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
 export const availableContentServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        let contentServices: Service[] = [];
+        const contentServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {
                 if (service.type === 'content-discovery') {
@@ -186,6 +192,7 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
             let selection: Record<string, { isSelected: boolean; selectedTopic: string }> = {};
             for (const [key, service] of contentServices.entries()) {
                 selection[service.id] = { isSelected: true, selectedTopic: 'history' };
+                // TODO: get first topic from service (As of 2021, we put everything under the history topic)
             }
             selectedContentServices.set(selection);
         }
@@ -201,7 +208,7 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
     ($ssr, set) => {
         selectedP2pService.set(null);
 
-        let p2pServices: Service[] = [];
+        const p2pServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {
                 if (service.type === 'p2p-master') {
@@ -227,6 +234,31 @@ export const selectedGeoPoseService = writable<Service | null>(JSON.parse(stored
 selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
+
+export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
+    ssr,
+    ($ssr, set) => {
+        const messageBrokerServices: (Service & { guid: string })[] = [];
+        for (const record of $ssr) {
+            for (const service of record.services) {
+                if (service.type === 'message-broker') {
+                    const urlParsed = new URL(service.url);
+                    urlParsed.protocol = 'wss://'; // HACK: url comes in with https:// protocol, but this needs to be wss://
+                    messageBrokerServices.push({ ...service, guid: `${record.id}-${service.id}`, url: urlParsed.href });
+                }
+            }
+        }
+        set(messageBrokerServices);
+        // If none selected yet, set the first available as selected
+        // TODO: Make sure that stored selected service is still valid
+        if (get(selectedP2pService) === null && messageBrokerServices.length > 0) {
+            selectedP2pService.set(messageBrokerServices[0]);
+        }
+    },
+    [],
+);
+
+export const isRabbitmqConnectionTestSuccessful = writable(null);
 
 /**
  * Used to store the values of the most up to date localisation.
@@ -335,7 +367,20 @@ debug_useGeolocationSensors.subscribe((value) => {
 });
 
 /**
+ * Enable/disable point cloud contents (usually large files)
+ *
+ * @type {Writable<boolean>}
+ */
+const storedDebug_enablePointCloudContents = localStorage.getItem('debug_enablePointCloudContents') === 'true';
+export const debug_enablePointCloudContents = writable(storedDebug_enablePointCloudContents);
+debug_enablePointCloudContents.subscribe((value) => {
+    localStorage.setItem('debug_enablePointCloudContents', value === true ? 'true' : 'false');
+});
+
+/**
  * Keeps some state of the dashboard.
+ *
+ * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
  */
 const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
     state: false,
@@ -348,3 +393,70 @@ dashboardDetail.subscribe((value) => {
 });
 
 export const receivedScrs = writable<SCR[]>([]);
+
+/**
+ * Used to store a random uuid that corresponds to the current user's agent name
+ *
+ * @type {Readable<string>}
+ */
+const storedMyAgentId = localStorage.getItem('myAgentId');
+export const myAgentId = readable(storedMyAgentId, (set) => {
+    if (!storedMyAgentId) {
+        const newAgentId = uuidv4();
+        localStorage.setItem('myAgentId', newAgentId);
+        set(newAgentId);
+    }
+    return () => {};
+});
+
+/**
+ * Used to store the user's agent name
+ *
+ * @type {Writable<string>}
+ */
+const storedMyAgentName = localStorage.getItem('myAgentName');
+export const myAgentName = writable(storedMyAgentName);
+myAgentName.subscribe((value) => {
+    if (value) {
+        localStorage.setItem('myAgentName', value);
+    }
+});
+
+const getRandomColorValue = () => {
+    return Math.floor(Math.random() * 256);
+};
+
+/**
+ * Used to store a the users preferred color.
+ *
+ * @type {Writable<{r: number, g: number, b: number, a: number}>}
+ */
+const storedMyAgentColor: { r: number; g: number; b: number; a: number } | null = localStorage.getItem('myAgentColor')
+    ? JSON.parse(localStorage.getItem('myAgentColor') || 'null')
+    : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
+export const myAgentColor = writable(storedMyAgentColor);
+myAgentColor.subscribe((value) => {
+    localStorage.setItem('myAgentColor', JSON.stringify(value));
+});
+const storedAllowMessageBroker = localStorage.getItem('allowMessageBroker') === 'true';
+export const allowMessageBroker = writable(storedAllowMessageBroker);
+allowMessageBroker.subscribe((value) => {
+    localStorage.setItem('allowMessageBroker', value === true ? 'true' : 'false');
+});
+
+const storedMessageBrokerAuth: Record<string, { username: string; password: string }> | null = JSON.parse(localStorage.getItem('messageBrokerAuth') || 'null');
+export const messageBrokerAuth = writable(storedMessageBrokerAuth);
+messageBrokerAuth.subscribe((value) => {
+    localStorage.setItem('messageBrokerAuth', JSON.stringify(value));
+});
+
+const storedSelectedMessageBroker: (Service & { guid: string }) | null = JSON.parse(localStorage.getItem('selectedMessageBrokerService') || 'null');
+export const selectedMessageBrokerService = writable(storedSelectedMessageBroker);
+selectedMessageBrokerService.subscribe((value) => {
+    localStorage.setItem('selectedMessageBrokerService', JSON.stringify(value));
+    const currentMessageBrokerAuth = get(messageBrokerAuth);
+    if (value?.guid != null) {
+        // initialize object
+        messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
+    }
+});

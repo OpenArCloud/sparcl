@@ -12,8 +12,8 @@
     Temporary until better UX is found for the settings.
 -->
 <script lang="ts">
-    import { createEventDispatcher, type ComponentType } from 'svelte';
-
+    import ColorPicker from 'svelte-awesome-color-picker';
+    import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
     import { supportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
@@ -39,17 +39,34 @@
         debug_useGeolocationSensors,
         debug_saveCameraImage,
         debug_loadCameraImage,
+        debug_enablePointCloudContents,
+        myAgentColor,
+        myAgentName,
+        availableMessageBrokerServices,
         activeExperiment,
+        selectedMessageBrokerService,
+        messageBrokerAuth,
+        allowMessageBroker,
     } from '@src/stateStore';
+
+    import { testRmqConnection } from '@src/core/rmqnetwork';
+    import Select from './dom-overlays/Select.svelte';
 
     import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from '@core/common';
 
     import Selector from '@experiments/Selector.svelte';
+    import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
+
+    let rmqTestPromise: Promise<void>;
+    onMount(() => {
+        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+            rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
+    });
 
     function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
@@ -64,16 +81,16 @@
     }
 </script>
 
-<button on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
+<button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
+
+<div>
+    <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
+    <label for="showagain">Show Dashboard next time</label>
+</div>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
+
     <summary>Application state</summary>
-
-    <div>
-        <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
-        <label for="showagain">Show Dashboard next time</label>
-    </div>
-
     <dl>
         <dt>Location access</dt>
         <dd>{$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</dd>
@@ -101,6 +118,10 @@
             <label for="armodeoscp">{ARMODES.oscp}</label>
         </dd>
         <dd>
+            <input id="marker" type="radio" bind:group={$arMode} value={ARMODES.marker} />
+            <label for="marker">{ARMODES.marker}</label>
+        </dd>
+        <dd>
             <input id="armodecreator" type="radio" bind:group={$arMode} value={ARMODES.create} />
             <label for="armodecreator">{ARMODES.create}</label>
         </dd>
@@ -109,8 +130,8 @@
             <label for="armodedev">{ARMODES.develop}</label>
         </dd>
         <dd>
-            <input id="armodetest" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
-            <label for="armodetest">{ARMODES.experiment}</label>
+            <input id="armodeexperiment" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
+            <label for="armodeexperiment">{ARMODES.experiment}</label>
         </dd>
     </dl>
 
@@ -140,9 +161,6 @@
             <dd class="autoheight">
                 <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
             </dd>
-            <!--    TODO: Values aren't displayed for some reason. Fix. -->
-            <!--    <dt>at</dt>-->
-            <!--    <dd><pre>{JSON.stringify($recentLocalisation.floorpose, null, 2)}</pre></dd>-->
         </dl>
 
         <dl class="nested">
@@ -241,33 +259,49 @@
                     on:change={(event) => {
                         experimentDetail = event.detail;
 
-                        $activeExperiment = experimentDetail.key;
+                        if ($experimentModeSettings === null) {
+                            $experimentModeSettings = {};
+                        }
 
+                        $activeExperiment = experimentDetail.key;
                         if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
                     }}
                 />
             </dd>
         </dl>
 
-        {#if experimentDetail != null}
-            {#await experimentDetail?.settings}
-                <p>Loading...</p>
-            {:then setting}
+        {#await experimentDetail?.settings}
+            <p>Loading...</p>
+        {:then setting}
+            {#if experimentDetail?.key && $experimentModeSettings}
                 <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
-            {/await}
-        {/if}
+            {/if}
+        {/await}
     {/if}
+
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
     <summary>Multiplayer</summary>
-    <div>
-        <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
-        <label for="allowP2p">Connect to p2p network</label>
-    </div>
+    <dl>
+        <dt>Choose your name</dt>
+        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
+    </dl>
+    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
+
+    <MessageBrokerSelector
+        onSubmit={testRmqConnection}
+        submitButtonLabel="Test Authentication"
+        submitFailureMessage="Authentication unsuccessful. Reason:"
+        submitSuccessMessage="Authentication successful"
+    ></MessageBrokerSelector>
 
     <dl>
-        <dt><label for="p2pserver">P2P Service</label></dt>
+        <dt><label for="p2pserver">PeerJS Services</label></dt>
+        <div>
+            <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
+            <label for="allowP2p">Connect to p2p network</label>
+        </div>
         <dd class="select">
             <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2 || $allowP2pNetwork === false}>
                 {#if $availableP2pServices.length === 0}
@@ -317,6 +351,11 @@
         <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
         <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
     </div>
+
+    <div>
+        <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
+        <label for="enablePointCloudContents">Enable point cloud contents</label>
+    </div>
 </details>
 
 {@html supportedCountries}
@@ -336,7 +375,7 @@
         margin-bottom: 0;
     }
 
-    button {
+    #go-immersive-button {
         width: 100%;
         height: 50px;
 

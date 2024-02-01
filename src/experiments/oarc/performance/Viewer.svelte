@@ -10,7 +10,7 @@
     import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    import type { Transform } from 'ogl';
+    import { Vec3, type Transform, Quat } from 'ogl';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
 
@@ -18,8 +18,7 @@
     let xrEngine: webxr;
     let tdEngine: ogl;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | undefined;
-    let hasLostTracking = true;
+    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
@@ -30,7 +29,7 @@
         maxSlow = 10,
         maximumFrameTime = 1000 / 30; // 30 FPS
 
-    let parentState = writable<{ isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
+    let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
     /**
@@ -60,15 +59,15 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr, result, gl) => {
+            (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(result, gl);
+                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
 
-                result
+                session
                     .requestReferenceSpace('viewer')
-                    .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
+                    .then((refSpace) => session.requestHitTestSource?.({ space: refSpace }))
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
@@ -86,7 +85,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if (!hasLostTracking && reticle && ($settings.add === 'manually' || auto)) {
+        if ($parentState.hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
@@ -183,47 +182,45 @@
      * @param floorSpaceReference
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
-        hasLostTracking = false;
+        parentInstance.handlePoseHeartbeat();
 
-        if (hitTestSource) {
-            const t = performance.now();
-            const elapsed = t - previousTime;
-            previousTime = t;
+        if (!hitTestSource) {
+            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            return;
+        }
 
-            if (elapsed > maximumFrameTime) {
-                slowCount = Math.max(slowCount++, maxSlow);
-            }
+        const t = performance.now();
+        const elapsed = t - previousTime;
+        previousTime = t;
+        if (elapsed > maximumFrameTime) {
+            slowCount = Math.max(slowCount++, maxSlow);
+        }
 
-            const roundedElapsed = Math.ceil(elapsed);
-            const hitTestResults = frame.getHitTestResults(hitTestSource);
-            if (hitTestResults.length > 0) {
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
-
-                if ($settings.localisation && !$parentState.isLocalized) {
-                    parentInstance.onXrFrameUpdate(time, frame, floorPose);
-                } else {
-                    $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
-
-                    xrEngine.setViewPort();
-
-                    if (!reticle) {
-                        reticle = tdEngine.addReticle();
-                    }
-
-                    const position = reticlePose?.transform.position;
-                    const orientation = reticlePose?.transform.orientation;
-                    if (position && orientation) {
-                        tdEngine.updateReticlePose(reticle, position, orientation);
-                    }
-                    tdEngine.render(time, floorPose.views[0]);
-
-                    experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
-                }
+        const roundedElapsed = Math.ceil(elapsed);
+        const hitTestResults = frame.getHitTestResults(hitTestSource);
+        if (hitTestResults.length > 0) {
+            if ($settings.localisation && !$parentState.isLocalized) {
+                parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
-                tdEngine.render(time, floorPose.views[0]);
+                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                if (reticle === null) {
+                    reticle = tdEngine.addReticle();
+                }
+                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const position = reticlePose?.transform.position;
+                const orientation = reticlePose?.transform.orientation;
+                if (position && orientation) {
+                    tdEngine.updateReticlePose(reticle,
+                            new Vec3(position.x, position.y, position.z),
+                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                }
             }
         }
+
+        experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
+
+        xrEngine.setViewportForView(floorPose.views[0]);
+        tdEngine.render(time, floorPose.views[0]);
     }
 
     /**
@@ -236,14 +233,13 @@
      */
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
-        hasLostTracking = true;
     }
 
     /**
      * Let's the app know that the XRSession was closed.
      */
     function onXrSessionEnded() {
-        if (hitTestSource) {
+        if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;
         }

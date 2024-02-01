@@ -32,8 +32,3 @@ export type ObjectDescription = {
 };
 
 export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer;
-
-export type Position = { x: number; y: number; z: number };
-export type Orientation = { x: number; y: number; z: number; w: number };
-
-export type OldFormatGeopose = Omit<Geopose, 'position'> & { latitude: number; longitude: number; ellipsoidHeight: number };

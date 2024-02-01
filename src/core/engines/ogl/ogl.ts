@@ -7,8 +7,31 @@
   SPDX-License-Identifier: MIT
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Polyline, Color, type OGLRenderingContext, Program, Quat, Vec3 } from 'ogl';
-import { createGltfProgram } from '@core/engines/ogl/oglGltfHelper';
+import {
+    Camera,
+    Euler,
+    GLTFLoader,
+    Mat4,
+    Raycast,
+    Renderer,
+    Transform,
+    Vec2,
+    AxesHelper,
+    Mesh,
+    Plane,
+    Geometry,
+    Program,
+    Quat,
+    Vec3,
+    Polyline,
+    Color,
+    type Vec3Tuple,
+    type OGLRenderingContext,
+} from 'ogl';
+
+
+import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
+import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 
 import {
@@ -32,7 +55,6 @@ import {
     convertGeodeticToEnu,
     getRelativeGlobalPosition,
     getRelativeOrientation,
-    toDegrees,
     convertWeb2GeoQuat,
     convertGeo2WebQuat,
     convertEnuToGeodetic,
@@ -41,8 +63,8 @@ import {
 import { printOglTransform, checkGLError } from '@core/devTools';
 
 import { quat, vec3 } from 'gl-matrix';
-import type { ObjectDescription, Orientation, Position, ValueOf } from '../../../types/xr';
-import type { Geopose } from '@oarc/scd-access';
+import type { ObjectDescription, ValueOf } from '../../../types/xr';
+import type { Geopose, SCR } from '@oarc/scd-access';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -56,8 +78,11 @@ let uniforms = { time: [] as Mesh<Geometry, Program>[] };
 let _geo2ArTransformNode: Transform;
 let _ar2GeoTransformNode: Transform;
 let _globalImagePose: Geopose;
-let _localImagePose: { position: Position; orientation: Orientation };
+let _localImagePose: { position: Vec3; orientation: Quat };
 let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
+
+let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
+let dynamic_objects_meshes: Record<string, Mesh> = {};
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -80,7 +105,11 @@ export default class ogl {
 
         scene = new Transform();
 
-        this.setupEnvironment(gl);
+        camera = new Camera(gl);
+        camera.position.set(0, 0, 0);
+        camera.quaternion.set(0, 0, 0, 1);
+
+        this.initScene();
 
         window.addEventListener('resize', () => this.resize(), false);
         this.resize();
@@ -91,11 +120,36 @@ export default class ogl {
     }
 
     /**
-     * Set up the 3D environment as required according to the current real environment.*
+     * Initialize the virtual environment
      */
-    setupEnvironment(gl: OGLRenderingContext) {
-        camera = new Camera(gl);
-        camera.position.set(0, 0, 0);
+    initScene() {
+        if (!gl) {
+            console.log('GL is not initilized yet!');
+            return;
+        }
+
+        // Visualize axes
+        axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
+        axesHelper.setParent(scene);
+
+        // Our camera images are captured into texture 0, and therefore the first loaded textured object (that normally gets text id 0)
+        // in the scene sometimes is painted not from its own texture but from the camera image texture.
+        // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
+        loadLogoTexture(gl, '/media/icons/icon_x48.png').then((texture) => {
+            if (texture === undefined) {
+                console.log('Error: logo texture ID is undefined!');
+                return;
+            }
+            console.log('Dummy TEXTURE ID: ' + texture.id);
+            const dummyProgram = createLogoProgram(gl, texture);
+            const dummyGeometry = new Plane(gl, { width: 0.1, height: 0.1 });
+            const dummyMesh = new Mesh(gl, {
+                geometry: dummyGeometry,
+                program: dummyProgram,
+                frustumCulled: false,
+            });
+            dummyMesh.setParent(scene);
+        });
 
         // TODO: Add light
         // TODO: Use environmental lighting?!
@@ -104,73 +158,86 @@ export default class ogl {
     /**
      * Add a general placeholder to the scene.
      *
-     * @param keywords  string        Defines the kind of placeholder to create
-     * @param position  number{x, y, z}        3D position of the placeholder
-     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param keywords  string      Defines the kind of placeholder to create
+     * @param position  Vec3        3D position of the placeholder
+     * @param orientation  Quat     Orientation of the placeholder
      * @returns {Transform}
      */
-    addPlaceholder(keywords: string | string[] | undefined, position: Position, orientation: Orientation) {
+    addPlaceholder(keywords: string | string[] | undefined, position: Vec3, orientation: Quat) {
         const placeholder = getDefaultPlaceholder(gl);
-
-        placeholder.position.set(position.x, position.y, position.z);
-        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.position = position;
+        placeholder.quaternion = orientation;
         placeholder.setParent(scene);
-
         return placeholder;
+    }
+
+    /**
+     * Add a general 3D polyline to the scene.
+     * @param points  Vec3[]   3D points of the polyline
+     * @returns {Mesh}
+     */
+    addPolyline(points: Vec3[], hexColor: string) {
+        const polyline = new Polyline(gl, {
+            points,
+            uniforms: {
+                uColor: { value: new Color(hexColor) },
+                uThickness: { value: 5 },
+            },
+        });
+        const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
+        mesh.setParent(scene);
+        return mesh;
     }
 
     /**
      * Create random object for experiments.
      *
-     * @param shape  String      Defines the shape to create
-     * @param position  number{x, y, z}        3D position of the placeholder
-     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
-     * @param fragmentShader  String        Fragment-Shader to add to program
-     * @param options  Object       Defines additional options for the shape to add
+     * @param shape  String           Defines the shape to create
+     * @param position  Vec3          3D position of the placeholder
+     * @param orientation  Quat       Orientation of the placeholder
+     * @param fragmentShader  String  Fragment-Shader to add to program
+     * @param options  Object         Defines additional options for the shape to add
      */
-    addPlaceholderWithOptions(shape: ValueOf<typeof PRIMITIVES>, position: Position, orientation: Orientation, fragmentShader: string, options: any = {}) {
+    addPlaceholderWithOptions(shape: ValueOf<typeof PRIMITIVES>, position: Vec3, orientation: Quat, fragmentShader: string, options: any = {}) {
         const placeholder = createModel(gl, shape, [Math.random(), Math.random(), Math.random(), 1], false, options);
-
-        placeholder.position.set(position.x, position.y, position.z);
-        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.position = position;
+        placeholder.quaternion = orientation;
         placeholder.setParent(scene);
-
         placeholder.program = createProgram(gl, {
             fragment: fragmentShader,
             uniforms: {
                 uTime: { value: 0.0 },
             },
         });
-
         uniforms.time[placeholder.id] = placeholder;
-
         return placeholder;
     }
 
     /**
      * Add 3D model of format gltf to the scene.
      *
-     * @param position  number{x, y, z}        3D position of the placeholder
-     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
-     * @param url  String       URL to load the model from
+     * @param position  Vec3      3D position of the model
+     * @param orientation  Quat   Orientation of the model
+     * @param url  String         URL to load the model from
      * @returns {Transform}
      */
-    addModel(position: Position, orientation: Orientation, url: string) {
-        const gltfScene = new Transform();
-        gltfScene.position.set(position.x, position.y, position.z);
-        gltfScene.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+    addModel(position: Vec3, orientation: Quat, url: string) {
+        const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
+        gltfScene.position = position
+        gltfScene.quaternion = orientation;
         gltfScene.setParent(scene);
 
         console.log('Loading ' + url);
         GLTFLoader.load(gl, url)
             .then((gltf) => {
-                const s = (gltf.scene || gltf.scenes[0]) as Transform[];
+                const s = (gltf.scene || gltf.scenes[0]) as Transform[]; // WARNING: we handle a single scene per GLTF only
                 s.forEach((root) => {
                     root.setParent(gltfScene);
                     root.traverse((node) => {
-                        if ((node as any).program) {
+                        if ((node as Mesh).program) {
+                            // TODO: cast node to Mesh
                             // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
-                            (node as any).program = createGltfProgram(node);
+                            (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
                         }
                     });
                 });
@@ -185,7 +252,7 @@ export default class ogl {
             });
 
         scene.updateMatrixWorld();
-        return gltfScene;
+        return gltfScene; // returns a scene graph of Transforms, the root is also of type Transform
     }
 
     /**
@@ -193,18 +260,15 @@ export default class ogl {
      *
      * Indicates visually that the placeholder can load a scene.
      *
-     * @param position  number{x, y, z}        3D position of the placeholder
-     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param position  Vec3        3D position of the placeholder
+     * @param orientation  Quat     Orientation of the placeholder
      */
-    addExperiencePlaceholder(position: Position, orientation: Orientation): Mesh {
+    addExperiencePlaceholder(position: Vec3, orientation: Quat): Mesh {
         const placeholder = getExperiencePlaceholder(gl);
-
-        placeholder.position.set(position.x, position.y, position.z);
-        placeholder.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        placeholder.position = position;
+        placeholder.quaternion = orientation;
         placeholder.setParent(scene);
-
         updateHandlers[placeholder.id] = () => (placeholder.rotation.y += 0.01);
-
         return placeholder;
     }
 
@@ -228,7 +292,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addReticle() {
-        return this.addModel({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, '/media/models/reticle.gltf');
+        return this.addModel(new Vec3(0, 0, 0), new Quat(0, 0, 0, 1), '/media/models/reticle.gltf');
     }
 
     isHorizontal(object: { quaternion: Quat }) {
@@ -239,11 +303,11 @@ export default class ogl {
     /**
      * Create object with random shape, color, size and add it to the scene at the given pose
      *
-     * @param position  number{x, y, z}        3D position of the object
-     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param position  Vec3      3D position of the object
+     * @param orientation  Quat   Orientation of the object
      * @returns {Mesh}
      */
-    addRandomObject(position: Position, orientation: Orientation) {
+    addRandomObject(position: Vec3, orientation: Quat) {
         let object_description = createRandomObjectDescription();
         return this.addObject(position, orientation, object_description);
     }
@@ -251,18 +315,115 @@ export default class ogl {
     /**
      * Create object with given properties at the given pose
      *
-     * @param position  number{x, y, z}        3D position of the object
-     * @param orientation  number{x, y, z, w}     Orientation of the object
+     * @param position  Vec3      3D position of the object
+     * @param orientation  Quat   Orientation of the object
      * @param object_description  {*}
      * @returns {Mesh}
      */
-    addObject(position: Position, orientation: Orientation, object_description: ObjectDescription) {
+    addObject(position: Vec3, orientation: Quat, object_description: ObjectDescription) {
         console.log('OGL addObject: ' + object_description);
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
-        mesh.position.set(position.x, position.y, position.z);
-        mesh.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+        mesh.position = position;
+        mesh.quaternion = orientation;
         scene.addChild(mesh);
         return mesh;
+    }
+
+    /**
+     * Create a dynamic object with given properties at the given pose
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @param position  Vec3        3D position of the object
+     * @param orientation  Quat     Orientation of the object
+     * @param object_description {*}    Key-value pairs of object properties
+     * @returns {Mesh}  The newly created mesh
+     */
+    addDynamicObject(object_id: string, position: Vec3, orientation: Quat, object_description: ObjectDescription | null = null) {
+        console.log('OGL addDynamicObject: ' + object_id);
+        let description = object_description || {
+            version: 2,
+            color: [1.0, 1.0, 1.0, 0.5],
+            shape: PRIMITIVES.sphere,
+            scale: [0.25, 0.25, 0.25],
+            transparent: true,
+            options: {},
+        };
+        const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
+        mesh.position = position;
+        mesh.quaternion = orientation;
+        scene.addChild(mesh);
+        dynamic_objects_descriptions[object_id] = description;
+        dynamic_objects_meshes[object_id] = mesh;
+        return mesh;
+    }
+
+    /**
+     * Update a dynamic object with given properties at the given pose
+     *
+     * @param object_id  string    User-specified unique ID in the scene
+     * @param position  Vec3       3D position of the object
+     * @param orientation  Quat    Orientation of the object
+     * @param object_description   Key-value pairs of object properties
+     * @returns boolean     Whether the update succeeded
+     */
+    updateDynamicObject(object_id: string, position: Vec3 | null = null, orientation: Quat | null = null, object_description: ObjectDescription | null = null) {
+        //console.log("OGL updateDynamicObject: " + object_id);
+        if (!(object_id in dynamic_objects_descriptions)) {
+            console.log('WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
+            return false;
+        }
+        const old_position = dynamic_objects_meshes[object_id].position;
+        let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
+        if (position != null) {
+            new_position = new Vec3(position[0], position[1], position[2]);
+        }
+        dynamic_objects_meshes[object_id].position = new_position;
+
+        const old_orientation = dynamic_objects_meshes[object_id].quaternion;
+        let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
+        if (orientation != null) {
+            new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
+        }
+        dynamic_objects_meshes[object_id].quaternion = new_orientation;
+
+        // check whether anything changed in the description
+        const old_object_description = dynamic_objects_descriptions[object_id];
+        if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
+            // nothing to do
+            return true;
+        }
+        console.log(object_id + ' has changed!');
+        let new_object_description = object_description ? { ...object_description } : null;
+        // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
+        this.removeDynamicObject(object_id);
+        this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        return true;
+    }
+
+    /**
+     * Query the description of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {*}     Key-value pairs of object properties
+     */
+    getDynamicObjectDescription(object_id: string) {
+        if (object_id in dynamic_objects_descriptions) {
+            return dynamic_objects_descriptions[object_id];
+        }
+        return null;
+    }
+
+    /**
+     * Query the mesh of a dynamic object
+     *
+     * @param object_id  string     User-specified unique ID in the scene
+     * @returns {Mesh}
+     */
+    getDynamicObjectMesh(object_id: string) {
+        if (object_id in dynamic_objects_meshes) {
+            return dynamic_objects_meshes[object_id];
+        }
+        return null;
     }
 
     /**
@@ -270,25 +431,26 @@ export default class ogl {
      *
      * Called when marker movement was detected, for example.
      *
-     * @param object  Mesh      The marker object
-     * @param position  number{x, y, z}        3D position of the placeholder
-     * @param orientation  number{x, y, z, w}     Orientation of the placeholder
+     * @param object  Mesh        The marker object
+     * @param position  Vec3      3D position of the placeholder
+     * @param orientation  Quat   Orientation of the placeholder
      */
-    updateMarkerObjectPosition(object: Mesh, position: Position, orientation: Orientation) {
-        object.position.set(position.x, position.y, position.z);
-        object.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+    updateMarkerObjectPosition(object: Mesh, position: Vec3, orientation: Quat) {
+        object.position = position;
+        object.quaternion = orientation;
     }
 
     /**
      * Update the position of the reticle to the provided position and orientation.
      *
-     * @param reticle  Transform        The reticle to display
-     * @param position  Ved3       The position to move the reticle to
-     * @param orientation  Quaternion       The rotation to apply to the reticle
+     * @param reticle  Transform   The reticle to display
+     * @param position  Vec3       The position of the reticle
+     * @param orientation  Quat    The orientation of the reticle
      */
-    updateReticlePose(reticle: Transform, position: Position, orientation: Orientation) {
-        reticle.position.set(position.x, position.y, position.z);
-        reticle.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+    updateReticlePose(reticle: Transform, position: Vec3, orientation: Quat) {
+        reticle.position = position;
+        reticle.quaternion = orientation;
+        reticle.scale.set(0.2, 0.2, 0.2);
     }
 
     /**
@@ -298,6 +460,45 @@ export default class ogl {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
+    }
+
+    addPointCloud(url: string, position: Vec3, quaternion: Quat) {
+        console.log('Adding point cloud ' + url);
+        MyPLYLoader.load(gl, url).then((geometry) => {
+            if (geometry == null) {
+                return; // do nothing
+            }
+            const pclProgram = createSimplePointCloudProgram(gl);
+            const pclMesh = new Mesh(gl, {
+                mode: gl.POINTS,
+                geometry: geometry,
+                program: pclProgram,
+                //frustumCulled: false, // TODO: try to turn on, maybe it gets faster
+                //renderOrder: 0
+            });
+            pclMesh.position = position;
+            pclMesh.quaternion = quaternion;
+            pclMesh.setParent(scene); // this is very slow
+        });
+    }
+
+    addLogoObject(url: string, position: Vec3, quaternion: Quat, width = 1.0, height = 1.0) {
+        console.log('OGL addLogoObject ' + url);
+        loadLogoTexture(gl, url).then((texture) => {
+            const logoProgram = createLogoProgram(gl, texture);
+            const planeGeometry = new Plane(gl, {
+                width: width,
+                height: height,
+            }); // by default, the normal vector of the plane is axis Z
+            const plane = new Mesh(gl, {
+                geometry: planeGeometry,
+                program: logoProgram,
+                frustumCulled: false,
+            });
+            plane.position = position;
+            plane.quaternion = quaternion;
+            plane.setParent(scene);
+        });
     }
 
     /**
@@ -373,6 +574,18 @@ export default class ogl {
         camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000 });
     }
 
+    removeDynamicObject(object_id: string) {
+        console.log('OGL removeDynamicObject: ' + object_id);
+        if (!(object_id in dynamic_objects_meshes)) {
+            console.log('WARNING: tried to delete object ' + object_id + ' which is not in the scene');
+            return;
+        }
+        const mesh = dynamic_objects_meshes[object_id];
+        this.remove(mesh);
+        delete dynamic_objects_meshes[object_id];
+        delete dynamic_objects_descriptions[object_id];
+    }
+
     /**
      * Removes the provided model from the scene and all the handlers it mit be registered with.
      *
@@ -391,11 +604,19 @@ export default class ogl {
      *  Removes all objects from the scene
      */
     clearScene() {
+        // dynamic objects
+        for (const object_id in dynamic_objects_descriptions) {
+            this.removeDynamicObject(object_id);
+        }
+
+        // normal models
         while (scene.children.length > 0) {
             let child: Transform | null = scene.children[0];
             scene.removeChild(child);
             child = null;
         }
+
+        this.initScene(); // but do any neccessary minimal environment setup
     }
 
     /**
@@ -477,7 +698,7 @@ export default class ogl {
      * @param {*} localImagePose The local pose of the photo
      * @param {*} globalImagePose The global pose of the photo
      */
-    updateGeoAlignment(localImagePose: { orientation: Orientation; position: Position }, globalImagePose: Geopose) {
+    updateGeoAlignment(localImagePose: { position: Vec3; orientation: Quat }, globalImagePose: Geopose) {
         // NOTE:
         // The GeoPose location coordinates are in local tangent plane (LTP) approximation, in
         // East-North-Up (ENU) right-handed coordinate system
@@ -576,7 +797,9 @@ export default class ogl {
      * @param {*} globalObjectPose GeoPose of the content
      * @param {*} content The content entry
      */
-    addSpatialContentRecord(globalObjectPose: Geopose) {
+    addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
+        // TODO: implement general content placement
+        console.log('Warning: content placement is not implemented yet!');
         const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
 
         // calculate relative position w.r.t the camera in ENU system
