@@ -42,11 +42,11 @@
         debug_enablePointCloudContents,
         myAgentColor,
         myAgentName,
-        availableMessageBrokerServices,
         activeExperiment,
         selectedMessageBrokerService,
         messageBrokerAuth,
-        allowMessageBroker,
+        debug_usePredefinedGeolocation,
+        debug_predefinedGeolocation,
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -56,11 +56,13 @@
 
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
+    import { setInitialLocationAndServices } from '../core/locationTools';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
+    let usePredefinedGeopositionPromise: Promise<void>;
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
@@ -89,7 +91,6 @@
 </div>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
-
     <summary>Application state</summary>
     <dl>
         <dt>Location access</dt>
@@ -278,7 +279,6 @@
             {/if}
         {/await}
     {/if}
-
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
@@ -356,6 +356,31 @@
         <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
         <label for="enablePointCloudContents">Enable point cloud contents</label>
     </div>
+
+    <div>
+        <input id="usePredefinedGeoposition" type="checkbox" bind:checked={$debug_usePredefinedGeolocation} />
+        <label for="usePredefinedGeoposition">Use predefined geo position</label>
+    </div>
+    {#if $debug_usePredefinedGeolocation}
+        <form style="margin-top: 5px;">
+            <label style="display: inline-block; min-width: 100px;" for="lat">Latitude</label>
+            <input name="lat" type="text" bind:value={$debug_predefinedGeolocation.position.lat} />
+            <label style="display: inline-block; min-width: 100px;" for="lon">Longitude</label>
+            <input name="lon" type="text" bind:value={$debug_predefinedGeolocation.position.lon} />
+        </form>
+        <div class="center" style="padding-top: 1rem;">
+            <button on:click={() => (usePredefinedGeopositionPromise = setInitialLocationAndServices())}>Use position</button>
+        </div>
+        {#if usePredefinedGeopositionPromise}
+            {#await usePredefinedGeopositionPromise}
+                <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+            {:then}
+                <p class="center" style="color: green">Successfully set geoposition</p>
+            {:catch error}
+                <p class="center" style="color: red">Could not set geoposition. Reason: {error}</p>
+            {/await}
+        {/if}
+    {/if}
 </details>
 
 {@html supportedCountries}
@@ -386,6 +411,20 @@
         font-size: 25px;
         letter-spacing: 0;
 
+        background-color: white;
+    }
+
+    .center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    button {
+        border: 2px solid var(--theme-color);
+        border-radius: 0.5rem;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
         background-color: white;
     }
 
@@ -544,5 +583,16 @@
 
     .serviceurl {
         font-size: 8px;
+    }
+
+    .center-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    .spinner {
+        height: 50px;
     }
 </style>

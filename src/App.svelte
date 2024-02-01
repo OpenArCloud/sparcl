@@ -13,9 +13,8 @@
 <script lang="ts">
     import { onMount, tick, type ComponentType, SvelteComponent } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
-    import type { Service } from '@oarc/ssd-access';
 
-    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
+    import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
 
     import Dashboard from '@components/Dashboard.svelte';
     import WelcomeOverlay from '@components/dom-overlays/WelcomeOverlay.svelte';
@@ -52,6 +51,7 @@
     import type ogl from '@core/engines/ogl/ogl';
     import type { ExperimentsViewers } from './types/xr';
     import ViewerMarker from '@components/viewer-implementations/Viewer-Marker.svelte';
+
     let showWelcome: boolean | null = null;
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
@@ -66,56 +66,25 @@
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
 
-    // TODO: Find solution for this quick fix to prevent continuous service requests.
-    let haveReceivedServices = false;
-
     /**
      * Reactive function to define if the AR viewer can be shown.
      */
     $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
 
     /**
-     * Reactive function to setup AR modes.
-     *
-     * Will be called everytime the value in arIsAvailable changes
+     * Reactive function to query current location and ssr. This needs to run after isLocationAccessAllowed receives a value, that's why we use a reactive statement instead of simply using onMount
      */
     $: {
-        if ($isLocationAccessAllowed && !haveReceivedServices) {
-            window.requestIdleCallback(() => {
-                // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
-                getCurrentLocation()
-                    .then((currentLocation) => {
-                        $initialLocation = currentLocation;
-                        return import('@oarc/ssd-access');
-                    })
-                    .then((ssdModule) => {
-                        const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
-                        if (ssdUrl != undefined && ssdUrl != '') {
-                            ssdModule.setSsdUrl(ssdUrl);
-                            console.log('Setting SSD URL to ' + ssdUrl);
-                        } else {
-                            console.error('Cannot determine SSD URL!');
-                            throw new Error('Cannot determine SSD URL!');
-                        }
-                        // TODO: we could also query all the neighboring hexagons
-                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index);
-                    })
-                    .then((services) => {
-                        haveReceivedServices = true;
-                        $ssr = services;
+        if ($isLocationAccessAllowed) {
+            setInitialLocationAndServices();
+        }
+    }
 
-                        if (services.length === 0) {
-                            shouldShowUnavailableInfo = true;
-                            console.error('No available services found');
-                        } else {
-                            console.log('Retrieved ' + services.length + ' SSRs');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Could not retrieve spatial services');
-                        console.error(error);
-                    });
-            });
+    $: {
+        if ($ssr.length === 0) {
+            shouldShowUnavailableInfo = true;
+        } else {
+            shouldShowUnavailableInfo = false;
         }
     }
 
