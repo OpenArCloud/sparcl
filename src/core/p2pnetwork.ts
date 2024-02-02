@@ -52,7 +52,7 @@ export function connect(headlessPeerId: string, isHeadless = false, updateftn: (
     setupPeerEvents(headlessPeerId, isHeadless);
 }
 
-export function connectWithUrl(headlessPeerId: string, isHeadless = true, url: string, port: number, updateftn: (data: any) => void) {
+export function connectWithUrl(headlessPeerId: string, isHeadless = true, url: string | null | undefined, port: number | null | undefined, updateftn: (data: any) => void) {
     updateFunction = updateftn;
 
     setupPergeWithUrl(headlessPeerId, url, port);
@@ -123,13 +123,11 @@ function setupPerge(peerId: string) {
     const selected = get(selectedP2pService);
     const service = get(availableP2pServices).find((service) => service.id === selected?.id);
     const port = service?.properties?.reduce((result, prop) => (prop.type === 'port' ? prop.value : result), '');
-
-    if (port !== undefined && service?.url) {
-        setupPergeWithUrl(peerId, service?.url, parseInt(port));
-    } // TODO: handle if port undefined
+    const actualPort = port ? parseInt(port) : null;
+    setupPergeWithUrl(peerId, service?.url, actualPort);
 }
 
-function setupPergeWithUrl(peerId: string, url: string, port: number) {
+function setupPergeWithUrl(peerId: string, url: string | null | undefined, port: number | null | undefined) {
     //NOTE: servers in use:
     //{} // default, hosted by peerjs.com, see https://peerjs.com/peerserver.html
     //{host: 'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server

@@ -145,8 +145,9 @@
                 console.log('  port: ' + (port ? port : 'PeerJS default'));
 
                 p2p.initialSetup();
-                if (headlessPeerId && url && port) {
-                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, parseInt(port), (data: any) => {
+                if (headlessPeerId) {
+                    const portToUse = port ? parseInt(port) : null;
+                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, portToUse, (data: any) => {
                         // Just for development
                         console.log(data);
                         currentSharedValues = data;
