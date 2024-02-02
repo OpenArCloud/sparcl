@@ -19,7 +19,7 @@ import { p2pNetworkState, peerIdStr } from '@src/stateStore';
 import { get } from 'svelte/store';
 import { availableP2pServices, selectedP2pService } from '@src/stateStore';
 
-let instance: Perge;
+let instance: Perge | null;
 let peerServerHeartbeater: PeerJSHeartbeater | undefined;
 const docSet = new Automerge.DocSet();
 
@@ -152,8 +152,8 @@ function setupPergeWithUrl(peerId: string, url: string, port: number) {
             : {};
 
     console.log('Creating P2P network:');
-    console.log('  Server URL: ' + (url != null ? url : 'PeerJS default'));
-    console.log('  Server port: ' + (port != null ? port : 'PeerJS default'));
+    console.log('  Server URL: ' + (options?.host || 'PeerJS default'));
+    console.log('  Server port: ' + (options?.port || 'PeerJS default'));
     console.log('  PeerId: ' + peerId);
 
     const peer = new Peer(peerId, options);
@@ -165,8 +165,8 @@ function setupPergeWithUrl(peerId: string, url: string, port: number) {
     });
 
     // subscribe returns an unsubscribe function
-    unsubscribeFunction = instance.subscribe(() => {
-        //console.log('instance.subscribe');
+    unsubscribeFunction = instance?.subscribe(() => {
+        // console.log('instance.subscribe');
         onNetworkEvent();
     });
 }
@@ -181,17 +181,16 @@ function setupPergeWithUrl(peerId: string, url: string, port: number) {
  */
 function setupPeerEvents(headlessPeerId: string, isHeadless: boolean) {
     //Emitted when a connection to the PeerServer is established.
-    instance.peer.on('open', (id) => {
+    instance?.peer.on('open', (id) => {
         let msg = 'Connection to the PeerServer established. Peer ID ' + id;
         console.log(msg);
         p2pNetworkState.set(msg);
         peerIdStr.set(id);
-
         if (!isHeadless) {
             msg = 'Connecting to headless client: ' + headlessPeerId;
             console.log(msg);
             p2pNetworkState.set(msg);
-            let dataConnection = instance.connect(headlessPeerId);
+            let dataConnection: DataConnection | undefined = instance?.connect(headlessPeerId);
             // TODO: connect() is asynchronous, so this dataConnction should not be used yet
             if (dataConnection != null) {
                 msg = 'Connected to headless client.\nMy PeerId: ' + id;
@@ -199,51 +198,44 @@ function setupPeerEvents(headlessPeerId: string, isHeadless: boolean) {
                 p2pNetworkState.set(msg);
             }
         }
-
         // Send heartbeat to keep the connection alive
-        if (peerServerHeartbeater === undefined) {
+        if (peerServerHeartbeater === undefined && instance) {
             peerServerHeartbeater = new PeerJSHeartbeater(instance.peer);
             peerServerHeartbeater.start();
         }
     });
-
     // Emitted when a new data connection is established from a remote peer.
-    instance.peer.on('connection', (connection) => {
+    instance?.peer.on('connection', (connection) => {
         let msg = 'Connection established with remote peer: ' + connection.peer;
         console.log(msg);
         p2pNetworkState.set(msg);
-
         connection.on('close', () => {
             console.log('Connection closed.');
         });
     });
-
     // Errors on the peer are almost always fatal and will destroy the peer.
-    instance.peer.on('error', (error) => {
+    instance?.peer.on('error', (error) => {
         let msg = error; // 'Error: ' is already prefixed to the incoming error message
         console.error(msg);
         p2pNetworkState.set(`${msg}`);
     });
-
     // Emitted when the peer is disconnected from the signalling server
     // either manually or because the connection to the signalling server was lost.
     // When a peer is disconnected, its existing connections will stay alive,
     // but the peer cannot accept or create any new connections.
     // You can reconnect to the server by calling peer.reconnect().
-    instance.peer.on('disconnected', () => {
+    instance?.peer.on('disconnected', () => {
         let msg = 'Disconnected from PeerServer';
         console.log(msg);
         p2pNetworkState.set(msg);
-
         if (peerServerHeartbeater != undefined) {
             peerServerHeartbeater.stop();
             peerServerHeartbeater = undefined;
         }
     });
-
     // Emitted when the peer is destroyed and can no longer accept or create any new connections
     // At this time, the peer's connections will all be closed.
-    instance.peer.on('close', () => {
+    instance?.peer.on('close', () => {
         let msg = 'Connection closed';
         console.log(msg);
         p2pNetworkState.set(msg);

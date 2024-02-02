@@ -15,7 +15,6 @@
     import type ogl from '../../../core/engines/ogl/ogl';
     import type { ObjectDescription } from '../../../types/xr';
 
-
     let parentInstance: Parent;
     let xrEngine: webxr;
     let tdEngine: ogl;
@@ -71,7 +70,7 @@
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
-            []
+            [],
         );
 
         tdEngine.setExperimentTapHandler(experimentTapHandler);
@@ -107,9 +106,7 @@
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
-                    tdEngine.updateReticlePose(reticle,
-                            new Vec3(position.x, position.y, position.z),
-                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                    tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                 }
             }
         }
@@ -166,13 +163,8 @@
             // create SCR from the object and share it with the others
             // when received, place the same way as a downloaded SCR.
             if ($parentState.isLocalisationDone) {
-                shareMessage('Hello from ' + $peerIdStr + ' sent at ' + new Date().getTime());
                 const object_description = createRandomObjectDescription();
-
-                tdEngine.addObject(reticle.position, reticle.quaternion, object_description);
-
                 shareObject(object_description, reticle.position, reticle.quaternion);
-
                 experimentOverlay?.objectPlaced();
             }
         }
