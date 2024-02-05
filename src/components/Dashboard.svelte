@@ -45,8 +45,8 @@
         activeExperiment,
         selectedMessageBrokerService,
         messageBrokerAuth,
-        debug_usePredefinedGeolocation,
-        debug_predefinedGeolocation,
+        debug_useOverrideGeopose,
+        debug_overrideGeopose,
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -62,7 +62,7 @@
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
-    let usePredefinedGeopositionPromise: Promise<void>;
+    let overrideGeoposePromise: Promise<void>;
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
@@ -321,7 +321,6 @@
                 {/each}
             {/if}
         </pre>
-        <p class="note">Change active after reload</p>
     </dl>
 
     <dl>
@@ -358,21 +357,21 @@
     </div>
 
     <div>
-        <input id="usePredefinedGeoposition" type="checkbox" bind:checked={$debug_usePredefinedGeolocation} />
-        <label for="usePredefinedGeoposition">Use predefined geoposition</label>
+        <input id="overrideGeopose" type="checkbox" bind:checked={$debug_useOverrideGeopose} />
+        <label for="overrideGeopose">Override geopose</label>
     </div>
-    {#if $debug_usePredefinedGeolocation}
+    {#if $debug_useOverrideGeopose}
         <form style="margin-top: 5px;">
             <label style="display: inline-block; min-width: 100px;" for="lat">Latitude</label>
-            <input name="lat" type="text" bind:value={$debug_predefinedGeolocation.position.lat} />
+            <input name="lat" type="text" bind:value={$debug_overrideGeopose.position.lat} />
             <label style="display: inline-block; min-width: 100px;" for="lon">Longitude</label>
-            <input name="lon" type="text" bind:value={$debug_predefinedGeolocation.position.lon} />
+            <input name="lon" type="text" bind:value={$debug_overrideGeopose.position.lon} />
         </form>
         <div class="center" style="padding-top: 1rem;">
-            <button on:click={() => (usePredefinedGeopositionPromise = setInitialLocationAndServices())}>Use position</button>
+            <button on:click={() => (overrideGeoposePromise = setInitialLocationAndServices())}>Use position</button>
         </div>
-        {#if usePredefinedGeopositionPromise}
-            {#await usePredefinedGeopositionPromise}
+        {#if overrideGeoposePromise}
+            {#await overrideGeoposePromise}
                 <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
             {:then}
                 <p class="center" style="color: green">Successfully set geoposition</p>
