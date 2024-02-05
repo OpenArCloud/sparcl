@@ -9,7 +9,7 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "start": "npm run dev",
     "build": "vite build",
-    "preview": "vite preview",
+    "preview": "vite preview --port 8080",
     "test": "npx mocha --reporter spec 'test/**/*.js'"
   },
   "repository": {
