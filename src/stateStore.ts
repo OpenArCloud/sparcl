@@ -165,7 +165,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
         // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
         if (get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
-        } else if (!get(debug_usePredefinedGeolocation)) {
+        } else if (!get(debug_useOverrideGeopose)) {
             debug_useGeolocationSensors.set(true);
         }
     },
@@ -369,28 +369,28 @@ debug_useGeolocationSensors.subscribe((value) => {
 /**
  * Use a predefined geolocation as if you were actually there. This way we can simulate being in an actual location. Useful for home office work when you wish to see the contents placed in the office.
  */
-const storedDebug_usePredefinedGeolocation = localStorage.getItem('debug_usePredefinedGeolocation') === 'true';
-export const debug_usePredefinedGeolocation = writable(storedDebug_usePredefinedGeolocation);
-debug_usePredefinedGeolocation.subscribe((value) => {
-    localStorage.setItem('debug_usePredefinedGeolocation', value === true ? 'true' : 'false');
+const storeddebug_useOverrideGeopose = localStorage.getItem('debug_useOverrideGeopose') === 'true';
+export const debug_useOverrideGeopose = writable(storeddebug_useOverrideGeopose);
+debug_useOverrideGeopose.subscribe((value) => {
+    localStorage.setItem('debug_useOverrideGeopose', value === true ? 'true' : 'false');
 });
 
-const storedDebug_predefinedGeolocation: Geopose = JSON.parse(localStorage.getItem('debug_predefinedGeolocation') || 'null') || {
+const storedDebug_overrideGeopose: Geopose = JSON.parse(localStorage.getItem('debug_overrideGeopose') || 'null') || {
     position: {
-        h: 0,
+        h: 1.5,
         lat: 0,
         lon: 0,
     },
     quaternion: {
-        w: 0,
         x: 0,
         y: 0,
         z: 0,
+        w: 1,
     },
 };
-export const debug_predefinedGeolocation = writable(storedDebug_predefinedGeolocation);
-debug_predefinedGeolocation.subscribe((value) => {
-    localStorage.setItem('debug_predefinedGeolocation', JSON.stringify(value));
+export const debug_overrideGeopose = writable(storedDebug_overrideGeopose);
+debug_overrideGeopose.subscribe((value) => {
+    localStorage.setItem('debug_overrideGeopose', JSON.stringify(value));
 });
 
 /**

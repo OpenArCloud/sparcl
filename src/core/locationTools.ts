@@ -17,7 +17,7 @@ import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { Quat, type Vec3 } from 'ogl';
-import { debug_predefinedGeolocation, debug_usePredefinedGeolocation, initialLocation, isLocationAccessAllowed, ssr } from '../stateStore';
+import { debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, ssr } from '../stateStore';
 import { get } from 'svelte/store';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
@@ -157,7 +157,7 @@ export function getCurrentLocation() {
                 });
         };
 
-        if (!get(debug_usePredefinedGeolocation)) {
+        if (!get(debug_useOverrideGeopose)) {
             navigator.geolocation.getCurrentPosition(
                 currentPositionCallback,
                 (error) => {
@@ -167,7 +167,7 @@ export function getCurrentLocation() {
                 locationAccessOptions,
             );
         } else {
-            const predefinedGeolocation = get(debug_predefinedGeolocation);
+            const predefinedGeolocation = get(debug_overrideGeopose);
             currentPositionCallback({ coords: { latitude: predefinedGeolocation.position.lat, longitude: predefinedGeolocation.position.lon } });
         }
     });

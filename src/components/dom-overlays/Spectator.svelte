@@ -21,7 +21,6 @@
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
 
-
     let map: Map | null;
     let shouldPlaceRandomObjects = false;
 
@@ -213,7 +212,6 @@
                         {/each}
                     {/if}
                 </pre>
-                <p class="note">Change active after reload</p>
             </dl>
 
             <dl>

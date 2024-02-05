@@ -34,8 +34,8 @@
         recentLocalisation,
         selectedContentServices,
         selectedGeoPoseService,
-        debug_predefinedGeolocation,
-        debug_usePredefinedGeolocation,
+        debug_overrideGeopose,
+        debug_useOverrideGeopose,
     } from '@src/stateStore';
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
@@ -199,7 +199,7 @@
             if (startLocalizing) {
                 startLocalizing = false;
 
-                if ($debug_usePredefinedGeolocation) {
+                if ($debug_useOverrideGeopose) {
                     const getGeopose = async () => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
@@ -208,7 +208,7 @@
                             $context.showFooter = false;
                             $context.isLocalisationDone = true;
                         });
-                        return { cameraGeoPose: $debug_predefinedGeolocation };
+                        return { cameraGeoPose: $debug_overrideGeopose };
                     };
                     doLocalization({ floorPose, getGeopose });
                 } else {
