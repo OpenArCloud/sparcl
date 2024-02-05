@@ -7,7 +7,12 @@ import typescript from '@rollup/plugin-typescript';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    plugins: [svelte(), glsl(), basicSsl(), typescript()],
+    plugins: [
+        svelte(),
+        glsl(),
+        //basicSsl(),
+        typescript(),
+    ],
     resolve: {
         alias: {
             '@src': path.resolve(__dirname, 'src'),

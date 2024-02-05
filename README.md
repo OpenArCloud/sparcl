@@ -35,6 +35,8 @@ Steps to setup the project:
 
 * enter the ULR shown in the terminal in the browser on the device
 
+* For local development uncomment the line containing `//basicSsl(),` in `vite.config.js`. This enables https when running the service locally using `npm run dev`
+
 ## Production
 Create `.env` file containing the URL to OSCP SSD
 ```
