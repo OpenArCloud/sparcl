@@ -47,6 +47,7 @@
         messageBrokerAuth,
         debug_useOverrideGeopose,
         debug_overrideGeopose,
+        allowMessageBroker,
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -66,7 +67,7 @@
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
-        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+        if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
