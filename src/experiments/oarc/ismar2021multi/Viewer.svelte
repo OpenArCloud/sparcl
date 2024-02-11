@@ -98,7 +98,7 @@
             if ($settings.localisation && !$parentState.isLocalized) {
                 parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
-                $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
+                $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
                 if (reticle === null) {
                     reticle = tdEngine.addReticle();
                 }
@@ -156,18 +156,24 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if ($parentState.hasLostTracking == false && reticle != null) {
-            //NOTE: ISMAR2021 experiment:
-            // keep track of last localization (global and local)
-            // when tapped, determine the global position of the tap, and save the global location of the object
-            // create SCR from the object and share it with the others
-            // when received, place the same way as a downloaded SCR.
-            if ($parentState.isLocalisationDone) {
-                const object_description = createRandomObjectDescription();
-                shareObject(object_description, reticle.position, reticle.quaternion);
-                experimentOverlay?.objectPlaced();
-            }
+        if (reticle == null) {
+            return;
         }
+        if ($parentState.hasLostTracking) {
+            return;
+        }
+        if ($settings.localizationRequired && !$parentState.isLocalisationDone) {
+            return;
+        }
+
+        //NOTE: ISMAR2021 experiment:
+        // keep track of last localization (global and local)
+        // when tapped, determine the global position of the tap, and save the global location of the object
+        // create SCR from the object and share it with the others
+        // when received, place the same way as a downloaded SCR.
+        const object_description = createRandomObjectDescription();
+        shareObject(object_description, reticle.position, reticle.quaternion);
+        experimentOverlay?.objectSent();
     }
 
     /**
@@ -284,8 +290,8 @@
             //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
             const scr = data.scr;
             if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
-                experimentOverlay?.objectReceived();
                 parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
+                experimentOverlay?.objectReceived();
             }
             //}
         }
