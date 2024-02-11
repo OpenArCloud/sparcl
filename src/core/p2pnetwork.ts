@@ -78,7 +78,7 @@ export function disconnect() {
         // manually close the peer connections
         // see https://github.com/peers/peerjs/issues/636
         for (let conns in Object.values(instance.peer.connections)) {
-            (instance.peer.connections as Record<string, DataConnection[]>)[conns].forEach((conn, index, array) => {
+            (instance.peer.connections as Record<string, DataConnection[] | undefined>)[conns]?.forEach((conn, index, array) => {
                 console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
                 conn.peerConnection.close();
 
