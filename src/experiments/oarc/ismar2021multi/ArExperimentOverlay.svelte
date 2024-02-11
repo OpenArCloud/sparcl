@@ -1,6 +1,10 @@
 <!--
   (c) 2021 Open AR Cloud
-  This code is licensed under MIT license (see LICENSE for details)
+  This code is licensed under MIT license (see LICENSE.md for details)
+
+  (c) 2024 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
 -->
 
 <!--
@@ -14,11 +18,11 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
-    let objectsPlacedCount = 0;
+    let objectsSentCount = 0;
     let objectsReceivedCount = 0;
 
-    export function objectPlaced() {
-        objectsPlacedCount++;
+    export function objectSent() {
+        objectsSentCount++;
     }
 
     export function objectReceived() {
@@ -27,11 +31,11 @@
 </script>
 
 {#if $experimentModeSettings?.ismar2021multi.showstats}
-    <p>Objects placed: {objectsPlacedCount}</p>
+    <p>Objects sent: {objectsSentCount}</p>
     <p>Objects received: {objectsReceivedCount}</p>
     <p>ISMAR 2021 demo</p>
-    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
-    {#if $experimentModeSettings.ismar2021multi.localisation}
+    <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle autospawn</button>
+    {#if $experimentModeSettings.ismar2021multi.localizationRequired}
         <button class="secondary" on:click={() => dispatch('relocalize')}>
             <img src="/media/refresh.svg" alt="refresh icon" />
         </button>

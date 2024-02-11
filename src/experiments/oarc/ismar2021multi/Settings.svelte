@@ -1,14 +1,14 @@
 <script lang="ts">
-    export let settings: { localisation?: boolean; showstats?: boolean };
+    export let settings: { localizationRequired?: boolean; showstats?: boolean };
     if (Object.keys(settings).length === 0) {
-        settings.localisation = true;
+        settings.localizationRequired = true;
         settings.showstats = true;
     }
 </script>
 
 <dl class="radio">
     <dt>
-        <input id="xlocalisation" type="checkbox" bind:checked={settings.localisation} />
+        <input id="xlocalisation" type="checkbox" bind:checked={settings.localizationRequired} />
         <label for="xlocalisation">Localization required</label>
     </dt>
     <dt>

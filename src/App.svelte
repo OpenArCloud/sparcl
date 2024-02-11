@@ -148,7 +148,7 @@
                 if (headlessPeerId) {
                     const portToUse = port ? parseInt(port) : null;
                     p2p.connectWithUrl(headlessPeerId, isHeadless, url, portToUse, (data: any) => {
-                        // Just for development
+                        // DEBUG
                         console.log(data);
                         currentSharedValues = data;
                     });
