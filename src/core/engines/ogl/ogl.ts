@@ -221,10 +221,11 @@ export default class ogl {
      * @param url  String         URL to load the model from
      * @returns {Transform}
      */
-    addModel(position: Vec3, orientation: Quat, url: string) {
+    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0,1.0,1.0)) {
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position = position
         gltfScene.quaternion = orientation;
+        gltfScene.scale = scale;
         gltfScene.setParent(scene);
 
         console.log('Loading ' + url);
@@ -292,7 +293,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addReticle() {
-        return this.addModel(new Vec3(0, 0, 0), new Quat(0, 0, 0, 1), '/media/models/reticle.gltf');
+        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1));
     }
 
     isHorizontal(object: { quaternion: Quat }) {
