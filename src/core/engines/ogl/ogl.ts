@@ -25,8 +25,8 @@ import {
     Vec3,
     Polyline,
     Color,
-    type Vec3Tuple,
     type OGLRenderingContext,
+    Mat3,
 } from 'ogl';
 
 
@@ -84,6 +84,9 @@ let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 
 let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
 let dynamic_objects_meshes: Record<string, Mesh> = {};
+
+let text_meshes: Mesh[] = [];
+
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -510,6 +513,7 @@ export default class ogl {
         textMesh.position = position;
         textMesh.quaternion = quaternion;
         textMesh.setParent(scene);
+        text_meshes.push(textMesh);
     }
 
     /**
@@ -657,10 +661,15 @@ export default class ogl {
         const position = view.transform.position;
         const orientation = view.transform.orientation;
 
-        // TODO: make sure that fromArray understands matrix in correct order
         camera.projectionMatrix.copy(new Mat4().fromArray(view.projectionMatrix));
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
+
+        // rotate all text labels to face the current camera position
+        text_meshes.forEach((text_mesh) => {
+            const orientationMatrix = new Mat4().lookAt(camera.position, text_mesh.position, new Vec3(0,1,0));
+            text_mesh.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
+        });
 
         Object.values(updateHandlers).forEach((handler) => handler());
 
