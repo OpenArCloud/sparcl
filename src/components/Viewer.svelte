@@ -14,7 +14,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce, type DebouncedFunc } from 'lodash';
+    import { debounce, forEach, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
     import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -594,6 +594,41 @@
                             height = parseFloat(content_definitions['height']);
                         }
                         tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
+                        break;
+                    }
+                    case 'POI': {
+                        const url = record.content.refs ? record.content.refs[0].url : '';
+                        fetch(url)
+                            .then((response) => {
+                                if (response.ok) {
+                                    return response.json();
+                                } else {
+                                    console.error('Could not retrieve POIs from ' + url);
+                                    console.error(response.text());
+                                }
+                            })
+                            .then((poidata) => {
+
+                                const features = poidata.features;
+                                features.forEach((feature:any)=> {
+                                    const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
+                                    //console.log("POI received:");
+                                    //console.log(featureName);
+                                    const featureGeopose = {
+                                        // WARNING: now we need to harcode height because it is not part of OGC PoI
+                                        position: {lat: feature.geometry.coordinates[0], lon: feature.geometry.coordinates[1], h: 0.0},
+                                        quaternion: { x: 0, y: 0, z: 0, w: 1},
+                                    };
+                                    const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+                                    tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                    let textPosition = localFeaturePose.position;
+                                    textPosition.y += 1.5;
+                                    tdEngine.addTextObject(textPosition, localFeaturePose.quaternion, featureName);
+                                });
+                            })
+                            .catch((error) => {
+                                console.error('Error while processing POIs: ' + error);
+                            });
                         break;
                     }
                     case 'TEXT': {
