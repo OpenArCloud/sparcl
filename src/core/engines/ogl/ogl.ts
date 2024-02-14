@@ -33,6 +33,7 @@ import {
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
+import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 
 import {
     createAxesBoxPlaceholder,
@@ -500,6 +501,15 @@ export default class ogl {
             plane.quaternion = quaternion;
             plane.setParent(scene);
         });
+    }
+
+    async addTextObject(position: Vec3, quaternion: Quat, string:string) {
+        console.log('addTextOject: ' + string);
+        const fontName = 'MgOpenModernaRegular';
+        const textMesh:Mesh = await loadTextMesh(gl, fontName, string)
+        textMesh.position = position;
+        textMesh.quaternion = quaternion;
+        textMesh.setParent(scene);
     }
 
     /**

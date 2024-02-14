@@ -596,6 +596,27 @@
                         tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
                         break;
                     }
+                    case 'TEXT': {
+                        const url = record.content.refs ? record.content.refs[0].url : '';
+                        fetch(url)
+                            .then((response) => {
+                                if (response.ok) {
+                                    return response.text();
+                                } else {
+                                    console.error('Could not retrieve TEXT from ' + url);
+                                    console.error(response.text());
+                                }
+                            })
+                            .then((textdata) => {
+                                //console.log("TEXT received:")
+                                //console.log(textdata)
+                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
+                            })
+                            .catch((error) => {
+                                console.error('Error while processing TEXT: ' + error);
+                            });
+                        break;
+                    }
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
