@@ -95,7 +95,7 @@
 
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
-            if ($settings.localisation && !$parentState.isLocalized) {
+            if ($settings.localizationRequired && !$parentState.isLocalized) {
                 parentInstance.onXrFrameUpdate(time, frame, floorPose);
             } else {
                 $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
@@ -300,7 +300,7 @@
 
 <Parent bind:this={parentInstance} on:arSessionEnded>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
-        {#if $settings.localisation && !isLocalisationDone}
+        {#if $settings.localizationRequired && !isLocalisationDone}
             <p>{receivedContentTitles.join()}</p>
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
