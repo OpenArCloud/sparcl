@@ -614,15 +614,21 @@
                                     const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
                                     //console.log("POI received:");
                                     //console.log(featureName);
+                                    const poiLat = feature.geometry.coordinates[0];
+                                    const poiLon = feature.geometry.coordinates[1];
+                                    let poiH = 0.0;
+                                    if (feature.geometry.coordinates.length > 2) {
+                                        poiH = feature.geometry.coordinates[2];
+                                    }
                                     const featureGeopose = {
                                         // WARNING: now we need to harcode height because it is not part of OGC PoI
-                                        position: {lat: feature.geometry.coordinates[0], lon: feature.geometry.coordinates[1], h: 0.0},
+                                        position: {lat: poiLat, lon: poiLon, h: poiH},
                                         quaternion: { x: 0, y: 0, z: 0, w: 1},
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
                                     tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
-                                    let textPosition = localFeaturePose.position;
-                                    textPosition.y += 1.5;
+                                    let textPosition = localFeaturePose.position.clone();
+                                    textPosition.y += 2;
                                     tdEngine.addTextObject(textPosition, localFeaturePose.quaternion, featureName);
                                 });
                             })
