@@ -90,9 +90,9 @@ export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, str
         uniforms: {
             tMap: { value: texture },
         },
-        transparent: true,
+        transparent: false,
         cullFace: false,
-        depthWrite: false,
+        depthWrite: true,
     });
 
     const text = new Text({
