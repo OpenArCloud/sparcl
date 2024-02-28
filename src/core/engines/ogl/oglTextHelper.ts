@@ -42,6 +42,7 @@ const vertex = /* glsl */ `
 
 const fragment = /* glsl */ `
     uniform sampler2D tMap;
+    uniform vec3 textColor;
 
     varying vec2 vUv;
 
@@ -53,7 +54,7 @@ const fragment = /* glsl */ `
 
         if (alpha < 0.01) discard;
 
-        gl_FragColor.rgb = vec3(0.0);
+        gl_FragColor.rgb = textColor;
         gl_FragColor.a = alpha;
     }
 `;
@@ -73,7 +74,7 @@ const fragment300 =
     out vec4 FragColor;
 ` + fragment;
 
-export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, string:string) {
+export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, string:string, textColor:Vec3 = new Vec3(1.0, 1.0, 1.0)) {
 
     const font = await (await fetch('media/fonts/' + fontName + '.json')).json();
 
@@ -89,6 +90,7 @@ export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, str
         fragment: fragment300,
         uniforms: {
             tMap: { value: texture },
+            textColor: { value: textColor},
         },
         transparent: false,
         cullFace: false,

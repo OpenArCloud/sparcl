@@ -627,9 +627,10 @@
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
                                     tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
-                                    let textPosition = localFeaturePose.position.clone();
-                                    textPosition.y += 2;
-                                    tdEngine.addTextObject(textPosition, localFeaturePose.quaternion, featureName);
+                                    let localTextPosition = localFeaturePose.position.clone();
+                                    localTextPosition.y += 3;
+                                    const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
+                                    tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
                                 });
                             })
                             .catch((error) => {
