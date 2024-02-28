@@ -506,10 +506,10 @@ export default class ogl {
         });
     }
 
-    async addTextObject(position: Vec3, quaternion: Quat, string:string) {
+    async addTextObject(position: Vec3, quaternion: Quat, string:string, textColor:Vec3 = new Vec3(1.0, 1.0, 1.0)) {
         console.log('addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
-        const textMesh:Mesh = await loadTextMesh(gl, fontName, string)
+        const textMesh:Mesh = await loadTextMesh(gl, fontName, string, textColor)
         textMesh.position = position;
         textMesh.quaternion = quaternion;
         textMesh.setParent(scene);
