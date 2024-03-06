@@ -207,8 +207,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
         selectedP2pService.set(null);
-
-        // https://esoptron.hu:8035/
         const p2pServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {

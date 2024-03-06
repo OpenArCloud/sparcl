@@ -101,21 +101,21 @@ function setupAutomergeRepo({ url, port, path }: { url: string | null | undefine
         network: [peerjsNetworkAdapter],
         storage: new IndexedDBStorageAdapter(),
     });
-    repo.on('document', async (document) => {
+    repo.on('document', async (otherDocument) => {
         // This fires on a successful repo.find call, or if somebody connected to us who already has a document set up.
-        const documentHandle = get(documentHandleStore);
-        if (!documentHandle) {
+        const myDocumentHandle = get(documentHandleStore);
+        if (!myDocumentHandle) {
             // if we don't have our own document, simply use theirs
-            documentHandleStore.set(document.handle);
+            documentHandleStore.set(otherDocument.handle);
         } else {
             // If we do have our own document, merge the two and unambiguously decide which one to keep using. Both peers should settle to use the same document
-            await document.handle.whenReady();
-            await documentHandle.whenReady();
-            documentHandle.merge(document.handle);
-            if (shouldSwitchDocument(documentHandle, document.handle)) {
-                documentHandle.removeAllListeners();
-                automergeDocumentUrl.set(document.handle.url);
-                documentHandleStore.set(document.handle);
+            await otherDocument.handle.whenReady();
+            await myDocumentHandle.whenReady();
+            myDocumentHandle.merge(otherDocument.handle);
+            if (shouldSwitchDocument(myDocumentHandle, otherDocument.handle)) {
+                myDocumentHandle.removeAllListeners();
+                automergeDocumentUrl.set(otherDocument.handle.url);
+                documentHandleStore.set(otherDocument.handle);
             }
         }
     });
