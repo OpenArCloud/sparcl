@@ -29,6 +29,7 @@
         debug_saveCameraImage,
         debug_loadCameraImage,
         debug_enablePointCloudContents,
+        debug_enableOGCPoIContents,
         initialLocation,
         receivedScrs,
         recentLocalisation,
@@ -564,6 +565,7 @@
                         }
                         break;
                     }
+
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
                             let url = '';
@@ -578,6 +580,7 @@
                         }
                         break;
                     }
+
                     case 'ICON': {
                         let url = '';
                         if (content_definitions['url'] != undefined) {
@@ -596,48 +599,54 @@
                         tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
                         break;
                     }
-                    case 'POI': {
-                        const url = record.content.refs ? record.content.refs[0].url : '';
-                        fetch(url)
-                            .then((response) => {
-                                if (response.ok) {
-                                    return response.json();
-                                } else {
-                                    console.error('Could not retrieve POIs from ' + url);
-                                    console.error(response.text());
-                                }
-                            })
-                            .then((poidata) => {
 
-                                const features = poidata.features;
-                                features.forEach((feature:any)=> {
-                                    const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
-                                    //console.log("POI received:");
-                                    //console.log(featureName);
-                                    const poiLat = feature.geometry.coordinates[0];
-                                    const poiLon = feature.geometry.coordinates[1];
-                                    let poiH = 0.0;
-                                    if (feature.geometry.coordinates.length > 2) {
-                                        poiH = feature.geometry.coordinates[2];
+                    case 'POI': {
+                        if ($debug_enableOGCPoIContents) {
+                            const url = record.content.refs ? record.content.refs[0].url : '';
+                            fetch(url)
+                                .then((response) => {
+                                    if (response.ok) {
+                                        return response.json();
+                                    } else {
+                                        console.error('Could not retrieve POIs from ' + url);
+                                        console.error(response.text());
                                     }
-                                    const featureGeopose = {
-                                        // WARNING: now we need to harcode height because it is not part of OGC PoI
-                                        position: {lat: poiLat, lon: poiLon, h: poiH},
-                                        quaternion: { x: 0, y: 0, z: 0, w: 1},
-                                    };
-                                    const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
-                                    let localTextPosition = localFeaturePose.position.clone();
-                                    localTextPosition.y += 3;
-                                    const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
-                                    tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                })
+                                .then((poidata) => {
+
+                                    const features = poidata.features;
+                                    features.forEach((feature:any)=> {
+                                        const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
+                                        //console.log("POI received:");
+                                        //console.log(featureName);
+                                        const poiLat = feature.geometry.coordinates[0];
+                                        const poiLon = feature.geometry.coordinates[1];
+                                        let poiH = 0.0;
+                                        if (feature.geometry.coordinates.length > 2) {
+                                            poiH = feature.geometry.coordinates[2];
+                                        }
+                                        const featureGeopose = {
+                                            // WARNING: now we need to harcode height because it is not part of OGC PoI
+                                            position: {lat: poiLat, lon: poiLon, h: poiH},
+                                            quaternion: { x: 0, y: 0, z: 0, w: 1},
+                                        };
+                                        const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+                                        tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                        let localTextPosition = localFeaturePose.position.clone();
+                                        localTextPosition.y += 3;
+                                        const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
+                                        tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                    });
+                                })
+                                .catch((error) => {
+                                    console.error('Error while processing POIs: ' + error);
                                 });
-                            })
-                            .catch((error) => {
-                                console.error('Error while processing POIs: ' + error);
-                            });
+                        } else {
+                            console.log('An OGC PoI content was received but this type is disabled');
+                        }
                         break;
                     }
+
                     case 'TEXT': {
                         const url = record.content.refs ? record.content.refs[0].url : '';
                         fetch(url)
@@ -659,9 +668,11 @@
                             });
                         break;
                     }
+
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
+                        break;
                     }
                 }
             });

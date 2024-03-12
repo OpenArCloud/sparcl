@@ -405,6 +405,17 @@ debug_enablePointCloudContents.subscribe((value) => {
 });
 
 /**
+ * Enable/disable OGC Point of Interest contents
+ *
+ * @type {Writable<boolean>}
+ */
+const storedDebug_enableOGCPoIContents = localStorage.getItem('debug_enableOGCPoIContents') === 'true';
+export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
+debug_enableOGCPoIContents.subscribe((value) => {
+    localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
+});
+
+/**
  * Keeps some state of the dashboard.
  *
  * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
