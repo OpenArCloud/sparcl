@@ -20,6 +20,7 @@
     import { createEventDispatcher } from 'svelte';
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
+    import P2PServiceSelector from './P2PServiceSelector.svelte';
 
     let map: Map | null;
     let shouldPlaceRandomObjects = false;
@@ -184,42 +185,7 @@
         <p>No multiplayer services are available</p>
     {/if}
 
-    {#if $availableP2pServices.length > 0}
-        <label for="p2p-server">P2P Services</label>
-        <div class="inline">
-            <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
-            <label for="allowP2p">Connect to p2p network</label>
-        </div>
-        {#if $allowP2pNetwork}
-            <dl>
-                <dt><label for="p2pserver">P2P Service</label></dt>
-                <dd class="select">
-                    <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2}>
-                        {#if $availableP2pServices.length === 0}
-                            <option>None</option>
-                        {:else}
-                            {#each $availableP2pServices as service}
-                                <option value={service}>{service.title}</option>
-                            {/each}
-                        {/if}
-                    </select>
-                </dd>
-                <pre class="serviceurl">
-                    <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-                    {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
-                        {#each $selectedP2pService.properties as prop}
-                            <label>{prop.type}: {prop.value}<br /></label>
-                        {/each}
-                    {/if}
-                </pre>
-            </dl>
-
-            <dl>
-                <dt>Connection status</dt>
-                <dd>{$p2pNetworkState}</dd>
-            </dl>
-        {/if}
-    {/if}
+    <P2PServiceSelector />
 
     <MessageBrokerSelector
         onSubmit={messageBrokerSubmit}
@@ -273,15 +239,6 @@
         z-index: 10000;
     }
 
-    dd {
-        margin-left: 0;
-    }
-
-    select {
-        width: 100%;
-        height: 30px;
-    }
-
     #map {
         position: absolute;
         left: 0;
@@ -290,10 +247,5 @@
         padding: 0;
         width: 100vw;
         height: calc(100vh - 110px);
-    }
-
-    .note {
-        color: red;
-        margin-top: -15px;
     }
 </style>

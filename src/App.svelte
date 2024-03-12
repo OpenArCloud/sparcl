@@ -39,6 +39,7 @@
         allowMessageBroker,
         selectedMessageBrokerService,
         messageBrokerAuth,
+        p2pNetworkState,
     } from './stateStore';
     import { ARMODES } from './core/common';
     import * as rmq from '@src/core/rmqnetwork';
@@ -65,6 +66,8 @@
     let isHeadless = false;
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
+
+    const getViewerInstance = () => viewerInstance;
 
     /**
      * Reactive function to define if the AR viewer can be shown.
@@ -93,24 +96,26 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            import('@src/core/p2pnetwork').then((p2pModule) => {
-                if (!p2p) {
+            if (!p2p) {
+                import('@src/core/p2pnetwork').then((p2pModule) => {
                     p2p = p2pModule;
-
-                    const selected = $selectedP2pService;
-
-                    const service = $availableP2pServices.find((service) => service.id === selected?.id);
-                    const headlessPeerId = service?.properties?.find((property) => property.type === 'peerid')?.value;
-                    // TODO: this property should be headlessPeerId (need to change the service too!!!)
-
-                    if (headlessPeerId) {
-                        p2p.connect(headlessPeerId, isHeadless, (data: any) => {
-                            viewerInstance?.onNetworkEvent?.(data); //TODO: why does it not work with viewer?
+                });
+            }
+            if (p2p) {
+                if ($p2pNetworkState === 'not connected') {
+                    if (spectator) {
+                        p2p!.connectFromStateStore((data: any) => {
                             spectator?.onNetworkEvent(data);
                         });
                     }
+                    if (viewerInstance) {
+                        p2p!.connectFromStateStore((data: any) => {
+                            // getter is important in this callback, because the viewerInstance can get destroey and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
+                            getViewerInstance()?.onNetworkEvent?.(data);
+                        });
+                    }
                 }
-            });
+            }
         } else if (!isHeadless) {
             p2p?.disconnect();
             p2p = null;
@@ -138,19 +143,25 @@
                 const headlessPeerId = urlParams.get('peerid');
                 const url = urlParams.get('signal');
                 const port = urlParams.get('port');
+                const path = urlParams.get('path') || undefined;
 
                 console.log('Starting headless client...');
                 console.log('  peerid: ' + headlessPeerId);
                 console.log('  signal: ' + (url ? url : 'PeerJS default'));
                 console.log('  port: ' + (port ? port : 'PeerJS default'));
+                console.log('  path: ' + (path ? path : 'PeerJS default'));
 
-                p2p.initialSetup();
                 if (headlessPeerId) {
                     const portToUse = port ? parseInt(port) : null;
-                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, portToUse, (data: any) => {
-                        // DEBUG
-                        console.log(data);
-                        currentSharedValues = data;
+                    p2p.connectWithExplicitUrl({
+                        url,
+                        port: portToUse,
+                        path,
+                        updateftn: (data: any) => {
+                            // DEBUG
+                            console.log(data);
+                            currentSharedValues = data;
+                        },
                     });
                 }
             });
