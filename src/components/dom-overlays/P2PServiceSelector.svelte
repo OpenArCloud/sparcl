@@ -1,6 +1,8 @@
 <script lang="ts">
+    import { createEventDispatcher } from 'svelte';
     import { availableP2pServices, allowP2pNetwork, selectedP2pService, p2pNetworkState } from '../../stateStore';
     export let serviceUrlFontSizePx: number | undefined = undefined;
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; routing_key?: string } }>();
 </script>
 
 {#if $availableP2pServices.length > 0}
@@ -32,7 +34,14 @@
                 {/if}
                 </pre>
         </dl>
-
+        <button
+            on:click={() => {
+                dispatch('broadcast', {
+                    event: 'clear_session',
+                    routing_key: '/exchange/esoptron/object_created',
+                });
+            }}>Clear p2p session history</button
+        >
         <dl>
             <dt>Connection status</dt>
             <dd>{$p2pNetworkState}</dd>

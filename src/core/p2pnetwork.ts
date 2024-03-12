@@ -67,7 +67,7 @@ export function disconnect() {
  *
  * @param data      The data as Javascript types to send out. Will be stringified later
  */
-export async function send(data: { event: any; value: any }) {
+export async function send(data: { event: any; value?: any }) {
     // initialize on click, if we do not have any repos set up
     if (Object.keys(repo.handles).length === 0) {
         initializeRepo();
@@ -78,6 +78,10 @@ export async function send(data: { event: any; value: any }) {
     }
     const whenReadyPromise = documentHandle.whenReady();
     await rejectPromiseAfterTimeout(whenReadyPromise, 4000);
+    if (data.event === 'clear_session') {
+        documentHandle.change((d) => (d.data = []));
+        return;
+    }
     documentHandle.change((d) => d.data.push(data.value));
 }
 
