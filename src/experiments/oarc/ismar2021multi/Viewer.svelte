@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { setContext } from 'svelte';
+    import { onMount, setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
     import { get, writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
@@ -10,10 +10,11 @@
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
-    import { peerIdStr, recentLocalisation } from '../../../stateStore';
+    import { peerIdStr, recentLocalisation, globalIsLocalized } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
     import type { ObjectDescription } from '../../../types/xr';
+    import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -29,6 +30,16 @@
     let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
+    $: {
+        if ($globalIsLocalized && $recentLocalisation?.geopose?.position) {
+            const assets = getAutomergeDocumentData();
+            if (assets) {
+                for (const asset of assets) {
+                    onNetworkEvent({ object_created: asset });
+                }
+            }
+        }
+    }
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 

@@ -207,7 +207,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
         selectedP2pService.set(null);
-
         const p2pServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {
@@ -218,7 +217,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
         }
         set(p2pServices);
         // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
         if (get(selectedP2pService) === null && p2pServices.length > 0) {
             selectedP2pService.set(p2pServices[0]);
         }
@@ -312,7 +310,7 @@ allowP2pNetwork.subscribe((value) => {
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('not connected');
+export const p2pNetworkState = writable<'connected' | 'not connected'>('not connected');
 
 /**
  * Alphanumeric uuid string that identifies this client in the P2P network.
@@ -498,3 +496,11 @@ selectedMessageBrokerService.subscribe((value) => {
         messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
     }
 });
+
+const storedAutomergeDocumentUrl = localStorage.getItem('automergeDocumentUrl');
+export const automergeDocumentUrl = writable(storedAutomergeDocumentUrl);
+automergeDocumentUrl.subscribe((value) => {
+    localStorage.setItem('automergeDocumentUrl', value!);
+});
+
+export const globalIsLocalized = writable<boolean>(false); // this is needed, because we cannot use the local context in Viewer inside a reactive statement ($:) because it runs on every frame. Therefore we need a proper store instead
