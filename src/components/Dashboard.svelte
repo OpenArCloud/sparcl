@@ -40,6 +40,7 @@
         debug_saveCameraImage,
         debug_loadCameraImage,
         debug_enablePointCloudContents,
+        debug_enableOGCPoIContents,
         myAgentColor,
         myAgentName,
         activeExperiment,
@@ -355,6 +356,11 @@
     <div>
         <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
         <label for="enablePointCloudContents">Enable point cloud contents</label>
+    </div>
+
+    <div>
+        <input id="enableOGCPoIContents" type="checkbox" bind:checked={$debug_enableOGCPoIContents} />
+        <label for="enableOGCPoIContents">Enable OGC PoI contents</label>
     </div>
 
     <div>
