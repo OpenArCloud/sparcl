@@ -116,7 +116,11 @@ export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, str
         index: { data: text.buffers.index },
     });
 
-    const mesh = new Mesh(gl, { geometry, program });
+    const mesh = new Mesh(gl, {
+        geometry: geometry,
+        program: program,
+        frustumCulled: false,
+    });
 
     // Use the height value to position text vertically. Here it is centered.
     mesh.position.y = text.height * 0.5;
