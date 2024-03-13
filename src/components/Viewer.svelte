@@ -36,7 +36,6 @@
         selectedGeoPoseService,
         debug_overrideGeopose,
         debug_useOverrideGeopose,
-        globalIsLocalized,
     } from '@src/stateStore';
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
@@ -51,7 +50,6 @@
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
 
     onDestroy(() => {
-        tdEngine.clearScene();
         $recentLocalisation.geopose = {};
         $recentLocalisation.floorpose = {};
     });
@@ -83,10 +81,6 @@
         isLocalizing: false, // while waiting for GeoPose service localization
         isLocalisationDone: false, // whether to show the dom-overlay with 'localize' button
         receivedContentTitles: [],
-    });
-
-    onDestroy(() => {
-        $globalIsLocalized = false;
     });
 
     onDestroy(() => {
@@ -214,7 +208,6 @@
                     const getGeopose = async () => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
-                        $globalIsLocalized = true;
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
                             $context.showFooter = false;
@@ -366,7 +359,6 @@
                 getSensorEstimatedGeoPose().then((selfEstimatedGeoPose) => {
                     $context.isLocalizing = false;
                     $context.isLocalized = true;
-                    $globalIsLocalized = true;
                     // allow relocalization after a few seconds
                     wait(4000).then(() => {
                         $context.showFooter = false;
@@ -398,7 +390,6 @@
                     .then((data) => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
-                        $globalIsLocalized = true;
                         wait(4000).then(() => {
                             $context.showFooter = false;
                             $context.isLocalisationDone = true;
@@ -447,7 +438,6 @@
      */
     export function relocalize() {
         $context.isLocalized = false;
-        $globalIsLocalized = false;
         $context.isLocalizing = false;
         $context.isLocalisationDone = false;
         $recentLocalisation.geopose = {};
