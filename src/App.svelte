@@ -280,12 +280,18 @@
      *
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
-    function handleBroadcast(event: CustomEvent<any>) {
+    function handleBroadcast(
+        event: CustomEvent<{
+            event: string;
+            value?: Record<string, any> | undefined;
+            routing_key?: string | undefined;
+        }>,
+    ) {
         if (p2p != null) {
             p2p.send(event.detail);
         }
 
-        if (event.detail.routing_key != undefined) {
+        if (event.detail.routing_key != undefined && event.detail.value) {
             rmq.send(event.detail.routing_key, event.detail.value);
         }
     }

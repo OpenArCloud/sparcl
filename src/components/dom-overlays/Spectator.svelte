@@ -25,7 +25,7 @@
     let map: Map | null;
     let shouldPlaceRandomObjects = false;
 
-    const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: Record<string, any>; routing_key?: string } }>();
 
     function shareObject({ lat, lon, objectDescription }: { lat: number; lon: number; objectDescription: ObjectDescription }) {
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
@@ -185,7 +185,7 @@
         <p>No multiplayer services are available</p>
     {/if}
 
-    <P2PServiceSelector />
+    <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} />
 
     <MessageBrokerSelector
         onSubmit={messageBrokerSubmit}
