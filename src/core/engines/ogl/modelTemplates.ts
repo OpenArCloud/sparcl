@@ -121,7 +121,7 @@ export function createModel(
     const mesh = new Mesh(gl, {
         geometry: geometry,
         program: program,
-        frustumCulled: false, // TODO: is this needed?
+        frustumCulled: false,
     });
     mesh.scale.set(...scale);
     return mesh;
@@ -282,6 +282,6 @@ export function getReticle(gl: OGLRenderingContext) {
     return new Mesh(gl, {
         geometry: placeholder,
         program: program,
-        frustumCulled: false, // TODO: is this needed?
+        frustumCulled: false,
     });
 }
