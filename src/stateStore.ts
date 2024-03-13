@@ -491,5 +491,3 @@ export const automergeDocumentUrl = writable(storedAutomergeDocumentUrl);
 automergeDocumentUrl.subscribe((value) => {
     localStorage.setItem('automergeDocumentUrl', value!);
 });
-
-export const globalIsLocalized = writable<boolean>(false); // this is needed, because we cannot use the local context in Viewer inside a reactive statement ($:) because it runs on every frame. Therefore we need a proper store instead
