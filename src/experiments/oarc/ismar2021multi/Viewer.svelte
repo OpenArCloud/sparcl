@@ -10,7 +10,7 @@
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
-    import { peerIdStr, recentLocalisation, globalIsLocalized } from '../../../stateStore';
+    import { peerIdStr, recentLocalisation } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
     import type { ObjectDescription } from '../../../types/xr';
@@ -31,7 +31,7 @@
     setContext('state', parentState);
 
     $: {
-        if ($globalIsLocalized && $recentLocalisation?.geopose?.position) {
+        if ($recentLocalisation?.geopose?.position) {
             const assets = getAutomergeDocumentData();
             if (assets) {
                 for (const asset of assets) {
