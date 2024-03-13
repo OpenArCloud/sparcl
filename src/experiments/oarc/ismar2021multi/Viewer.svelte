@@ -31,7 +31,7 @@
     setContext('state', parentState);
 
     $: {
-        if ($globalIsLocalized && $recentLocalisation?.geopose?.position) {
+        if ($recentLocalisation?.geopose?.position) {
             const assets = getAutomergeDocumentData();
             if (assets) {
                 for (const asset of assets) {
