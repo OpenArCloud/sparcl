@@ -50,6 +50,12 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
 
+    onDestroy(() => {
+        tdEngine.clearScene();
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+    });
+
     const message = (msg: string) => console.log(msg);
 
     let canvas: HTMLCanvasElement;
