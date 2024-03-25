@@ -407,7 +407,8 @@ debug_enablePointCloudContents.subscribe((value) => {
  *
  * @type {Writable<boolean>}
  */
-const storedDebug_enableOGCPoIContents = localStorage.getItem('debug_enableOGCPoIContents') === 'true';
+const enableOGCFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents')
+const storedDebug_enableOGCPoIContents = enableOGCFromLocalStorage === 'true' || enableOGCFromLocalStorage == null; // set true if stored true or undefined
 export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
 debug_enableOGCPoIContents.subscribe((value) => {
     localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
