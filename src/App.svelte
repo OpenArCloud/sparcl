@@ -54,6 +54,7 @@
     import ViewerMarker from '@components/viewer-implementations/Viewer-Marker.svelte';
 
     let showWelcome: boolean | null = null;
+    let initialLocationsAndServicesPromise: Promise<void>;
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
     let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> | null | undefined;
@@ -79,7 +80,7 @@
      */
     $: {
         if ($isLocationAccessAllowed) {
-            setInitialLocationAndServices();
+            initialLocationsAndServicesPromise = setInitialLocationAndServices();
         }
     }
 
@@ -350,7 +351,15 @@
 </main>
 
 {#if showAr && viewer}
-    <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+    {#if $isLocationAccessAllowed}
+        {#await initialLocationsAndServicesPromise then}
+            <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+        {:catch error}
+            <p>There was an error requesting SSRs. Error: {error}</p>
+        {/await}
+    {:else}
+        <svelte:component this={viewer} bind:this={viewerInstance} on:arSessionEnded={sessionEnded} on:broadcast={handleBroadcast} />
+    {/if}
 {:else if showAr && $arMode === ARMODES.experiment}
     <p>Settings not valid for {$arMode}. Unable to create viewer.</p>
     <button on:click={sessionEnded} on:keydown={sessionEnded}> Go back </button>
