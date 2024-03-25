@@ -544,7 +544,16 @@
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                tdEngine.addModel(url, localPosition, localQuaternion);
+                                const node = tdEngine.addModel(url, localPosition, localQuaternion);
+                                if (content_definitions['animation'] != undefined) {
+                                    switch (content_definitions['animation']) {
+                                        case 'SPIN_UP':
+                                            tdEngine.setVerticallyRotating(node);
+                                            break;
+                                        default:
+                                            break
+                                    }
+                                }
                             } else {
                                 // we cannot load anything else but GLTF
                                 // so draw a placeholder instead
@@ -639,11 +648,17 @@
                                         quaternion: { x: 0, y: 0, z: 0, w: 1},
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                    tdEngine.setVerticallyRotating(pinModel);
+
                                     let localTextPosition = localFeaturePose.position.clone();
                                     localTextPosition.y += 3;
                                     const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
-                                    tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                    const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                    textMesh.then((node) => {
+                                        tdEngine.setTowardsCameraRotating(node);
+                                    })
+
                                 });
                             })
                             .catch((error) => {

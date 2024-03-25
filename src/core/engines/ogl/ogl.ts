@@ -85,7 +85,8 @@ let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
 let dynamic_objects_meshes: Record<string, Mesh> = {};
 
-let text_meshes: Mesh[] = [];
+let towardsCameraRotatingNodes: Transform[] = [];
+let verticallyRotatingNodes: Transform[] = [];
 
 
 /**
@@ -465,6 +466,7 @@ export default class ogl {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
+        return axes;
     }
 
     addPointCloud(url: string, position: Vec3, quaternion: Quat) {
@@ -484,6 +486,7 @@ export default class ogl {
             pclMesh.position.copy(position);
             pclMesh.quaternion.copy(quaternion);
             pclMesh.setParent(scene); // this is very slow
+            return pclMesh;
         });
     }
 
@@ -503,6 +506,7 @@ export default class ogl {
             plane.position.copy(position);
             plane.quaternion.copy(quaternion);
             plane.setParent(scene);
+            return plane;
         });
     }
 
@@ -513,7 +517,15 @@ export default class ogl {
         textMesh.position.copy(position);
         textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
-        text_meshes.push(textMesh);
+        return textMesh;
+    }
+
+    setVerticallyRotating(node: Transform) {
+        verticallyRotatingNodes.push(node);
+    }
+
+    setTowardsCameraRotating(node: Transform) {
+        towardsCameraRotatingNodes.push(node);
     }
 
     /**
@@ -665,17 +677,22 @@ export default class ogl {
         camera.position.set(position.x, position.y, position.z);
         camera.quaternion.set(orientation.x, orientation.y, orientation.z, orientation.w);
 
-        // rotate all text labels to face the current camera position
-        text_meshes.forEach((text_mesh) => {
-            const orientationMatrix = new Mat4().lookAt(camera.position, text_mesh.position, new Vec3(0,1,0));
-            text_mesh.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
-        });
-
         Object.values(updateHandlers).forEach((handler) => handler());
 
         const relTime = time - lastRenderTime;
         lastRenderTime = time;
         uniforms.time.forEach((model) => (model.program.uniforms.uTime.value = time * 0.001)); // Time in seconds
+
+        // rotate all user facing labels to face the current camera position
+        verticallyRotatingNodes.forEach((node) => {
+            node.rotation.y += 0.01;
+        });
+
+        // rotate all text labels to face the current camera position
+        towardsCameraRotatingNodes.forEach((node) => {
+            const orientationMatrix = new Mat4().lookAt(camera.position, node.position, new Vec3(0,1,0));
+            node.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
+        });
 
         renderer.render({ scene, camera });
 
