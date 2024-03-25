@@ -169,8 +169,8 @@ export default class ogl {
      */
     addPlaceholder(keywords: string | string[] | undefined, position: Vec3, orientation: Quat) {
         const placeholder = getDefaultPlaceholder(gl);
-        placeholder.position = position;
-        placeholder.quaternion = orientation;
+        placeholder.position.copy(position);
+        placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
         return placeholder;
     }
@@ -204,8 +204,8 @@ export default class ogl {
      */
     addPlaceholderWithOptions(shape: ValueOf<typeof PRIMITIVES>, position: Vec3, orientation: Quat, fragmentShader: string, options: any = {}) {
         const placeholder = createModel(gl, shape, [Math.random(), Math.random(), Math.random(), 1], false, options);
-        placeholder.position = position;
-        placeholder.quaternion = orientation;
+        placeholder.position.copy(position);
+        placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
         placeholder.program = createProgram(gl, {
             fragment: fragmentShader,
@@ -227,9 +227,9 @@ export default class ogl {
      */
     addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0,1.0,1.0)) {
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
-        gltfScene.position = position
-        gltfScene.quaternion = orientation;
-        gltfScene.scale = scale;
+        gltfScene.position.copy(position)
+        gltfScene.quaternion.copy(orientation);
+        gltfScene.scale.copy(scale);
         gltfScene.setParent(scene);
 
         console.log('Loading ' + url);
@@ -270,8 +270,8 @@ export default class ogl {
      */
     addExperiencePlaceholder(position: Vec3, orientation: Quat): Mesh {
         const placeholder = getExperiencePlaceholder(gl);
-        placeholder.position = position;
-        placeholder.quaternion = orientation;
+        placeholder.position.copy(position);
+        placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
         updateHandlers[placeholder.id] = () => (placeholder.rotation.y += 0.01);
         return placeholder;
@@ -328,8 +328,8 @@ export default class ogl {
     addObject(position: Vec3, orientation: Quat, object_description: ObjectDescription) {
         console.log('OGL addObject: ' + object_description);
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
-        mesh.position = position;
-        mesh.quaternion = orientation;
+        mesh.position.copy(position);
+        mesh.quaternion.copy(orientation);
         scene.addChild(mesh);
         return mesh;
     }
@@ -354,8 +354,8 @@ export default class ogl {
             options: {},
         };
         const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
-        mesh.position = position;
-        mesh.quaternion = orientation;
+        mesh.position.copy(position);
+        mesh.quaternion.copy(orientation);
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
@@ -452,10 +452,10 @@ export default class ogl {
      * @param position  Vec3       The position of the reticle
      * @param orientation  Quat    The orientation of the reticle
      */
-    updateReticlePose(reticle: Transform, position: Vec3, orientation: Quat) {
+    updateReticlePose(reticle: Transform, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(0.2, 0.2, 0.2)) {
         reticle.position = position;
         reticle.quaternion = orientation;
-        reticle.scale.set(0.2, 0.2, 0.2);
+        reticle.scale = scale;
     }
 
     /**
@@ -481,8 +481,8 @@ export default class ogl {
                 //frustumCulled: false, // TODO: try to turn on, maybe it gets faster
                 //renderOrder: 0
             });
-            pclMesh.position = position;
-            pclMesh.quaternion = quaternion;
+            pclMesh.position.copy(position);
+            pclMesh.quaternion.copy(quaternion);
             pclMesh.setParent(scene); // this is very slow
         });
     }
@@ -500,8 +500,8 @@ export default class ogl {
                 program: logoProgram,
                 frustumCulled: false,
             });
-            plane.position = position;
-            plane.quaternion = quaternion;
+            plane.position.copy(position);
+            plane.quaternion.copy(quaternion);
             plane.setParent(scene);
         });
     }
@@ -510,8 +510,8 @@ export default class ogl {
         console.log('addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
         const textMesh:Mesh = await loadTextMesh(gl, fontName, string, textColor)
-        textMesh.position = position;
-        textMesh.quaternion = quaternion;
+        textMesh.position.copy(position);
+        textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
         text_meshes.push(textMesh);
     }
@@ -876,8 +876,8 @@ export default class ogl {
         }
 
         let localPose = new Transform();
-        localPose.position = position;
-        localPose.quaternion = quaternion;
+        localPose.position.copy(position);
+        localPose.quaternion.copy(quaternion);
         localPose.updateMatrix();
         _ar2GeoTransformNode.addChild(localPose);
         _ar2GeoTransformNode.updateMatrixWorld();
