@@ -17,7 +17,7 @@ import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { Quat, type Vec3 } from 'ogl';
-import { debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, ssr } from '../stateStore';
+import { availableGeoPoseServices, debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, selectedGeoPoseService, ssr } from '../stateStore';
 import { get } from 'svelte/store';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
@@ -99,6 +99,10 @@ export const setInitialLocationAndServices = async () => {
             // TODO: we could also query all the neighboring hexagons
             const services = await ssdModule.getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index);
             ssr.set(services);
+
+            if (get(availableGeoPoseServices).length > 0 && get(selectedGeoPoseService) == null) {
+                selectedGeoPoseService.set(get(availableGeoPoseServices)[0]);
+            }
 
             if (services.length === 0) {
                 console.error('No available services found');
