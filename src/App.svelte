@@ -318,7 +318,7 @@
 <main>
     {#if !isHeadless}
         {#if shouldShowDashboard && $arIsAvailable}
-            <Dashboard bind:this={dashboard} on:okClicked={startAr} />
+            <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startAr} />
         {/if}
 
         {#if (showWelcome || showOutro) && $arIsAvailable}

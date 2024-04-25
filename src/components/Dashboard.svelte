@@ -297,7 +297,7 @@
         submitSuccessMessage="Authentication successful"
     ></MessageBrokerSelector>
 
-    <P2PServiceSelector {serviceUrlFontSizePx} />
+    <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} />
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.debug}>

@@ -16,7 +16,7 @@ import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-index
 import { PeerjsNetworkAdapter } from './peer-js-network-adapter';
 
 let peerjsNetworkAdapter: PeerjsNetworkAdapter | undefined;
-let repo: Repo;
+let repo: Repo | undefined;
 let updateFunction: ((data: any) => void) | undefined = undefined;
 const initialChange = new Uint8Array([
     133, 111, 74, 131, 158, 11, 218, 167, 0, 116, 1, 16, 188, 182, 25, 75, 54, 26, 64, 161, 176, 164, 163, 83, 8, 249, 178, 42, 1, 165, 247, 201, 246, 71, 190, 115, 239, 165, 79, 202, 242, 119, 253,
@@ -69,7 +69,7 @@ export function disconnect() {
  */
 export async function send(data: { event: any; value?: any }) {
     // initialize on click, if we do not have any repos set up
-    if (Object.keys(repo.handles).length === 0) {
+    if (repo?.handles && Object.keys(repo.handles).length === 0) {
         initializeRepo();
     }
     const documentHandle = get(documentHandleStore);
@@ -151,7 +151,7 @@ const onDocumentChange = (document: DocHandleChangePayload<any>) => {
 };
 
 const initializeRepo = () => {
-    documentHandleStore.set(repo.create<{ data: any[] }>());
+    documentHandleStore.set(repo?.create<{ data: any[] }>());
     const initialDoc = A.next.load<{ data: any[] }>(initialChange);
     const documentHandle = get(documentHandleStore);
     documentHandle?.update(() => initialDoc);
