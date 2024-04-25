@@ -139,77 +139,6 @@
         </dd>
     </dl>
 
-    {#if $arMode === ARMODES.oscp}
-        <dl>
-            <dt><label for="geoposeServer">GeoPose Services</label></dt>
-            <dd class="select">
-                <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
-                    {#if $availableGeoPoseServices.length === 0}
-                        <option value={null} disabled selected>Device sensors (no VPS available)</option>
-                        <!--{debug_useGeolocationSensors.set(true)}-->
-                    {:else}
-                        {#each $availableGeoPoseServices as service}
-                            <option value={service}>{service.title}</option>
-                        {/each}
-                        <!--{debug_useGeolocationSensors.set(false)}-->
-                    {/if}
-                </select>
-            </dd>
-            <pre class="serviceurl">
-            <label for="geoposeServer">{$selectedGeoPoseService?.url || ''}</label>
-        </pre>
-        </dl>
-
-        <dl>
-            <dt>Recent GeoPose</dt>
-            <dd class="autoheight">
-                <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
-            </dd>
-        </dl>
-
-        <dl class="nested">
-            <dt><label>Content Services</label></dt>
-            {#each $availableContentServices as service}
-                <dd>
-                    <input
-                        id="selectedContentService_{service.id}"
-                        type="checkbox"
-                        checked={$selectedContentServices[service.id]?.isSelected}
-                        on:change={(event) => handleContentServiceSelection(event, service)}
-                    />
-                    <label for="selectedContentService_{service.id}">{service.title}</label>
-                    <pre class="serviceurl">
-                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-                    </pre>
-
-                    {#if service?.properties}
-                        <ul>
-                            {#each service.properties as property}
-                                {#if property.type === 'topics'}
-                                    {#each property.value.split(',') as topic}
-                                        <li>
-                                            <input
-                                                id="contenttopic"
-                                                type="radio"
-                                                name={service.id}
-                                                disabled={!$selectedContentServices[service.id]?.isSelected}
-                                                checked={$selectedContentServices[service.id]?.selectedTopic === topic}
-                                                on:change={(event) => handleContentServiceTopicSelection(service, topic)}
-                                            />
-                                            <label for="contenttopic">{topic}</label>
-                                        </li>
-                                    {/each}
-                                {/if}
-                            {/each}
-                        </ul>
-                    {:else}
-                        <p>No Topics</p>
-                    {/if}
-                </dd>
-            {/each}
-        </dl>
-    {/if}
-
     {#if $arMode === ARMODES.marker}
         <dl>
             <dt>Marker image</dt>
@@ -282,6 +211,75 @@
             {/if}
         {/await}
     {/if}
+
+    <dl>
+        <dt><label for="geoposeServer">GeoPose Services</label></dt>
+        <dd class="select">
+            <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
+                {#if $availableGeoPoseServices.length === 0}
+                    <option value={null} disabled selected>Device sensors (no VPS available)</option>
+                    <!--{debug_useGeolocationSensors.set(true)}-->
+                {:else}
+                    {#each $availableGeoPoseServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                    <!--{debug_useGeolocationSensors.set(false)}-->
+                {/if}
+            </select>
+        </dd>
+        <pre class="serviceurl">
+            <label for="geoposeServer">{$selectedGeoPoseService?.url || ''}</label>
+        </pre>
+    </dl>
+
+    <dl>
+        <dt>Recent GeoPose</dt>
+        <dd class="autoheight">
+            <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
+        </dd>
+    </dl>
+
+    <dl class="nested">
+        <dt><label>Content Services</label></dt>
+        {#each $availableContentServices as service}
+            <dd>
+                <input
+                    id="selectedContentService_{service.id}"
+                    type="checkbox"
+                    checked={$selectedContentServices[service.id]?.isSelected}
+                    on:change={(event) => handleContentServiceSelection(event, service)}
+                />
+                <label for="selectedContentService_{service.id}">{service.title}</label>
+                <pre class="serviceurl">
+                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
+                    </pre>
+
+                {#if service?.properties}
+                    <ul>
+                        {#each service.properties as property}
+                            {#if property.type === 'topics'}
+                                {#each property.value.split(',') as topic}
+                                    <li>
+                                        <input
+                                            id="contenttopic"
+                                            type="radio"
+                                            name={service.id}
+                                            disabled={!$selectedContentServices[service.id]?.isSelected}
+                                            checked={$selectedContentServices[service.id]?.selectedTopic === topic}
+                                            on:change={(event) => handleContentServiceTopicSelection(service, topic)}
+                                        />
+                                        <label for="contenttopic">{topic}</label>
+                                    </li>
+                                {/each}
+                            {/if}
+                        {/each}
+                    </ul>
+                {:else}
+                    <p>No Topics</p>
+                {/if}
+            </dd>
+        {/each}
+    </dl>
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
