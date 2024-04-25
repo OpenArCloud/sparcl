@@ -10,24 +10,30 @@
 import * as A from '@automerge/automerge';
 import { type PeerJSOption } from 'peerjs';
 import { get, writable } from 'svelte/store';
-import { availableP2pServices, selectedP2pService, automergeDocumentUrl } from '@src/stateStore';
+import { availableP2pServices, selectedP2pService, automergeDocumentUrl, initialLocation } from '@src/stateStore';
 import { DocHandle, Repo, isValidAutomergeUrl, type DocHandleChangePayload } from '@automerge/automerge-repo';
 import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-indexeddb';
 import { PeerjsNetworkAdapter } from './peer-js-network-adapter';
+
+type DocumentData = { data: Record<string, any[]> };
 
 let peerjsNetworkAdapter: PeerjsNetworkAdapter | undefined;
 let repo: Repo | undefined;
 let updateFunction: ((data: any) => void) | undefined = undefined;
 const initialChange = new Uint8Array([
-    133, 111, 74, 131, 158, 11, 218, 167, 0, 116, 1, 16, 188, 182, 25, 75, 54, 26, 64, 161, 176, 164, 163, 83, 8, 249, 178, 42, 1, 165, 247, 201, 246, 71, 190, 115, 239, 165, 79, 202, 242, 119, 253,
-    73, 233, 237, 230, 120, 13, 243, 127, 164, 232, 145, 20, 201, 137, 159, 115, 185, 75, 7, 1, 2, 3, 2, 19, 3, 35, 2, 64, 3, 67, 2, 86, 2, 7, 21, 6, 33, 2, 35, 2, 52, 1, 66, 2, 86, 2, 128, 1, 2, 2,
-    0, 2, 1, 126, 0, 1, 2, 0, 126, 0, 1, 127, 0, 2, 7, 127, 4, 100, 97, 116, 97, 127, 0, 127, 1, 1, 127, 2, 127, 0, 127, 0, 1,
-]); // hard coded the initial change, which is: { data: [] }. This is needed, because we need a common ancestor for each document in order to be able to merge them correctly. See: https://automerge.org/docs/cookbook/modeling-data/#setting-up-an-initial-document-structure for details
+    133, 111, 74, 131, 35, 109, 208, 196, 0, 110, 1, 16, 211, 221, 129, 53, 250, 36, 72, 54, 159, 184, 92, 95, 183, 47, 1, 174, 1, 184, 31, 164, 118, 162, 144, 36, 110, 82, 86, 198, 20, 235, 253, 208,
+    201, 52, 235, 224, 15, 245, 3, 137, 145, 66, 251, 207, 178, 63, 49, 91, 89, 6, 1, 2, 3, 2, 19, 2, 35, 2, 64, 2, 86, 2, 7, 21, 6, 33, 2, 35, 2, 52, 1, 66, 2, 86, 2, 128, 1, 2, 127, 0, 127, 1, 127,
+    1, 127, 0, 127, 0, 127, 7, 127, 4, 100, 97, 116, 97, 127, 0, 127, 1, 1, 127, 0, 127, 0, 127, 0, 0,
+]); // hard coded the initial change, which is: { data: {} }. This is needed, because we need a common ancestor for each document in order to be able to merge them correctly. See: https://automerge.org/docs/cookbook/modeling-data/#setting-up-an-initial-document-structure for details
 
-const documentHandleStore = writable<DocHandle<{ data: any[] }> | undefined>();
+const documentHandleStore = writable<DocHandle<DocumentData> | undefined>();
 documentHandleStore.subscribe((documentHandle) => {
     documentHandle?.on('change', onDocumentChange);
 });
+
+const getH3Index = () => {
+    return get(initialLocation).h3Index;
+};
 
 /**
  * Connects to the signaling server, to allow other devices to connect to this one.
@@ -78,11 +84,20 @@ export async function send(data: { event: any; value?: any }) {
     }
     const whenReadyPromise = documentHandle.whenReady();
     await rejectPromiseAfterTimeout(whenReadyPromise, 4000);
+    const h3Index = getH3Index();
     if (data.event === 'clear_session') {
-        documentHandle.change((d) => (d.data = []));
+        documentHandle.change((d) => {
+            d.data[h3Index] = [];
+        });
         return;
     }
-    documentHandle.change((d) => d.data.push(data.value));
+    documentHandle.change((d) => {
+        if (d.data[h3Index]) {
+            d.data[h3Index].push(data.value);
+        } else {
+            d.data[h3Index] = [data.value];
+        }
+    });
 }
 
 function setupAutomergeRepo({ url, port, path }: { url: string | null | undefined; port: number | null | undefined; path?: string }) {
@@ -132,14 +147,15 @@ function setupAutomergeRepo({ url, port, path }: { url: string | null | undefine
     }
 }
 
-const shouldSwitchDocument = (currentDocumentHandle: DocHandle<{ data: any[] }>, newDocumentHandle: DocHandle<{ data: any[] }>) => {
+const shouldSwitchDocument = (currentDocumentHandle: DocHandle<DocumentData>, newDocumentHandle: DocHandle<DocumentData>) => {
     // This comparison is arbitrary. The only thing that's important is that this comparison should be deterministic, so that all peers can agree on the same master document
     // The url is basically a uuid, so this comparison should yield the same result for each peer
     return currentDocumentHandle.url > newDocumentHandle.url;
 };
 
-const onDocumentChange = (document: DocHandleChangePayload<any>) => {
-    const dataToRender = document.patchInfo.after?.data?.slice(document.patchInfo.before?.data?.length) || [];
+const onDocumentChange = (document: DocHandleChangePayload<DocumentData>) => {
+    const h3Index = getH3Index();
+    const dataToRender = document.patchInfo.after?.data?.[h3Index]?.slice(document.patchInfo.before?.data?.[h3Index]?.length) || [];
     // TODO: This is a naiive approach for getting which objects to render, it only works for new data that is appended to the end of the data list. However, when a merge occurs the data might not be appended to the end, but spliced to the middle.
     // A better approach would be to use the document.patch object to apply those patches on the document somehow.
     // See this github issue for a discussion: https://github.com/automerge/automerge-repo/issues/302
@@ -151,16 +167,17 @@ const onDocumentChange = (document: DocHandleChangePayload<any>) => {
 };
 
 const initializeRepo = () => {
-    documentHandleStore.set(repo?.create<{ data: any[] }>());
-    const initialDoc = A.next.load<{ data: any[] }>(initialChange);
+    documentHandleStore.set(repo?.create<DocumentData>());
+    const initialDoc = A.next.load<DocumentData>(initialChange);
     const documentHandle = get(documentHandleStore);
     documentHandle?.update(() => initialDoc);
     automergeDocumentUrl.set(documentHandle?.url || null);
 };
 
 export const getAutomergeDocumentData = () => {
+    const h3Index = getH3Index();
     const documentHandle = get(documentHandleStore);
-    return documentHandle?.docSync()?.data;
+    return documentHandle?.docSync()?.data[h3Index];
 };
 
 const rejectPromiseAfterTimeout = async <T>(promise: Promise<T>, timeout: number): Promise<T> => {
