@@ -7,31 +7,33 @@
   SPDX-License-Identifier: MIT
 */
 
-/*
-    Uses perge, peerjs and automerge to synchronize values between peers over a peer to peer network.
- */
+import * as A from '@automerge/automerge';
+import { type PeerJSOption } from 'peerjs';
+import { get, writable } from 'svelte/store';
+import { availableP2pServices, selectedP2pService, automergeDocumentUrl, initialLocation } from '@src/stateStore';
+import { DocHandle, Repo, isValidAutomergeUrl, type DocHandleChangePayload } from '@automerge/automerge-repo';
+import { IndexedDBStorageAdapter } from '@automerge/automerge-repo-storage-indexeddb';
+import { PeerjsNetworkAdapter } from './peer-js-network-adapter';
 
-import { v4 as uuidv4 } from 'uuid';
-import Perge from 'perge';
-import Automerge, { change } from 'automerge';
-import Peer, { type DataConnection } from 'peerjs';
-import { p2pNetworkState, peerIdStr } from '@src/stateStore';
-import { get } from 'svelte/store';
-import { availableP2pServices, selectedP2pService } from '@src/stateStore';
+type DocumentData = { data: Record<string, any[]> };
 
-let instance: Perge;
-let peerServerHeartbeater: PeerJSHeartbeater | undefined;
-const docSet = new Automerge.DocSet();
-
+let peerjsNetworkAdapter: PeerjsNetworkAdapter | undefined;
+let repo: Repo | undefined;
 let updateFunction: ((data: any) => void) | undefined = undefined;
-let unsubscribeFunction: (() => void) | undefined = undefined;
+const initialChange = new Uint8Array([
+    133, 111, 74, 131, 35, 109, 208, 196, 0, 110, 1, 16, 211, 221, 129, 53, 250, 36, 72, 54, 159, 184, 92, 95, 183, 47, 1, 174, 1, 184, 31, 164, 118, 162, 144, 36, 110, 82, 86, 198, 20, 235, 253, 208,
+    201, 52, 235, 224, 15, 245, 3, 137, 145, 66, 251, 207, 178, 63, 49, 91, 89, 6, 1, 2, 3, 2, 19, 2, 35, 2, 64, 2, 86, 2, 7, 21, 6, 33, 2, 35, 2, 52, 1, 66, 2, 86, 2, 128, 1, 2, 127, 0, 127, 1, 127,
+    1, 127, 0, 127, 0, 127, 7, 127, 4, 100, 97, 116, 97, 127, 0, 127, 1, 1, 127, 0, 127, 0, 127, 0, 0,
+]); // hard coded the initial change, which is: { data: {} }. This is needed, because we need a common ancestor for each document in order to be able to merge them correctly. See: https://automerge.org/docs/cookbook/modeling-data/#setting-up-an-initial-document-structure for details
 
-/**
- * Can be used to put initial values into the docset.
- */
-export function initialSetup() {
-    // TODO: Add initial values to the docset
-}
+const documentHandleStore = writable<DocHandle<DocumentData> | undefined>();
+documentHandleStore.subscribe((documentHandle) => {
+    documentHandle?.on('change', onDocumentChange);
+});
+
+const getH3Index = () => {
+    return get(initialLocation).h3Index;
+};
 
 /**
  * Connects to the signaling server, to allow other devices to connect to this one.
@@ -43,50 +45,27 @@ export function initialSetup() {
  * @param isHeadless  boolean       true when the current device should be set up as headless client
  * @param updateftn  Function       Function to call when updated values arrived
  */
-export function connect(headlessPeerId: string, isHeadless = false, updateftn: (data: any) => void) {
+export function connectFromStateStore(updateftn: (data: any) => void) {
     updateFunction = updateftn;
-
-    const localPeerId = isHeadless ? headlessPeerId : uuidv4();
-
-    setupPerge(localPeerId);
-    setupPeerEvents(headlessPeerId, isHeadless);
+    const selected = get(selectedP2pService);
+    const service = get(availableP2pServices).find((service) => service.id === selected?.id);
+    const port = service?.properties?.reduce((result, prop) => (prop.type === 'port' ? prop.value : result), '');
+    const path = service?.properties?.find((prop) => prop.type === 'path')?.value;
+    const actualPort = port ? parseInt(port) : null;
+    setupAutomergeRepo({ url: service?.url, port: actualPort, path });
 }
 
-export function connectWithUrl(headlessPeerId: string, isHeadless = true, url: string, port: number, updateftn: (data: any) => void) {
+export function connectWithExplicitUrl({ url, port, path, updateftn }: { url: string | null | undefined; port: number | null | undefined; path?: string; updateftn: (data: any) => void }) {
     updateFunction = updateftn;
-
-    setupPergeWithUrl(headlessPeerId, url, port);
-    setupPeerEvents(headlessPeerId, isHeadless);
+    setupAutomergeRepo({ url, port, path });
 }
 
 /**
  * Disconnect the device from the peer to peer network.
  */
 export function disconnect() {
-    console.log('disconnect');
-
-    // disconnect from Perge
-    if (unsubscribeFunction) {
-        unsubscribeFunction();
-    }
-
-    // disconnect from PeerJS
-    if (instance && instance.peer) {
-        // Close the connection to the server, leaving all existing data and media connections intact
-        instance.peer.disconnect();
-
-        // manually close the peer connections
-        // see https://github.com/peers/peerjs/issues/636
-        for (let conns in Object.values(instance.peer.connections)) {
-            (instance.peer.connections as Record<string, DataConnection[]>)[conns].forEach((conn, index, array) => {
-                console.log(`closing ${conn.connectionId} peerConnection (${index + 1}/${array.length})`, conn.peerConnection);
-                conn.peerConnection.close();
-
-                // close it using peerjs methods
-                if (conn.close) conn.close();
-            });
-        }
-    }
+    peerjsNetworkAdapter?.disconnect();
+    repo?.removeAllListeners();
 }
 
 /**
@@ -94,188 +73,120 @@ export function disconnect() {
  *
  * @param data      The data as Javascript types to send out. Will be stringified later
  */
-export function send(data: { event: any; value: any }) {
-    if (!instance) return;
-
-    instance.select('event')(change, (doc: any) => {
-        doc[data.event] = data.value;
+export async function send(data: { event: any; value?: any }) {
+    // initialize on click, if we do not have any repos set up
+    if (repo?.handles && Object.keys(repo.handles).length === 0) {
+        initializeRepo();
+    }
+    const documentHandle = get(documentHandleStore);
+    if (!documentHandle) {
+        return;
+    }
+    const whenReadyPromise = documentHandle.whenReady();
+    await rejectPromiseAfterTimeout(whenReadyPromise, 4000);
+    const h3Index = getH3Index();
+    if (data.event === 'clear_session') {
+        documentHandle.change((d) => {
+            d.data[h3Index] = [];
+        });
+        console.log("Cleared all ephemeral objects");
+        return;
+    }
+    documentHandle.change((d) => {
+        if (d.data[h3Index]) {
+            d.data[h3Index].push(data.value);
+        } else {
+            d.data[h3Index] = [data.value];
+        }
     });
 }
 
-/**
- * Called when an update was received over the network.
- */
-function onNetworkEvent() {
-    //console.log('Received', JSON.stringify(docSet.docs, null, 2));
-
-    if (updateFunction) {
-        // TODO: There has to be a better way to get to the content of a doc
-        updateFunction(JSON.parse(JSON.stringify((docSet as any).docs)).event);
-    }
-}
-
-/**
- * Set up Perge, which connects peerjs and automerge.
- *
- * @param peerId  String        The peer ID to register with on the signaling server
- */
-function setupPerge(peerId: string) {
-    const selected = get(selectedP2pService);
-    const service = get(availableP2pServices).find((service) => service.id === selected?.id);
-    const port = service?.properties?.reduce((result, prop) => (prop.type === 'port' ? prop.value : result), '');
-
-    if (port !== undefined && service?.url) {
-        setupPergeWithUrl(peerId, service?.url, parseInt(port));
-    } // TODO: handle if port undefined
-}
-
-function setupPergeWithUrl(peerId: string, url: string, port: number) {
-    //NOTE: servers in use:
-    //{} // default, hosted by peerjs.com, see https://peerjs.com/peerserver.html
-    //{host: 'peerjs-server.herokuapp.com', secure:true, port:443} // heroku server
-    //{host: 'rtc.oscp.cloudpose.io', port: 5678, secure:true, key: 'peerjs-mvtest', path: '/', debug: 2} // hosted by OSCP
-
-    const options =
+function setupAutomergeRepo({ url, port, path }: { url: string | null | undefined; port: number | null | undefined; path?: string }) {
+    const options: PeerJSOption =
         url && port
             ? {
-                  host: url,
+                  host: url.split('https://').slice(1).join('https://'), // delete leading https:// if exists
                   secure: true,
                   port: port,
-                  //,config: {
-                  //    iceServers: [
-                  //        { url: 'stun:stun.l.google.com:19302' },
-                  //        { url: 'stun:stun1.l.google.com:19302' },
-                  //        { url: 'stun:stun2.l.google.com:19302' },
-                  //    ]
-                  //}
+                  ...(path ? { path } : {}),
               }
             : {};
 
     console.log('Creating P2P network:');
-    console.log('  Server URL: ' + (url != null ? url : 'PeerJS default'));
-    console.log('  Server port: ' + (port != null ? port : 'PeerJS default'));
-    console.log('  PeerId: ' + peerId);
+    console.log('  Server URL: ' + (options?.host || 'PeerJS default'));
+    console.log('  Server port: ' + (options?.port || 'PeerJS default'));
 
-    const peer = new Peer(peerId, options);
-    instance = new Perge(peerId, {
-        decode: JSON.parse, // msgpack or protobuf would also be a good option
-        encode: JSON.stringify,
-        peer: peer,
-        docSet: docSet,
+    peerjsNetworkAdapter = new PeerjsNetworkAdapter(options);
+    repo = new Repo({
+        network: [peerjsNetworkAdapter],
+        storage: new IndexedDBStorageAdapter(),
     });
-
-    // subscribe returns an unsubscribe function
-    unsubscribeFunction = instance.subscribe(() => {
-        //console.log('instance.subscribe');
-        onNetworkEvent();
-    });
-}
-
-/**
- * Sets up all the available events of Peerjs.
- *
- * Currently only used to connect this device to an headless client
- *
- * @param headlessPeerId  String        The headless client to connect to
- * @param isHeadless  boolean       true when this client is an headless client, false otherwise
- */
-function setupPeerEvents(headlessPeerId: string, isHeadless: boolean) {
-    //Emitted when a connection to the PeerServer is established.
-    instance.peer.on('open', (id) => {
-        let msg = 'Connection to the PeerServer established. Peer ID ' + id;
-        console.log(msg);
-        p2pNetworkState.set(msg);
-        peerIdStr.set(id);
-
-        if (!isHeadless) {
-            msg = 'Connecting to headless client: ' + headlessPeerId;
-            console.log(msg);
-            p2pNetworkState.set(msg);
-            let dataConnection = instance.connect(headlessPeerId);
-            // TODO: connect() is asynchronous, so this dataConnction should not be used yet
-            if (dataConnection != null) {
-                msg = 'Connected to headless client.\nMy PeerId: ' + id;
-                console.log(msg);
-                p2pNetworkState.set(msg);
+    repo.on('document', async (otherDocument) => {
+        // This fires on a successful repo.find call, or if somebody connected to us who already has a document set up.
+        const myDocumentHandle = get(documentHandleStore);
+        if (!myDocumentHandle) {
+            // if we don't have our own document, simply use theirs
+            documentHandleStore.set(otherDocument.handle);
+        } else {
+            // If we do have our own document, merge the two and unambiguously decide which one to keep using. Both peers should settle to use the same document
+            await otherDocument.handle.whenReady();
+            await myDocumentHandle.whenReady();
+            myDocumentHandle.merge(otherDocument.handle);
+            if (shouldSwitchDocument(myDocumentHandle, otherDocument.handle)) {
+                myDocumentHandle.removeAllListeners();
+                automergeDocumentUrl.set(otherDocument.handle.url);
+                documentHandleStore.set(otherDocument.handle);
             }
         }
-
-        // Send heartbeat to keep the connection alive
-        if (peerServerHeartbeater === undefined) {
-            peerServerHeartbeater = new PeerJSHeartbeater(instance.peer);
-            peerServerHeartbeater.start();
-        }
     });
 
-    // Emitted when a new data connection is established from a remote peer.
-    instance.peer.on('connection', (connection) => {
-        let msg = 'Connection established with remote peer: ' + connection.peer;
-        console.log(msg);
-        p2pNetworkState.set(msg);
+    const automergeUrl = get(automergeDocumentUrl);
+    if (isValidAutomergeUrl(automergeUrl)) {
+        // Don't need to set documentHandleStore here, because repo.find emits a `document` event. We listen on that event above, and set the store there.
+        // Setting the store here would cause the store to be set twice, and the subscribe function to run twice, which would be erronous
+        repo.find(automergeUrl);
+    }
+}
 
-        connection.on('close', () => {
-            console.log('Connection closed.');
+const shouldSwitchDocument = (currentDocumentHandle: DocHandle<DocumentData>, newDocumentHandle: DocHandle<DocumentData>) => {
+    // This comparison is arbitrary. The only thing that's important is that this comparison should be deterministic, so that all peers can agree on the same master document
+    // The url is basically a uuid, so this comparison should yield the same result for each peer
+    return currentDocumentHandle.url > newDocumentHandle.url;
+};
+
+const onDocumentChange = (document: DocHandleChangePayload<DocumentData>) => {
+    const h3Index = getH3Index();
+    const dataToRender = document.patchInfo.after?.data?.[h3Index]?.slice(document.patchInfo.before?.data?.[h3Index]?.length) || [];
+    // TODO: This is a naiive approach for getting which objects to render, it only works for new data that is appended to the end of the data list. However, when a merge occurs the data might not be appended to the end, but spliced to the middle.
+    // A better approach would be to use the document.patch object to apply those patches on the document somehow.
+    // See this github issue for a discussion: https://github.com/automerge/automerge-repo/issues/302
+    if (updateFunction) {
+        for (const data of dataToRender) {
+            updateFunction({ object_created: data });
+        }
+    }
+};
+
+const initializeRepo = () => {
+    documentHandleStore.set(repo?.create<DocumentData>());
+    const initialDoc = A.next.load<DocumentData>(initialChange);
+    const documentHandle = get(documentHandleStore);
+    documentHandle?.update(() => initialDoc);
+    automergeDocumentUrl.set(documentHandle?.url || null);
+};
+
+export const getAutomergeDocumentData = () => {
+    const h3Index = getH3Index();
+    const documentHandle = get(documentHandleStore);
+    return documentHandle?.docSync()?.data[h3Index];
+};
+
+const rejectPromiseAfterTimeout = async <T>(promise: Promise<T>, timeout: number): Promise<T> => {
+    return new Promise((resolve, reject) => {
+        const rejectTimeout = setTimeout(() => reject(new Error(`Promise timed out after ${timeout} ms`)), timeout);
+        promise.then((value) => {
+            clearTimeout(rejectTimeout);
+            resolve(value);
         });
     });
-
-    // Errors on the peer are almost always fatal and will destroy the peer.
-    instance.peer.on('error', (error) => {
-        let msg = error; // 'Error: ' is already prefixed to the incoming error message
-        console.error(msg);
-        p2pNetworkState.set(`${msg}`);
-    });
-
-    // Emitted when the peer is disconnected from the signalling server
-    // either manually or because the connection to the signalling server was lost.
-    // When a peer is disconnected, its existing connections will stay alive,
-    // but the peer cannot accept or create any new connections.
-    // You can reconnect to the server by calling peer.reconnect().
-    instance.peer.on('disconnected', () => {
-        let msg = 'Disconnected from PeerServer';
-        console.log(msg);
-        p2pNetworkState.set(msg);
-
-        if (peerServerHeartbeater != undefined) {
-            peerServerHeartbeater.stop();
-            peerServerHeartbeater = undefined;
-        }
-    });
-
-    // Emitted when the peer is destroyed and can no longer accept or create any new connections
-    // At this time, the peer's connections will all be closed.
-    instance.peer.on('close', () => {
-        let msg = 'Connection closed';
-        console.log(msg);
-        p2pNetworkState.set(msg);
-    });
-}
-
-// Code from https://github.com/peers/peerjs/issues/295
-class PeerJSHeartbeater {
-    private peer: Peer;
-    private timeoutID: undefined | ReturnType<typeof setTimeout>;
-    constructor(peer: Peer) {
-        this.peer = peer;
-        //this.start();
-    }
-    start() {
-        console.log('PeerJSHeartbeater start');
-        if (this.timeoutID === undefined) {
-            this.beat();
-        }
-    }
-    stop() {
-        console.log('PeerJSHeartbeater stop');
-        clearTimeout(this.timeoutID);
-        this.timeoutID = undefined;
-    }
-    beat() {
-        console.log('PeerJS heartbeat from ' + this.peer.id);
-        this.timeoutID = setTimeout(() => {
-            this.beat();
-        }, 10000);
-        if (this.peer.open) {
-            this.peer.socket.send({ type: 'HEARTBEAT' });
-        }
-    }
-}
+};

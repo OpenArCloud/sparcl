@@ -13,9 +13,8 @@
 <script lang="ts">
     import { onMount, tick, type ComponentType, SvelteComponent } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
-    import type { Service } from '@oarc/ssd-access';
 
-    import { getCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
+    import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
 
     import Dashboard from '@components/Dashboard.svelte';
     import WelcomeOverlay from '@components/dom-overlays/WelcomeOverlay.svelte';
@@ -32,14 +31,14 @@
         availableP2pServices,
         experimentModeSettings,
         hasIntroSeen,
-        initialLocation,
         isLocationAccessAllowed,
-        selectedP2pService,
         showDashboard,
         ssr,
         allowMessageBroker,
         selectedMessageBrokerService,
         messageBrokerAuth,
+        p2pNetworkState,
+        recentLocalisation,
     } from './stateStore';
     import { ARMODES } from './core/common';
     import * as rmq from '@src/core/rmqnetwork';
@@ -52,6 +51,7 @@
     import type ogl from '@core/engines/ogl/ogl';
     import type { ExperimentsViewers } from './types/xr';
     import ViewerMarker from '@components/viewer-implementations/Viewer-Marker.svelte';
+
     let showWelcome: boolean | null = null;
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
@@ -66,8 +66,7 @@
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
 
-    // TODO: Find solution for this quick fix to prevent continuous service requests.
-    let haveReceivedServices = false;
+    const getViewerInstance = () => viewerInstance;
 
     /**
      * Reactive function to define if the AR viewer can be shown.
@@ -75,47 +74,19 @@
     $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
 
     /**
-     * Reactive function to setup AR modes.
-     *
-     * Will be called everytime the value in arIsAvailable changes
+     * Reactive function to query current location and ssr. This needs to run after isLocationAccessAllowed receives a value, that's why we use a reactive statement instead of simply using onMount
      */
     $: {
-        if ($isLocationAccessAllowed && !haveReceivedServices) {
-            window.requestIdleCallback(() => {
-                // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
-                getCurrentLocation()
-                    .then((currentLocation) => {
-                        $initialLocation = currentLocation;
-                        return import('@oarc/ssd-access');
-                    })
-                    .then((ssdModule) => {
-                        const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
-                        if (ssdUrl != undefined && ssdUrl != '') {
-                            ssdModule.setSsdUrl(ssdUrl);
-                            console.log('Setting SSD URL to ' + ssdUrl);
-                        } else {
-                            console.error('Cannot determine SSD URL!');
-                            throw new Error('Cannot determine SSD URL!');
-                        }
-                        // TODO: we could also query all the neighboring hexagons
-                        return ssdModule.getServicesAtLocation($initialLocation.regionCode, $initialLocation.h3Index);
-                    })
-                    .then((services) => {
-                        haveReceivedServices = true;
-                        $ssr = services;
+        if ($isLocationAccessAllowed) {
+            setInitialLocationAndServices();
+        }
+    }
 
-                        if (services.length === 0) {
-                            shouldShowUnavailableInfo = true;
-                            console.error('No available services found');
-                        } else {
-                            console.log('Retrieved ' + services.length + ' SSRs');
-                        }
-                    })
-                    .catch((error) => {
-                        console.error('Could not retrieve spatial services');
-                        console.error(error);
-                    });
-            });
+    $: {
+        if ($ssr.length === 0) {
+            shouldShowUnavailableInfo = true;
+        } else {
+            shouldShowUnavailableInfo = false;
         }
     }
 
@@ -124,24 +95,28 @@
      */
     $: {
         if ($allowP2pNetwork && $availableP2pServices.length > 0) {
-            import('@src/core/p2pnetwork').then((p2pModule) => {
-                if (!p2p) {
+            if (!p2p) {
+                import('@src/core/p2pnetwork').then((p2pModule) => {
                     p2p = p2pModule;
-
-                    const selected = $selectedP2pService;
-
-                    const service = $availableP2pServices.find((service) => service.id === selected?.id);
-                    const headlessPeerId = service?.properties?.find((property) => property.type === 'peerid')?.value;
-                    // TODO: this property should be headlessPeerId (need to change the service too!!!)
-
-                    if (headlessPeerId) {
-                        p2p.connect(headlessPeerId, isHeadless, (data: any) => {
-                            viewerInstance?.onNetworkEvent?.(data); //TODO: why does it not work with viewer?
+                });
+            }
+            if (p2p) {
+                if ($p2pNetworkState === 'not connected') {
+                    if (spectator) {
+                        p2p!.connectFromStateStore((data: any) => {
                             spectator?.onNetworkEvent(data);
                         });
                     }
+                    if (viewerInstance) {
+                        p2p!.connectFromStateStore((data: any) => {
+                            if ($recentLocalisation?.geopose?.position != undefined) {
+                                // getter is important in this callback, because the viewerInstance can get destroyed and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
+                                getViewerInstance()?.onNetworkEvent?.(data);
+                            }
+                        });
+                    }
                 }
-            });
+            }
         } else if (!isHeadless) {
             p2p?.disconnect();
             p2p = null;
@@ -169,18 +144,25 @@
                 const headlessPeerId = urlParams.get('peerid');
                 const url = urlParams.get('signal');
                 const port = urlParams.get('port');
+                const path = urlParams.get('path') || undefined;
 
                 console.log('Starting headless client...');
                 console.log('  peerid: ' + headlessPeerId);
                 console.log('  signal: ' + (url ? url : 'PeerJS default'));
                 console.log('  port: ' + (port ? port : 'PeerJS default'));
+                console.log('  path: ' + (path ? path : 'PeerJS default'));
 
-                p2p.initialSetup();
-                if (headlessPeerId && url && port) {
-                    p2p.connectWithUrl(headlessPeerId, isHeadless, url, parseInt(port), (data: any) => {
-                        // Just for development
-                        console.log(data);
-                        currentSharedValues = data;
+                if (headlessPeerId) {
+                    const portToUse = port ? parseInt(port) : null;
+                    p2p.connectWithExplicitUrl({
+                        url,
+                        port: portToUse,
+                        path,
+                        updateftn: (data: any) => {
+                            // DEBUG
+                            console.log(data);
+                            currentSharedValues = data;
+                        },
                     });
                 }
             });
@@ -299,12 +281,18 @@
      *
      * @param event  Event      Svelte event type, contains values to broadcast in the detail property
      */
-    function handleBroadcast(event: CustomEvent<any>) {
+    function handleBroadcast(
+        event: CustomEvent<{
+            event: string;
+            value?: Record<string, any> | undefined;
+            routing_key?: string | undefined;
+        }>,
+    ) {
         if (p2p != null) {
             p2p.send(event.detail);
         }
 
-        if (event.detail.routing_key != undefined) {
+        if (event.detail.routing_key != undefined && event.detail.value) {
             rmq.send(event.detail.routing_key, event.detail.value);
         }
     }
@@ -331,7 +319,7 @@
 <main>
     {#if !isHeadless}
         {#if shouldShowDashboard && $arIsAvailable}
-            <Dashboard bind:this={dashboard} on:okClicked={startAr} />
+            <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startAr} />
         {/if}
 
         {#if (showWelcome || showOutro) && $arIsAvailable}

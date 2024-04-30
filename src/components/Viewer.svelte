@@ -34,6 +34,8 @@
         recentLocalisation,
         selectedContentServices,
         selectedGeoPoseService,
+        debug_overrideGeopose,
+        debug_useOverrideGeopose,
     } from '@src/stateStore';
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
@@ -47,6 +49,11 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
 
+    onDestroy(() => {
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+    });
+
     const message = (msg: string) => console.log(msg);
 
     let canvas: HTMLCanvasElement;
@@ -57,16 +64,16 @@
     let tdEngine: ogl;
 
     let unableToStartSession = false;
-    let doCaptureImage = false;
+    let startLocalizing = false;
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
 
-
     // TODO: Setup event target array, based on info received from SCD
 
-    const context: Writable<{ hasLostTracking: boolean ;showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> = getContext('state') || writable();
+    const context: Writable<{ hasLostTracking: boolean; showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> =
+        getContext('state') || writable();
     context.set({
         hasLostTracking: true,
         showFooter: false,
@@ -91,7 +98,9 @@
         tdEngine = this3dEngine;
 
         // give the component some time to set up itself
-        wait(1000).then(() => ($context.showFooter = true));
+        wait(1000).then(() => {
+            $context.showFooter = true;
+        });
     }
 
     /**
@@ -192,76 +201,79 @@
                 cameraViewport = res?.cameraViewport;
             }
 
-            if (doCaptureImage) {
-                doCaptureImage = false;
+            if (startLocalizing) {
+                startLocalizing = false;
 
-                //const imageWidth = viewport.width; // old Chrome 91
-                //const imageHeight = viewport.height; // old Chrome 91
-                //const imageWidth = view.camera.width; // new Chrome 92
-                //const imageHeight = view.camera.height; // new Chrome 92
-                const imageWidth = cameraViewport?.width;
-                const imageHeight = cameraViewport?.height;
-
-                let image: Promise<string> | null = null; // base64 encoded
-                if ($debug_loadCameraImage) {
-                    // This is only for development while running your own Sparcl server.
-                    // TODO: intrinsics could be also loaded separately
-                    const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the public/photos subfolder
-                    image = loadImageBase64(debug_CameraImageUrl);
-                } else if (cameraTexture && imageWidth && imageHeight) {
-                    image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
-                }
-
-                // Save image and append captured camera image to body to verify if it was captured correctly
-                if ($debug_saveCameraImage) {
-                    const docImage = new Image();
-                    if (image) {
-                        image.then((img) => {
-                            docImage.src = img;
-                            document.body.appendChild(docImage);
-                            saveImageBase64(img, 'your_photo');
-                            saveText(JSON.stringify(cameraIntrinsics), 'your_photo_intrinsics');
-                            saveText(JSON.stringify(cameraViewport), 'your_photo_viewport');
+                if ($debug_useOverrideGeopose) {
+                    const getGeopose = async () => {
+                        $context.isLocalizing = false;
+                        $context.isLocalized = true;
+                        // allow relocalization after a few seconds
+                        wait(4000).then(() => {
+                            $context.showFooter = false;
+                            $context.isLocalisationDone = true;
                         });
+                        return { cameraGeoPose: $debug_overrideGeopose };
+                    };
+                    doLocalization({ floorPose, getGeopose });
+                } else {
+                    //const imageWidth = viewport.width; // old Chrome 91
+                    //const imageHeight = viewport.height; // old Chrome 91
+                    //const imageWidth = view.camera.width; // new Chrome 92
+                    //const imageHeight = view.camera.height; // new Chrome 92
+                    const imageWidth = cameraViewport?.width;
+                    const imageHeight = cameraViewport?.height;
+
+                    let image: Promise<string> | null = null; // base64 encoded
+                    if ($debug_loadCameraImage) {
+                        // This is only for development while running your own Sparcl server.
+                        // TODO: intrinsics could be also loaded separately
+                        const debug_CameraImageUrl = '/photos/your_photo.jpg'; // place the photo into the public/photos subfolder
+                        image = loadImageBase64(debug_CameraImageUrl);
+                    } else if (cameraTexture && imageWidth && imageHeight) {
+                        image = Promise.resolve(xrEngine.getCameraImageFromTexture(cameraTexture, imageWidth, imageHeight));
                     }
-                }
 
-                if (image != null && imageWidth != null && imageHeight != null && cameraIntrinsics != null) {
-                    image
-                        .then((img) => {
-                            return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
-                        })
-                        .then(({ cameraGeoPose, optionalScrs }) => {
-                            // Save the local pose and the global pose of the image for alignment in a later step
-                            $recentLocalisation.geopose = cameraGeoPose;
-                            $recentLocalisation.floorpose = floorPose;
-                            onLocalizationSuccess(floorPose, cameraGeoPose);
-
-                            // There are GeoPose services (ex. Augmented City) that can also return content (an array of SCRs) inside the localization response.
-                            // We could return only those as [optionalScrs], however, this means all other content services are ignored...
-                            //if (optionalScrs) {
-                            //return [optionalScrs];
-                            //}
-                            // TODO: do this properly: use async here and pass optionalScrs together with scrsPromises
-
-                            // We request content from all available content services
-                            // (which means the AC service must be registered both as geopose as well as content-discovery service in the SSD)
-                            let scrsPromises = getContentsInH3Cell();
-                            return scrsPromises;
-                        })
-                        .then((scrs) => {
-                            // NOTE: the next step expects an array of array of SCRs in the scrs variable
-                            console.log(`Received scrs from ${scrs.length} servers`);
-                            scrs.forEach((scr) => {
-                                console.log(`Received ${scr.length} scrs from this server`);
+                    // Save image and append captured camera image to body to verify if it was captured correctly
+                    if ($debug_saveCameraImage) {
+                        const docImage = new Image();
+                        if (image) {
+                            image.then((img) => {
+                                docImage.src = img;
+                                document.body.appendChild(docImage);
+                                saveImageBase64(img, 'your_photo');
+                                saveText(JSON.stringify(cameraIntrinsics), 'your_photo_intrinsics');
+                                saveText(JSON.stringify(cameraViewport), 'your_photo_viewport');
                             });
-                            placeContent(scrs);
-                        });
+                        }
+                    }
+
+                    const getGeopose = async () => {
+                        if (!image || imageWidth == null || imageHeight == null || cameraIntrinsics == null) {
+                            throw new Error('Expected image to exist but it didnt');
+                        }
+                        const img = await image;
+                        return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
+                    };
+                    doLocalization({ floorPose, getGeopose });
                 }
             }
 
             tdEngine.render(time, view);
         }
+    }
+
+    async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+        const { cameraGeoPose } = await getGeopose();
+        $recentLocalisation.geopose = cameraGeoPose;
+        $recentLocalisation.floorpose = floorPose;
+        onLocalizationSuccess(floorPose, cameraGeoPose);
+        const scrs = await getContentsInH3Cell();
+        console.log(`Received scrs from ${scrs.length} servers`);
+        scrs.forEach((scr) => {
+            console.log(`Received ${scr.length} scrs from this server`);
+        });
+        placeContent(scrs);
     }
 
     /**
@@ -295,7 +307,7 @@
      * Trigger localisation of the device globally using a GeoPose service.
      */
     export function startLocalisation() {
-        doCaptureImage = true;
+        startLocalizing = true;
         $context.isLocalizing = true;
     }
 
@@ -306,8 +318,8 @@
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
         let localImagePose = {
             position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
-            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
-        }
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w),
+        };
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }
@@ -434,7 +446,7 @@
         $receivedScrs = [];
         $context.receivedContentTitles = [];
 
-        tdEngine.clearScene();  // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        tdEngine.clearScene(); // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
 
         $context.showFooter = true;
     }
@@ -488,6 +500,11 @@
                     }
                 }
 
+                const globalObjectPose = record.content.geopose;
+                const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                const localPosition = localObjectPose.position;
+                const localQuaternion = localObjectPose.quaternion;
+
                 // TODO: this method could handle any type of content:
                 //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
@@ -498,11 +515,6 @@
                     case 'placeholder': {
                         // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
                         showContentsLog = true; // show log if at least one 3D object was received
-
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        let position = localObjectPose.position;
-                        let orientation = localObjectPose.quaternion;
 
                         // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
@@ -519,7 +531,7 @@
                         //             tdEngine.addClickEvent(experiencePlaceholder, () => experienceLoadHandler(experiencePlaceholder, position, orientation, url));
                         //             break;
                         //         case 'gltf':
-                        //             tdEngine.addModel(position, orientation, url);
+                        //             tdEngine.addModel(url, position, orientation);
                         //             break;
                         //         default:
                         //             console.log('Error: unexpected sticker subtype: ' + subtype);
@@ -531,17 +543,17 @@
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                tdEngine.addModel(position, orientation, url);
+                                tdEngine.addModel(url, localPosition, localQuaternion);
                             } else {
                                 // we cannot load anything else but GLTF
                                 // so draw a placeholder instead
-                                const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                                const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
                                 handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                             }
                         } else {
                             // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
                             // so draw a placeholder instead
-                            const placeholder = tdEngine.addPlaceholder(record.content.keywords, position, orientation);
+                            const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
                             handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
                         }
                         break;
@@ -553,36 +565,25 @@
                             console.log('ISMAR2021demo object received!');
                             // TODO: the object_description is not standard data; it is only used for the ismar2021 demo
                             let object_description = (record.content as any).object_description;
-                            let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                            tdEngine.addObject(localObjectPose.position, localObjectPose.quaternion, object_description);
+                            tdEngine.addObject(localPosition, localQuaternion, object_description);
                         }
                         break;
                     }
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
-                            const globalObjectPose = record.content.geopose;
-                            const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                            const position = localObjectPose.position;
-                            const orientation = localObjectPose.quaternion;
                             let url = '';
                             if (content_definitions['url'] != undefined) {
                                 url = content_definitions['url'];
                             } else {
                                 url = record.content.refs ? record.content.refs[0].url : '';
                             }
-                            tdEngine.addPointCloud(url, position, orientation);
+                            tdEngine.addPointCloud(url, localPosition, localQuaternion);
                         } else {
                             console.log('A POINTCLOUD content was received but this type is disabled');
                         }
                         break;
                     }
-
                     case 'ICON': {
-                        const globalObjectPose = record.content.geopose;
-                        const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        const localPosition = localObjectPose.position;
-                        const localQuaternion = localObjectPose.quaternion;
                         let url = '';
                         if (content_definitions['url'] != undefined) {
                             url = content_definitions['url'];
@@ -678,7 +679,7 @@
 <canvas id="application" bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe title='externalcontentiframe' class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
+    <iframe title="externalcontentiframe" class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
     <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={closeExperience} />
 
     <!--  Space for UI elements -->

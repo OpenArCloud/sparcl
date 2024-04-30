@@ -165,7 +165,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
         // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
         if (get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
-        } else {
+        } else if (!get(debug_useOverrideGeopose)) {
             debug_useGeolocationSensors.set(true);
         }
     },
@@ -207,7 +207,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
         selectedP2pService.set(null);
-
         const p2pServices: Service[] = [];
         for (let record of $ssr) {
             record.services.forEach((service) => {
@@ -218,7 +217,6 @@ export const availableP2pServices = derived<typeof ssr, Service[]>(
         }
         set(p2pServices);
         // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
         if (get(selectedP2pService) === null && p2pServices.length > 0) {
             selectedP2pService.set(p2pServices[0]);
         }
@@ -312,7 +310,7 @@ allowP2pNetwork.subscribe((value) => {
  *
  * @type {Writable<string>}
  */
-export const p2pNetworkState = writable('not connected');
+export const p2pNetworkState = writable<'connected' | 'not connected'>('not connected');
 
 /**
  * Alphanumeric uuid string that identifies this client in the P2P network.
@@ -364,6 +362,33 @@ const storedDebug_useGeolocationSensors = localStorage.getItem('debug_useGeoloca
 export const debug_useGeolocationSensors = writable(storedDebug_useGeolocationSensors);
 debug_useGeolocationSensors.subscribe((value) => {
     localStorage.setItem('debug_useGeolocationSensors', value === true ? 'true' : 'false');
+});
+
+/**
+ * Use a predefined geolocation as if you were actually there. This way we can simulate being in an actual location. Useful for home office work when you wish to see the contents placed in the office.
+ */
+const storeddebug_useOverrideGeopose = localStorage.getItem('debug_useOverrideGeopose') === 'true';
+export const debug_useOverrideGeopose = writable(storeddebug_useOverrideGeopose);
+debug_useOverrideGeopose.subscribe((value) => {
+    localStorage.setItem('debug_useOverrideGeopose', value === true ? 'true' : 'false');
+});
+
+const storedDebug_overrideGeopose: Geopose = JSON.parse(localStorage.getItem('debug_overrideGeopose') || 'null') || {
+    position: {
+        h: 1.5,
+        lat: 0,
+        lon: 0,
+    },
+    quaternion: {
+        x: 0,
+        y: 0,
+        z: 0,
+        w: 1,
+    },
+};
+export const debug_overrideGeopose = writable(storedDebug_overrideGeopose);
+debug_overrideGeopose.subscribe((value) => {
+    localStorage.setItem('debug_overrideGeopose', JSON.stringify(value));
 });
 
 /**
@@ -459,4 +484,10 @@ selectedMessageBrokerService.subscribe((value) => {
         // initialize object
         messageBrokerAuth.set({ [value.guid]: { username: '', password: '' }, ...currentMessageBrokerAuth });
     }
+});
+
+const storedAutomergeDocumentUrl = localStorage.getItem('automergeDocumentUrl');
+export const automergeDocumentUrl = writable(storedAutomergeDocumentUrl);
+automergeDocumentUrl.subscribe((value) => {
+    localStorage.setItem('automergeDocumentUrl', value!);
 });
