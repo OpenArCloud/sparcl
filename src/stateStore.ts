@@ -145,8 +145,6 @@ export const ssr = writable<SSR[]>([]);
 export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     ssr,
     ($ssr, set) => {
-        selectedGeoPoseService.set(null);
-
         const geoposeServices: Service[] = [];
         for (let record of $ssr) {
             record.services.map((service) => {
@@ -400,6 +398,18 @@ const storedDebug_enablePointCloudContents = localStorage.getItem('debug_enableP
 export const debug_enablePointCloudContents = writable(storedDebug_enablePointCloudContents);
 debug_enablePointCloudContents.subscribe((value) => {
     localStorage.setItem('debug_enablePointCloudContents', value === true ? 'true' : 'false');
+});
+
+/**
+ * Enable/disable OGC Point of Interest contents
+ *
+ * @type {Writable<boolean>}
+ */
+const enableOGCFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
+const storedDebug_enableOGCPoIContents = enableOGCFromLocalStorage === 'true' || enableOGCFromLocalStorage == null; // set true if stored true or undefined
+export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
+debug_enableOGCPoIContents.subscribe((value) => {
+    localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
 });
 
 /**
