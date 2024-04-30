@@ -89,6 +89,7 @@ export async function send(data: { event: any; value?: any }) {
         documentHandle.change((d) => {
             d.data[h3Index] = [];
         });
+        console.log("Cleared all ephemeral objects");
         return;
     }
     documentHandle.change((d) => {
