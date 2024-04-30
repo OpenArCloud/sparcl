@@ -42,10 +42,11 @@
         debug_enablePointCloudContents,
         myAgentColor,
         myAgentName,
-        availableMessageBrokerServices,
         activeExperiment,
         selectedMessageBrokerService,
         messageBrokerAuth,
+        debug_useOverrideGeopose,
+        debug_overrideGeopose,
         allowMessageBroker,
     } from '@src/stateStore';
 
@@ -56,15 +57,19 @@
 
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
+    import { setInitialLocationAndServices } from '../core/locationTools';
+    import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
+    let overrideGeoposePromise: Promise<void>;
+    const serviceUrlFontSizePx = 8;
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
-        if ($selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+        if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
     });
 
@@ -89,7 +94,6 @@
 </div>
 
 <details class="dashboard" bind:open={$dashboardDetail.state}>
-
     <summary>Application state</summary>
     <dl>
         <dt>Location access</dt>
@@ -134,77 +138,6 @@
             <label for="armodeexperiment">{ARMODES.experiment}</label>
         </dd>
     </dl>
-
-    {#if $arMode === ARMODES.oscp}
-        <dl>
-            <dt><label for="geoposeServer">GeoPose Services</label></dt>
-            <dd class="select">
-                <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
-                    {#if $availableGeoPoseServices.length === 0}
-                        <option value={null} disabled selected>Device sensors (no VPS available)</option>
-                        <!--{debug_useGeolocationSensors.set(true)}-->
-                    {:else}
-                        {#each $availableGeoPoseServices as service}
-                            <option value={service}>{service.title}</option>
-                        {/each}
-                        <!--{debug_useGeolocationSensors.set(false)}-->
-                    {/if}
-                </select>
-            </dd>
-            <pre class="serviceurl">
-            <label for="geoposeServer">{$selectedGeoPoseService?.url || ''}</label>
-        </pre>
-        </dl>
-
-        <dl>
-            <dt>Recent GeoPose</dt>
-            <dd class="autoheight">
-                <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
-            </dd>
-        </dl>
-
-        <dl class="nested">
-            <dt><label>Content Services</label></dt>
-            {#each $availableContentServices as service}
-                <dd>
-                    <input
-                        id="selectedContentService_{service.id}"
-                        type="checkbox"
-                        checked={$selectedContentServices[service.id]?.isSelected}
-                        on:change={(event) => handleContentServiceSelection(event, service)}
-                    />
-                    <label for="selectedContentService_{service.id}">{service.title}</label>
-                    <pre class="serviceurl">
-                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-                    </pre>
-
-                    {#if service?.properties}
-                        <ul>
-                            {#each service.properties as property}
-                                {#if property.type === 'topics'}
-                                    {#each property.value.split(',') as topic}
-                                        <li>
-                                            <input
-                                                id="contenttopic"
-                                                type="radio"
-                                                name={service.id}
-                                                disabled={!$selectedContentServices[service.id]?.isSelected}
-                                                checked={$selectedContentServices[service.id]?.selectedTopic === topic}
-                                                on:change={(event) => handleContentServiceTopicSelection(service, topic)}
-                                            />
-                                            <label for="contenttopic">{topic}</label>
-                                        </li>
-                                    {/each}
-                                {/if}
-                            {/each}
-                        </ul>
-                    {:else}
-                        <p>No Topics</p>
-                    {/if}
-                </dd>
-            {/each}
-        </dl>
-    {/if}
 
     {#if $arMode === ARMODES.marker}
         <dl>
@@ -279,6 +212,74 @@
         {/await}
     {/if}
 
+    <dl>
+        <dt><label for="geoposeServer">GeoPose Services</label></dt>
+        <dd class="select">
+            <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
+                {#if $availableGeoPoseServices.length === 0}
+                    <option value={null} disabled selected>Device sensors (no VPS available)</option>
+                    <!--{debug_useGeolocationSensors.set(true)}-->
+                {:else}
+                    {#each $availableGeoPoseServices as service}
+                        <option value={service}>{service.title}</option>
+                    {/each}
+                    <!--{debug_useGeolocationSensors.set(false)}-->
+                {/if}
+            </select>
+        </dd>
+        <pre class="serviceurl">
+            <label for="geoposeServer">{$selectedGeoPoseService?.url || ''}</label>
+        </pre>
+    </dl>
+
+    <dl>
+        <dt>Recent GeoPose</dt>
+        <dd class="autoheight">
+            <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
+        </dd>
+    </dl>
+
+    <dl class="nested">
+        <dt><label>Content Services</label></dt>
+        {#each $availableContentServices as service}
+            <dd>
+                <input
+                    id="selectedContentService_{service.id}"
+                    type="checkbox"
+                    checked={$selectedContentServices[service.id]?.isSelected}
+                    on:change={(event) => handleContentServiceSelection(event, service)}
+                />
+                <label for="selectedContentService_{service.id}">{service.title}</label>
+                <pre class="serviceurl">
+                        <label for="selectedContentService_{service.id}">{service.url || ''}</label>
+                    </pre>
+
+                {#if service?.properties}
+                    <ul>
+                        {#each service.properties as property}
+                            {#if property.type === 'topics'}
+                                {#each property.value.split(',') as topic}
+                                    <li>
+                                        <input
+                                            id="contenttopic"
+                                            type="radio"
+                                            name={service.id}
+                                            disabled={!$selectedContentServices[service.id]?.isSelected}
+                                            checked={$selectedContentServices[service.id]?.selectedTopic === topic}
+                                            on:change={(event) => handleContentServiceTopicSelection(service, topic)}
+                                        />
+                                        <label for="contenttopic">{topic}</label>
+                                    </li>
+                                {/each}
+                            {/if}
+                        {/each}
+                    </ul>
+                {:else}
+                    <p>No Topics</p>
+                {/if}
+            </dd>
+        {/each}
+    </dl>
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
@@ -296,38 +297,7 @@
         submitSuccessMessage="Authentication successful"
     ></MessageBrokerSelector>
 
-    <dl>
-        <dt><label for="p2pserver">PeerJS Services</label></dt>
-        <div>
-            <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
-            <label for="allowP2p">Connect to p2p network</label>
-        </div>
-        <dd class="select">
-            <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2 || $allowP2pNetwork === false}>
-                {#if $availableP2pServices.length === 0}
-                    <option value={null}>None</option>
-                {:else}
-                    {#each $availableP2pServices as service}
-                        <option value={service}>{service.title}</option>
-                    {/each}
-                {/if}
-            </select>
-        </dd>
-        <pre class="serviceurl">
-            <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-            {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
-                {#each $selectedP2pService.properties as prop}
-                    <label>{prop.type}: {prop.value}<br /></label>
-                {/each}
-            {/if}
-        </pre>
-        <p class="note">Change active after reload</p>
-    </dl>
-
-    <dl>
-        <dt>Connection status</dt>
-        <dd>{$p2pNetworkState}</dd>
-    </dl>
+    <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} />
 </details>
 
 <details class="dashboard" bind:open={$dashboardDetail.debug}>
@@ -356,6 +326,31 @@
         <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
         <label for="enablePointCloudContents">Enable point cloud contents</label>
     </div>
+
+    <div>
+        <input id="overrideGeopose" type="checkbox" bind:checked={$debug_useOverrideGeopose} />
+        <label for="overrideGeopose">Override geopose</label>
+    </div>
+    {#if $debug_useOverrideGeopose}
+        <form style="margin-top: 5px;">
+            <label style="display: inline-block; min-width: 100px;" for="lat">Latitude</label>
+            <input name="lat" type="text" bind:value={$debug_overrideGeopose.position.lat} />
+            <label style="display: inline-block; min-width: 100px;" for="lon">Longitude</label>
+            <input name="lon" type="text" bind:value={$debug_overrideGeopose.position.lon} />
+        </form>
+        <div class="center" style="padding-top: 1rem;">
+            <button on:click={() => (overrideGeoposePromise = setInitialLocationAndServices())}>Use position</button>
+        </div>
+        {#if overrideGeoposePromise}
+            {#await overrideGeoposePromise}
+                <img class="spinner center-img" style="padding-top: 1rem;" alt="Waiting spinner" src="/media/spinner.svg" />
+            {:then}
+                <p class="center" style="color: green">Successfully set geoposition</p>
+            {:catch error}
+                <p class="center" style="color: red">Could not set geoposition. Reason: {error}</p>
+            {/await}
+        {/if}
+    {/if}
 </details>
 
 {@html supportedCountries}
@@ -386,6 +381,20 @@
         font-size: 25px;
         letter-spacing: 0;
 
+        background-color: white;
+    }
+
+    .center {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    button {
+        border: 2px solid var(--theme-color);
+        border-radius: 0.5rem;
+        font-size: 1.125rem;
+        line-height: 1.75rem;
         background-color: white;
     }
 
@@ -537,12 +546,18 @@
         padding: 0;
     }
 
-    .note {
-        color: red;
-        margin-top: -15px;
+    .serviceurl {
+        font-size: calc(var(--serviceUrlFontSizePx) * 1px);
     }
 
-    .serviceurl {
-        font-size: 8px;
+    .center-img {
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+        width: 50%;
+    }
+
+    .spinner {
+        height: 50px;
     }
 </style>

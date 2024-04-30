@@ -17,6 +17,8 @@ import * as h3 from 'h3-js';
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { Quat, type Vec3 } from 'ogl';
+import { debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, ssr } from '../stateStore';
+import { get } from 'svelte/store';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
 export const toDegrees = (radians: number) => (radians / Math.PI) * 180;
@@ -77,6 +79,40 @@ let lastTimeCurrentLocationQuery = 0;
 /**
  *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
  */
+export const setInitialLocationAndServices = async () => {
+    console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
+    if (get(isLocationAccessAllowed)) {
+        // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
+        try {
+            const currentLocation = await getCurrentLocation();
+            console.log('currentLocation', currentLocation);
+            initialLocation.set(currentLocation);
+            const ssdModule = await import('@oarc/ssd-access');
+            const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
+            if (ssdUrl != undefined && ssdUrl != '') {
+                ssdModule.setSsdUrl(ssdUrl);
+                console.log('Setting SSD URL to ' + ssdUrl);
+            } else {
+                console.error('Cannot determine SSD URL!');
+                throw new Error('Cannot determine SSD URL!');
+            }
+            // TODO: we could also query all the neighboring hexagons
+            const services = await ssdModule.getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index);
+            ssr.set(services);
+
+            if (services.length === 0) {
+                console.error('No available services found');
+            } else {
+                console.log('Retrieved ' + services.length + ' SSRs');
+            }
+        } catch (error) {
+            console.error('Could not retrieve spatial services');
+            console.error(error);
+            throw error;
+        }
+    }
+};
+
 export function getCurrentLocation() {
     console.log('getCurrentLocation...');
     return new Promise<{ h3Index: h3.H3Index; lat: number; lon: number; countryCode: string; regionCode: string }>((resolve, reject) => {
@@ -90,44 +126,50 @@ export function getCurrentLocation() {
             reject('Too frequent calls to current location are not allowed (OpenStreetMap)');
         }
         lastTimeCurrentLocationQuery = now;
+        const currentPositionCallback = (position: { coords: { latitude: number; longitude: number } }) => {
+            const latAngle = position.coords.latitude;
+            const lonAngle = position.coords.longitude;
+            console.log('GPS location: (' + latAngle + ', ' + lonAngle + ')');
 
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const latAngle = position.coords.latitude;
-                const lonAngle = position.coords.longitude;
-                console.log('GPS location: (' + latAngle + ', ' + lonAngle + ')');
-
-                // WARNING: more than 1 request in a second leads to IP address ban!
-                fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
-                    .then((response) => {
-                        if (response.ok) {
-                            return response.json();
-                        } else {
-                            reject(response.text());
-                        }
-                    })
-                    .then((data) => {
-                        const countryCode = data.address.country_code;
-                        resolve({
-                            h3Index: h3.geoToH3(latAngle, lonAngle, 8),
-                            lat: latAngle,
-                            lon: lonAngle,
-                            countryCode: countryCode,
-                            regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us',
-                        });
-                    })
-                    .catch((error) => {
-                        // TODO: refactor: use US as default and resolve
-                        console.error('Could not retrieve country code.');
-                        reject(error);
+            // WARNING: more than 1 request in a second leads to IP address ban!
+            fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latAngle}&lon=${lonAngle}&format=json&zoom=1&email=info%40michaelvogt.eu`)
+                .then((response) => {
+                    if (response.ok) {
+                        return response.json();
+                    } else {
+                        reject(response.text());
+                    }
+                })
+                .then((data) => {
+                    const countryCode = data.address.country_code;
+                    resolve({
+                        h3Index: h3.geoToH3(latAngle, lonAngle, 8),
+                        lat: latAngle,
+                        lon: lonAngle,
+                        countryCode: countryCode,
+                        regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us',
                     });
-            },
-            (error) => {
-                console.log(`Location request failed: ${error}`);
-                reject(error);
-            },
-            locationAccessOptions,
-        );
+                })
+                .catch((error) => {
+                    // TODO: refactor: use US as default and resolve
+                    console.error('Could not retrieve country code.');
+                    reject(error);
+                });
+        };
+
+        if (!get(debug_useOverrideGeopose)) {
+            navigator.geolocation.getCurrentPosition(
+                currentPositionCallback,
+                (error) => {
+                    console.log(`Location request failed: ${error}`);
+                    reject(error);
+                },
+                locationAccessOptions,
+            );
+        } else {
+            const predefinedGeolocation = get(debug_overrideGeopose);
+            currentPositionCallback({ coords: { latitude: predefinedGeolocation.position.lat, longitude: predefinedGeolocation.position.lon } });
+        }
     });
 }
 
