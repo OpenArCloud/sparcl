@@ -13,7 +13,8 @@
 <script lang="ts">
     import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices } from '@src/stateStore';
     import { v4 as uuidv4 } from 'uuid';
-    import L, { Map } from 'leaflet';
+
+    import L from 'leaflet';
 
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
     import { type ObjectDescription } from '../../types/xr';
@@ -21,11 +22,15 @@
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
     import P2PServiceSelector from './P2PServiceSelector.svelte';
+    import { type SCR } from '@oarc/scd-access'
 
-    let map: Map | null;
+    let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
 
-    const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: Record<string, any>; routing_key?: string } }>();
+    const ephemeral_markers: {[id:string]: L.Layer} = {};
+    const ephemeral_scrs: {[id:string]: SCR} = {};
+
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any; routing_key?: string } }>();
 
     function shareObject({ lat, lon, objectDescription }: { lat: number; lon: number; objectDescription: ObjectDescription }) {
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
@@ -65,19 +70,21 @@
         dispatch('broadcast', {
             event: 'object_created',
             value: message_body,
-            routing_key: '/exchange/esoptron/object_created',
         });
     }
 
-    function placeMarker(lat: number, lon: number, color: string) {
-        if (map) {
-            L.circle([lat, lon], {
-                color: color,
-                fillColor: color,
-                fillOpacity: 0.5,
-                radius: 1,
-            }).addTo(map);
+    function placeMarker(id: string, lat: number, lon: number, color: string) {
+        if (map == null) {
+            return;
         }
+        const marker = L.circle([lat, lon], {
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.5,
+            radius: 1,
+        })
+        marker.addTo(map);
+        ephemeral_markers[id] = marker;
     }
 
     /**
@@ -86,7 +93,10 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) && !('object_created' in events)) {
+        if (!('message_broadcasted' in events) &&
+            !('object_created' in events) &&
+            !('clear_session' in events))
+        {
             console.log('Spectator: Unknown event received:');
             console.log(events);
             return;
@@ -95,17 +105,17 @@
         // Log the messages received form others
         if ('message_broadcasted' in events) {
             let data = events.message_broadcasted;
-            //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            ///if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
             if ('message' in data && 'sender' in data) {
                 console.log('message from ' + data.sender + ': \n  ' + data.message);
             }
-            //            }
+            ///}
         }
 
         // Place markers on a 2D map where others have created objects. Use the same color!
         if ('object_created' in events) {
             let data = events.object_created;
-            //            if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
+            ///if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
             if ('scr' in data) {
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
@@ -115,10 +125,24 @@
                     const g = Math.round(255 * data.content.object_description.color[1]);
                     const b = Math.round(255 * data.content.object_description.color[2]);
                     const markerColor = 'rgb(' + r + ',' + g + ',' + b + ')';
-                    placeMarker(markerLat, markerLon, markerColor);
+                    const id = data.id as string;
+                    placeMarker(id, markerLat, markerLon, markerColor);
+                    ephemeral_scrs[id] = data;
                 }
             }
-            //            }
+            ///}
+        }
+
+        if ('clear_session' in events) {
+            if (map) {
+                for (let id in ephemeral_markers) {
+                    ephemeral_markers[id].removeFrom(map);
+                    delete ephemeral_markers[id];
+                }
+            }
+            for (let id in ephemeral_scrs) {
+                delete ephemeral_scrs[id];
+            }
         }
     }
 
@@ -185,7 +209,14 @@
         <p>No multiplayer services are available</p>
     {/if}
 
-    <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} />
+    <P2PServiceSelector on:broadcast={(event) => {
+            if ('clear_session' == event.detail.event) {
+                onNetworkEvent({clear_session: {}}) // process here to clean the map view
+            }
+            dispatch('broadcast', event.detail); // forward to App (to Automerge)
+        }
+    } />
+
 
     <MessageBrokerSelector
         onSubmit={messageBrokerSubmit}
