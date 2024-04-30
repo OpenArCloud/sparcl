@@ -14,7 +14,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce, type DebouncedFunc } from 'lodash';
+    import { debounce, forEach, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
     import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -29,6 +29,7 @@
         debug_saveCameraImage,
         debug_loadCameraImage,
         debug_enablePointCloudContents,
+        debug_enableOGCPoIContents,
         initialLocation,
         receivedScrs,
         recentLocalisation,
@@ -543,7 +544,16 @@
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                tdEngine.addModel(url, localPosition, localQuaternion);
+                                const node = tdEngine.addModel(url, localPosition, localQuaternion);
+                                if (content_definitions['animation'] != undefined) {
+                                    switch (content_definitions['animation']) {
+                                        case 'SPIN_UP':
+                                            tdEngine.setVerticallyRotating(node);
+                                            break;
+                                        default:
+                                            break
+                                    }
+                                }
                             } else {
                                 // we cannot load anything else but GLTF
                                 // so draw a placeholder instead
@@ -569,6 +579,7 @@
                         }
                         break;
                     }
+
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
                             let url = '';
@@ -583,6 +594,7 @@
                         }
                         break;
                     }
+
                     case 'ICON': {
                         let url = '';
                         if (content_definitions['url'] != undefined) {
@@ -601,9 +613,91 @@
                         tdEngine.addLogoObject(url, localPosition, localQuaternion, width, height);
                         break;
                     }
+
+                    case 'POI': {
+                        if (!$debug_enableOGCPoIContents) {
+                            console.log('An POI content was received but this type is disabled');
+                            break;
+                        }
+                        const url = record.content.refs ? record.content.refs[0].url : '';
+                        fetch(url)
+                            .then((response) => {
+                                if (response.ok) {
+                                    return response.json();
+                                } else {
+                                    console.error('Could not retrieve POIs from ' + url);
+                                    console.error(response.text());
+                                }
+                            })
+                            .then((poidata) => {
+
+                                const features = poidata.features;
+                                features.forEach((feature:any)=> {
+                                    const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
+                                    //console.log("POI received:");
+                                    //console.log(featureName);
+                                    const poiLat = feature.geometry.coordinates[0];
+                                    const poiLon = feature.geometry.coordinates[1];
+                                    let poiH = 0.0;
+                                    if (feature.geometry.coordinates.length > 2) {
+                                        poiH = feature.geometry.coordinates[2];
+                                    }
+                                    const featureGeopose = {
+                                        // WARNING: now we need to harcode height because it is not part of OGC PoI
+                                        position: {lat: poiLat, lon: poiLon, h: poiH},
+                                        quaternion: { x: 0, y: 0, z: 0, w: 1},
+                                    };
+                                    const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                    tdEngine.setVerticallyRotating(pinModel);
+
+                                    let localTextPosition = localFeaturePose.position.clone();
+                                    localTextPosition.y += 3;
+                                    const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
+                                    const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                    textMesh.then((node) => {
+                                        tdEngine.setTowardsCameraRotating(node);
+                                    })
+
+                                });
+                            })
+                            .catch((error) => {
+                                console.error('Error while processing POIs: ' + error);
+                            });
+
+                        break;
+                    }
+
+                    case 'TEXT': {
+                        if (!$debug_enableOGCPoIContents) {
+                            console.log('A TEXT content was received but this type is disabled');
+                            break;
+                        }
+                        const url = record.content.refs ? record.content.refs[0].url : '';
+                        fetch(url)
+                            .then((response) => {
+                                if (response.ok) {
+                                    return response.text();
+                                } else {
+                                    console.error('Could not retrieve TEXT from ' + url);
+                                    console.error(response.text());
+                                }
+                            })
+                            .then((textdata) => {
+                                //console.log("TEXT received:")
+                                //console.log(textdata)
+                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
+                            })
+                            .catch((error) => {
+                                console.error('Error while processing TEXT: ' + error);
+                            });
+                        break;
+                    }
+
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
+                        break;
                     }
                 }
             });
