@@ -31,15 +31,14 @@
         availableP2pServices,
         experimentModeSettings,
         hasIntroSeen,
-        initialLocation,
         isLocationAccessAllowed,
-        selectedP2pService,
         showDashboard,
         ssr,
         allowMessageBroker,
         selectedMessageBrokerService,
         messageBrokerAuth,
         p2pNetworkState,
+        recentLocalisation,
     } from './stateStore';
     import { ARMODES } from './core/common';
     import * as rmq from '@src/core/rmqnetwork';
@@ -110,8 +109,10 @@
                     }
                     if (viewerInstance) {
                         p2p!.connectFromStateStore((data: any) => {
-                            // getter is important in this callback, because the viewerInstance can get destroey and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
-                            getViewerInstance()?.onNetworkEvent?.(data);
+                            if ($recentLocalisation?.geopose?.position != undefined) {
+                                // getter is important in this callback, because the viewerInstance can get destroyed and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
+                                getViewerInstance()?.onNetworkEvent?.(data);
+                            }
                         });
                     }
                 }
@@ -318,7 +319,7 @@
 <main>
     {#if !isHeadless}
         {#if shouldShowDashboard && $arIsAvailable}
-            <Dashboard bind:this={dashboard} on:okClicked={startAr} />
+            <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startAr} />
         {/if}
 
         {#if (showWelcome || showOutro) && $arIsAvailable}
