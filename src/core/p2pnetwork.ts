@@ -17,6 +17,8 @@ import { PeerjsNetworkAdapter } from './peer-js-network-adapter';
 
 type DocumentData = { data: Record<string, any[]> };
 
+const alreadyRenderedContentIds: number[] = [];
+
 let peerjsNetworkAdapter: PeerjsNetworkAdapter | undefined;
 let repo: Repo | undefined;
 let updateFunction: ((data: any) => void) | undefined = undefined;
@@ -89,7 +91,7 @@ export async function send(data: { event: any; value?: any }) {
         documentHandle.change((d) => {
             d.data[h3Index] = [];
         });
-        console.log("Cleared all ephemeral objects");
+        console.log('Cleared all ephemeral objects');
         return;
     }
     documentHandle.change((d) => {
@@ -156,8 +158,15 @@ const shouldSwitchDocument = (currentDocumentHandle: DocHandle<DocumentData>, ne
 
 const onDocumentChange = (document: DocHandleChangePayload<DocumentData>) => {
     const h3Index = getH3Index();
-    const dataToRender = document.patchInfo.after?.data?.[h3Index]?.slice(document.patchInfo.before?.data?.[h3Index]?.length) || [];
-    // TODO: This is a naiive approach for getting which objects to render, it only works for new data that is appended to the end of the data list. However, when a merge occurs the data might not be appended to the end, but spliced to the middle.
+    const dataToRender = [];
+    for (const data of document.patchInfo.after?.data?.[h3Index] || []) {
+        const contentId = data.scr.content.id;
+        if (!alreadyRenderedContentIds.includes(contentId)) {
+            dataToRender.push(data);
+            alreadyRenderedContentIds.push(contentId);
+        }
+    }
+    // TODO: This approach for rendering content is not the best, but it's OK.
     // A better approach would be to use the document.patch object to apply those patches on the document somehow.
     // See this github issue for a discussion: https://github.com/automerge/automerge-repo/issues/302
     if (updateFunction) {
