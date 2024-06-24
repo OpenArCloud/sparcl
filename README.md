@@ -43,13 +43,24 @@ Create `.env` file containing the URL to OSCP SSD
 VITE_SSD_ROOT_URL=
 ```
 
-Build:
+### Build:
 ```
 npm install
 npm run build
 ```
 
-Start:
+### Start:
 ```
 npm run start
 ```
+
+## Docker build
+
+To build a docker image run the `npm run build:docker` script. Make sure you have your `.env` file correctly set up before building. If you are unwilling or unable to create a `.env` file (eg.: because the build is happening in a CI pipeline), then an alternate solution is to add the following lines to the Dockerfile:
+
+```Dockerfile
+ARG VITE_SSD_ROOT_URL
+ENV VITE_SSD_ROOT_URL=$VITE_SSD_ROOT_URL
+```
+
+and to run the docker build script with the following command line argument: `docker build --build-arg VITE_SSD_ROOT_URL=https://your-ssd-url-domain.com . -t sparcl`
