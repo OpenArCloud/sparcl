@@ -15,8 +15,8 @@
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, forEach, type DebouncedFunc } from 'lodash';
-    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType } from '@oarc/gpp-access';
-    import { ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
+        ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
@@ -380,8 +380,16 @@
             //TODO: pass width and height as numbers
             //TODO: add width and height into CameraParams (too)
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams)
-                .addLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0);
+                .addSensor(new Sensor("gps", SENSORTYPE.geolocation))
+                .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0,
+                    new Date().getTime(), "gps", new Privacy());
+
+            console.log(JSON.stringify(geoPoseRequest))
+
+            geoPoseRequest
+                .addSensor(new Sensor("cam", SENSORTYPE.camera))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams,
+                    new Date().getTime(), "cam", new Privacy())
 
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
