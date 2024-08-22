@@ -9,6 +9,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "start": "npm run dev",
     "build": "vite build",
+    "build:docker": "docker build . -t sparcl",
+    "start:docker": "docker run -p 8034:80 -d sparcl:latest",
     "preview": "vite preview --port 8080",
     "test": "npx mocha --reporter spec 'test/**/*.js'"
   },
