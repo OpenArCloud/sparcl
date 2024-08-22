@@ -58,7 +58,7 @@
     "@automerge/automerge-repo-storage-indexeddb": "^1.1.1",
     "@loaders.gl/core": "^3.4.13",
     "@loaders.gl/ply": "^3.4.13",
-    "@oarc/gpp-access": "^0.1.1",
+    "@oarc/gpp-access": "^0.2.0",
     "@oarc/scd-access": "^0.2.0",
     "@oarc/ssd-access": "^0.3.0",
     "amqplib": "^0.10.3",
