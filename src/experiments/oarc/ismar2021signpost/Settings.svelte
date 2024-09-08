@@ -824,10 +824,14 @@
     // The sign data (From top to bottom)
     let signData = [
         { name: 'North', latitude: 90, longitude: 135, background: 0xff0000, color: 0xffffff },
-        { name: 'Paris', latitude: 48.8589507, longitude: 2.2770205, background: 0xffffff },
-        { name: 'Tokyo', latitude: 35.689722, longitude: 139.692222, background: 0xffffff },
-        { name: 'New York', latitude: 40.712778, longitude: -74.006111, background: 0xffffff },
-        { name: 'Sydney', latitude: -33.865, longitude: 151.209444, background: 0xffffff },
+	    { name: 'Huntsville', latitude: 34.693333, longitude: -86.560833 },
+	    { name: 'Delft', latitude: 52.011667, longitude: 4.359167 },
+        { name: 'Singapore', latitude: 1.283333, longitude: 103.833333 },
+	    { name: 'Arlington', latitude: 38.880278, longitude: -77.108333 },
+        // { name: 'Paris', latitude: 48.8589507, longitude: 2.2770205, background: 0xffffff },
+        // { name: 'Tokyo', latitude: 35.689722, longitude: 139.692222, background: 0xffffff },
+        // { name: 'New York', latitude: 40.712778, longitude: -74.006111, background: 0xffffff },
+        // { name: 'Sydney', latitude: -33.865, longitude: 151.209444, background: 0xffffff },
     ];
 
     // ------------------------------------------------------------- USER INTERFACE
