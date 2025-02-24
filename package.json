@@ -56,8 +56,10 @@
     "vite-plugin-wasm": "^3.3.0"
   },
   "dependencies": {
+    "@auth0/auth0-spa-js": "^2.1.3",
     "@automerge/automerge-repo": "^1.1.1",
     "@automerge/automerge-repo-storage-indexeddb": "^1.1.1",
+    "@fortawesome/fontawesome-free": "^6.7.2",
     "@loaders.gl/core": "^3.4.13",
     "@loaders.gl/ply": "^3.4.13",
     "@oarc/gpp-access": "^0.2.0",
@@ -80,6 +82,7 @@
     "stompjs": "^2.3.3",
     "svelte-awesome-color-picker": "^3.0.4",
     "svelte-check": "^3.6.2",
+    "svelte-routing": "^2.13.0",
     "three": "^0.160.0",
     "thumb-ui": "^0.0.17",
     "uuid": "^8.3.2"
