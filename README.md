@@ -64,3 +64,16 @@ ENV VITE_SSD_ROOT_URL=$VITE_SSD_ROOT_URL
 ```
 
 and to run the docker build script with the following command line argument: `docker build --build-arg VITE_SSD_ROOT_URL=https://your-ssd-url-domain.com . -t sparcl`
+
+
+### Authentication:
+- The app integrates with Auth0, allowing users to log in using Google.
+
+- Additionally, users can bypass authentication and access AR mode directly without logging in. To enable this, add the following variables to your .env file:
+
+```js
+## Auth for the users that needed to be directed to the AR directly
+VITE_NOAUTH='true'
+VITE_NOAUTH_USER_NAME='user'
+VITE_NOAUTH_USER_EMAIL='user@gmail.com'
+```
