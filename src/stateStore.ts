@@ -18,6 +18,19 @@ import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';
 
+
+/**
+ * Determines the isAuthenticatedAuth0 status.
+ * @type {Readable<boolean>}    true when using Auth0, false otherwise
+ */
+
+export const isAuthenticatedAuth0 = writable(false);
+export const userNoAuth = writable(false);
+
+export const authenticated0Client = writable({});
+export const popupOpen = writable(false);
+export const error = writable();
+
 /**
  * Determines the availability of AR functions on the current device.
  * @type {Readable<boolean>}    true when available, false otherwise
@@ -29,6 +42,44 @@ export const arIsAvailable = readable(false, (set) => {
 
     return () => set(false);
 });
+
+/**
+ * Reads and stores the state of login.
+ *
+ * @type {boolean}  true when login is true, false otherwise
+ */
+const storedLoginState = localStorage.getItem('isLoggedIn') === 'true';
+export const isLoggedIn = writable<boolean>(storedLoginState);
+isLoggedIn.subscribe((value) => {
+    localStorage.setItem('isLoggedIn', value ? 'true' : 'false');
+});
+
+/**
+ * Reads and stores the details of the signed user.
+ *
+ * @type {string}
+ */
+const kDefaultLoggedInUserData = JSON.stringify({
+    email: null,
+    username: null
+  });
+const storedSignedInUserState = localStorage.getItem('currentLoggedInUser') || kDefaultLoggedInUserData;
+export const currentLoggedInUser = writable<string>(storedSignedInUserState);
+currentLoggedInUser.subscribe((value) => {
+    localStorage.setItem('currentLoggedInUser', value );
+});
+
+/**
+ * Reads and stores the setting whether or not to display the login persistently.
+ *
+ * @type {boolean}  true when login should be shown, false otherwise
+ */
+const storedShowLogin = localStorage.getItem('showlogin') === 'true';
+export const showLogin = writable(storedShowLogin);
+showLogin.subscribe((value) => {
+    localStorage.setItem('showlogin', value === true ? 'true' : 'false');
+});
+
 
 /**
  * Determines and keeps track of the state of the location permission.
