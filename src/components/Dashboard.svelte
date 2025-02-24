@@ -61,6 +61,9 @@
     import { setInitialLocationAndServices } from '../core/locationTools';
     import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
 
+    import Navbar from './Navbar.svelte';
+
+
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
 
@@ -86,6 +89,12 @@
         $selectedContentServices[service.id].selectedTopic = topic;
     }
 </script>
+
+
+<div id="dashboard-elements">
+    <Navbar />
+
+    <div id="sepeator"></div>
 
 <button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
 
@@ -359,6 +368,8 @@
     {/if}
 </details>
 
+</div>
+
 {@html supportedCountries}
 
 <style>
@@ -565,5 +576,9 @@
 
     .spinner {
         height: 50px;
+    }
+    #sepeator{
+        margin-top: 30px;
+        margin-bottom: 30px;
     }
 </style>
