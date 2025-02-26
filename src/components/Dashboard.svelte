@@ -43,12 +43,15 @@
         debug_enableOGCPoIContents,
         myAgentColor,
         myAgentName,
+        isAgentNameReadonly,
+        currentLoggedInUser,
         activeExperiment,
         selectedMessageBrokerService,
         messageBrokerAuth,
         debug_useOverrideGeopose,
         debug_overrideGeopose,
         allowMessageBroker,
+        userName
     } from '@src/stateStore';
 
     import { testRmqConnection } from '@src/core/rmqnetwork';
@@ -66,6 +69,8 @@
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
+    const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
+
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
     let overrideGeoposePromise: Promise<void>;
@@ -88,6 +93,35 @@
     function handleContentServiceTopicSelection(service: Service, topic: string) {
         $selectedContentServices[service.id].selectedTopic = topic;
     }
+
+     // Retrieve user details from logged in state
+     onMount(() => {
+        const userDetailsString = $currentLoggedInUser;
+
+        try {
+            const userDetailsObject = JSON.parse(userDetailsString);
+
+            if (userWithoutAuth){
+               // Check if the user entered without auth
+               isAgentNameReadonly.set(false);
+               myAgentName.set($myAgentName);
+            }
+            else if (userDetailsObject.email !== import.meta.env.VITE_AUTH_ADMIN_USERID && userDetailsObject.username !== import.meta.env.VITE_AUTH_ADMIN_USERNAME) {
+                 // Check if the user is not admin username
+
+                // Extract the first name from username
+                const userName = userDetailsObject.email.split("@")[0].replace(/\./g, "_");
+                myAgentName.set(userName); // Set the input value to the first name
+                isAgentNameReadonly.set(true);
+            }
+
+        } catch (error) {
+            console.error('Failed to parse userDetailsObject:', error);
+            myAgentName.subscribe((name)=>userName.set(name));  // if error, set username from agent name text field
+            isAgentNameReadonly.set(false); // Make it editable
+        }
+    });
+
 </script>
 
 
@@ -296,7 +330,15 @@
     <summary>Multiplayer</summary>
     <dl>
         <dt>Choose your name</dt>
-        <dd class="list"><input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} /></dd>
+        <dd class="list">
+            <input
+            placeholder="Type your name here"
+            id="agentName"
+            bind:value={$myAgentName}
+            readonly={$isAgentNameReadonly}
+             />
+
+        </dd>
     </dl>
     <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
 

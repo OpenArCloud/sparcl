@@ -1,3 +1,9 @@
+<!--
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+-->
+
 <script lang="ts">
     import { onMount, tick, type ComponentType, SvelteComponent } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
@@ -28,7 +34,7 @@
         p2pNetworkState,
         recentLocalisation,
     } from '../stateStore';
-    
+
     import { ARMODES } from '../core/common';
     import * as rmq from '@src/core/rmqnetwork';
 
@@ -36,7 +42,7 @@
     import type ViewerCreate from '@components/viewer-implementations/Viewer-Create.svelte';
     import type ViewerDevelop from '@components/viewer-implementations/Viewer-Develop.svelte';
     import ViewerMarker from '@components/viewer-implementations/Viewer-Marker.svelte';
-    
+
     import type webxr from '@core/engines/webxr';
     import { logToElement } from '@src/core/devTools';
     import type ogl from '@core/engines/ogl/ogl';
@@ -68,7 +74,7 @@
      * Reactive function to define if the AR viewer can be shown.
      */
     $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
-   
+
 
     /**
      * Reactive function to query current location and ssr. This needs to run after isLocationAccessAllowed receives a value, that's why we use a reactive statement instead of simply using onMount
@@ -172,7 +178,7 @@
 
             // Delay close of dashboard until next request
             shouldShowDashboard = $showDashboard;
-            
+
             if (urlParams.has('create')) {
                 $arMode = ARMODES.create;
             } else if (urlParams.has('develop')) {
@@ -197,7 +203,7 @@
         showWelcome = false;
         showOutro = false;
         shouldShowDashboard = openDashboard || shouldShowDashboard;
-      
+
         if (!shouldShowDashboard) {
             startAr();
         }
@@ -333,8 +339,8 @@
 {#if !isHeadless}
     {#if arWithDashboard}
         <Dashboard
-            bind:this={dashboard} 
-            on:broadcast={handleBroadcast} 
+            bind:this={dashboard}
+            on:broadcast={handleBroadcast}
             on:okClicked={startAr}
             />
     {/if}
