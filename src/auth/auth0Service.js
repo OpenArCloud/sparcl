@@ -1,4 +1,9 @@
-import {createAuth0Client} from "@auth0/auth0-spa-js";
+/*
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 import { navigate } from 'svelte-routing';
 import { isAuthenticatedAuth0, popupOpen, showLogin, showDashboard, isLoggedIn, currentLoggedInUser } from "../stateStore.js";
 
@@ -46,8 +51,6 @@ async function loginWithPopup(client, options) {
 function logoutAuth0(client) {
   localStorage.removeItem('isAuthenticatedAuth0');
   localStorage.removeItem('auth0Client');
-
-  navigate('/login', { replace: true });
 
   return client.logout();
 }
