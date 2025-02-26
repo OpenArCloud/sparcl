@@ -552,3 +552,20 @@ export const automergeDocumentUrl = writable(storedAutomergeDocumentUrl);
 automergeDocumentUrl.subscribe((value) => {
     localStorage.setItem('automergeDocumentUrl', value!);
 });
+
+/**
+ * Used to store the user's agent name input status (editable/not)
+ *
+ * @type {Writable<boolean>}
+ */
+
+export const isAgentNameReadonly = writable(false);
+
+// Initialize values for authenticated user details
+const userDetails = JSON.parse(localStorage.getItem('currentLoggedInUser') || kDefaultLoggedInUserData);
+
+export const userData =  writable(userDetails);
+export const userId = writable(userDetails.email);
+// split username
+const initialUserName = userDetails.username ? userDetails.username.split('(')[0].trim() : '';
+export const userName = writable(initialUserName);

@@ -30,7 +30,7 @@
 
     // handle un-valid routes
     onMount(() => {
-        const validRoutes = ['/', '/dashboard', '/viewer'];
+        const validRoutes = ['/'];
 
         // Check if user is logged in and the route is invalid
         if ($isLoggedIn && !validRoutes.includes(window.location.pathname)) {
