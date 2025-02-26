@@ -40,7 +40,7 @@ Steps to setup the project:
 ## Production
 Create `.env` file containing the URL to OSCP SSD
 ```
-VITE_SSD_ROOT_URL=
+VITE_SSD_ROOT_URL=`YOUR_SSD_ROOT_URL`
 ```
 
 ### Build:
@@ -72,8 +72,18 @@ and to run the docker build script with the following command line argument: `do
 - Additionally, users can bypass authentication and access AR mode directly without logging in. To enable this, add the following variables to your .env file:
 
 ```js
+
+VITE_SSD_ROOT_URL=`YOUR_SSD_ROOT_URL`
+
+## Redirection URI
+# VITE_AUTH_REDIRECT_URI=`YOUR_APP_REDIRECTION_URI`
+
+## Auth :Auth0 Login
+VITE_AUTH_AUTH0_DOMAIN=`AUTH0_DOMAIN`
+VITE_AUTH_AUTH0_CLIENTID=`AUTH0_CLIENT_ID`
+
 ## Auth for the users that needed to be directed to the AR directly
-VITE_NOAUTH='true'
-VITE_NOAUTH_USER_NAME='user'
-VITE_NOAUTH_USER_EMAIL='user@gmail.com'
+VITE_NOAUTH='true' // 'false' if you want Auth0 track
+VITE_NOAUTH_USER_NAME=`DUMMY_USERNAME`
+VITE_NOAUTH_USER_EMAIL='DUMMY_EMAIL'
 ```

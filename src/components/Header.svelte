@@ -1,3 +1,9 @@
+<!--
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+-->
+
 <script lang="ts"></script>
 
 <header>
@@ -31,7 +37,7 @@ header {
 /* For screens 400px wide or smaller */
 @media (max-width: 400px) {
     header {
-        height: 80px; 
+        height: 80px;
         margin-bottom: 40px;
     }
 

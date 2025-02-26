@@ -1,3 +1,9 @@
+<!--
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+-->
+
 <script lang="ts">
   import { createEventDispatcher, onMount } from 'svelte';
   import "@fortawesome/fontawesome-free/css/all.min.css";

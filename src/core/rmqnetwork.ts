@@ -63,7 +63,7 @@ export const rmqDisconnect = () => {
     rmqClient?.disconnect(() => {});
 };
 
-export function send(routing_key: string, data: any) {
+export function send(routing_key: string, data: any, value: Record<string, any>) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
     rmqClient?.send(routing_key, {}, JSON.stringify(data));
 }
