@@ -1,3 +1,9 @@
+/*
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 import auth0 from "./auth0Service.js";
 import { isLoggedIn, showLogin, showDashboard } from '../stateStore';
 
@@ -10,6 +16,7 @@ export async function signOut() {
         isLoggedIn.set(false);
         showLogin.set(true);
         showDashboard.set(false);
+        localStorage.setItem('myAgentName', '');
 
          // Safely parse localStorage values
         let isAuthenticatedAuth0 = false;
@@ -27,7 +34,7 @@ export async function signOut() {
         // for Auth0
         if(isAuthenticatedAuth0){
             auth0.logoutAuth0(auth0Client);
-        } 
+        }
 
     } catch (error) {
         console.error('Logout failed:', error);
