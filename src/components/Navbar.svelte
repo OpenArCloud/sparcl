@@ -1,6 +1,15 @@
+<!--
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+-->
+
 <script lang="ts">
     import {signOut} from '../auth/index'
-    import {currentLoggedInUser, isAuthenticatedAuth0} from '@src/stateStore';
+    import {currentLoggedInUser} from '@src/stateStore';
+
+    // check status of Auth
+    const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
     // User SignedIn details
     const userDetailsString = $currentLoggedInUser;
@@ -28,7 +37,7 @@
         <a href="/" class="nav-link">Dashboard</a>
     </div>
 
-    {#if $isAuthenticatedAuth0}
+    {#if !userWithoutAuth }
     <div class="navbar-right">
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -40,10 +49,10 @@
 
         <div class="mobile-menu {isMenuActive ? 'active' : ''}">
             <span class="mobile-welcome-message">Welcome, {username}!</span>
-            <a href="/" class="mobile-nav-link" on:click={signOut}>Logout</a>
+            <a href="/login" class="mobile-nav-link" on:click={signOut}>Logout</a>
         </div>
-        <span class="welcome-message">Welcome, {username}!</span>
-        <a href="/" class="nav-link" on:click={signOut}>Logout</a>
+            <span class="welcome-message">Welcome, {username}!</span>
+            <a href="/login" class="nav-link" on:click={signOut}>Logout</a>
 
     </div>
     {/if}
