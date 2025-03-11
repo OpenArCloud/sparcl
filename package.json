@@ -65,6 +65,7 @@
     "@oarc/gpp-access": "^0.2.0",
     "@oarc/scd-access": "^0.2.0",
     "@oarc/ssd-access": "^0.3.0",
+    "@stomp/stompjs": "^7.0.0",
     "amqplib": "^0.10.3",
     "automerge": "^0.14.2",
     "chai": "^4.2.0",
