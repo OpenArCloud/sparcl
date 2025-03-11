@@ -1,29 +1,49 @@
+import { get } from 'svelte/store';
+import { myAgentId } from '@src/stateStore';
+
 import throttle from 'lodash/throttle';
 import stomp, { type Client, type Frame } from 'stompjs';
 
-let rmqClient: Client | null = null;
+import {Client as StompClient, StompConfig, type IFrame, type messageCallbackType} from '@stomp/stompjs';
+
+const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE;
+const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
+
+
+let rmqClient: StompClient | null = null;
 
 export async function testRmqConnection({ url, username, password }: { url: string; username: string; password: string }) {
     return await new Promise<void>((resolve, reject) => {
-        const rmq = stomp.client(url);
-        rmq.debug = () => {};
+        const stompConfig = new StompConfig();
+        stompConfig.brokerURL = url;
+        stompConfig.reconnectDelay = 0;
+        stompConfig.connectHeaders = {
+            login:username,
+            passcode:password,
+        };
+
         const onConnect = () => {
-            rmq.disconnect(() => {});
+            rmq.deactivate();
             resolve(undefined);
         };
-        const onError = (err: Frame | string) => {
-            rmq.disconnect(() => {});
-            console.log('err', err);
-            reject(err);
+        const onStompError = (frame: IFrame) => {
+            rmq.deactivate();
+            console.log('err', frame.body);
+            reject(frame.body);
         };
-        rmq.connect(username, password, onConnect, onError, '/');
+
+        const rmq = new StompClient(stompConfig);
+        rmq.onConnect = onConnect;
+        rmq.onStompError = onStompError;
+        rmq.activate();
     });
 }
+
 
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
     // disconnect first if there already was a connection established
     rmqDisconnect();
-    const throttledUpdateFunction = throttle((data) => {
+    const throttledUpdateFunction = throttle((data: any) => {
         if (updateFunction) {
             updateFunction(data);
         }
@@ -33,12 +53,22 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     // See https://www.rabbitmq.com/stomp.html
     console.log('Connecting to RMQ ' + url);
     console.log('url', url);
-    rmqClient = stomp.client(url);
-    rmqClient.debug = function (str) {
+    const stompConfig = new StompConfig();
+    stompConfig.brokerURL = url;
+    stompConfig.reconnectDelay = 1000;
+    stompConfig.connectHeaders = {
+        login:username,
+        passcode:password,
+    };
+    stompConfig.debug = function (str) {
         // for debugging, we can print all received messages to the console (or even to a separate HTML view)
         //console.log(str + "\n");
     };
-    const on_connect = function (x: any) {
+    const onConnect = function () {
+        if(!rmqClient){
+            console.error("RMQ client disappeared after successful connection");
+            return;
+        }
         console.log('RMQ connection successful!');
 
         // Now we can subscribe to topics.
@@ -47,23 +77,68 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
         // 3. registers a subscription against the queue, for the current STOMP session.
 
-        // ...
+         ////////////////////////////////////////////////////////
+        //   subscription topics
+         ////////////////////////////////////////////////////////
+
+         console.log('Subscribing to topic ' + rmq_topic_geopose_update);
+        rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
+            const msg = JSON.parse(d.body);
+            //console.log(msg);
+
+            const agentId = msg.agent_id || '';
+            if (agentId == '' || agentId == get(myAgentId)) {
+                return;
+            }
+
+            const timestamp = msg.timestamp || Date.now();
+            const agentGeopose = msg.geopose;
+            const agentName = msg.avatar.name || '';
+            const data = {
+                agent_geopose_updated: {
+                    agent_id: agentId,
+                    agent_name: agentName,
+                    geopose: agentGeopose,
+                    color: msg.avatar.color,
+                    timestamp: timestamp,
+                },
+            };
+            throttledUpdateFunction(data);
+        });
+
+        console.log('Subscribing to topic ' + rmq_topic_object_created);
+        rmqClient.subscribe(rmq_topic_object_created, function (d) {
+            const msg = JSON.parse(d.body);
+            const data = {
+                object_created: {
+                    timestamp: msg.timestamp || Date.now(),
+                    ...msg,
+                },
+            };
+            throttledUpdateFunction(data);
+        });
 
     };
 
-    const on_error = function (err: Frame | string) {
-        console.log(`Error: rabbitmq connection disconnected, reason: ${err}. Trying to reconnect.`);
-        setTimeout(rmqClient?.connect(username, password, on_connect, on_error, '/'), 1000);
+    const onError = function (frame: IFrame) {
+        console.log("Error: rabbitmq connection disconnected", frame.body);
     };
 
-    rmqClient.connect(username, password, on_connect, on_error, '/');
+    rmqClient = new StompClient(stompConfig);
+    rmqClient.onConnect = onConnect;
+    rmqClient.onStompError = onError;
+    rmqClient.activate();
 }
 
 export const rmqDisconnect = () => {
-    rmqClient?.disconnect(() => {});
+    rmqClient?.deactivate();
 };
 
-export function send(routing_key: string, data: any, value: Record<string, any>) {
+export function send(routing_key: string, headers: Record<string, any>, data: any) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
-    rmqClient?.send(routing_key, {}, JSON.stringify(data));
+    rmqClient?.publish({destination:routing_key, headers, body:JSON.stringify(data)});
+}
+
+export function isConnected(){
+    return rmqClient != null && rmqClient.connected === true;
 }
