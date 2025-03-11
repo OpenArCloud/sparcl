@@ -86,4 +86,8 @@ VITE_AUTH_AUTH0_CLIENTID=`AUTH0_CLIENT_ID`
 VITE_NOAUTH='true' // 'false' if you want Auth0 track
 VITE_NOAUTH_USER_NAME=`DUMMY_USERNAME`
 VITE_NOAUTH_USER_EMAIL='DUMMY_EMAIL'
+
+## RabbitMQ topics for sharing agent poses
+VITE_RMQ_TOPIC_GEOPOSE_UPDATE=`/exchange/ngi_search/geopose_update.#`
+VITE_RMQ_TOPIC_OBJECT_CREATED=`/exchange/ngi_search/object_created`
 ```
