@@ -78,6 +78,11 @@ export const allowLocationLabel = readable('', (set) => {
     return () => set('');
 });
 
+export const PageRefreshRequired= readable('', (set) => {
+    set('please refresh the page afterwards')
+    return () => set('');
+})
+
 // Title of location access request screen
 export const locationaccessrequired = readable('', (set) => {
     set('Location access required.');
@@ -86,7 +91,7 @@ export const locationaccessrequired = readable('', (set) => {
 
 // Text of location access request when not granted
 export const locationaccessinfo = readable('', (set) => {
-    set('It is needed to define the <br/>initial area for localisation.');
+    set('It is needed to define the <br/>initial area for localization.');
 });
 
 // Text of location access request when granted
@@ -170,4 +175,10 @@ export const isLocalizedMessage = readable('', (set) => {
 // Message shown when AR session is started in mode 'marker' to ask user to point the device toward the marker
 export const pointMarkerMessage = readable('', (set) => {
     set(`Point camera to marker for localisation.`);
+});
+
+// Texts for Multiplayers username and color screen
+export const playerScreenTitle = readable('', (set) => {
+    set(` User details `);
+    return () => set('');
 });

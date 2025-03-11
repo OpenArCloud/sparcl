@@ -403,7 +403,8 @@
                             $context.showFooter = false;
                             $context.isLocalisationDone = true;
                         });
-                        console.log('GPP response:');
+
+                        console.log('GPP response:', data);
                         console.log(data);
 
                         // GeoPoseResp
