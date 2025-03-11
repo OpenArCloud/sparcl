@@ -39,7 +39,8 @@ Steps to setup the project:
 
 ## Production
 Create `.env` file containing the URL to OSCP SSD
-```
+
+```js
 VITE_SSD_ROOT_URL=`YOUR_SSD_ROOT_URL`
 ```
 

@@ -284,7 +284,12 @@
     </dl>
 
     <dl class="nested">
-        <dt><label>Content Services</label></dt>
+        <dt>
+            <!-- svelte-ignore a11y-label-has-associated-control -->
+            <label> Content Services </label>
+        </dt>
+
+        {#if $availableContentServices.length > 0}
         {#each $availableContentServices as service}
             <dd>
                 <input
@@ -294,9 +299,9 @@
                     on:change={(event) => handleContentServiceSelection(event, service)}
                 />
                 <label for="selectedContentService_{service.id}">{service.title}</label>
-                <pre class="serviceurl">
+                <p class="serviceurl">
                         <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-                    </pre>
+                </p>
 
                 {#if service?.properties}
                     <ul>
@@ -318,11 +323,17 @@
                             {/if}
                         {/each}
                     </ul>
+
                 {:else}
+
                     <p>No Topics</p>
                 {/if}
             </dd>
         {/each}
+        {:else}
+
+        <p class="no-services">No Content Services available</p>
+    {/if}
     </dl>
 </details>
 
@@ -389,13 +400,17 @@
         <label for="overrideGeopose">Override geopose</label>
     </div>
     {#if $debug_useOverrideGeopose}
-        <form style="margin-top: 5px;">
-            <label style="display: inline-block; min-width: 100px;" for="lat">Latitude</label>
-            <input name="lat" type="text" bind:value={$debug_overrideGeopose.position.lat} />
-            <label style="display: inline-block; min-width: 100px;" for="lon">Longitude</label>
-            <input name="lon" type="text" bind:value={$debug_overrideGeopose.position.lon} />
+        <form class ="geopose-form">
+            <label class="geopose-label" for="lat">Latitude</label>
+            <input class="geopose-input" name="lat" type="text" bind:value={$debug_overrideGeopose.position.lat} />
+
+            <label class="geopose-label" for="lon">Longitude</label>
+            <input class="geopose-input" name="lon" type="text" bind:value={$debug_overrideGeopose.position.lon} />
+
+            <label class="geopose-label" for="height">Height</label>
+            <input class="geopose-input" name="height" type="text" bind:value={$debug_overrideGeopose.position.h} />
         </form>
-        <div class="center" style="padding-top: 1rem;">
+        <div style="padding-top: 1rem;">
             <button on:click={() => (overrideGeoposePromise = setInitialLocationAndServices())}>Use position</button>
         </div>
         {#if overrideGeoposePromise}
@@ -607,6 +622,9 @@
 
     .serviceurl {
         font-size: calc(var(--serviceUrlFontSizePx) * 1px);
+        direction: ltr;
+        text-align: left;
+        padding-bottom: 10px;
     }
 
     .center-img {
@@ -623,4 +641,42 @@
         margin-top: 30px;
         margin-bottom: 30px;
     }
+
+    .no-services {
+    text-align: center;
+    color: #ff4d4d;
+    font-size: 16px;
+    font-weight: bold;
+    padding: 10px;
+    background-color: #ffe6e6;
+    border: 1px solid #ff9999;
+    border-radius: 5px;
+    margin: 15px 0;
+}
+
+.geopose-form{
+    margin-top: 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 220px;
+}
+
+.geopose-label{
+    margin-bottom: 2px;
+}
+
+.geopose-input {
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s ease-in-out;
+}
+
+.geopose-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
 </style>
