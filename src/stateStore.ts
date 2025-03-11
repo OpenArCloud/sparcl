@@ -221,6 +221,7 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     [],
 );
 
+
 /**
  * Derived store of ssr store for easy access of all contained content services.
  */
@@ -245,6 +246,7 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
             }
             selectedContentServices.set(selection);
         }
+
     },
     [],
 );
@@ -282,6 +284,7 @@ selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
 
+
 export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
     ssr,
     ($ssr, set) => {
@@ -314,6 +317,7 @@ export const recentLocalisation = writable<{ geopose: Partial<Geopose>; floorpos
     geopose: {},
     floorpose: {},
 });
+
 
 /**
  * The ones of the received content services to be used to request content around the current location from.
@@ -558,7 +562,6 @@ automergeDocumentUrl.subscribe((value) => {
  *
  * @type {Writable<boolean>}
  */
-
 export const isAgentNameReadonly = writable(false);
 
 // Initialize values for authenticated user details
