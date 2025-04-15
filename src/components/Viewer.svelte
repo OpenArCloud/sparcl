@@ -11,16 +11,21 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
+
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
-    import { writable, type Writable } from 'svelte/store';
+    import { writable, type Writable, get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, forEach, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
         ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
+    import { myAgentName, myAgentId, myAgentColor } from '@src/stateStore';
+    import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import { rgbToHex, normalizeColor } from '../core/common'; // just for drawing an agent
+
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-    import { type SetupFunction, type XrFeatures, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
+    import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -44,23 +49,18 @@
     import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
-    import type ogl from '../core/engines/ogl/ogl';
+    import ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher<{ arSessionEnded: undefined }>();
-
-    onDestroy(() => {
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
-    });
+    const dispatch = createEventDispatcher();
 
     const message = (msg: string) => console.log(msg);
 
     let canvas: HTMLCanvasElement;
     let overlay: HTMLElement;
-    let externalContent: HTMLIFrameElement;
-    let closeExperience: HTMLImageElement;
+    let externalContentIFrame: HTMLIFrameElement;
+    let externalContentCloseButton: HTMLImageElement;
     let xrEngine: webxr;
     let tdEngine: ogl;
 
@@ -71,10 +71,18 @@
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
 
-    // TODO: Setup event target array, based on info received from SCD
+    // Multiplayer: poses of others
+    let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
 
-    const context: Writable<{ hasLostTracking: boolean; showFooter: boolean; isLocalized: boolean; isLocalizing: boolean; isLocalisationDone: boolean; receivedContentTitles: any[] }> =
-        getContext('state') || writable();
+    // TODO: Setup event target array, based on info received from SCD
+    const context: Writable<{
+        hasLostTracking: boolean;
+        showFooter: boolean;
+        isLocalized: boolean;
+        isLocalizing: boolean;
+        isLocalisationDone: boolean;
+        receivedContentTitles: any[]
+    }> = getContext('state') || writable();
     context.set({
         hasLostTracking: true,
         showFooter: false,
@@ -86,6 +94,8 @@
 
     onDestroy(() => {
         tdEngine.stop();
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
     });
 
     /**
@@ -119,10 +129,10 @@
         xrSessionEndedCallback: () => void,
         xrNoPoseCallback: XrNoPoseCallbackType,
         setup: SetupFunction = () => {},
-        requiredFeatures: XrFeatures[] = [],
-        optionalFeatures: XrFeatures[] = [],
+        requiredFeatures: XrFeature[] = [],
+        optionalFeatures: XrFeature[] = [],
     ) {
-        const options: { requiredFeatures: XrFeatures[]; optionalFeatures: XrFeatures[]; domOverlay?: { root: HTMLElement } } = {
+        const options: { requiredFeatures: XrFeature[]; optionalFeatures: XrFeature[]; domOverlay?: { root: HTMLElement } } = {
             requiredFeatures: requiredFeatures,
             optionalFeatures: optionalFeatures,
         };
@@ -260,6 +270,15 @@
                 }
             }
 
+            // optionally share the camera pose with other players
+            if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
+                try {
+                    shareCameraPose(floorPose);
+                } catch (error) {
+                    // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+                }
+            }
+
             tdEngine.render(time, view);
         }
     }
@@ -282,12 +301,10 @@
      */
     export function onXrSessionEnded() {
         firstPoseReceived = false;
-
         if ($debug_useGeolocationSensors) {
             stopOrientationSensor();
             unlockScreenOrientation();
         }
-
         dispatch('arSessionEnded');
     }
 
@@ -335,7 +352,7 @@
             if (experienceMatrix == null) {
                 throw new Error('experienceMatrix is null!');
             }
-            externalContent?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            externalContentIFrame?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
         }
     }
 
@@ -581,10 +598,26 @@
                     case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
-                            console.log('ISMAR2021demo object received!');
+                            //console.log('ISMAR2021demo object received!');
                             // TODO: the object_description is not standard data; it is only used for the ismar2021 demo
                             let object_description = (record.content as any).object_description;
                             tdEngine.addObject(localPosition, localQuaternion, object_description);
+                        }
+                        break;
+                    }
+
+                    case 'geopose_stream': {
+                        // NGI Search 2025 demo
+                        if (record.tenant === 'NGISearch2025') {
+                            let object_description = (record.content as any).object_description;
+                            let globalObjectPose = record.content.geopose;
+                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            let object_id = record.content.id;
+                            if (tdEngine.getDynamicObjectMesh(object_id) != null) {
+                                tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                            } else {
+                                tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                            }
                         }
                         break;
                     }
@@ -736,7 +769,7 @@
     export function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
         tdEngine.setWaiting(placeholder);
 
-        externalContent.src = url;
+        externalContentIFrame.src = url;
         window.addEventListener(
             'message',
             (event) => {
@@ -745,12 +778,12 @@
                     experienceLoaded = true;
                     experienceMatrix = placeholder.matrix;
 
-                    closeExperience.addEventListener(
+                    externalContentCloseButton.addEventListener(
                         'click',
                         () => {
                             experienceLoaded = false;
                             experienceMatrix = null;
-                            externalContent.src = '';
+                            externalContentIFrame.src = '';
 
                             const nextPlaceholder = tdEngine.addExperiencePlaceholder(position, orientation);
                             tdEngine.addClickEvent(nextPlaceholder, () => experienceLoadHandler(nextPlaceholder, position, orientation, url));
@@ -767,23 +800,93 @@
         return tdEngine;
     }
 
-    // TODO: rename to onEventReceived()
+    function shareCameraPose(localPose: XRViewerPose) {
+        const timestamp = Date.now();
+        const localPos = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
+        const localQuat = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        const geoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
+        const message_body = {
+            agent_id: $myAgentId,
+            avatar: {
+                name: $myAgentName,
+                color: { r: $myAgentColor?.r, g: $myAgentColor?.g, b: $myAgentColor?.b, a: $myAgentColor?.a },
+            },
+            geopose: geoPose,
+            timestamp: timestamp,
+        };
+        const rmq_topic = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + "." + String($myAgentId); // send to subtopic with our agent ID
+        dispatch('broadcast', {
+            event: 'publish_camera_pose',
+            value: message_body,
+            routing_key: rmq_topic,
+        });
+    }
+
     /**
      * Handle events from the application or from the P2P network
      * NOTE: sometimes multiple events are bundled using different keys!
      */
     export function onNetworkEvent(events: any) {
-        // simply print for now
-        console.log('Viewer: event received:');
-        console.log(events);
+        // Simply print any unknown events and return
+        if (!('agent_geopose_updated' in events)) {
+            console.log('Viewer: Unknown event received:');
+            console.log(events);
+            return;
+        }
+
+        if (get(recentLocalisation)?.geopose?.position == undefined) {
+            // we need to localize at least once to be able to do anything
+            //console.log('Network event received but we are not localized yet!');
+            //console.log(events);
+            return;
+        }
+
+        if ('agent_geopose_updated' in events) {
+            let data = events.agent_geopose_updated;
+            const agent_id = data.agent_id;
+            const agent_name = data.agent_name;
+            const agent_color = rgbToHex(data.color);
+            agentInfo = { ...agentInfo, [agent_id]: { hexColor: agent_color, agentName: agent_name || agent_id, agentId: agent_id } };
+            const timestamp = data.timestamp;
+            const agent_geopose = data.geopose;
+            // We create a new spatial content record just for placing this object
+            let object_id = agent_id + '_' + timestamp; // just a proposal
+            let object_description = {
+                version: 2,
+                color: [normalizeColor(data.color.r), normalizeColor(data.color.g), normalizeColor(data.color.b), normalizeColor(data.color.a)],
+                shape: PRIMITIVES.sphere,
+                scale: [0.05, 0.05, 0.05],
+                transparent: false,
+                options: {},
+            };
+            let content = {
+                id: agent_id, // stream ID
+                type: 'geopose_stream', //high-level OSCP type
+                title: object_id, // datapoint ID = stream ID + timestamp
+                refs: [],
+                geopose: agent_geopose,
+                object_description: object_description,
+            };
+            let scr = {
+                content: content,
+                id: object_id,
+                tenant: 'NGISearch2025',
+                type: 'geopose_stream',
+                timestamp: timestamp,
+            };
+            placeContent([[scr]]); // WARNING: wrap into an array
+        }
+
     }
+
+
 </script>
 
 <canvas id="application" bind:this={canvas}></canvas>
 
 <aside bind:this={overlay} on:beforexrselect={(event) => event.preventDefault()}>
-    <iframe title="externalcontentiframe" class:hidden={!experienceLoaded} bind:this={externalContent} src=""></iframe>
-    <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={closeExperience} />
+    <iframe title="externalcontentiframe" class:hidden={!experienceLoaded} bind:this={externalContentIFrame} src=""></iframe>
+    <img id="experienceclose" class:hidden={!experienceLoaded} alt="close button" src="/media/close-cross.svg" bind:this={externalContentCloseButton} />
 
     <!--  Space for UI elements -->
     {#if $context.showFooter || true}

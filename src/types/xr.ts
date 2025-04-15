@@ -21,7 +21,7 @@ export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFra
 export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) => void;
 export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, frameDuration?: number, passedMaxSlow?: boolean) => void;
 export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: OGLRenderingContext | null) => void;
-export type XrFeatures = 'dom-overlay' | 'camera-access' | 'anchors' | 'local-floor' | 'hit-test';
+export type XrFeature = string;
 export type ObjectDescription = {
     version: number;
     color: [number, number, number, number];

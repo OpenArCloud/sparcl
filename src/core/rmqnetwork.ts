@@ -6,7 +6,7 @@ import stomp, { type Client, type Frame } from 'stompjs';
 
 import {Client as StompClient, StompConfig, type IFrame, type messageCallbackType} from '@stomp/stompjs';
 
-const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE;
+const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + ".#"; // subscribe to all subtopics
 const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
 
 
