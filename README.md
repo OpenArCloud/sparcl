@@ -89,6 +89,47 @@ VITE_NOAUTH_USER_NAME=`DUMMY_USERNAME`
 VITE_NOAUTH_USER_EMAIL='DUMMY_EMAIL'
 
 ## RabbitMQ topics for sharing agent poses
-VITE_RMQ_TOPIC_GEOPOSE_UPDATE=`/exchange/ngi_search/geopose_update.#`
+VITE_RMQ_TOPIC_GEOPOSE_UPDATE=`/exchange/ngi_search/geopose_update`
 VITE_RMQ_TOPIC_OBJECT_CREATED=`/exchange/ngi_search/object_created`
+```
+
+
+# References
+
+```
+@INPROCEEDINGS{10740111,
+  author={Sörös, Gábor and Jackson, James and Vogt, Michael and Salazar, Mikel and Kadlubsky, Alina and Vinje, Jan-Erik},
+  booktitle={2024 IEEE International Conference on Metaverse Computing, Networking, and Applications (MetaCom)},
+  title={An Open Spatial Computing Platform},
+  year={2024},
+  volume={},
+  number={},
+  pages={239-246},
+  keywords={Location awareness;Visualization;Cloud computing;Protocols;Metaverse;Collaboration;Cameras;User experience;Spatial computing;Web sites;Mixed/augmented reality;Ubiquitous and mobile computing systems and tools;Location based services},
+  doi={10.1109/MetaCom62920.2024.00046}
+}
+```
+```
+@INPROCEEDINGS{9974229,
+  author={Sörös, Gábor and Nilsson, John and Wu, Nan and Shane, Jennifer and Kadlubsky, Alina},
+  booktitle={2022 IEEE International Symposium on Mixed and Augmented Reality Adjunct (ISMAR-Adjunct)},
+  title={Demo: End-to-end open-source location-based augmented reality in 5G},
+  year={2022},
+  volume={},
+  number={},
+  pages={897-898},
+  doi={10.1109/ISMAR-Adjunct57072.2022.00194}
+}
+```
+```
+@INPROCEEDINGS{9585798,
+  author={Jackson, James and Vogt, Michael and Sörös, Gábor and Salazar, Mikel and Fedorenko, Sergey},
+  booktitle={2021 IEEE International Symposium on Mixed and Augmented Reality Adjunct (ISMAR-Adjunct)},
+  title={Demo: The First Open AR Cloud Testbed},
+  year={2021},
+  volume={},
+  number={},
+  pages={495-496},
+  doi={10.1109/ISMAR-Adjunct54149.2021.00117}
+}
 ```

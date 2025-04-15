@@ -5,7 +5,7 @@
 -->
 
 <script lang="ts">
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import "@fortawesome/fontawesome-free/css/all.min.css";
   import { navigate } from 'svelte-routing';
   import auth0 from "./auth0Service";
