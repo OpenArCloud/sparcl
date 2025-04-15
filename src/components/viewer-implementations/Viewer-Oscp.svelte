@@ -12,11 +12,12 @@
 -->
 
 <script lang="ts">
+
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import type webxr from '@core/engines/webxr';
     import type ogl from '@core/engines/ogl/ogl';
-    import type { XrFeatures } from '../../types/xr';
+    import type { XrFeature } from '../../types/xr';
     import { Quat, type OGLRenderingContext, type Transform, Vec3 } from 'ogl';
     import { checkGLError } from '@core/devTools';
     import { recentLocalisation } from '@src/stateStore';
@@ -44,8 +45,8 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        let requiredXrFeatures: XrFeatures[] = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
-        let optionalXrFeatures: XrFeatures[] = [];
+        let requiredXrFeatures: XrFeature[] = ['dom-overlay', 'camera-access', 'anchors', 'local-floor'];
+        let optionalXrFeatures: XrFeature[] = [];
 
         // TODO: do we need anchors at all?
 
@@ -84,8 +85,6 @@
      */
     export function onNetworkEvent(events: any) {
         // Viewer-Oscp cannot handle any events currently
-        console.log('Viewer-Oscp: Unknown event received:');
-        console.log(events);
         // pass on to parent
         return parentInstance.onNetworkEvent(events);
     }
@@ -133,7 +132,7 @@
             }
         } // useReticle
 
-        // Call parent Viewer's onXrFrameUpdate which updates performs localization and rendering
+        // Call parent Viewer's onXrFrameUpdate which performs localization and rendering
         parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
     }
 
