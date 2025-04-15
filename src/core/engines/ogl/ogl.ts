@@ -933,6 +933,28 @@ export default class ogl {
         return geoPose;
     }
 
+    convertCameraLocalPoseToGeoPose(position: Vec3, quaternion: Quat) {
+        // Warning: conversion from the WebXR camera orientation to GeoPose camera orientation
+        // An extra 90 deg rotation around the UP axis is needed to comply with the GeoPose standard.
+        // By the standard, identity orientation of a camera means it is looking towards East.
+        const quatCorrection = new Quat().fromAxisAngle(new Vec3(0,1,0),Math.PI/2);
+        const newQuaternion = new Quat().copy(quaternion).multiply(quatCorrection);
+        const globalObjectPose = this.convertLocalPoseToGeoPose(position, newQuaternion);
+        return {
+            position: {
+                lat: globalObjectPose.position.lat,
+                lon: globalObjectPose.position.lon,
+                h: globalObjectPose.position.h,
+            },
+            quaternion: {
+                x: globalObjectPose.quaternion.x,
+                y: globalObjectPose.quaternion.y,
+                z: globalObjectPose.quaternion.z,
+                w: globalObjectPose.quaternion.w,
+            },
+        };
+    }
+
     /**
      * Converts a GeoPose object into East-North-Up coordinate system (local tangent plane approximation)
      * @param {*} geoPose GeoPose to convert
@@ -941,7 +963,6 @@ export default class ogl {
      */
     geoPose_to_ENU(geoPose: Geopose, refGeoPose: Geopose) {
         let enuPosition = convertGeodeticToEnu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
-
         let enuPose = new Transform();
         enuPose.position.set(enuPosition.x, enuPosition.y, enuPosition.z);
         enuPose.quaternion.set(geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w);

@@ -157,3 +157,30 @@ export function wait(delay: number) {
 export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+
+function componentToHex(c: number) {
+    var hex = c.toString(16);
+    return hex.length == 1 ? '0' + hex : hex;
+}
+
+/**
+ *
+ * @param rgbObj 0-255
+ */
+export function rgbToHex(rgbObj: { r?: number; g?: number; b?: number }) {
+    if (rgbObj.r != null && rgbObj.g != null && rgbObj.b != null) {
+        return '#' + componentToHex(rgbObj.r) + componentToHex(rgbObj.g) + componentToHex(rgbObj.b);
+    }
+    return '#000000';
+}
+
+export function normalizeColor(color: number | null) {
+    if (color == null) {
+        return 1.0;
+    }
+    if (color > 1.0) {
+        return color / 255;
+    }
+    return color;
+}
