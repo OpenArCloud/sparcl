@@ -11,7 +11,7 @@
     Handles and coordinates all global aspects of the app.
 -->
 <script lang="ts">
-    import { onMount, createEventDispatcher } from 'svelte';
+    import { onMount } from 'svelte';
     import { Router, Route, navigate} from 'svelte-routing';
 
     import Login from '@src/auth/Login.svelte';
