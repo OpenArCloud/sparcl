@@ -34,6 +34,7 @@ import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
+import * as videoHelper from './oglVideoHelper';
 
 import {
     createAxesBoxPlaceholder,
@@ -518,6 +519,15 @@ export default class ogl {
         textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
         return textMesh;
+    }
+
+     async addVideoObject(position: Vec3, quaternion: Quat, videoUrl:string) {
+        console.log("addVideoObject: " + videoUrl);
+        const videoInfo = await videoHelper.loadVideo(videoUrl);
+        const videoBox = videoHelper.createVideoBox(gl, scene, position, quaternion, videoInfo.videoId);
+        this.addClickEvent(videoBox, () => {
+            videoHelper.togglePlayback(videoInfo.videoId);
+        });
     }
 
     setVerticallyRotating(node: Transform) {
