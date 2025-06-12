@@ -11,6 +11,8 @@ import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
+import type { SCR } from '@oarc/scd-access';
+import type { GeoPoseResponse } from '@oarc/gpp-access';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -298,7 +300,7 @@ export const fakeLocationResult = {
             },
         },
         id: '1adc076d-5a33-4f06-aacb-e8c2e94499b9',
-        pose: {
+        geopose: {
             position: {
                 lat: 48.756115957414345,
                 lon: 8.545640947400223,

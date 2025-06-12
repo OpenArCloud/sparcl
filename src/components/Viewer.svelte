@@ -51,6 +51,8 @@
     import type webxr from '../core/engines/webxr';
     import ogl from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
+    import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
+    import { subscribeToSensor } from '@src/core/rmqnetwork';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -269,6 +271,9 @@
                     doLocalization({ floorPose, getGeopose });
                 }
             }
+
+            updateSensorVisualization();
+
 
             // optionally share the camera pose with other players
             if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
@@ -621,6 +626,28 @@
                         }
                         break;
                     }
+
+                    case 'sensor_stream': {
+
+                        // handle general sensor stream objects
+                        let globalObjectPose = record.content.geopose;
+                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        let object_description = (record.content as any).object_description;
+
+                        const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions, object_description);
+                        if (sensor_id == undefined) {
+                            console.error("ERROR: Unable to parse sensor content record! " + record.content.id);
+                            break;
+                        }
+                        subscribeToSensor(sensor_id, (d) => {
+                            console.log(d.body);
+                            updateSensorFromMsg(d.body, tdEngine);
+                        });
+
+
+                        break;
+                    }
+
 
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {

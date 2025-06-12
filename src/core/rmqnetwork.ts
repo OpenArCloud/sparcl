@@ -2,13 +2,12 @@ import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
 
 import throttle from 'lodash/throttle';
-import stomp, { type Client, type Frame } from 'stompjs';
 
 import {Client as StompClient, StompConfig, type IFrame, type messageCallbackType} from '@stomp/stompjs';
 
 const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + ".#"; // subscribe to all subtopics
 const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
-
+const rmq_topic_sensor_update=import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE;
 
 let rmqClient: StompClient | null = null;
 
@@ -128,6 +127,10 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     rmqClient.onConnect = onConnect;
     rmqClient.onStompError = onError;
     rmqClient.activate();
+}
+
+export function subscribeToSensor(sensorId: string, callback: messageCallbackType){
+    rmqClient?.subscribe(rmq_topic_sensor_update+"."+sensorId, callback);
 }
 
 export const rmqDisconnect = () => {

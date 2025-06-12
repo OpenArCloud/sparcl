@@ -67,6 +67,7 @@ import { printOglTransform, checkGLError } from '@core/devTools';
 import { quat, vec3 } from 'gl-matrix';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
 import type { Geopose, SCR } from '@oarc/scd-access';
+import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -334,6 +335,25 @@ export default class ogl {
         mesh.quaternion.copy(orientation);
         scene.addChild(mesh);
         return mesh;
+    }
+
+    addParticleObject(position: Vec3, orientation: Quat, shape:ParticleShape, baseColor:string, pointSize: number, intensity: number, systemSize: number, speed: number){
+        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
+        particles.mesh.position.copy(position);
+        particles.mesh.quaternion.copy(orientation);
+        scene.addChild(particles.mesh);
+        return particles;
+    }
+
+    setParticleIntensity(particles: ParticleSystem, calculate: (oldValue:number)=>number){
+        if(particles){
+            const newIntensity = calculate(particles.intensity)
+            setIntensity(particles, newIntensity);
+            return newIntensity;
+        }else{
+            console.error("Tried to modify missing particle system!");
+            return -1;
+        }
     }
 
     /**
