@@ -736,6 +736,12 @@
                         break;
                     }
 
+                    case 'VIDEO':
+                        const videoUrl = record.content.refs ? record.content.refs[0].url : '';
+                        tdEngine.addVideoObject(localPosition, localQuaternion, videoUrl);
+                        break;
+
+
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
                         console.log(record.content);
