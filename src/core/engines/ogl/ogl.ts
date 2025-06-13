@@ -677,7 +677,8 @@ export default class ogl {
      * @param time  Number      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-    render(time: number, view: XRView) {
+
+    render(time: DOMHighResTimeStamp, view: XRView) {
         checkGLError(gl, 'OGL render() begin');
 
         const position = view.transform.position;
@@ -704,6 +705,7 @@ export default class ogl {
             node.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
         });
 
+        videoHelper.onPreRender(time)
         renderer.render({ scene, camera });
 
         checkGLError(gl, 'OGL render() end');
