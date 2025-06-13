@@ -469,6 +469,188 @@ export const fakeLocationResult = {
     ],
 };
 
+export const fakeLocationResult2:({geopose:GeoPoseResponse,scrs:SCR[]}) = {
+    geopose: {
+        accuracy: {
+            orientation: -1,
+            position: -1,
+        },
+        id: '1adc076d-5a33-4f06-aacb-e8c2e94499b9',
+        geopose: {
+            position: {
+                lat: 48.756115957414345,
+                lon: 8.545640947400223,
+                h: 0.06582733851264133,
+            },
+            quaternion: {
+                x: 0,
+                y: 0,
+                z: 0.707,
+                w: 0.707
+            },
+        },
+        timestamp: 1726751196000,
+        type: 'geopose',
+    },
+    scrs: [
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.75751158077768,
+                        lon: 8.545000426348882,
+                        h: 0
+                    },
+                    quaternion: {
+                        x: 0,
+                        y: 0,
+                        z: 0,
+                        w: 1,
+                    },
+                },
+                id: '25519',
+                keywords: ['text'],
+                refs: [{url:"/media/fonts/MgOpenLicence.txt",contentType:""}],
+                title: 'Long sample text',
+                type: 'TEXT',
+            },
+            id: '25519',
+            tenant: 'public',
+            timestamp: 1726751196000,
+            type: 'scr',
+        },
+        /*{
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.756132830613595,
+                        lon: 8.545662319589079,
+                        h: -0.4542122185230255,
+                    },
+                    quaternion: {
+                        x: 0,
+                        y: 0,
+                        z: 1,
+                        w: 0,
+                    },
+                },
+                id: '25523',
+                keywords: ['other'],
+                refs: [{url:'https://192.168.1.161:8080/media/models/Duck.glb',contentType:'gltf'}],
+                title: 'Sensor',
+                type: 'MODEL_3D',
+            },
+            id: '25523',
+            tenant: 'public',
+            timestamp: 1726751196000,
+            type: 'scr',
+        },*/
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.7561344514246,
+                        lon: 8.545641127889324,
+                        h: 0
+                    },
+                    quaternion: {
+                        x: 0.030575819204840073,
+                        y: -0.8192063719687788,
+                        z: -0.04386668473200756,
+                        w: -0.5710006596986791,
+                    },
+                },
+                
+                id: '25532',
+                keywords: ['other'],
+                refs: [],
+                title: 'Picker',
+                type: 'sensor_stream',
+                definitions:[{type:"chair_id", value:"1"},{type:"mock",value:"true"}]
+            },
+            id: '25532',
+            tenant: 'oscptestgs',
+            timestamp: 1726751196000,
+            type: 'scr',
+        },
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.756132830613595,
+                        lon:  8.545662319589079,
+                        h:   -0.4542122185230255,
+                    },
+                    quaternion: {
+                        x:  0,//-0.11061927770517868,
+                        y:   0,//-0.5654197985215716,
+                        z:  1,//0.07686378041725367,
+                        w:  0,//-0.8137295534142641,
+                    },
+                },
+                id: '25524',
+                keywords: ['place'],
+                refs: [],
+                title: 'first',
+                type: 'sensor_stream',
+                //url: '',
+                definitions: [
+                    { type: 'sensor_id', value: '25524' },
+                    { type: 'visualizationType', value: 'particle' },
+                    { type: 'shape', value: 'sphere' }, // random, cone, sphere
+                    { type: 'baseColor', value: '0.0,0.0,0.4' },
+                    { type: 'pointSize', value: '100' },
+                    { type: 'intensity', value: '50' },
+                    { type: 'systemSize', value: '2.0' },
+                    { type: 'speed', value: '0.5' },
+                    { type: 'createButton', value: 'true' },
+                ],
+            },
+            id: '25524',
+            tenant: 'public',
+            timestamp: 1619696982578,
+            type: 'scr',
+        },
+        {
+            content: {
+                description: '',
+                geopose: {
+                    position: {
+                        lat: 48.756113,
+                        lon:  8.545680,
+                        h:   -0.454212,
+                    },
+                    quaternion: {
+                        x:  0,//-0.11061927770517868,
+                        y:  0,//-0.5654197985215716,
+                        z:  0.707,//0.07686378041725367,
+                        w:  0.707,//-0.8137295534142641,
+                    },
+                },
+                id: '25526',
+                keywords: ['place'],
+                refs: [],
+                title: 'first',
+                type: 'sensor_stream',
+                //url: '',
+                definitions: [
+                    { type: 'sensor_id', value: '25526' },
+                    { type: 'visualizationType', value: 'text' },
+                    { type: 'createButton', value: 'true' },
+                ],
+            },
+            id: '25526',
+            tenant: 'public',
+            timestamp: 1619696982578,
+            type: 'scr',
+        },
+    ],
+};
+
 export const fakeLocationResult4 = {
     geopose: {
         accuracy: {
