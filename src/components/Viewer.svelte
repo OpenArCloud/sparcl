@@ -638,10 +638,15 @@
                             console.error("ERROR: Unable to parse sensor content record! " + record.content.id);
                             break;
                         }
-                        subscribeToSensor(content_definitions.rmqTopic, (d) => {
-                            console.log(d.body);
-                            updateSensorFromMsg(d.body, tdEngine);
-                        });
+                        if(content_definitions.rmqTopic){
+                            subscribeToSensor(content_definitions.rmqTopic, (d) => {
+                                console.log(d.body);
+                                updateSensorFromMsg(d.body, tdEngine);
+                            });
+                        }else{
+                            console.error("Missing rmqTopic field for sensor");
+                        }
+                        
 
 
                         break;
