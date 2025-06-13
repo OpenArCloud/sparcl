@@ -129,8 +129,9 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     rmqClient.activate();
 }
 
-export function subscribeToSensor(sensorId: string, callback: messageCallbackType){
-    rmqClient?.subscribe(rmq_topic_sensor_update+"."+sensorId, callback);
+export function subscribeToSensor(topic:string, callback: messageCallbackType){
+    console.log("Subscribing to ",topic);
+    rmqClient?.subscribe(topic, callback);
 }
 
 export const rmqDisconnect = () => {

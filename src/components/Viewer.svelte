@@ -632,14 +632,13 @@
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-                        let object_description = (record.content as any).object_description;
 
-                        const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions, object_description);
+                        const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error("ERROR: Unable to parse sensor content record! " + record.content.id);
                             break;
                         }
-                        subscribeToSensor(sensor_id, (d) => {
+                        subscribeToSensor(content_definitions.rmqTopic, (d) => {
                             console.log(d.body);
                             updateSensorFromMsg(d.body, tdEngine);
                         });
