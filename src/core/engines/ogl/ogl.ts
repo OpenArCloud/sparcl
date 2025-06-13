@@ -34,6 +34,7 @@ import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
+import * as videoHelper from './oglVideoHelper';
 
 import {
     createAxesBoxPlaceholder,
@@ -520,6 +521,15 @@ export default class ogl {
         return textMesh;
     }
 
+     async addVideoObject(position: Vec3, quaternion: Quat, videoUrl:string) {
+        console.log("addVideoObject: " + videoUrl);
+        const videoInfo = await videoHelper.loadVideo(videoUrl);
+        const videoBox = videoHelper.createVideoBox(gl, scene, position, quaternion, videoInfo.videoId);
+        this.addClickEvent(videoBox, () => {
+            videoHelper.togglePlayback(videoInfo.videoId);
+        });
+    }
+
     setVerticallyRotating(node: Transform) {
         verticallyRotatingNodes.push(node);
     }
@@ -667,7 +677,8 @@ export default class ogl {
      * @param time  Number      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-    render(time: number, view: XRView) {
+
+    render(time: DOMHighResTimeStamp, view: XRView) {
         checkGLError(gl, 'OGL render() begin');
 
         const position = view.transform.position;
@@ -694,6 +705,7 @@ export default class ogl {
             node.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
         });
 
+        videoHelper.onPreRender(time)
         renderer.render({ scene, camera });
 
         checkGLError(gl, 'OGL render() end');
