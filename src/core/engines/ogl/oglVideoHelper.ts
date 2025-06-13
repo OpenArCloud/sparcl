@@ -1,3 +1,9 @@
+/*
+  (c) 2025 Nokia
+  Licensed under the MIT License
+  SPDX-License-Identifier: MIT
+*/
+
 import { Mesh, Vec3, Quat, Program, Texture, Box, Transform, type OGLRenderingContext } from 'ogl';
 
 
