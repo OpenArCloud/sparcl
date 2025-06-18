@@ -142,11 +142,9 @@
         parentInstance.relocalize();
         }
 
-    //47.48585248267864, 19.07614716811697
     async function getPlaces(query: String) {
       if(searchEnabled){
         tdEngine.clearScene();
-        //47.48586859638348, 19.076136843961468
         const myLocation = await getCurrentLocation();
         const lat = myLocation.lat;
         const lon = myLocation.lon;
