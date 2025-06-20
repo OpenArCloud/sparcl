@@ -18,6 +18,7 @@
 
     const EXPERIMENTTYPES: Record<string, string> = {
         //yourkey: 'yourvalue'
+        searchbytext: 'searchbytext',
         performance: 'Performance',
         ismar2021multi: 'ISMAR 2021 Multi',
         ismar2021signpost: 'ISMAR 2021 Signpost',
@@ -31,6 +32,10 @@
             //    settings = import('@experiments/<subroot>/<experimentname>/Settings.svelte')
             //    viewer = import('@experiments/<subroot>/<experimentname>/Viewer.svelte');
             //    break;
+            case 'searchbytext':
+                settings = import('@experiments/oarc/searchbytext/Settings.svelte');
+                viewer = import('@experiments/oarc/searchbytext/Viewer.svelte');
+                break; 
             case 'ismar2021signpost':
                 settings = import('@experiments/oarc/ismar2021signpost/Settings.svelte');
                 viewer = import('@experiments/oarc/ismar2021signpost/Viewer.svelte');
