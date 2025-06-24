@@ -15,7 +15,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable, get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce, forEach, type DebouncedFunc } from 'lodash';
+    import { debounce, type DebouncedFunc } from 'lodash';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
         ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -45,7 +45,7 @@
     } from '@src/stateStore';
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
-    import { upgradeGeoPoseStandard } from '@core/locationTools';
+    import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
@@ -72,6 +72,13 @@
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
+
+    let currentGeoPose: Geopose|undefined;
+    let contentQueryInterval: NodeJS.Timer|undefined;
+    let loadedH3Indices: string[] = [];
+
+    // spatial contents are organized into topics.
+    const kDefaultOscpScdTopic = 'history';
 
     // Multiplayer: poses of others
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
@@ -279,6 +286,10 @@
             if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
                 try {
                     shareCameraPose(floorPose);
+                    const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
+                    const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w)
+                    currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
+                    
                 } catch (error) {
                     // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
                 }
@@ -293,12 +304,32 @@
         $recentLocalisation.geopose = cameraGeoPose;
         $recentLocalisation.floorpose = floorPose;
         onLocalizationSuccess(floorPose, cameraGeoPose);
-        const scrs = await getContentsInH3Cell();
-        console.log(`Received scrs from ${scrs.length} servers`);
-        scrs.forEach((scr) => {
-            console.log(`Received ${scr.length} scrs from this server`);
-        });
-        placeContent(scrs);
+
+        // retrieve now
+        retrieveAndPlaceContents(currentGeoPose);
+        // and repeat periodically
+        contentQueryInterval = setInterval(async ()=>{
+            retrieveAndPlaceContents(currentGeoPose);
+        }, 5000)
+    }
+
+    async function retrieveAndPlaceContents(queryGeoPose: Geopose|undefined) {
+        if(!queryGeoPose){
+            return;
+        }
+        const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
+        for (const h3Index of h3Indices){
+            // skip already loaded h3 indices
+            // NOTE: disable to support dynamically created contents
+            if(loadedH3Indices.includes(h3Index)){
+                continue;
+            } else {
+                loadedH3Indices.push(h3Index);
+            }
+            console.log("New h3 index", h3Index);
+            const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
+            placeContent(scrs);
+        }
     }
 
     /**
@@ -310,6 +341,7 @@
             stopOrientationSensor();
             unlockScreenOrientation();
         }
+        clearInterval(contentQueryInterval);
         dispatch('arSessionEnded');
     }
 
@@ -469,6 +501,8 @@
      * Show ui for localisation again.
      */
     export function relocalize() {
+        clearInterval(contentQueryInterval);
+
         $context.isLocalized = false;
         $context.isLocalizing = false;
         $context.isLocalisationDone = false;
@@ -477,6 +511,7 @@
 
         $receivedScrs = [];
         $context.receivedContentTitles = [];
+        loadedH3Indices = [];
 
         tdEngine.clearScene(); // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
 
@@ -486,17 +521,17 @@
     /**
      * Request content from SCD available around the current location.
      */
-    export function getContentsInH3Cell() {
-        const servicePromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
+    export function getContentsInH3Cell(h3Index = $initialLocation.h3Index, topic = kDefaultOscpScdTopic) {
+        const allScrPromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                // TODO: H3 cell ID and topic should be be customizable
-                let scrs_ = getContentsAtLocation(service.url, 'history', $initialLocation.h3Index);
-                result.push(scrs_);
+                console.log(`Receiving scrs from ${service.url} for H3 cell ${h3Index} and topic ${topic}...`);
+                let scrPromises = getContentsAtLocation(service.url, topic, h3Index); // returns Promise<SCR[]>
+                result.push(scrPromises);
             }
             return result;
         }, []);
 
-        return Promise.all(servicePromises);
+        return Promise.all(allScrPromises);
     }
 
     /**
@@ -509,14 +544,15 @@
             //console.log('Number of content items received: ', response.length);
 
             response.forEach((record) => {
+                if($receivedScrs.map((scr) => scr.id).includes(record.id)){
+                    return;
+                }
                 // TODO: validate here whether we received a proper SCR
                 // TODO: we can check here whether we have received this content already and break if yes.
                 // TODO: first save the records and then start to instantiate the objects
-                if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
-                    // only list the 3D models and not ephemeral objects nor stream objects
-                    $receivedScrs.push(record);
-                    $context.receivedContentTitles.push(record.content.title);
-                }
+                $receivedScrs.push(record);
+                $context.receivedContentTitles.push(record.content.title);
+                console.log("New content: ", record.content.title);
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
