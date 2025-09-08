@@ -205,14 +205,14 @@
         shouldShowDashboard = openDashboard || shouldShowDashboard;
 
         if (!shouldShowDashboard) {
-            startAr();
+            startViewer();
         }
     }
 
     /**
      * Initiate start of AR session
      */
-    async function startAr() {
+    async function startViewer() {
         shouldShowDashboard = false;
         showOutro = false;
 
@@ -341,7 +341,7 @@
         <Dashboard
             bind:this={dashboard}
             on:broadcast={handleBroadcast}
-            on:okClicked={startAr}
+            on:okClicked={startViewer}
             />
     {/if}
 
