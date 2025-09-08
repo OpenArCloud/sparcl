@@ -15,7 +15,7 @@
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable, get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
-    import { debounce, type DebouncedFunc } from 'lodash';
+    import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
         ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
@@ -46,7 +46,7 @@
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
-    import { getSensorEstimatedGeoPose, lockScreenOrientation, startOrientationSensor, stopOrientationSensor, unlockScreenOrientation } from '@core/sensors';
+    import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor} from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import ogl from '../core/engines/ogl/ogl';
@@ -71,7 +71,7 @@
     let experienceLoaded = false;
     let experienceMatrix: Mat4 | null = null;
     let firstPoseReceived = false;
-    let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined = undefined;
+    let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
     let currentGeoPose: Geopose|undefined;
     let contentQueryInterval: NodeJS.Timer|undefined;
@@ -150,25 +150,19 @@
             options.domOverlay = { root: overlay };
         }
 
-        let promise = xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
-
-        // NOTE: screen orientation cannot be changed between user click and WebXR startSession,
-        // and it cannot be changed after the XR Session started, so the only place to change it is here
-        if ($debug_useGeolocationSensors) {
-            lockScreenOrientation('landscape-primary');
-            startOrientationSensor();
+        try {
+            await xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
+        } catch (error) {
+            unableToStartSession = true;
+            message('WebXR Immersive AR failed to start: ' + error);
+            return;
         }
 
-        if (promise) {
-            promise
-                .then(() => {
-                    xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
-                    tdEngine.init();
-                })
-                .catch((error) => {
-                    unableToStartSession = true;
-                    message('WebXR Immersive AR failed to start: ' + error);
-                });
+        xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
+        tdEngine.init();
+
+        if ($debug_useGeolocationSensors) {
+            startOrientationSensor();
         }
     }
 
@@ -339,7 +333,6 @@
         firstPoseReceived = false;
         if ($debug_useGeolocationSensors) {
             stopOrientationSensor();
-            unlockScreenOrientation();
         }
         clearInterval(contentQueryInterval);
         dispatch('arSessionEnded');

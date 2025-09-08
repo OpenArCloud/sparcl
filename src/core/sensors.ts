@@ -158,30 +158,15 @@ export function getSensorEstimatedGeoPose() {
 export function lockScreenOrientation(orientation: string) {
     // Code from https://code-boxx.com/lock-screen-orientation/
 
-    document.addEventListener('fullscreenerror', (event) => {
-        console.error('Could not change to fullscreen');
-        console.log(event);
-    });
-
-    if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        let de: any = document.documentElement;
-        if (de.requestFullscreen) {
-            de.requestFullscreen();
-        } else if (de.mozRequestFullScreen) {
-            de.mozRequestFullScreen();
-        } else if (de.webkitRequestFullscreen) {
-            de.webkitRequestFullscreen();
-        } else if (de.msRequestFullscreen) {
-            de.msRequestFullscreen();
-        }
-    }
+    // It seems that the orientation can only be locked in fullscreen mode
+    requestFullscreen();
 
     (screen.orientation as any).lock(orientation).then(
         (success: string) => {
-            console.log(success);
+            console.log(`Screen orientation locked to ${orientation}`);
         },
         (failure: string) => {
-            console.error('Could not lock screen orientation');
+            console.error(`Could not lock screen orientation to ${orientation}`);
             console.log(failure);
         },
     );
@@ -193,13 +178,43 @@ export function lockScreenOrientation(orientation: string) {
 export function unlockScreenOrientation() {
     screen.orientation.unlock();
 
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-        document.mozCancelFullScreen();
-    } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
+    exitFullscreen();
+}
+
+export function requestFullscreen() {
+    try {
+        document.addEventListener('fullscreenerror', (event) => {
+            console.error('Could not change to fullscreen');
+            console.log(event);
+        });
+        if (!document.fullscreenElement && !document.mozFullScreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
+            let de: any = document.documentElement;
+            if (de.requestFullscreen) {
+                de.requestFullscreen();
+            } else if (de.mozRequestFullScreen) {
+                de.mozRequestFullScreen();
+            } else if (de.webkitRequestFullscreen) {
+                de.webkitRequestFullscreen();
+            } else if (de.msRequestFullscreen) {
+                de.msRequestFullscreen();
+            }
+        }
+    } catch (err) {
+        console.log('Could not enter fullscreen');
+    }
+}
+export function exitFullscreen() {
+    try {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    } catch (err) {
+        console.log('Could not exit fullscreen');
     }
 }

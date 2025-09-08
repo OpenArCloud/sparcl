@@ -54,6 +54,8 @@
         userName
     } from '@src/stateStore';
 
+    import { lockScreenOrientation, unlockScreenOrientation } from '@core/sensors';
+
     import { testRmqConnection } from '@src/core/rmqnetwork';
     import Select from './dom-overlays/Select.svelte';
 
@@ -121,6 +123,19 @@
             isAgentNameReadonly.set(false); // Make it editable
         }
     });
+
+    $: {
+        // NOTE: when using device GPS and compass, the Sensor coordinate system returns values that match the landscape-primary orientation of the device
+        // Therefore, we enforce landscape view when device sensors are used. (Alternatively, we could do the math for all possible orientations)
+        // NOTE: locking the screen orientation requires going fullscreen first.
+        // NOTE: screen orientation cannot be changed between user clicks the go-immersive-button and WebXR startSession,
+        // and it cannot be changed after the XR Session started, so the only place to change it is here
+        if ($debug_useGeolocationSensors) {
+            lockScreenOrientation('landscape-primary');
+        } else {
+            unlockScreenOrientation();
+        }
+    }
 
 </script>
 
@@ -382,7 +397,7 @@
 
     <div>
         <input id="useGeolocationSensors" type="checkbox" bind:checked={$debug_useGeolocationSensors} />
-        <label for="useGeolocationSensors">Use geolocation sensors (no visual positioning)</label>
+        <label for="useGeolocationSensors">Use geolocation sensors instead of VPS (requires landscape screen orientation)</label>
     </div>
 
     <div>

@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
 
-import throttle from 'lodash/throttle';
+import { throttle } from 'es-toolkit';
 
 import {Client as StompClient, StompConfig, type IFrame, type messageCallbackType} from '@stomp/stompjs';
 

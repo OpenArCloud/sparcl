@@ -12,7 +12,7 @@
 -->
 <script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
-    import { debounce, type DebouncedFunc } from 'lodash';
+    import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { Mesh, Quat, Vec3 } from 'ogl';
 
     import {
@@ -40,7 +40,7 @@
     let unableToStartSession = false;
 
     let trackedImageObject: Mesh;
-    let poseFoundHeartbeat: DebouncedFunc<() => boolean> | undefined;
+    let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined;
 
     const message = (msg: string) => console.log(msg);
 
@@ -79,22 +79,17 @@
                 },
             ],
         };
-        const promise = xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
 
-        if (promise) {
-            promise
-                .then(() => {
-                    xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
-                    tdEngine.init();
-                })
-                .catch((error: any) => {
-                    unableToStartSession = true;
-                    message('WebXR Immersive AR failed to start: ' + error);
-                });
-        } else {
-            message('AR session was started with unknown mode');
-            throw new Error('AR session was started with unknown mode');
+        try {
+            await xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
+        } catch (error) {
+            unableToStartSession = true;
+            message('WebXR Immersive AR failed to start: ' + error);
+            return;
         }
+
+        xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
+        tdEngine.init();
     }
 
     onDestroy(() => {
