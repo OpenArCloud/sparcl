@@ -13,13 +13,14 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
 
-    import { fakeLocationResult } from '@core/devTools';
+    import { fakeLocationResult2 as fakeLocationResult } from '@core/devTools';
     import { wait } from '@core/common';
     import { debug_showLocalAxes } from '@src/stateStore';
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
     import { Quat, Vec3 } from 'ogl';
+    import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -87,7 +88,7 @@
 
             for (let view of floorPose.views) {
                 console.log('fake localisation');
-                const geoPose = fakeLocationResult.geopose.pose;
+                const geoPose = fakeLocationResult.geopose.geopose;
                 onLocalizationSuccess(floorPose, geoPose);
                 isLocalized = true;
 
@@ -101,6 +102,7 @@
         xrEngine.handleAnchors(frame);
         xrEngine.setViewportForView(floorPose.views[0]);
         parentInstance.handleExternalExperience(floorPose.views[0]);
+        updateSensorVisualization();
         tdEngine.render(time, floorPose.views[0]);
     }
 </script>
