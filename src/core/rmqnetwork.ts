@@ -3,11 +3,11 @@ import { myAgentId } from '@src/stateStore';
 
 import { throttle } from 'es-toolkit';
 
-import {Client as StompClient, StompConfig, type IFrame, type messageCallbackType} from '@stomp/stompjs';
+import { Client as StompClient, StompConfig, type IFrame, type messageCallbackType } from '@stomp/stompjs';
 
-const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + ".#"; // subscribe to all subtopics
+const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.#'; // subscribe to all subtopics
 const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
-const rmq_topic_sensor_update=import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE;
+const rmq_topic_sensor_update = import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE;
 
 let rmqClient: StompClient | null = null;
 
@@ -17,8 +17,8 @@ export async function testRmqConnection({ url, username, password }: { url: stri
         stompConfig.brokerURL = url;
         stompConfig.reconnectDelay = 0;
         stompConfig.connectHeaders = {
-            login:username,
-            passcode:password,
+            login: username,
+            passcode: password,
         };
 
         const onConnect = () => {
@@ -38,7 +38,6 @@ export async function testRmqConnection({ url, username, password }: { url: stri
     });
 }
 
-
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
     // disconnect first if there already was a connection established
     rmqDisconnect();
@@ -56,16 +55,16 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     stompConfig.brokerURL = url;
     stompConfig.reconnectDelay = 1000;
     stompConfig.connectHeaders = {
-        login:username,
-        passcode:password,
+        login: username,
+        passcode: password,
     };
     stompConfig.debug = function (str) {
         // for debugging, we can print all received messages to the console (or even to a separate HTML view)
         //console.log(str + "\n");
     };
     const onConnect = function () {
-        if(!rmqClient){
-            console.error("RMQ client disappeared after successful connection");
+        if (!rmqClient) {
+            console.error('RMQ client disappeared after successful connection');
             return;
         }
         console.log('RMQ connection successful!');
@@ -76,11 +75,11 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
         // 2. if <pattern> is supplied, binds the queue to <name> exchange using <pattern>; and
         // 3. registers a subscription against the queue, for the current STOMP session.
 
-         ////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
         //   subscription topics
-         ////////////////////////////////////////////////////////
+        ////////////////////////////////////////////////////////
 
-         console.log('Subscribing to topic ' + rmq_topic_geopose_update);
+        console.log('Subscribing to topic ' + rmq_topic_geopose_update);
         rmqClient.subscribe(rmq_topic_geopose_update, function (d) {
             const msg = JSON.parse(d.body);
             //console.log(msg);
@@ -116,11 +115,10 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             };
             throttledUpdateFunction(data);
         });
-
     };
 
     const onError = function (frame: IFrame) {
-        console.log("Error: rabbitmq connection disconnected", frame.body);
+        console.log('Error: rabbitmq connection disconnected', frame.body);
     };
 
     rmqClient = new StompClient(stompConfig);
@@ -129,8 +127,8 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     rmqClient.activate();
 }
 
-export function subscribeToSensor(topic:string, callback: messageCallbackType){
-    console.log("Subscribing to ",topic);
+export function subscribeToSensor(topic: string, callback: messageCallbackType) {
+    console.log('Subscribing to ', topic);
     rmqClient?.subscribe(topic, callback);
 }
 
@@ -140,9 +138,9 @@ export const rmqDisconnect = () => {
 
 export function send(routing_key: string, headers: Record<string, any>, data: any) {
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
-    rmqClient?.publish({destination:routing_key, headers, body:JSON.stringify(data)});
+    rmqClient?.publish({ destination: routing_key, headers, body: JSON.stringify(data) });
 }
 
-export function isConnected(){
+export function isConnected() {
     return rmqClient != null && rmqClient.connected === true;
 }

@@ -78,10 +78,10 @@ export const allowLocationLabel = readable('', (set) => {
     return () => set('');
 });
 
-export const PageRefreshRequired= readable('', (set) => {
-    set('please refresh the page afterwards')
+export const PageRefreshRequired = readable('', (set) => {
+    set('please refresh the page afterwards');
     return () => set('');
-})
+});
 
 // Title of location access request screen
 export const locationaccessrequired = readable('', (set) => {

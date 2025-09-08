@@ -18,7 +18,7 @@ export interface ParticleSystem {
     speed: number;
 }
 
-export function createParticles(gl: OGLRenderingContext, shape: ParticleShape, baseColor: string, pointSize: number, intensity: number, systemSize: number, speed:number): ParticleSystem {
+export function createParticles(gl: OGLRenderingContext, shape: ParticleShape, baseColor: string, pointSize: number, intensity: number, systemSize: number, speed: number): ParticleSystem {
     const positions = new Float32Array(intensity * 3);
     const velocities = new Float32Array(intensity * 3);
     const baseColorArr = baseColor.split(',').map((c) => parseFloat(c));
@@ -122,12 +122,9 @@ function generatePosition(shape: ParticleShape, systemSize: number): Vec3 {
         }
     }
     return position.scale(systemSize);
-
 }
 
-function generateVelocity(shape: ParticleShape, position: Vec3, speed:number): Vec3 {
-
-    
+function generateVelocity(shape: ParticleShape, position: Vec3, speed: number): Vec3 {
     let velocity;
     switch (shape) {
         case ParticleShape.CONE: {

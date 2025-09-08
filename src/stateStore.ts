@@ -18,7 +18,6 @@ import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';
 
-
 /**
  * Determines the isAuthenticatedAuth0 status.
  * @type {Readable<boolean>}    true when using Auth0, false otherwise
@@ -61,12 +60,12 @@ isLoggedIn.subscribe((value) => {
  */
 const kDefaultLoggedInUserData = JSON.stringify({
     email: null,
-    username: null
-  });
+    username: null,
+});
 const storedSignedInUserState = localStorage.getItem('currentLoggedInUser') || kDefaultLoggedInUserData;
 export const currentLoggedInUser = writable<string>(storedSignedInUserState);
 currentLoggedInUser.subscribe((value) => {
-    localStorage.setItem('currentLoggedInUser', value );
+    localStorage.setItem('currentLoggedInUser', value);
 });
 
 /**
@@ -79,7 +78,6 @@ export const showLogin = writable(storedShowLogin);
 showLogin.subscribe((value) => {
     localStorage.setItem('showlogin', value === true ? 'true' : 'false');
 });
-
 
 /**
  * Determines and keeps track of the state of the location permission.
@@ -221,7 +219,6 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
     [],
 );
 
-
 /**
  * Derived store of ssr store for easy access of all contained content services.
  */
@@ -246,7 +243,6 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
             }
             selectedContentServices.set(selection);
         }
-
     },
     [],
 );
@@ -284,7 +280,6 @@ selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
 
-
 export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
     ssr,
     ($ssr, set) => {
@@ -317,7 +312,6 @@ export const recentLocalisation = writable<{ geopose: Partial<Geopose>; floorpos
     geopose: {},
     floorpose: {},
 });
-
 
 /**
  * The ones of the received content services to be used to request content around the current location from.
@@ -567,7 +561,7 @@ export const isAgentNameReadonly = writable(false);
 // Initialize values for authenticated user details
 const userDetails = JSON.parse(localStorage.getItem('currentLoggedInUser') || kDefaultLoggedInUserData);
 
-export const userData =  writable(userDetails);
+export const userData = writable(userDetails);
 export const userId = writable(userDetails.email);
 // split username
 const initialUserName = userDetails.username ? userDetails.username.split('(')[0].trim() : '';

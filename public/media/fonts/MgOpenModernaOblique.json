@@ -1,7 +1,5 @@
 {
-    "pages": [
-        "MgOpenModernaOblique.png"
-    ],
+    "pages": ["MgOpenModernaOblique.png"],
     "chars": [
         {
             "id": 40,
@@ -1440,16 +1438,8 @@
         "stretchH": 100,
         "smooth": 1,
         "aa": 1,
-        "padding": [
-            2,
-            2,
-            2,
-            2
-        ],
-        "spacing": [
-            0,
-            0
-        ],
+        "padding": [2, 2, 2, 2],
+        "spacing": [0, 0],
         "outline": 0
     },
     "common": {

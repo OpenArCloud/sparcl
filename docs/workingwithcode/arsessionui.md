@@ -34,7 +34,6 @@ function startSession() {
 }
 ```
 
-
 ## Define the UI
 
 sparcl uses [svelte]() https://svelte.dev/ to make development much easier than with plain Javascript, and to get away from the intricacies of other Javascript frameworks. Layout compositing features of svelte allows to use the default `Viewer` as an HTML base, and add your own HTML layout inside of it. To use it, add this at the bottom of your `Viewer` source file:
@@ -46,7 +45,6 @@ sparcl uses [svelte]() https://svelte.dev/ to make development much easier than 
 ```
 
 The important part above is the `slot="overlay"` attribute. It defines where the content of the `svelte:fragment` should be inserted in. Right now, `overlay` is the only slot available, but there might be more available in the future.
-
 
 ## Display the UI
 
