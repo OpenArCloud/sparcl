@@ -43,15 +43,12 @@
 
     onMount(() => {
 
-    // If no Auth0, set localStorage
+    // If authentication is disabled, set localStorage
     if (userWithoutAuth) {
         isLoggedIn.set(true);
         userNoAuth.set(true);
         isAuthenticatedAuth0.set(false);
-
         showLogin.set(false);
-        showDashboard.set(false);
-
 
         const userDetails = {
             email: import.meta.env.VITE_NOAUTH_USER_EMAIL,
