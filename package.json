@@ -1,6 +1,6 @@
 {
   "name": "spARcl",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Generic OSCP client prototype with WebXR",
   "type": "module",
   "main": "src/index.js",
@@ -12,7 +12,9 @@
     "build:docker": "docker build . -t sparcl",
     "start:docker": "docker run -p 8034:80 -d sparcl:latest",
     "preview": "vite preview --port 8080",
-    "test": "npx mocha --reporter spec 'test/**/*.js'"
+    "test": "npx mocha --reporter spec 'test/**/*.js'",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "repository": {
     "type": "git",
@@ -46,8 +48,10 @@
     "@types/webxr": "^0.5.10",
     "@vitejs/plugin-basic-ssl": "^1.0.2",
     "@web/test-runner": "^0.13.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
     "esm": "^3.2.25",
-    "prettier": "^3.2.4",
+    "prettier": "^3.6.2",
     "svelte": "^4.2.3",
     "tslib": "^2.6.2",
     "typescript": "^5.3.3",
