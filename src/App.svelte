@@ -12,18 +12,16 @@
 -->
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { Router, Route, navigate} from 'svelte-routing';
+    import { Router, Route, navigate } from 'svelte-routing';
 
     import Login from '@src/auth/Login.svelte';
     import Onboarding from '@src/components/Onboarding.svelte';
     import Header from '@components/Header.svelte';
-    import { showLogin, showDashboard, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from "./stateStore";
+    import { showLogin, showDashboard, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
 
-
-   // handle external route if the user not signed in & try to enter some routes
-   onMount(() => {
-        if ((!$isLoggedIn && window.location.pathname !== '/login') ||
-            (!$isLoggedIn && window.location.pathname !== '/loginAdmin') ) {
+    // handle external route if the user not signed in & try to enter some routes
+    onMount(() => {
+        if ((!$isLoggedIn && window.location.pathname !== '/login') || (!$isLoggedIn && window.location.pathname !== '/loginAdmin')) {
             navigate('/login', { replace: true });
         }
     });
@@ -42,47 +40,39 @@
     const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
     onMount(() => {
+        // If authentication is disabled, set localStorage
+        if (userWithoutAuth) {
+            isLoggedIn.set(true);
+            userNoAuth.set(true);
+            isAuthenticatedAuth0.set(false);
+            showLogin.set(false);
 
-    // If authentication is disabled, set localStorage
-    if (userWithoutAuth) {
-        isLoggedIn.set(true);
-        userNoAuth.set(true);
-        isAuthenticatedAuth0.set(false);
-        showLogin.set(false);
+            const userDetails = {
+                email: import.meta.env.VITE_NOAUTH_USER_EMAIL,
+                username: import.meta.env.VITE_NOAUTH_USER_NAME,
+            };
 
-        const userDetails = {
-            email: import.meta.env.VITE_NOAUTH_USER_EMAIL,
-            username: import.meta.env.VITE_NOAUTH_USER_NAME
-        };
+            // Save User Details: Convert the object to a JSON string
+            const userDetailsString = JSON.stringify(userDetails);
+            currentLoggedInUser.set(userDetailsString);
 
-    // Save User Details: Convert the object to a JSON string
-    const userDetailsString = JSON.stringify(userDetails);
-    currentLoggedInUser.set(userDetailsString);
-
-        navigate('/')
-    }
-  });
-
-
+            navigate('/');
+        }
+    });
 </script>
 
 <!-- Added the Header Component -->
 <Header />
 
 <main>
-
     <Router>
-
-        {#if $isLoggedIn }
+        {#if $isLoggedIn}
             <!-- Define Routes -->
             <Route path="/" component={Onboarding} />
-
         {:else}
-        <Route path="/login" component={Login} />
+            <Route path="/login" component={Login} />
         {/if}
-
     </Router>
-
 </main>
 
 <style>
@@ -98,5 +88,4 @@
             sans-serif;
         color: var(--theme-color);
     }
-
 </style>

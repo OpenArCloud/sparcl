@@ -22,13 +22,13 @@
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
     import P2PServiceSelector from './P2PServiceSelector.svelte';
-    import { type SCR } from '@oarc/scd-access'
+    import { type SCR } from '@oarc/scd-access';
 
     let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
 
-    const ephemeral_markers: {[id:string]: L.Layer} = {};
-    const ephemeral_scrs: {[id:string]: SCR} = {};
+    const ephemeral_markers: { [id: string]: L.Layer } = {};
+    const ephemeral_scrs: { [id: string]: SCR } = {};
 
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any; routing_key?: string } }>();
 
@@ -82,7 +82,7 @@
             fillColor: color,
             fillOpacity: 0.5,
             radius: 1,
-        })
+        });
         marker.addTo(map);
         ephemeral_markers[id] = marker;
     }
@@ -93,10 +93,7 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) &&
-            !('object_created' in events) &&
-            !('clear_session' in events))
-        {
+        if (!('message_broadcasted' in events) && !('object_created' in events) && !('clear_session' in events)) {
             console.log('Spectator: Unknown event received:');
             console.log(events);
             return;
@@ -209,14 +206,14 @@
         <p>No multiplayer services are available</p>
     {/if}
 
-    <P2PServiceSelector on:broadcast={(event) => {
+    <P2PServiceSelector
+        on:broadcast={(event) => {
             if ('clear_session' == event.detail.event) {
-                onNetworkEvent({clear_session: {}}) // process here to clean the map view
+                onNetworkEvent({ clear_session: {} }); // process here to clean the map view
             }
             dispatch('broadcast', event.detail); // forward to App (to Automerge)
-        }
-    } />
-
+        }}
+    />
 
     <MessageBrokerSelector
         onSubmit={messageBrokerSubmit}

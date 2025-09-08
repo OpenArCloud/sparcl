@@ -1,16 +1,16 @@
 <script lang="ts">
-    let inputText = "";
+    let inputText = '';
     import { createEventDispatcher } from 'svelte';
     import { experimentModeSettings } from '@src/stateStore';
 
     const dispatch = createEventDispatcher();
 
     function sendText() {
-        dispatch("textInput", inputText);
+        dispatch('textInput', inputText);
     }
 
     function handleCategoryClick(category: string) {
-        dispatch("categorySelected", category);
+        dispatch('categorySelected', category);
     }
 </script>
 
@@ -36,7 +36,6 @@
 {/if}
 
 <style>
-
     .top-controls {
         position: fixed;
         top: env(safe-area-inset-top, 20px);
@@ -51,7 +50,7 @@
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
 
-    input[type="text"] {
+    input[type='text'] {
         flex: 1;
         padding: 10px;
         font-size: 16px;

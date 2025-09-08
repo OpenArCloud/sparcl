@@ -17,14 +17,7 @@
 
     import { Swipeable, Screen, Controls } from 'thumb-ui';
 
-    import {
-        hasIntroSeen,
-         arIsAvailable,
-        isLocationAccessAllowed,
-        arMode,
-        myAgentColor,
-        myAgentName
-    } from '@src/stateStore';
+    import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode, myAgentColor, myAgentName } from '@src/stateStore';
 
     import {
         infoGreeting,
@@ -41,7 +34,7 @@
         locationaccessrequired,
         locationaccessinfo,
         noservicesavailable,
-        playerScreenTitle
+        playerScreenTitle,
     } from '@src/contentStore';
     import { ARMODES } from '@core/common';
 
@@ -62,13 +55,11 @@
         <h3>{$infoGreeting}</h3>
         <p class="subheader">{$info}</p>
         {#if isLocationAccessRefused}
-            <p>
-                Location access was refused.
-            </p>
+            <p>Location access was refused.</p>
             <p>
                 See <a href="https://openarcloud.github.io/sparcl/help/locationaccess.html">help</a>
-                 for more info
-             </p>
+                for more info
+            </p>
         {:else if !$isLocationAccessAllowed}
             <p>{$locationaccessrequired}</p>
         {:else}
@@ -82,9 +73,9 @@
         {#if withOkFooter}
             {#if !$isLocationAccessAllowed}
                 <button disabled={isLocationAccessRefused} on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>
-                    { $allowLocationLabel }
+                    {$allowLocationLabel}
                 </button>
-                <p class="page-refresh-req"> { $PageRefreshRequired }</p>
+                <p class="page-refresh-req">{$PageRefreshRequired}</p>
             {:else}
                 <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
                     {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
@@ -108,30 +99,25 @@
 
                 <button on:click={() => dispatch('requestLocation')} on:keydown={() => dispatch('requestLocation')}>{$allowLocationLabel}</button>
 
-                <p class="page-refresh-req"> { $PageRefreshRequired }</p>
+                <p class="page-refresh-req">{$PageRefreshRequired}</p>
             {:else}
                 <h4 id="locationgranted">{$locationaccessgranted}</h4>
                 <img src="/media/overlay/marker.png" alt="location marker" />
             {/if}
         </Screen>
         {#if userWithoutAuth}
-        <Screen>
+            <Screen>
                 <h4 id="player-title">{$playerScreenTitle}</h4>
 
-                    <p id="player-username-text">Choose your name</p>
-                    <p id="player-username-input">
-                        <input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} required  />
-                    </p>
+                <p id="player-username-text">Choose your name</p>
+                <p id="player-username-input">
+                    <input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} required />
+                </p>
 
-                    <div class="color-picker-container">
-                        <ColorPicker
-                           bind:rgb={$myAgentColor}
-                           label="Choose your color"
-                           --picker-z-index="100"
-                           --picker-height="90px"
-                           --picker-width="120px" />
-                    </div>
-        </Screen>
+                <div class="color-picker-container">
+                    <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" --picker-z-index="100" --picker-height="90px" --picker-width="120px" />
+                </div>
+            </Screen>
         {/if}
         <Screen>
             <h4 id="staysafe">Stay safe</h4>
@@ -240,17 +226,17 @@
         margin-bottom: 100px;
     }
 
-    #player-title{
-     padding-bottom: 10px;
-     font-size: 30px;
+    #player-title {
+        padding-bottom: 10px;
+        font-size: 30px;
     }
 
-    #player-username-input{
-      margin-top: -10px;
-      margin-bottom: -10px;
+    #player-username-input {
+        margin-top: -10px;
+        margin-bottom: -10px;
     }
 
-    #player-username-input{
+    #player-username-input {
         width: 100px;
         height: 60px;
         line-height: 60px;
@@ -266,14 +252,14 @@
     }
 
     /* Style the container */
-    .color-picker-container{
+    .color-picker-container {
         --cp-bg-color: #333;
-		--cp-border-color: white;
-		--cp-text-color: white;
-		--cp-input-color: #555;
-		--cp-button-hover-color: #777;
+        --cp-border-color: white;
+        --cp-text-color: white;
+        --cp-input-color: #555;
+        --cp-button-hover-color: #777;
     }
-    .page-refresh-req{
+    .page-refresh-req {
         font-size: 16px !important ;
         display: block;
     }

@@ -11,13 +11,11 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
-
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
     import { writable, type Writable, get } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
-    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy,
-        ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
 
     import { myAgentName, myAgentId, myAgentColor } from '@src/stateStore';
@@ -46,7 +44,7 @@
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
-    import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor} from '@core/sensors';
+    import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import ogl from '../core/engines/ogl/ogl';
@@ -73,8 +71,8 @@
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
-    let currentGeoPose: Geopose|undefined;
-    let contentQueryInterval: NodeJS.Timer|undefined;
+    let currentGeoPose: Geopose | undefined;
+    let contentQueryInterval: NodeJS.Timer | undefined;
     let loadedH3Indices: string[] = [];
 
     // spatial contents are organized into topics.
@@ -90,7 +88,7 @@
         isLocalized: boolean;
         isLocalizing: boolean;
         isLocalisationDone: boolean;
-        receivedContentTitles: any[]
+        receivedContentTitles: any[];
     }> = getContext('state') || writable();
     context.set({
         hasLostTracking: true,
@@ -275,15 +273,13 @@
 
             updateSensorVisualization();
 
-
             // optionally share the camera pose with other players
             if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
                 try {
                     shareCameraPose(floorPose);
                     const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
-                    const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w)
+                    const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
                     currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
-                    
                 } catch (error) {
                     // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
                 }
@@ -302,25 +298,25 @@
         // retrieve now
         retrieveAndPlaceContents(currentGeoPose);
         // and repeat periodically
-        contentQueryInterval = setInterval(async ()=>{
+        contentQueryInterval = setInterval(async () => {
             retrieveAndPlaceContents(currentGeoPose);
-        }, 5000)
+        }, 5000);
     }
 
-    async function retrieveAndPlaceContents(queryGeoPose: Geopose|undefined) {
-        if(!queryGeoPose){
+    async function retrieveAndPlaceContents(queryGeoPose: Geopose | undefined) {
+        if (!queryGeoPose) {
             return;
         }
         const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
-        for (const h3Index of h3Indices){
+        for (const h3Index of h3Indices) {
             // skip already loaded h3 indices
             // NOTE: disable to support dynamically created contents
-            if(loadedH3Indices.includes(h3Index)){
+            if (loadedH3Indices.includes(h3Index)) {
                 continue;
             } else {
                 loadedH3Indices.push(h3Index);
             }
-            console.log("New h3 index", h3Index);
+            console.log('New h3 index', h3Index);
             const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
             placeContent(scrs);
         }
@@ -427,16 +423,14 @@
             //TODO: pass width and height as numbers
             //TODO: add width and height into CameraParams (too)
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
-                .addSensor(new Sensor("gps", SENSORTYPE.geolocation))
-                .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0,
-                    new Date().getTime(), "gps", new Privacy());
+                .addSensor(new Sensor('gps', SENSORTYPE.geolocation))
+                .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0, new Date().getTime(), 'gps', new Privacy());
 
-            console.log(JSON.stringify(geoPoseRequest))
+            console.log(JSON.stringify(geoPoseRequest));
 
             geoPoseRequest
-                .addSensor(new Sensor("cam", SENSORTYPE.camera))
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams,
-                    new Date().getTime(), "cam", new Privacy())
+                .addSensor(new Sensor('cam', SENSORTYPE.camera))
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams, new Date().getTime(), 'cam', new Privacy());
 
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
@@ -537,7 +531,7 @@
             //console.log('Number of content items received: ', response.length);
 
             response.forEach((record) => {
-                if($receivedScrs.map((scr) => scr.id).includes(record.id)){
+                if ($receivedScrs.map((scr) => scr.id).includes(record.id)) {
                     return;
                 }
                 // TODO: validate here whether we received a proper SCR
@@ -545,7 +539,7 @@
                 // TODO: first save the records and then start to instantiate the objects
                 $receivedScrs.push(record);
                 $context.receivedContentTitles.push(record.content.title);
-                console.log("New content: ", record.content.title);
+                console.log('New content: ', record.content.title);
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
@@ -611,7 +605,7 @@
                                             tdEngine.setVerticallyRotating(node);
                                             break;
                                         default:
-                                            break
+                                            break;
                                     }
                                 }
                             } else {
@@ -657,30 +651,26 @@
                     }
 
                     case 'sensor_stream': {
-
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
 
                         const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
                         if (sensor_id == undefined) {
-                            console.error("ERROR: Unable to parse sensor content record! " + record.content.id);
+                            console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
                             break;
                         }
-                        if(content_definitions.rmqTopic){
+                        if (content_definitions.rmqTopic) {
                             subscribeToSensor(content_definitions.rmqTopic, (d) => {
                                 console.log(d.body);
                                 updateSensorFromMsg(d.body, tdEngine);
                             });
-                        }else{
-                            console.error("Missing rmqTopic field for sensor");
+                        } else {
+                            console.error('Missing rmqTopic field for sensor');
                         }
-                        
-
 
                         break;
                     }
-
 
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
@@ -732,9 +722,8 @@
                                 }
                             })
                             .then((poidata) => {
-
                                 const features = poidata.features;
-                                features.forEach((feature:any)=> {
+                                features.forEach((feature: any) => {
                                     const featureName = feature.name.name; // WARNING: name.name is according to the OGC standard
                                     //console.log("POI received:");
                                     //console.log(featureName);
@@ -746,11 +735,11 @@
                                     }
                                     const featureGeopose = {
                                         // WARNING: now we need to harcode height because it is not part of OGC PoI
-                                        position: {lat: poiLat, lon: poiLon, h: poiH},
-                                        quaternion: { x: 0, y: 0, z: 0, w: 1},
+                                        position: { lat: poiLat, lon: poiLon, h: poiH },
+                                        quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2,2,2));
+                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
                                     tdEngine.setVerticallyRotating(pinModel);
 
                                     let localTextPosition = localFeaturePose.position.clone();
@@ -759,8 +748,7 @@
                                     const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
                                     textMesh.then((node) => {
                                         tdEngine.setTowardsCameraRotating(node);
-                                    })
-
+                                    });
                                 });
                             })
                             .catch((error) => {
@@ -800,7 +788,6 @@
                         const videoUrl = record.content.refs ? record.content.refs[0].url : '';
                         tdEngine.addVideoObject(localPosition, localQuaternion, videoUrl);
                         break;
-
 
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);
@@ -869,7 +856,7 @@
     function shareCameraPose(localPose: XRViewerPose) {
         const timestamp = Date.now();
         const localPos = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
-        const localQuat = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
+        const localQuat = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w);
         const geoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
         const message_body = {
             agent_id: $myAgentId,
@@ -880,7 +867,7 @@
             geopose: geoPose,
             timestamp: timestamp,
         };
-        const rmq_topic = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + "." + String($myAgentId); // send to subtopic with our agent ID
+        const rmq_topic = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.' + String($myAgentId); // send to subtopic with our agent ID
         dispatch('broadcast', {
             event: 'publish_camera_pose',
             value: message_body,
@@ -942,10 +929,7 @@
             };
             placeContent([[scr]]); // WARNING: wrap into an array
         }
-
     }
-
-
 </script>
 
 <canvas id="application" bind:this={canvas}></canvas>

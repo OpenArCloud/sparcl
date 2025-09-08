@@ -35,7 +35,7 @@
             case 'searchbytext':
                 settings = import('@experiments/oarc/searchbytext/Settings.svelte');
                 viewer = import('@experiments/oarc/searchbytext/Viewer.svelte');
-                break; 
+                break;
             case 'ismar2021signpost':
                 settings = import('@experiments/oarc/ismar2021signpost/Settings.svelte');
                 viewer = import('@experiments/oarc/ismar2021signpost/Viewer.svelte');

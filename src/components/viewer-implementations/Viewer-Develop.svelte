@@ -44,14 +44,7 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
-        await parentInstance.startSession(
-            onXrFrameUpdate,
-            parentInstance.onXrSessionEnded,
-            parentInstance.onXrNoPose,
-            () => {},
-            ['dom-overlay', 'anchors', 'local-floor'],
-            []
-        );
+        await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor'], []);
     }
 
     /*
@@ -61,8 +54,8 @@
     export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
         let localImagePose = {
             position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
-            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w)
-        }
+            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w),
+        };
         let globalImagePose = globalPose;
         tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
     }

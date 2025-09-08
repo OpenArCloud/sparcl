@@ -14,7 +14,6 @@
     import WelcomeOverlay from '@components/dom-overlays/WelcomeOverlay.svelte';
     import OutroOverlay from '@components/dom-overlays/OutroOverlay.svelte';
 
-
     import {
         activeExperiment,
         allowP2pNetwork,
@@ -49,7 +48,7 @@
     import type { ExperimentsViewers } from '../types/xr.ts';
     import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
 
-   /**
+    /**
      * Start AR work
      */
 
@@ -67,14 +66,12 @@
     let currentSharedValues = {};
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
 
-
     const getViewerInstance = () => viewerInstance;
 
     /**
      * Reactive function to define if the AR viewer can be shown.
      */
     $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
-
 
     /**
      * Reactive function to query current location and ssr. This needs to run after isLocationAccessAllowed receives a value, that's why we use a reactive statement instead of simply using onMount
@@ -131,7 +128,7 @@
      **/
     onMount(() => {
         logToElement(document.getElementById('logger')!);
-        updateLogger("--------------------------- New log entry here---------------------------");
+        updateLogger('--------------------------- New log entry here---------------------------');
 
         const urlParams = new URLSearchParams(location.search);
 
@@ -316,36 +313,30 @@
         );
     }
 
-     /**
+    /**
      * End AR work
      */
 
-     $: arReady =  (showWelcome || showOutro) && $arIsAvailable;
-     $: arWithDashboard =  shouldShowDashboard && $arIsAvailable;
+    $: arReady = (showWelcome || showOutro) && $arIsAvailable;
+    $: arWithDashboard = shouldShowDashboard && $arIsAvailable;
 
-     // Update Logger Component Items
-     function updateLogger(message: string) {
-        const logger = document.getElementById("logger");
+    // Update Logger Component Items
+    function updateLogger(message: string) {
+        const logger = document.getElementById('logger');
         if (logger) {
-        logger.innerHTML += message + "<br>"; // Add message with line break
-        logger.scrollTop = logger.scrollHeight; // Auto-scroll to the bottom
+            logger.innerHTML += message + '<br>'; // Add message with line break
+            logger.scrollTop = logger.scrollHeight; // Auto-scroll to the bottom
         }
-}
-
+    }
 </script>
-
 
 <!-- AR Dashboard -->
 {#if !isHeadless}
     {#if arWithDashboard}
-        <Dashboard
-            bind:this={dashboard}
-            on:broadcast={handleBroadcast}
-            on:okClicked={startViewer}
-            />
+        <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startViewer} />
     {/if}
 
-    {#if arReady }
+    {#if arReady}
         <aside>
             <div id="frame">
                 {#if showWelcome}
@@ -385,7 +376,7 @@
 <pre id="logger"></pre>
 
 <style>
- main {
+    main {
         max-width: 100vw;
         overflow-x: hidden;
         margin: 0 48px 90px;
@@ -396,58 +387,56 @@
         color: var(--theme-color);
     }
 
-aside {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    aside {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-    background-color: rgba(128 128 128 / 60%);
-}
+        background-color: rgba(128 128 128 / 60%);
+    }
 
-#frame {
-    width: calc(100vw - 2 * var(--ui-margin));
-    max-width: var(--ui-max-width);
-    max-height: var(--ui-max-height);
+    #frame {
+        width: calc(100vw - 2 * var(--ui-margin));
+        max-width: var(--ui-max-width);
+        max-height: var(--ui-max-height);
 
-    text-align: center;
+        text-align: center;
 
-    box-shadow: 0 3px 6px #00000029;
-    border: 2px solid var(--theme-color);
+        box-shadow: 0 3px 6px #00000029;
+        border: 2px solid var(--theme-color);
 
-    background-color: white;
-}
+        background-color: white;
+    }
 
-#logger {
-  width: 100%;
-  max-height: 300px;
-  padding: 10px;
-  overflow-y: scroll;
-  overflow-x: scroll;
-  white-space: nowrap;
-  background-color: #f4f4f9;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  font-family: monospace;
-  font-size: 14px;
-  color: #333;
-  scrollbar-gutter: stable; /* Keeps space for the scrollbar */
-}
+    #logger {
+        width: 100%;
+        max-height: 300px;
+        padding: 10px;
+        overflow-y: scroll;
+        overflow-x: scroll;
+        white-space: nowrap;
+        background-color: #f4f4f9;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        font-family: monospace;
+        font-size: 14px;
+        color: #333;
+        scrollbar-gutter: stable; /* Keeps space for the scrollbar */
+    }
 
-#logger::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
+    #logger::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
 
-#logger::-webkit-scrollbar-thumb {
-  background-color: #888;
-  border-radius: 4px;
-}
-
-
+    #logger::-webkit-scrollbar-thumb {
+        background-color: #888;
+        border-radius: 4px;
+    }
 </style>
