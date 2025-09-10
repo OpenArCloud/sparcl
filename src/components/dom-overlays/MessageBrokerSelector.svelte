@@ -6,6 +6,8 @@
     export let submitButtonLabel: string;
     export let submitSuccessMessage: string;
     export let submitFailureMessage: string;
+
+    let passwordVisible = false;
 </script>
 
 {#if $availableMessageBrokerServices.length > 0}
@@ -26,9 +28,19 @@
                             <label style="display: inline-block; min-width: 100px;" for="username">username:</label>
                             <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].username} name="username" />
                         </div>
+
                         <div>
-                            <label style="display: inline-block; min-width: 100px;" for="password">password:</label>
-                            <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
+                            <label style="display: inline-block; min-width: 100px;" for="password">Password:</label>
+                            <div style="position: relative; display: inline-block;">
+                                {#if passwordVisible}
+                                    <input type="text" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
+                                {:else}
+                                    <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
+                                {/if}
+                                <span on:click={() => (passwordVisible = !passwordVisible)} style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer;">
+                                    {passwordVisible ? '??' : '???'}
+                                </span>
+                            </div>
                         </div>
                     </form>
                     <div class="center" style="padding-top: 1rem;">
