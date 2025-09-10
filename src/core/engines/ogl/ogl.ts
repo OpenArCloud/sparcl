@@ -27,6 +27,8 @@ import {
     Color,
     type OGLRenderingContext,
     Mat3,
+    type GLTF,
+    type GLTFDescription,
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
@@ -86,8 +88,17 @@ let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
 let dynamic_objects_meshes: Record<string, Mesh> = {};
 
+let gltf_objects_transforms: Record<string, Transform> = {};
+
 let towardsCameraRotatingNodes: Transform[] = [];
 let verticallyRotatingNodes: Transform[] = [];
+
+let gltfCache: Record<string, GLTFDescription> = {};
+
+export interface ImportResult {
+    meshes: Promise<Mesh[]>;
+    transform: Transform;
+}
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -203,18 +214,30 @@ export default class ogl {
      * @param fragmentShader  String  Fragment-Shader to add to program
      * @param options  Object         Defines additional options for the shape to add
      */
-    addPlaceholderWithOptions(shape: ValueOf<typeof PRIMITIVES>, position: Vec3, orientation: Quat, fragmentShader: string, options: any = {}) {
-        const placeholder = createModel(gl, shape, [Math.random(), Math.random(), Math.random(), 1], false, options);
+    addPlaceholderWithOptions(
+        shape: ValueOf<typeof PRIMITIVES>,
+        position: Vec3,
+        orientation: Quat,
+        color: [number, number, number, number] | undefined,
+        fragmentShader: string | undefined,
+        options: any = {},
+    ) {
+        if (color === undefined) {
+            color = [Math.random(), Math.random(), Math.random(), 1];
+        }
+        const placeholder = createModel(gl, shape, color!, false, options);
         placeholder.position.copy(position);
         placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
-        placeholder.program = createProgram(gl, {
-            fragment: fragmentShader,
-            uniforms: {
-                uTime: { value: 0.0 },
-            },
-        });
-        uniforms.time[placeholder.id] = placeholder;
+        if (fragmentShader !== undefined) {
+            placeholder.program = createProgram(gl, {
+                fragment: fragmentShader,
+                uniforms: {
+                    uTime: { value: 0.0 },
+                },
+            });
+            uniforms.time[placeholder.id] = placeholder;
+        }
         return placeholder;
     }
 
@@ -224,41 +247,87 @@ export default class ogl {
      * @param position  Vec3      3D position of the model
      * @param orientation  Quat   Orientation of the model
      * @param url  String         URL to load the model from
-     * @returns {Transform}
+     * @returns {ImportResult}
      */
-    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
+    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0), callback?: (mesh: Mesh) => void, id?: string): ImportResult {
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position.copy(position);
         gltfScene.quaternion.copy(orientation);
         gltfScene.scale.copy(scale);
         gltfScene.setParent(scene);
 
-        console.log('Loading ' + url);
-        GLTFLoader.load(gl, url)
-            .then((gltf) => {
-                const s = (gltf.scene || gltf.scenes[0]) as Transform[]; // WARNING: we handle a single scene per GLTF only
-                s.forEach((root) => {
-                    root.setParent(gltfScene);
-                    root.traverse((node) => {
-                        if ((node as Mesh).program) {
-                            // TODO: cast node to Mesh
-                            // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
-                            (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
-                        }
-                    });
+        function afterLoad(gltf: GLTF) {
+            const loadedMeshes: Mesh[] = [];
+            const s = (gltf.scene || gltf.scenes[0]) as Transform[]; // WARNING: we handle a single scene per GLTF only
+            s.forEach((root) => {
+                root.setParent(gltfScene);
+                root.traverse((node) => {
+                    if ((node as Mesh).program) {
+                        // TODO: cast node to Mesh
+                        // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
+                        (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
+                        loadedMeshes.push(node as Mesh);
+                    }
                 });
-                scene.updateMatrixWorld();
-            })
-            .catch(() => {
-                console.log('Unable to load model from URL: ' + url);
-                console.log('Adding placeholder box instead');
-                let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false); // red
-                gltfScene.addChild(gltfPlaceholder);
-                scene.updateMatrixWorld();
             });
+            if (callback) {
+                for (let mesh of loadedMeshes) {
+                    callback(mesh);
+                }
+            }
+            scene.updateMatrixWorld();
+            return loadedMeshes;
+        }
 
-        scene.updateMatrixWorld();
-        return gltfScene; // returns a scene graph of Transforms, the root is also of type Transform
+        let meshPromise;
+        if (Object.keys(gltfCache).includes(url)) {
+            //console.log('Loading from cache', url);
+            const dir = url.split('/').slice(0, -1).join('/') + '/';
+            meshPromise = GLTFLoader.parse(gl, gltfCache[url], dir).then((gltf) => {
+                return afterLoad(gltf);
+            });
+        } else {
+            //console.log('Loading ' + url);
+            meshPromise = GLTFLoader.load(gl, url)
+                .then((gltf) => {
+                    if (url.match(/\.glb/)) {
+                        // TODO also cache .gltf
+                        fetch(url)
+                            .then((res) => res.arrayBuffer())
+                            .then((glb) => (gltfCache[url] = GLTFLoader.unpackGLB(glb)));
+                    }
+                    return afterLoad(gltf);
+                })
+                .catch((error) => {
+                    console.error(error);
+                    console.log('Unable to load model from URL: ' + url);
+                    console.log('Adding placeholder box instead');
+                    let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false); // red
+                    gltfScene.addChild(gltfPlaceholder);
+                    scene.updateMatrixWorld();
+                    return [gltfPlaceholder];
+                });
+        }
+
+        if (id) {
+            gltf_objects_transforms[id] = gltfScene;
+        }
+        return { transform: gltfScene, meshes: meshPromise };
+    }
+
+    getModel(id: string): Transform {
+        return gltf_objects_transforms[id];
+    }
+
+    /**
+     * Removes the model with the given id
+     * @param id  string
+     */
+    removeModel(id: string) {
+        if (gltf_objects_transforms[id]) {
+            this.remove(gltf_objects_transforms[id]); // remove the Mesh from the scene
+            delete gltf_objects_transforms[id];
+        }
     }
 
     /**
@@ -298,7 +367,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addReticle() {
-        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1));
+        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1)).transform;
     }
 
     isHorizontal(object: { quaternion: Quat }) {
@@ -417,11 +486,17 @@ export default class ogl {
             // nothing to do
             return true;
         }
-        console.log(object_id + ' has changed!');
         let new_object_description = object_description ? { ...object_description } : null;
+
         // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
+        // if there was an event handler on the old object, we transfer that to the new object (currently only one event handler is supported)
+        const eventHandler = this.getClickEvent(object_id);
         this.removeDynamicObject(object_id);
-        this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        if (eventHandler) {
+            this.addClickEvent(newObject, eventHandler);
+        }
+        //console.log(object_id + ' has changed!');
         return true;
     }
 
@@ -570,6 +645,19 @@ export default class ogl {
     }
 
     /**
+     * Return the event handler of the model given by id
+     *
+     * @param modelId  string       The model id
+     */
+    getClickEvent(modelId: string) {
+        const meshId = this.getDynamicObjectMesh(modelId)?.id;
+        if (meshId && eventHandlers[meshId]) {
+            return eventHandlers[meshId].handler;
+        }
+        return undefined;
+    }
+
+    /**
      * Calculates the camera pose to send to scenes loaded into the iframe.
      *
      * @param view  XRView      The current view
@@ -642,23 +730,18 @@ export default class ogl {
     }
 
     /**
-     * Removes the provided model from the scene and all the handlers it mit be registered with.
-     *
-     * @param model     The model to remove
+     *  Removes all objects and reinits the scene.
      */
-    remove(model: Mesh) {
-        // TODO: this assumes that all objects are children of the root node!
-        // We should call something like model.parent.removeChild(model);
-        scene.removeChild(model);
+    reinitialize() {
+        this.cleanup();
 
-        delete updateHandlers[model.id];
-        delete eventHandlers[model.id];
+        this.initScene(); // but do any neccessary minimal environment setup
     }
 
     /**
-     *  Removes all objects from the scene
+     *  Removes everything from the scene (including the camera)
      */
-    clearScene() {
+    cleanup() {
         // dynamic objects
         for (const object_id in dynamic_objects_descriptions) {
             this.removeDynamicObject(object_id);
@@ -670,8 +753,22 @@ export default class ogl {
             scene.removeChild(child);
             child = null;
         }
+    }
 
-        this.initScene(); // but do any neccessary minimal environment setup
+    /**
+     * Removes the provided model from the scene and all the handlers it mit be registered with.
+     *
+     * @param model     The model to remove
+     */
+    remove(model: Mesh | Transform) {
+        // TODO: this assumes that all objects are children of the root node!
+        // We should call something like model.parent.removeChild(model);
+        scene.removeChild(model);
+
+        if (model instanceof Mesh) {
+            delete updateHandlers[model.id];
+            delete eventHandlers[model.id];
+        }
     }
 
     /**
@@ -695,7 +792,6 @@ export default class ogl {
      * @param time  Number      Provided by WebXR
      * @param view  XRView      Provided by WebXR
      */
-
     render(time: DOMHighResTimeStamp, view: XRView) {
         checkGLError(gl, 'OGL render() begin');
 

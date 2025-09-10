@@ -331,6 +331,7 @@
             stopOrientationSensor();
         }
         clearInterval(contentQueryInterval);
+        tdEngine.cleanup();
         dispatch('arSessionEnded');
     }
 
@@ -500,7 +501,7 @@
         $context.receivedContentTitles = [];
         loadedH3Indices = [];
 
-        tdEngine.clearScene(); // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        tdEngine.reinitialize();
 
         $context.showFooter = true;
     }

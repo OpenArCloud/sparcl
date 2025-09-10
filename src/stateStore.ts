@@ -13,7 +13,7 @@
 
 import { readable, writable, derived, get } from 'svelte/store';
 
-import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
+import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES, type RGBA } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';
@@ -471,6 +471,7 @@ const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: bool
     multiplayer: true,
     debug: true,
 };
+
 export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe((value) => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
@@ -513,9 +514,9 @@ const getRandomColorValue = () => {
 /**
  * Used to store a the users preferred color.
  *
- * @type {Writable<{r: number, g: number, b: number, a: number}>}
+ * @type {Writable<RGBA>}
  */
-const storedMyAgentColor: { r: number; g: number; b: number; a: number } | null = localStorage.getItem('myAgentColor')
+const storedMyAgentColor: RGBA | null = localStorage.getItem('myAgentColor')
     ? JSON.parse(localStorage.getItem('myAgentColor') || 'null')
     : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
 export const myAgentColor = writable(storedMyAgentColor);

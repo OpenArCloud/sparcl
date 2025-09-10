@@ -17,7 +17,7 @@
     import type webxr from '@core/engines/webxr';
     import type ogl from '@core/engines/ogl/ogl';
     import type { XrFeature } from '../../types/xr';
-    import { Quat, type OGLRenderingContext, type Transform, Vec3 } from 'ogl';
+    import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
     import { checkGLError } from '@core/devTools';
     import { recentLocalisation } from '@src/stateStore';
 
