@@ -97,6 +97,8 @@ VITE_RMQ_TOPIC_GEOPOSE_UPDATE="/exchange/ngi_search/geopose_update"
 VITE_RMQ_TOPIC_RETICLE_UPDATE="/exchange/ngi_search/reticle_update"
 VITE_RMQ_TOPIC_OBJECT_CREATED="/exchange/ngi_search/object_created"
 
+## PoI Search (optional, see OSCP PoI search service)
+VITE_POI_SEARCH_BASEURL=""
 ```
 
 # References

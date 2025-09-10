@@ -622,11 +622,11 @@
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                const node = tdEngine.addModel(url, localPosition, localQuaternion);
+                                const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
                                 if (content_definitions['animation'] != undefined) {
                                     switch (content_definitions['animation']) {
                                         case 'SPIN_UP':
-                                            tdEngine.setVerticallyRotating(node);
+                                            tdEngine.setVerticallyRotating(nodeTransform);
                                             break;
                                         default:
                                             break;
@@ -764,8 +764,9 @@
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
-                                    tdEngine.setVerticallyRotating(pinModel);
+                                    tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2),
+                                        (pinModel) => {tdEngine.setVerticallyRotating(pinModel);}
+                                    );
 
                                     let localTextPosition = localFeaturePose.position.clone();
                                     localTextPosition.y += 3;

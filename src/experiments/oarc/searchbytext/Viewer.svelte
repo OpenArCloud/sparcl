@@ -22,6 +22,9 @@
     let parentState = writable();
     setContext('state', parentState);
 
+    // Set the PoI search baseURL in the env file
+    const baseUrl = import.meta.env.VITE_POI_SEARCH_BASEURL || undefined;
+
     /**
      * Initial setup.
      *
@@ -127,8 +130,10 @@
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
         };
         const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-        const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
-        tdEngine.setVerticallyRotating(pinModel);
+        tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2),
+            (pinModel) => tdEngine.setVerticallyRotating(pinModel)
+        );
+
         let localTextPosition = localFeaturePose.position.clone();
         localTextPosition.y += 3;
         const textColor = new Vec3(0.063, 0.741, 1.0);
@@ -144,12 +149,15 @@
 
     async function getPlaces(query: String) {
         if (searchEnabled) {
-            tdEngine.clearScene();
+            tdEngine.reinitialize();
             const myLocation = await getCurrentLocation();
             const lat = myLocation.lat;
             const lon = myLocation.lon;
-            const url = 'https://esoptron.hu:8043/locations?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
-            console.log(lat, lon);
+            if (!baseUrl) {
+                console.error('baseUrl is not defined!');
+                return;
+            }
+            const url = baseUrl + '?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
 
             try {
                 const response = await fetch(url);
