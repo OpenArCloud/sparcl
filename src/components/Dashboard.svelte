@@ -52,6 +52,10 @@
         debug_overrideGeopose,
         allowMessageBroker,
         userName,
+        enableCameraPoseSharing,
+        showOtherCameras,
+        enableReticlePoseSharing,
+        showOtherReticles,
     } from '@src/stateStore';
 
     import { lockScreenOrientation, unlockScreenOrientation } from '@core/sensors';
@@ -359,6 +363,35 @@
             submitFailureMessage="Authentication unsuccessful. Reason:"
             submitSuccessMessage="Authentication successful"
         ></MessageBrokerSelector>
+
+        <dl>
+            <table style="width:100%">
+                <tr>
+                    <td style="width:50%" align="left">
+                        <label
+                            ><input name="dashboard-share-camera-pose-checkbox" id="dashboard-share-camera-pose-checkbox" type="checkbox" bind:checked={$enableCameraPoseSharing} /> Share camera pose
+                        </label>
+                    </td>
+                    <td style="width:50%" align="left">
+                        <label
+                            ><input name="dashboard-share-reticle-pose-checkbox" id="dashboard-share-reticle-pose-checkbox" type="checkbox" bind:checked={$enableReticlePoseSharing} /> Share reticle</label
+                        >
+                    </td>
+                </tr>
+                <tr>
+                    <td style="width:50%" align="left">
+                        <label
+                            ><input name="dashboard-show-other-cameras-checkbox" id="dashboard-show-other-cameras-checkbox" type="checkbox" bind:checked={$showOtherCameras} /> Show other cameras
+                        </label>
+                    </td>
+                    <td style="width:50%" align="left">
+                        <label
+                            ><input name="dashboard-show-other-reticles-checkbox" id="dashboard-show-other-reticles-checkbox" type="checkbox" bind:checked={$showOtherReticles} /> Show other reticles
+                        </label>
+                    </td>
+                </tr>
+            </table>
+        </dl>
 
         <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} />
     </details>

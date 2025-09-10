@@ -479,6 +479,24 @@ dashboardDetail.subscribe((value) => {
 
 export const receivedScrs = writable<SCR[]>([]);
 
+export const enableCameraPoseSharing = writable(localStorage.getItem('enableCameraPoseSharing') === null || localStorage.getItem('enableCameraPoseSharing') === 'true'); // set true if stored true or undefined
+enableCameraPoseSharing.subscribe((value) => {
+    localStorage.setItem('enableCameraPoseSharing', `${value}`);
+});
+export const showOtherCameras = writable(localStorage.getItem('showOtherCameras') === null || localStorage.getItem('showOtherCameras') === 'true'); // set true if stored true or undefined
+showOtherCameras.subscribe((value) => {
+    localStorage.setItem('showOtherCameras', `${value}`);
+});
+
+export const enableReticlePoseSharing = writable(localStorage.getItem('enableReticlePoseSharing') === null || localStorage.getItem('enableReticlePoseSharing') === 'true'); // set true if stored true or undefined
+enableReticlePoseSharing.subscribe((value) => {
+    localStorage.setItem('enableReticlePoseSharing', `${value}`);
+});
+export const showOtherReticles = writable(localStorage.getItem('showOtherReticles') === null || localStorage.getItem('showOtherReticles') === 'true'); // set true if stored true or undefined
+showOtherReticles.subscribe((value) => {
+    localStorage.setItem('showOtherReticles', `${value}`);
+});
+
 /**
  * Used to store a random uuid that corresponds to the current user's agent name
  *

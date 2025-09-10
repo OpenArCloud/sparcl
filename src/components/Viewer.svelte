@@ -38,6 +38,8 @@
         myAgentName,
         myAgentId,
         myAgentColor,
+        enableCameraPoseSharing,
+        showOtherCameras,
     } from '@src/stateStore';
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
@@ -53,7 +55,19 @@
     import { subscribeToSensor } from '@src/core/rmqnetwork';
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{
+        arSessionEnded: undefined;
+        broadcast: {
+            event: string;
+            value?: any;
+            routing_key?: string;
+        };
+    }>();
+
+    onDestroy(() => {
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+    });
 
     const message = (msg: string) => console.log(msg);
 
@@ -274,7 +288,7 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
+            if ($enableCameraPoseSharing && $recentLocalisation.geopose?.position != undefined && $recentLocalisation.floorpose?.transform?.position != undefined) {
                 try {
                     shareCameraPose(floorPose);
                     const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
@@ -290,12 +304,13 @@
     }
 
     async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+        // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
         $recentLocalisation.geopose = cameraGeoPose;
         $recentLocalisation.floorpose = floorPose;
         onLocalizationSuccess(floorPose, cameraGeoPose);
 
-        // retrieve now
+        // now get the contents from the SCD(s)
         retrieveAndPlaceContents(currentGeoPose);
         // and repeat periodically
         contentQueryInterval = setInterval(async () => {
@@ -537,10 +552,18 @@
                 }
                 // TODO: validate here whether we received a proper SCR
                 // TODO: we can check here whether we have received this content already and break if yes.
+
+                // DEBUG
+                //console.log("Content");
+                //console.log(" -id: " + record.content.id);
+                //console.log(" -type: " + record.content.type);
+
                 // TODO: first save the records and then start to instantiate the objects
-                $receivedScrs.push(record);
-                $context.receivedContentTitles.push(record.content.title);
-                console.log('New content: ', record.content.title);
+                if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
+                    // only list the 3D models and not ephemeral objects nor stream objects
+                    $receivedScrs.push(record);
+                    $context.receivedContentTitles.push(record.content.title);
+                }
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
@@ -636,12 +659,13 @@
                     }
 
                     case 'geopose_stream': {
-                        // NGI Search 2025 demo
-                        if (record.tenant === 'NGISearch2025') {
-                            let object_description = (record.content as any).object_description;
+                        // NGI Search 2025 demo on agent pose sharing
+                        if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             let object_id = record.content.id;
+
+                            let object_description = (record.content as any).object_description;
                             if (tdEngine.getDynamicObjectMesh(object_id) != null) {
                                 tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
                             } else {

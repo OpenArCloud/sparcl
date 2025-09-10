@@ -158,6 +158,33 @@ export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+/**
+ * r,g,b: 0-255 integers
+ * a: 0.0-1.0 float
+ */
+export interface RGBA {
+    r: number;
+    g: number;
+    b: number;
+    a: number;
+}
+
+/**
+ * @param rgb hex string
+ * @param alpha 0.0-1.0 float
+ */
+export function hexToRgba(rgb: string, alpha: number): RGBA {
+    var result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(rgb);
+    return result
+        ? {
+              r: parseInt(result[1], 16),
+              g: parseInt(result[2], 16),
+              b: parseInt(result[3], 16),
+              a: alpha,
+          }
+        : { r: 0, g: 0, b: 0, a: 1 };
+}
+
 function componentToHex(c: number) {
     var hex = c.toString(16);
     return hex.length == 1 ? '0' + hex : hex;

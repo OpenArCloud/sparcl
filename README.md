@@ -77,24 +77,26 @@ and to run the docker build script with the following command line argument: `do
 - Additionally, users can bypass authentication and access AR mode directly without logging in. To enable this, add the following variables to your .env file:
 
 ```js
+## Spatial Service Discovery Root
+VITE_SSD_ROOT_URL="YOUR_SSD_ROOT_URL"
 
-VITE_SSD_ROOT_URL=`YOUR_SSD_ROOT_URL`
+## Redirection URI (during authentication)
+VITE_AUTH_REDIRECT_URI="YOUR_APP_REDIRECTION_URI"
 
-## Redirection URI
-# VITE_AUTH_REDIRECT_URI=`YOUR_APP_REDIRECTION_URI`
+## Auth0 Login
+VITE_AUTH_AUTH0_DOMAIN="AUTH0_DOMAIN"
+VITE_AUTH_AUTH0_CLIENTID="AUTH0_CLIENT_ID"
 
-## Auth :Auth0 Login
-VITE_AUTH_AUTH0_DOMAIN=`AUTH0_DOMAIN`
-VITE_AUTH_AUTH0_CLIENTID=`AUTH0_CLIENT_ID`
+## Here you can disable authentication (for development)
+VITE_NOAUTH=true // false if you want Auth0 authentication
+VITE_NOAUTH_USER_NAME="DUMMY_USERNAME"
+VITE_NOAUTH_USER_EMAIL="DUMMY_EMAIL"
 
-## Auth for the users that needed to be directed to the AR directly
-VITE_NOAUTH='true' // 'false' if you want Auth0 track
-VITE_NOAUTH_USER_NAME=`DUMMY_USERNAME`
-VITE_NOAUTH_USER_EMAIL='DUMMY_EMAIL'
+## RabbitMQ topics for sharing agent poses (replace ngi_search with your own)
+VITE_RMQ_TOPIC_GEOPOSE_UPDATE="/exchange/ngi_search/geopose_update"
+VITE_RMQ_TOPIC_RETICLE_UPDATE="/exchange/ngi_search/reticle_update"
+VITE_RMQ_TOPIC_OBJECT_CREATED="/exchange/ngi_search/object_created"
 
-## RabbitMQ topics for sharing agent poses
-VITE_RMQ_TOPIC_GEOPOSE_UPDATE=`/exchange/ngi_search/geopose_update`
-VITE_RMQ_TOPIC_OBJECT_CREATED=`/exchange/ngi_search/object_created`
 ```
 
 # References
