@@ -15,7 +15,7 @@ export function createSensorVisualization(tdEngine: ogl, localPosition: Vec3, lo
         case 'text':
             return createTextSensor(tdEngine, localPosition, localQuaternion, content_definitions);
         default:
-            console.error("Invalid sensor visualization type", content_definitions);
+            console.error('Invalid sensor visualization type', content_definitions);
     }
 }
 
@@ -53,7 +53,6 @@ function createParticleSensor(tdEngine: ogl, localPosition: Vec3, localQuaternio
     return sensor_id;
 }
 
-
 function createTextSensor(tdEngine: ogl, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
     console.log('Adding text sensor', localPosition, localQuaternion);
     const sensor_id = content_definitions['sensor_id'];
@@ -65,7 +64,7 @@ function createTextSensor(tdEngine: ogl, localPosition: Vec3, localQuaternion: Q
     setSensorText(sensor_id, `0`, tdEngine, new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)), localQuaternion);
 
     textList[sensor_id] = {
-        intensity:0
+        intensity: 0,
     };
 
     if (content_definitions['createButton'] === 'true') {
@@ -73,13 +72,12 @@ function createTextSensor(tdEngine: ogl, localPosition: Vec3, localQuaternion: Q
         const mesh = tdEngine.addDynamicObject(object_id, localPosition, localQuaternion);
         tdEngine.addClickEvent(mesh, () => {
             const newIntensity = (textList[sensor_id].intensity + 10) % 30;
-            updateSensorFromMsg(JSON.stringify({sensor_id, value:newIntensity}), tdEngine);
+            updateSensorFromMsg(JSON.stringify({ sensor_id, value: newIntensity }), tdEngine);
         });
     }
 
     return sensor_id;
 }
-
 
 export function updateSensorVisualization() {
     for (let particles of Object.values(particleList)) {
@@ -125,14 +123,14 @@ export function updateSensorFromMsg(body: string, tdEngine: ogl) {
             if (typeof msg.minValue === 'number' && typeof msg.maxValue === 'number') {
                 // interpolate between 0..1000
                 intensity = ((value - msg.minValue) * (1000 - 0)) / (msg.maxValue - msg.minValue);
-            }else{
+            } else {
                 // keep original value
                 // multiply it by some constant if the expected values are low (<100)
                 intensity = value;
             }
         }
         tdEngine.setParticleIntensity(particleList[sensorId], () => intensity);
-    }else if (textList[sensorId]){
+    } else if (textList[sensorId]) {
         const intensity = value;
         textList[sensorId].intensity = intensity;
     }

@@ -158,7 +158,6 @@ export function randomInteger(min: number, max: number) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-
 function componentToHex(c: number) {
     var hex = c.toString(16);
     return hex.length == 1 ? '0' + hex : hex;

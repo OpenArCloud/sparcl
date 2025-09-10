@@ -4,7 +4,7 @@
   SPDX-License-Identifier: MIT
 */
 
-import auth0 from "./auth0Service.js";
+import auth0 from './auth0Service.js';
 import { isLoggedIn, showLogin, showDashboard } from '../stateStore';
 
 /////////////////////////////////// Signout Configuration ///////////////////////////////////
@@ -18,7 +18,7 @@ export async function signOut() {
         showDashboard.set(false);
         localStorage.setItem('myAgentName', '');
 
-         // Safely parse localStorage values
+        // Safely parse localStorage values
         let isAuthenticatedAuth0 = false;
         let auth0Client = null;
         let currentLoggedUser = null;
@@ -32,12 +32,10 @@ export async function signOut() {
         }
 
         // for Auth0
-        if(isAuthenticatedAuth0){
+        if (isAuthenticatedAuth0) {
             auth0.logoutAuth0(auth0Client);
         }
-
     } catch (error) {
         console.error('Logout failed:', error);
     }
 }
-

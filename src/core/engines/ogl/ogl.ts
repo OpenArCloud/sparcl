@@ -29,7 +29,6 @@ import {
     Mat3,
 } from 'ogl';
 
-
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
@@ -89,7 +88,6 @@ let dynamic_objects_meshes: Record<string, Mesh> = {};
 
 let towardsCameraRotatingNodes: Transform[] = [];
 let verticallyRotatingNodes: Transform[] = [];
-
 
 /**
  * Implementation of the 3D features required by sparcl using ogl.
@@ -228,9 +226,9 @@ export default class ogl {
      * @param url  String         URL to load the model from
      * @returns {Transform}
      */
-    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0,1.0,1.0)) {
+    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
-        gltfScene.position.copy(position)
+        gltfScene.position.copy(position);
         gltfScene.quaternion.copy(orientation);
         gltfScene.scale.copy(scale);
         gltfScene.setParent(scene);
@@ -337,7 +335,7 @@ export default class ogl {
         return mesh;
     }
 
-    addParticleObject(position: Vec3, orientation: Quat, shape:ParticleShape, baseColor:string, pointSize: number, intensity: number, systemSize: number, speed: number){
+    addParticleObject(position: Vec3, orientation: Quat, shape: ParticleShape, baseColor: string, pointSize: number, intensity: number, systemSize: number, speed: number) {
         const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
         particles.mesh.position.copy(position);
         particles.mesh.quaternion.copy(orientation);
@@ -345,13 +343,13 @@ export default class ogl {
         return particles;
     }
 
-    setParticleIntensity(particles: ParticleSystem, calculate: (oldValue:number)=>number){
-        if(particles){
-            const newIntensity = calculate(particles.intensity)
+    setParticleIntensity(particles: ParticleSystem, calculate: (oldValue: number) => number) {
+        if (particles) {
+            const newIntensity = calculate(particles.intensity);
             setIntensity(particles, newIntensity);
             return newIntensity;
-        }else{
-            console.error("Tried to modify missing particle system!");
+        } else {
+            console.error('Tried to modify missing particle system!');
             return -1;
         }
     }
@@ -531,18 +529,18 @@ export default class ogl {
         });
     }
 
-    async addTextObject(position: Vec3, quaternion: Quat, string:string, textColor:Vec3 = new Vec3(1.0, 1.0, 1.0)) {
+    async addTextObject(position: Vec3, quaternion: Quat, string: string, textColor: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
         console.log('addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
-        const textMesh:Mesh = await loadTextMesh(gl, fontName, string, textColor)
+        const textMesh: Mesh = await loadTextMesh(gl, fontName, string, textColor);
         textMesh.position.copy(position);
         textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
         return textMesh;
     }
 
-     async addVideoObject(position: Vec3, quaternion: Quat, videoUrl:string) {
-        console.log("addVideoObject: " + videoUrl);
+    async addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string) {
+        console.log('addVideoObject: ' + videoUrl);
         const videoInfo = await videoHelper.loadVideo(videoUrl);
         const videoBox = videoHelper.createVideoBox(gl, scene, position, quaternion, videoInfo.videoId);
         this.addClickEvent(videoBox, () => {
@@ -721,11 +719,11 @@ export default class ogl {
 
         // rotate all text labels to face the current camera position
         towardsCameraRotatingNodes.forEach((node) => {
-            const orientationMatrix = new Mat4().lookAt(camera.position, node.position, new Vec3(0,1,0));
+            const orientationMatrix = new Mat4().lookAt(camera.position, node.position, new Vec3(0, 1, 0));
             node.quaternion.fromMatrix3(new Mat3().fromMatrix4(orientationMatrix));
         });
 
-        videoHelper.onPreRender(time)
+        videoHelper.onPreRender(time);
         renderer.render({ scene, camera });
 
         checkGLError(gl, 'OGL render() end');
@@ -969,7 +967,7 @@ export default class ogl {
         // Warning: conversion from the WebXR camera orientation to GeoPose camera orientation
         // An extra 90 deg rotation around the UP axis is needed to comply with the GeoPose standard.
         // By the standard, identity orientation of a camera means it is looking towards East.
-        const quatCorrection = new Quat().fromAxisAngle(new Vec3(0,1,0),Math.PI/2);
+        const quatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
         const newQuaternion = new Quat().copy(quaternion).multiply(quatCorrection);
         const globalObjectPose = this.convertLocalPoseToGeoPose(position, newQuaternion);
         return {

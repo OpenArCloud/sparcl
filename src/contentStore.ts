@@ -78,10 +78,11 @@ export const allowLocationLabel = readable('', (set) => {
     return () => set('');
 });
 
-export const PageRefreshRequired= readable('', (set) => {
-    set('please refresh the page afterwards')
+// Title of page refresh request text after enabling location in your device
+export const PageRefreshRequired = readable('', (set) => {
+    set('please refresh the page afterwards');
     return () => set('');
-})
+});
 
 // Title of location access request screen
 export const locationaccessrequired = readable('', (set) => {

@@ -21,7 +21,6 @@
     Outputs a .png bitmap spritesheet and a .json with character parameters.
 */
 
-
 import { Geometry, Texture, Program, Mesh, Text, Vec3, Transform, type OGLRenderingContext } from 'ogl';
 
 const vertex = /* glsl */ `
@@ -74,8 +73,7 @@ const fragment300 =
     out vec4 FragColor;
 ` + fragment;
 
-export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, string:string, textColor:Vec3 = new Vec3(1.0, 1.0, 1.0)) {
-
+export async function loadTextMesh(gl: OGLRenderingContext, fontName: string, string: string, textColor: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
     const font = await (await fetch('media/fonts/' + fontName + '.json')).json();
 
     const texture = new Texture(gl, {
@@ -90,7 +88,7 @@ export async function loadTextMesh(gl: OGLRenderingContext, fontName:string, str
         fragment: fragment300,
         uniforms: {
             tMap: { value: texture },
-            textColor: { value: textColor},
+            textColor: { value: textColor },
         },
         transparent: false,
         cullFace: false,

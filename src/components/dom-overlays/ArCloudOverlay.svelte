@@ -64,7 +64,8 @@
         width: 100%;
         height: 49px;
 
-        margin-bottom: 27px;
+        margin-top: 10px;
+        margin-bottom: 10px;
 
         font-size: 18px;
         font-weight: bold;

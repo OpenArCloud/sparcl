@@ -7,58 +7,60 @@
   SPDX-License-Identifier: MIT
 -->
 
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="Prototype of a generic OSCP client app" />
-  <meta name="theme-color" content="#33d636"/>
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="description" content="Prototype of a generic OSCP client app" />
+        <meta name="theme-color" content="#33d636" />
 
-  <link rel="preload" as="image" href="/media/OARC_Logo_without_BG.png" />
+        <link rel="preload" as="image" href="/media/OARC_Logo_without_BG.png" />
 
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+        <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5" />
 
-  <link rel="manifest" href="/sparcl.webmanifest">
+        <link rel="manifest" href="/sparcl.webmanifest" />
 
-  <title>spARcl</title>
+        <title>spARcl</title>
 
-  <style>
-    :root {
-      --theme-background: #2A2C32;
-      --theme-color: #2E4458;
-      --theme-highlight: #EB6138;
-      --theme-linkcolor: #bcbcff;
+        <style>
+            :root {
+                --theme-background: #2a2c32;
+                --theme-color: #2e4458;
+                --theme-highlight: #eb6138;
+                --theme-linkcolor: #bcbcff;
 
-      --ui-margin: 32px;
-      --ui-radius: 14px;
-      --ui-shadow: 5px 5px 10px 0 black;
-      --ui-max-width: 400px;
-      --ui-max-height: 600px;
+                --ui-margin: 32px;
+                --ui-radius: 14px;
+                --ui-shadow: 5px 5px 10px 0 black;
+                --ui-max-width: 400px;
+                --ui-max-height: 600px;
 
-      --button-width: 293px;
-      --button-height: 49px;
+                --button-width: 293px;
+                --button-height: 49px;
 
-      --footer-top-margin: 30px;
+                --footer-top-margin: 30px;
 
-      --padding-text: 10px;
-    }
+                --padding-text: 10px;
+            }
 
-    body {
-      margin: 0;
-      padding: 0;
-    }
-  </style>
+            body {
+                margin: 0;
+                padding: 0;
+            }
+        </style>
 
-  <!-- Workaround for a peerjs problem that 'parcelRequire' is not defined. More info here: https://github.com/peers/peerjs/issues/753 -->
-  <script>let parcelRequire;</script>
-</head>
-<body>
-  <noscript>You need to enable JavaScript to run this app.</noscript>
-  <div id="app"></div>
-  <script type="module" src="/src/main.ts"></script>
-</body>
+        <!-- Workaround for a peerjs problem that 'parcelRequire' is not defined. More info here: https://github.com/peers/peerjs/issues/753 -->
+        <script>
+            let parcelRequire;
+        </script>
+    </head>
+    <body>
+        <noscript>You need to enable JavaScript to run this app.</noscript>
+        <div id="app"></div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
 </html>

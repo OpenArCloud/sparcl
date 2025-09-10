@@ -190,12 +190,12 @@ export function getCurrentLocation() {
  * @param latitude number
  * @param longitude number
  * @returns boolean
-*/
-export function isCloseToH3CellBoundary(latitude:number, longitude:number) {
+ */
+export function isCloseToH3CellBoundary(latitude: number, longitude: number) {
     // WARNING: some cells are pentagons!
 
     // Get current index
-    const h3Index = h3.latLngToCell(latitude, longitude, kOscpDefaultH3level)
+    const h3Index = h3.latLngToCell(latitude, longitude, kOscpDefaultH3level);
 
     // Get the center of the hexagon
     const curCellCenterPoint = h3.cellToLatLng(h3Index);
@@ -221,7 +221,6 @@ export function isCloseToH3CellBoundary(latitude:number, longitude:number) {
     return closeToBorder;
 }
 
-
 /**
  * Takes a query location (lat, lon), determines the H3 cell of the location, and then searches the closest H3 cells (one or two or three).
  * If the query location is in the middle of its cell, we return the current cell
@@ -230,8 +229,8 @@ export function isCloseToH3CellBoundary(latitude:number, longitude:number) {
  * @param latitude number
  * @param longitude number
  * @returns h3Indices [string]
-*/
-export function getClosestH3Cells(latitude:number, longitude:number) {
+ */
+export function getClosestH3Cells(latitude: number, longitude: number) {
     // Current location and cell index
     const curLocation = [latitude, longitude];
     const curCell = h3.latLngToCell(latitude, longitude, kOscpDefaultH3level);
@@ -243,7 +242,7 @@ export function getClosestH3Cells(latitude:number, longitude:number) {
     // Check whether we are closer to the center than to the boundary of the cell
     if (h3.greatCircleDistance(curCellCenterPoint, curLocation, h3.UNITS.m) < 0.5 * h3.greatCircleDistance(curCellCenterPoint, curCellBoundaryPoints[0], h3.UNITS.m)) {
         // Then we just return the current cell
-        return [curCell]
+        return [curCell];
     }
 
     // Get all neighbors within 1 step of the hexagon
@@ -275,19 +274,19 @@ export function getClosestH3Cells(latitude:number, longitude:number) {
     if (!h3.areNeighborCells(curCell, firstClosestCell)) {
         throw new Error('Invalid neighbor cell indices ' + curCell + ', ' + firstClosestCell);
     }
-    const sharedEdge = h3.cellsToDirectedEdge(curCell, firstClosestCell)
+    const sharedEdge = h3.cellsToDirectedEdge(curCell, firstClosestCell);
     const sharedEdgeEndPoints = h3.directedEdgeToBoundary(sharedEdge);
     const sharedEdgeLength = h3.greatCircleDistance(sharedEdgeEndPoints[0], sharedEdgeEndPoints[1], h3.UNITS.m);
-    const sharedEdgeMidPoint = [sharedEdgeEndPoints[0][0] + sharedEdgeEndPoints[1][0] / 2, sharedEdgeEndPoints[0][1] + sharedEdgeEndPoints[1][1] / 2]
+    const sharedEdgeMidPoint = [sharedEdgeEndPoints[0][0] + sharedEdgeEndPoints[1][0] / 2, sharedEdgeEndPoints[0][1] + sharedEdgeEndPoints[1][1] / 2];
     if (h3.greatCircleDistance(sharedEdgeMidPoint, curLocation, h3.UNITS.m) < 0.25 * sharedEdgeLength) {
         return [curCell, firstClosestCell];
     }
 
     // We are close a corner where 3 cells meet. Return all three cells
-    return [curCell, firstClosestCell, secondClosestCell]
+    return [curCell, firstClosestCell, secondClosestCell];
 }
 
-export function getH3Neighbors(h3Index:string) {
+export function getH3Neighbors(h3Index: string) {
     // Get all neighbors within 1 step of the hexagon
     const neighborCells = h3.gridDisk(h3Index, 1);
     // -> ['87283472bffffff', '87283472affffff', ...]

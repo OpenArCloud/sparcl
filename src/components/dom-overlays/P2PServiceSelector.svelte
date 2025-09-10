@@ -2,11 +2,11 @@
     import { createEventDispatcher } from 'svelte';
     import { availableP2pServices, allowP2pNetwork, selectedP2pService, p2pNetworkState } from '../../stateStore';
     export let serviceUrlFontSizePx: number | undefined = undefined;
-    const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any, routing_key?: string } }>();
+    const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any; routing_key?: string } }>();
 </script>
 
 {#if $availableP2pServices.length > 0}
-    <label for="p2p-server">P2P Services</label>
+    <dt><label for="p2p-server">P2P Services</label></dt>
     <div class="inline">
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>

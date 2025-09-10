@@ -20,25 +20,29 @@ In case you blocked location access for sparcl before, the location request dial
 This is a simple 3 step process:
 
 ### Tap on the lock on the left side of the URL
+
 ![image](https://user-images.githubusercontent.com/231274/117124585-d2e83680-ad98-11eb-9fa3-ee7ac603e78f.png)
 
 ### Tap on Permissions
+
 ![image](https://user-images.githubusercontent.com/231274/117124755-032fd500-ad99-11eb-8d8f-b17c92d14fbc.png)
 
 ### Activate location access
-![image](https://user-images.githubusercontent.com/231274/117124883-278bb180-ad99-11eb-833d-08470e15ff4c.png)
 
+![image](https://user-images.githubusercontent.com/231274/117124883-278bb180-ad99-11eb-833d-08470e15ff4c.png)
 
 ## Allow location access when sparcl is installed
 
 When sparcl is installed on your device, you have the joyce to either open it once in the browser and activate location access as described above, or use the settings dialog of the installed application.
 
 ### Long press on the icon in the launcher
+
 ![image](https://user-images.githubusercontent.com/231274/117125319-ac76cb00-ad99-11eb-84b0-1cdf1bf8ca97.png)
 
 ### Select `Site Settings` in the menu
 
 ### Activate location access
+
 ![image](https://user-images.githubusercontent.com/231274/117125471-d8924c00-ad99-11eb-8961-1a4984719310.png)
 
 Now, when you return to the app, the button `Go Immersive` should be active.

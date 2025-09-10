@@ -18,7 +18,7 @@
     let currentGeopose: any;
 
     let searchEnabled = true;
-    
+
     let parentState = writable();
     setContext('state', parentState);
 
@@ -93,7 +93,7 @@
     function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrNoPose(time, frame, floorPose);
     }
- 
+
     function getGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
         const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
         const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
@@ -117,85 +117,81 @@
     }
 
     function placePOI(name: string, lat: number, lon: number) {
-        if(name === undefined || lat === undefined || lon === undefined){
-            console.log("Undefined values in POI data");
+        if (name === undefined || lat === undefined || lon === undefined) {
+            console.log('Undefined values in POI data');
             return;
         }
-            const featureName = name;
-            const featureGeopose = {
-                position: { lat: lat, lon: lon, h: 0 },
-                quaternion: { x: 0, y: 0, z: 0, w: 1 },
-            };
-            const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-            const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
-            tdEngine.setVerticallyRotating(pinModel);
-            let localTextPosition = localFeaturePose.position.clone();
-            localTextPosition.y += 3;
-            const textColor = new Vec3(0.063, 0.741, 1.0);
-            const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
-            textMesh.then((node) => {
-                tdEngine.setTowardsCameraRotating(node);
-            });
-        }
+        const featureName = name;
+        const featureGeopose = {
+            position: { lat: lat, lon: lon, h: 0 },
+            quaternion: { x: 0, y: 0, z: 0, w: 1 },
+        };
+        const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+        const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
+        tdEngine.setVerticallyRotating(pinModel);
+        let localTextPosition = localFeaturePose.position.clone();
+        localTextPosition.y += 3;
+        const textColor = new Vec3(0.063, 0.741, 1.0);
+        const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+        textMesh.then((node) => {
+            tdEngine.setTowardsCameraRotating(node);
+        });
+    }
 
-        function relocalize() {
+    function relocalize() {
         parentInstance.relocalize();
-        }
+    }
 
     async function getPlaces(query: String) {
-      if(searchEnabled){
-        tdEngine.clearScene();
-        const myLocation = await getCurrentLocation();
-        const lat = myLocation.lat;
-        const lon = myLocation.lon;
-        const url = 'https://esoptron.hu:8043/locations?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
-        console.log(lat,lon)
+        if (searchEnabled) {
+            tdEngine.clearScene();
+            const myLocation = await getCurrentLocation();
+            const lat = myLocation.lat;
+            const lon = myLocation.lon;
+            const url = 'https://esoptron.hu:8043/locations?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
+            console.log(lat, lon);
 
-        try {
-        const response = await fetch(url);
-    
-        if (!response.ok) {
-          throw new Error(`HTTP error! Status: ${response.status}`);
+            try {
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                console.log(data.features);
+                data.features.forEach(function (place: any) {
+                    placePOI(place.name.name, place.geometry.coordinates[0], place.geometry.coordinates[1]);
+                });
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+            searchEnabled = false;
+
+            setTimeout(() => {
+                searchEnabled = true;
+            }, 3000);
         }
-
-        const data = await response.json();
-        console.log(data.features);
-        data.features.forEach(function(place: any){
-          placePOI(place.name.name,place.geometry.coordinates[0],place.geometry.coordinates[1]);
-        })
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-      searchEnabled = false;
-      
-      setTimeout(() => {
-        searchEnabled = true;
-      }, 3000);
     }
-}
 
-function getRecievedText(event:any){
-  getPlaces(event.detail);
-  console.log(event.detail);
-}
+    function getRecievedText(event: any) {
+        getPlaces(event.detail);
+        console.log(event.detail);
+    }
 
-function basicSearch(event:any){
-    getPlaces(event.detail);
-    console.log(event.detail);
-}
+    function basicSearch(event: any) {
+        getPlaces(event.detail);
+        console.log(event.detail);
+    }
 </script>
 
 <!-- <div style="position:fixed; top:0; left: 0; width:50%; height:50%; background:black; color: white;">Test</div> -->
 <Parent bind:this={parentInstance} on:arSessionEnded>
-  <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived>
-      {#if $settings.localisation && !isLocalisationDone}
-          <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
-      {:else}
-          <Overlay
-              on:relocalize={() => relocalize()}
-              on:textInput={getRecievedText}
-              on:categorySelected={basicSearch}
-          />
-      {/if}
-  </svelte:fragment>
+    <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived>
+        {#if $settings.localisation && !isLocalisationDone}
+            <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
+        {:else}
+            <Overlay on:relocalize={() => relocalize()} on:textInput={getRecievedText} on:categorySelected={basicSearch} />
+        {/if}
+    </svelte:fragment>
 </Parent>

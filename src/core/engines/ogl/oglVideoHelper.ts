@@ -6,7 +6,6 @@
 
 import { Mesh, Vec3, Quat, Program, Texture, Box, Transform, type OGLRenderingContext } from 'ogl';
 
-
 const kVideoVertexShader = /* glsl */ `
 attribute vec2 uv;
 attribute vec3 position;
@@ -45,9 +44,9 @@ void main() {
 `;
 
 export interface VideoInfo {
-    videoId: number,
-    videoUrl: string,
-    videoElement: HTMLVideoElement,
+    videoId: number;
+    videoUrl: string;
+    videoElement: HTMLVideoElement;
 }
 
 let numVideos = 0;
@@ -55,9 +54,8 @@ const videoInfos: Record<number, VideoInfo> = {};
 const videoTextures: Record<number, Texture> = {};
 const videoMeshes: Record<number, Mesh> = {};
 
-
 export function loadVideo(videoUrl: string): VideoInfo {
-    const videoElement:HTMLVideoElement = document.createElement('video');
+    const videoElement: HTMLVideoElement = document.createElement('video');
     videoElement.crossOrigin = '*';
     videoElement.src = videoUrl;
 
@@ -73,8 +71,8 @@ export function loadVideo(videoUrl: string): VideoInfo {
     const videoInfo: VideoInfo = {
         videoId: videoId,
         videoUrl: videoUrl,
-        videoElement: videoElement
-    }
+        videoElement: videoElement,
+    };
     videoInfos[videoId] = videoInfo;
     return videoInfo;
 }
@@ -98,7 +96,7 @@ export function pauseVideo(videoId: number) {
 }
 
 export function createVideoBox(gl: OGLRenderingContext, scene: Transform, position: Vec3, orientation: Quat, videoId: number) {
-    const videoGeometry = new Box(gl, { width: 16/9, height: 1, depth: 16/9 });
+    const videoGeometry = new Box(gl, { width: 16 / 9, height: 1, depth: 16 / 9 });
 
     // Init empty texture while source loading
     const videoTexture = new Texture(gl, {

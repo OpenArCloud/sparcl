@@ -1,271 +1,280 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-	<head>
-		<title>three.js webgl</title>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
-	</head>
-	<body>
+    <head>
+        <title>three.js webgl</title>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0" />
+    </head>
+    <body>
+        <div id="container"></div>
 
-		<div id="container"></div>
+        <script type="module">
+            import * as THREE from './jsm/three.module.js';
 
-		<script type="module">
+            let signData = [
+                { name: 'North', latitude: 90, longitude: 135, background: 0xff0000, color: 0xffffff },
+                { name: 'Paris', latitude: 48.8589507, longitude: 2.2770205, background: 0xffffff },
+                { name: 'Tokyo', latitude: 35.689722, longitude: 139.692222, background: 0xffffff },
+                { name: 'New York', latitude: 40.712778, longitude: -74.006111, background: 0xffffff },
+                { name: 'Sydney', latitude: -33.865, longitude: 151.209444, background: 0xffffff },
+            ];
 
-			import * as THREE from './jsm/three.module.js';
+            let container, stats, clock;
+            let camera, scene, renderer;
+            let font, signPost;
 
-			let signData = [
-				{ name: "North", latitude: 90, longitude: 135, background: 0xff0000, color: 0xffffff},
-				{ name: "Paris", latitude: 48.8589507, longitude: 2.2770205, background: 0xffffff},
-				{ name: "Tokyo", latitude: 35.689722, longitude: 139.692222, background: 0xffffff},
-				{ name: "New York", latitude: 40.712778, longitude: -74.006111, background: 0xffffff},
-				{ name: "Sydney", latitude: -33.865, longitude: 151.209444, background: 0xffffff},
-			];
+            let currentTime = 0,
+                lastTime = 0,
+                deltaTime,
+                fpsTime = 0,
+                fpsCounter = 0,
+                fps;
 
-			let container, stats, clock;
-			let camera, scene, renderer;
-			let font, signPost;
+            const loadingManager = new THREE.LoadingManager();
+            loadingManager.onLoad = () => {
+                init();
+                animate();
+            };
 
-			let currentTime = 0, lastTime = 0, deltaTime, fpsTime = 0, fpsCounter = 0, fps;
+            const postUpdateCallback = (deltaTime) => {
+                if (signPost) {
+                    signPost.update(deltaTime);
+                }
+            };
 
+            class Post {
+                constructor(position, rotation, radius, height) {
+                    this.position = position;
+                    this.rotation = rotation;
+                    this.radius = radius;
+                    this.height = height;
+                    this.signs = [];
+                    this.object = new THREE.Object3D();
 
-			const loadingManager = new THREE.LoadingManager();
-			loadingManager.onLoad = ()=>{
-				init();
-				animate();
-			}
+                    // Create a ground to (receive the shadows)
+                    // let ground = new THREE.Mesh(new THREE.PlaneGeometry(10,10,10,10),
+                    // 	new THREE.MeshPhongMaterial({color: 0xffffff}));
+                    // ground.rotation.x = -Math.PI/2;
+                    // ground.castShadow = true;
+                    // this.object.add(ground);
 
+                    // Create the post
+                    let post = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 32), new THREE.MeshPhongMaterial({ color: 0xff8800 }));
+                    post.position.set(0, 1, 0);
+                    post.castShadow = true;
+                    post.receiveShadow = true;
+                    this.object.add(post);
 
-			const postUpdateCallback = (deltaTime) => {
-				if (signPost) {
-					signPost.update(deltaTime);
-				}
-			}
+                    this.object.position.set(position.x, position.y, position.z);
+                    this.object.rotation.set(rotation.x, rotation.y, rotation.z);
+                    this.object.scale.set(4);
 
+                    scene.add(this.object);
 
-			class Post {
+                    this.animation = 0;
+                    this.maxAnimation = 1;
+                }
 
-				constructor(position, rotation, radius, height) {
+                update(deltaTime) {
+                    if (deltaTime > 0.1) deltaTime = 0.1;
+                    if (this.animation < this.maxAnimation) this.animation += deltaTime;
+                    else this.animation = this.maxAnimation;
+                    this.object.scale.y = (this.animation / this.maxAnimation) * 4;
+                    this.signs.forEach((sign) => {
+                        sign.update(deltaTime);
+                    });
+                }
+            }
 
-					this.position = position; this.rotation = rotation;
-					this.radius = radius; this.height = height;
-					this.signs = [];
-					this.object = new THREE.Object3D();
+            class Sign {
+                constructor(post, latitude, longitude, height, depth, bevel, text, color, background, animationDelay = 1) {
+                    this.post = post;
+                    this.latitude = latitude;
+                    this.longitude = longitude;
+                    this.height = height;
+                    this.depth = depth;
+                    this.bevel = bevel;
+                    this.text = text;
+                    this.color = color;
+                    this.background = background;
 
-					// Create a ground to (receive the shadows)
-					// let ground = new THREE.Mesh(new THREE.PlaneGeometry(10,10,10,10),
-					// 	new THREE.MeshPhongMaterial({color: 0xffffff}));
-					// ground.rotation.x = -Math.PI/2;
-					// ground.castShadow = true;
-					// this.object.add(ground);
+                    // Calculate the distance and the bearing
+                    // https://www.movable-type.co.uk/scripts/latlong.html
+                    const R = 6371e3,
+                        deg2rads = Math.PI / 180,
+                        φ1 = cameraGeoPose.latitude * deg2rads,
+                        φ2 = this.latitude * deg2rads,
+                        Δφ = φ2 - φ1,
+                        λ1 = cameraGeoPose.longitude * deg2rads,
+                        λ2 = this.longitude * deg2rads,
+                        Δλ = λ2 - λ1,
+                        a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2),
+                        c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)),
+                        y = Math.sin(λ2 - λ1) * Math.cos(φ2),
+                        x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1),
+                        θ = Math.atan2(y, x);
+                    this.distance = (R * c) / 1000; // Distance in kilometers
+                    this.bearing = ((θ * 180) / Math.PI + 360) % 360; // in degrees
+                    this.position = this.post.height - this.post.signs.length * 0.12;
+                    this.rotation = -(this.bearing * deg2rads) + Math.PI / 2;
 
-					// Create the post
-					let post = new THREE.Mesh(
-							new THREE.CylinderGeometry(radius, radius, height, 32),
-							new THREE.MeshPhongMaterial({color: 0xff8800}));
-					post.position.set(0, 1, 0);
-					post.castShadow = true; post.receiveShadow = true;
-					this.object.add(post);
+                    // Create the two texts (one for each side of the sign)
+                    this.text = this.text + ' ' + this.distance.toFixed(0) + ' Km';
+                    this.textGeometry = new THREE.TextGeometry(this.text, { font: font, size: 0.05, height: 0.002 });
+                    this.textColor = new THREE.MeshPhongMaterial({ color: this.color || 0x010101 });
+                    this.text1 = new THREE.Mesh(this.textGeometry, this.textColor);
+                    this.text1.receiveShadow = true;
+                    this.textSize = new THREE.Vector3();
+                    new THREE.Box3().setFromObject(this.text1).getSize(this.textSize);
+                    this.length = this.textSize.x + this.bevel + 0.1;
+                    this.text1.position.set(this.post.radius + 0.05, -this.height * 0.7, this.depth);
+                    this.text2 = new THREE.Mesh(this.textGeometry, this.textColor);
+                    this.text2.receiveShadow = true;
+                    this.text2.position.set(this.post.radius + (this.length - this.bevel), -this.height * 0.7, 0);
+                    this.text2.rotation.set(0, Math.PI, 0);
 
-					this.object.position.set(position.x, position.y, position.z);
-					this.object.rotation.set(rotation.x, rotation.y, rotation.z);
-					this.object.scale.set(4);
+                    // Create the main object of the sign
+                    this.shape = new THREE.Shape();
+                    this.shape.moveTo(this.post.radius, 0);
+                    this.shape.lineTo(this.post.radius + (this.length - this.bevel), 0);
+                    this.shape.lineTo(this.post.radius + this.length, -this.height / 2);
+                    this.shape.lineTo(this.post.radius + (this.length - this.bevel), -this.height);
+                    this.shape.lineTo(this.post.radius, -this.height);
+                    this.object = new THREE.Mesh(
+                        new THREE.ExtrudeGeometry(this.shape, { steps: 2, depth: this.depth, bevelEnabled: false }),
+                        new THREE.MeshPhongMaterial({ color: this.background || 0xffffff }),
+                    );
+                    this.object.position.set(0, this.position, 0);
+                    this.object.rotation.set(0, this.rotation, 0);
+                    this.post.castShadow = true;
+                    post.receiveShadow = true;
+                    this.post.object.add(this.object);
+                    this.object.add(this.text1);
+                    this.object.add(this.text2);
 
-					scene.add(this.object);
+                    this.animation = -animationDelay;
+                    this.maxAnimation = 1;
+                    this.object.scale.x = 0;
+                }
 
-					this.animation = 0; this.maxAnimation = 1;
-				}
+                update(deltaTime) {
+                    if (this.animation < this.maxAnimation) this.animation += deltaTime;
+                    else this.animation = this.maxAnimation;
+                    this.object.scale.x = this.animation / this.maxAnimation;
+                    if (this.object.scale.x < 0) this.object.scale.x = 0;
+                }
+            }
 
-				update(deltaTime) {
-					if (deltaTime > 0.1) deltaTime = 0.1;
-					if (this.animation < this.maxAnimation) this.animation += deltaTime;
-					else this.animation = this.maxAnimation;
-					this.object.scale.y = this.animation / this.maxAnimation * 4.;
-					this.signs.forEach(sign => { sign.update(deltaTime)} );
-				}
-			}
+            class GeoPose {
+                constructor(latitude = 0, longitude = 0, altitude = 0, yaw = 0, pitch = 0, roll = 0) {
+                    this.latitude = latitude;
+                    this.longitude = longitude;
+                    this.altitude = altitude;
+                    this.yaw = yaw;
+                    this.pitch = pitch;
+                    this.roll = roll;
+                }
+            }
 
-			class Sign {
+            // Obtain the camera GeoPose from
+            let cameraGeoPose = new GeoPose();
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener(
+                    'deviceorientation',
+                    function (data) {
+                        cameraGeoPose.yaw = data.alpha + yawOffset;
+                        cameraGeoPose.pitch = data.beta;
+                        cameraGeoPose.roll = data.gamma;
+                    },
+                    true,
+                );
+            } else throw Error('Unable to obtain Device Orientation');
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition((data) => {
+                    cameraGeoPose.latitude = data.coords.latitude;
+                    cameraGeoPose.longitude = data.coords.longitude;
+                    cameraGeoPose.altitude = data.coords.altitude;
+                });
+            } else throw Error('Unable to obtain Geolocation');
 
-				constructor(post, latitude, longitude, height, depth, bevel, text, color,
-							background, animationDelay = 1) {
-					this.post = post; this.latitude = latitude; this.longitude = longitude;
-					this.height = height; this.depth = depth; this.bevel = bevel;
-					this.text = text; this.color = color; this.background = background;
+            // Create an offset for the yaw
+            let yawOffset = 0;
+            document.body.onpointermove = (e) => {
+                yawOffset += e.movementX;
+            };
 
-					// Calculate the distance and the bearing
-					// https://www.movable-type.co.uk/scripts/latlong.html
-					const R = 6371e3, deg2rads = Math.PI/180,
-							φ1 = cameraGeoPose.latitude * deg2rads,
-							φ2 = this.latitude * deg2rads, Δφ = φ2 - φ1,
-							λ1 = cameraGeoPose.longitude * deg2rads,
-							λ2 = this.longitude * deg2rads, Δλ = λ2 - λ1,
-							a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-									Math.cos(φ1) * Math.cos(φ2) *
-									Math.sin(Δλ/2) * Math.sin(Δλ/2),
-							c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)),
-							y = Math.sin(λ2-λ1) * Math.cos(φ2),
-							x = Math.cos(φ1)*Math.sin(φ2) -
-									Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1),
-							θ = Math.atan2(y, x);
-					this.distance = R * c / 1000; // Distance in kilometers
-					this.bearing = (θ*180/Math.PI + 360) % 360; // in degrees
-					this.position = this.post.height - (this.post.signs.length * 0.12);
-					this.rotation = -(this.bearing * deg2rads) + Math.PI/2;
+            /** Loads a font file
+             *  @param filepath The font file path.
+             * @param {*} callback The callback function when the font is loaded. */
+            function loadFont(filepath, callback) {
+                const loader = new THREE.FontLoader(loadingManager);
+                loader.load(filepath, callback);
+            }
 
-					// Create the two texts (one for each side of the sign)
-					this.text = this.text + " " + this.distance.toFixed(0) + " Km";
-					this.textGeometry = new THREE.TextGeometry(this.text,
-							{ font: font, size: 0.05, height: 0.002 });
-					this.textColor = new THREE.MeshPhongMaterial(
-							{ color: this.color || 0x010101 });
-					this.text1 = new THREE.Mesh(this.textGeometry, this.textColor);
-					this.text1.receiveShadow = true;
-					this.textSize = new THREE.Vector3();
-					new THREE.Box3().setFromObject(this.text1).getSize(this.textSize);
-					this.length = this.textSize.x + this.bevel + 0.1;
-					this.text1.position.set(this.post.radius + 0.05, -this.height * 0.7, this.depth);
-					this.text2 = new THREE.Mesh(this.textGeometry, this.textColor);
-					this.text2.receiveShadow = true;
-					this.text2.position.set(this.post.radius + (this.length - this.bevel),
-							-this.height * 0.7,0);
-					this.text2.rotation.set(0, Math.PI, 0);
+            loadFont('fonts/helvetiker_bold.typeface.json', (data) => {
+                font = data;
+            });
 
-					// Create the main object of the sign
-					this.shape = new THREE.Shape();
-					this.shape.moveTo(this.post.radius, 0);
-					this.shape.lineTo(this.post.radius + (this.length - this.bevel), 0);
-					this.shape.lineTo(this.post.radius + this.length, - this.height / 2);
-					this.shape.lineTo(this.post.radius + (this.length - this.bevel), -this.height);
-					this.shape.lineTo(this.post.radius, -this.height);
-					this.object = new THREE.Mesh(
-							new THREE.ExtrudeGeometry(this.shape,
-									{steps: 2, depth: this.depth, bevelEnabled: false}),
-							new THREE.MeshPhongMaterial({color: this.background || 0xffffff}));
-					this.object.position.set(0, this.position, 0);
-					this.object.rotation.set(0, this.rotation, 0);
-					this.post.castShadow = true; post.receiveShadow = true;
-					this.post.object.add(this.object);
-					this.object.add(this.text1); this.object.add(this.text2);
+            function init() {
+                container = document.getElementById('container');
 
-					this.animation = -animationDelay; this.maxAnimation = 1;
-					this.object.scale.x = 0;
-				}
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+                camera.position.set(8, 10, 8);
+                camera.lookAt(0, 3, 0);
 
-				update(deltaTime) {
-					if (this.animation < this.maxAnimation) this.animation += deltaTime;
-					else this.animation = this.maxAnimation;
-					this.object.scale.x = this.animation / this.maxAnimation;
-					if (this.object.scale.x < 0) this.object.scale.x = 0;
-				}
-			}
+                scene = new THREE.Scene();
+                clock = new THREE.Clock();
 
-			class GeoPose {
-				constructor(latitude=0, longitude=0, altitude=0, yaw=0, pitch=0, roll=0) {
-					this.latitude = latitude; this.longitude = longitude;
-					this.altitude = altitude;
-					this.yaw = yaw; this.pitch = pitch; this.roll = roll;
-				}
-			}
+                // content
 
+                signPost = new Post(new THREE.Vector3(0), new THREE.Euler(0, 1, 0), 0.05, 2);
 
-			// Obtain the camera GeoPose from
-			let cameraGeoPose = new GeoPose();
-			if (window.DeviceOrientationEvent) {
-				window.addEventListener("deviceorientation", function(data) {
-					cameraGeoPose.yaw = data.alpha + yawOffset;
-					cameraGeoPose.pitch = data.beta;
-					cameraGeoPose.roll = data.gamma;
-				}, true);
-			} else throw Error ("Unable to obtain Device Orientation");
-			if (navigator.geolocation) {
-				navigator.geolocation.watchPosition((data)=> {
-					cameraGeoPose.latitude = data.coords.latitude;
-					cameraGeoPose.longitude = data.coords.longitude;
-					cameraGeoPose.altitude = data.coords.altitude;
-				});
-			} else throw Error ("Unable to obtain Geolocation");
+                // Create the signs
+                for (let signIndex = 0; signIndex < signData.length; signIndex++) {
+                    let sign = signData[signIndex];
+                    signPost.signs.push(new Sign(signPost, sign.latitude, sign.longitude, 0.12, 0.02, 0.1, sign.name, sign.color, sign.background, 1 + signIndex * 0.5));
+                }
 
-			// Create an offset for the yaw
-			let yawOffset = 0;
-			document.body.onpointermove = (e) => { yawOffset += e.movementX; }
+                const ambientLight = new THREE.AmbientLight(0xcccccc, 0.4);
+                scene.add(ambientLight);
 
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(1, 1, 0).normalize();
+                scene.add(directionalLight);
 
-			/** Loads a font file
-			 *  @param filepath The font file path.
-			 * @param {*} callback The callback function when the font is loaded. */
-			function loadFont(filepath, callback) {
-				const loader = new THREE.FontLoader(loadingManager);
-				loader.load(filepath, callback);
-			}
+                renderer = new THREE.WebGLRenderer({ alpha: true });
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                container.appendChild(renderer.domElement);
 
-			loadFont('fonts/helvetiker_bold.typeface.json', (data) => { font = data; });
+                window.addEventListener('resize', onWindowResize);
+                window.addEventListener('message', (t) => {
+                    // t.data.projection && t.data.camerapose && mc.updateFrame(t.data.projection, t.data.camerapose)
+                });
 
+                window.parent.postMessage({ type: 'loaded' }, '*');
+            }
 
+            function onWindowResize() {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
 
-			function init() {
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            }
 
-				container = document.getElementById( 'container' );
+            function animate() {
+                requestAnimationFrame(animate);
+                render();
+            }
 
-				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 0.1, 2000 );
-				camera.position.set( 8, 10, 8 );
-				camera.lookAt( 0, 3, 0 );
+            function render() {
+                const delta = clock.getDelta();
 
-				scene = new THREE.Scene();
-				clock = new THREE.Clock();
+                // Call the post-update callback function
+                if (postUpdateCallback) postUpdateCallback(delta);
 
-
-				// content
-
-				signPost = new Post(new THREE.Vector3(0), new THREE.Euler(0, 1, 0), 0.05, 2);
-
-				// Create the signs
-				for (let signIndex = 0; signIndex < signData.length; signIndex++) {
-					let sign = signData[signIndex];
-					signPost.signs.push(new Sign(signPost, sign.latitude, sign.longitude,
-							0.12, 0.02, 0.1, sign.name, sign.color, sign.background,
-							1 + signIndex * 0.5));
-				}
-
-				const ambientLight = new THREE.AmbientLight( 0xcccccc, 0.4 );
-				scene.add( ambientLight );
-
-				const directionalLight = new THREE.DirectionalLight( 0xffffff, 0.8 );
-				directionalLight.position.set( 1, 1, 0 ).normalize();
-				scene.add( directionalLight );
-
-				renderer = new THREE.WebGLRenderer({ alpha: true });
-				renderer.setPixelRatio( window.devicePixelRatio );
-				renderer.setSize( window.innerWidth, window.innerHeight );
-				container.appendChild( renderer.domElement );
-
-				window.addEventListener( 'resize', onWindowResize );
-				window.addEventListener("message", t=>{
-					// t.data.projection && t.data.camerapose && mc.updateFrame(t.data.projection, t.data.camerapose)
-				})
-
-				window.parent.postMessage({type: "loaded"}, "*")
-			}
-
-			function onWindowResize() {
-				camera.aspect = window.innerWidth / window.innerHeight;
-				camera.updateProjectionMatrix();
-
-				renderer.setSize( window.innerWidth, window.innerHeight );
-			}
-
-			function animate() {
-				requestAnimationFrame( animate );
-				render();
-			}
-
-			function render() {
-				const delta = clock.getDelta();
-
-				// Call the post-update callback function
-				if (postUpdateCallback) postUpdateCallback(delta);
-
-				renderer.render( scene, camera );
-			}
-		</script>
-	</body>
+                renderer.render(scene, camera);
+            }
+        </script>
+    </body>
 </html>

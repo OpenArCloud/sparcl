@@ -34,7 +34,7 @@ const EXPERIMENTTYPES = {
 };
 ```
 
-Importantly, the Selector serves dynamically loads the settings component (when needed) and viewer implementation (as a ```Promise```) of the experiment. This functionality is provided by the function `importExperiment()`.
+Importantly, the Selector serves dynamically loads the settings component (when needed) and viewer implementation (as a `Promise`) of the experiment. This functionality is provided by the function `importExperiment()`.
 
 The settings will then be automatically displayed on the Dashboard right below the selector when the experiment is selected. The viewer implementation for the experiment is returned as a promise that will be resolved when the AR session is started.
 
@@ -62,15 +62,15 @@ Below is kind of a 'hello world' implementation of the viewer. It is the source 
 The lifecycle functions are:
 
 - startAR()
-  - Initialisation of the experiment implementation
+    - Initialisation of the experiment implementation
 - startSession()
-  - Initialisation of WebXR, when used, respectively your own implementation for XR
+    - Initialisation of WebXR, when used, respectively your own implementation for XR
 - onXrFrameUpdate()
-  - animation loop call, use to update the 3D scene
+    - animation loop call, use to update the 3D scene
 - onXrNoPose();
-  - WebXR hasn't found a valid pose for the device
+    - WebXR hasn't found a valid pose for the device
 - onXrSessionEnded()
-  - Use to release resources
+    - Use to release resources
 
 ![image](https://user-images.githubusercontent.com/231274/122675675-d154bf80-d1da-11eb-9eb0-e6975eb548bd.png)
 

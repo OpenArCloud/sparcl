@@ -12,7 +12,6 @@
 -->
 
 <script lang="ts">
-
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import type webxr from '@core/engines/webxr';
@@ -116,9 +115,7 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        parentInstance.getRenderer().updateReticlePose(reticle,
-                                new Vec3(position.x, position.y, position.z),
-                                new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                        parentInstance.getRenderer().updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
                         reticle.visible = true;
                     }
                 } else {
