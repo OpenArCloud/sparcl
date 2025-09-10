@@ -7,7 +7,27 @@
   SPDX-License-Identifier: MIT
 */
 
-import { Camera, Euler, GLTFLoader, Mat4, Raycast, Renderer, Transform, Vec2, AxesHelper, Mesh, Plane, Geometry, Program, Quat, Vec3, Polyline, Color, type OGLRenderingContext, Mat3 } from 'ogl';
+import {
+    Camera,
+    Euler,
+    GLTFLoader,
+    Mat4,
+    Raycast,
+    Renderer,
+    Transform,
+    Vec2,
+    AxesHelper,
+    Mesh,
+    Plane,
+    Geometry,
+    Program,
+    Quat,
+    Vec3,
+    Polyline,
+    Color,
+    type OGLRenderingContext,
+    Mat3,
+} from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';

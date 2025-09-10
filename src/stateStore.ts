@@ -13,7 +13,7 @@
 
 import { readable, writable, derived, get } from 'svelte/store';
 
-import { LOCATIONINFO, SERVICE, ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
+import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';

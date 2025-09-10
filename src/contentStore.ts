@@ -78,6 +78,7 @@ export const allowLocationLabel = readable('', (set) => {
     return () => set('');
 });
 
+// Title of page refresh request text after enabling location in your device
 export const PageRefreshRequired = readable('', (set) => {
     set('please refresh the page afterwards');
     return () => set('');

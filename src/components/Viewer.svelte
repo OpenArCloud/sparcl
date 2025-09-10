@@ -17,11 +17,6 @@
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-
-    import { myAgentName, myAgentId, myAgentColor } from '@src/stateStore';
-    import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
-    import { rgbToHex, normalizeColor } from '../core/common'; // just for drawing an agent
-
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
     import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
     import {
@@ -40,7 +35,12 @@
         selectedGeoPoseService,
         debug_overrideGeopose,
         debug_useOverrideGeopose,
+        myAgentName,
+        myAgentId,
+        myAgentColor,
     } from '@src/stateStore';
+    import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
@@ -424,13 +424,13 @@
             //TODO: add width and height into CameraParams (too)
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addSensor(new Sensor('gps', SENSORTYPE.geolocation))
-                .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0, new Date().getTime(), 'gps', new Privacy());
+                .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0, Date.now(), 'gps', new Privacy());
 
             console.log(JSON.stringify(geoPoseRequest));
 
             geoPoseRequest
                 .addSensor(new Sensor('cam', SENSORTYPE.camera))
-                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams, new Date().getTime(), 'cam', new Privacy());
+                .addCameraData(IMAGEFORMAT.JPG, [width, height], image.split(',')[1], 0, new ImageOrientation(false, 0), cameraParams, Date.now(), 'cam', new Privacy());
 
             // Services haven't implemented recent changes to the protocol yet
             validateRequest(false);
@@ -708,7 +708,7 @@
 
                     case 'POI': {
                         if (!$debug_enableOGCPoIContents) {
-                            console.log('An POI content was received but this type is disabled');
+                            console.log('A POI content was received but this type is disabled');
                             break;
                         }
                         const url = record.content.refs ? record.content.refs[0].url : '';

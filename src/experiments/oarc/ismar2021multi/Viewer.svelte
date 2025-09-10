@@ -204,7 +204,7 @@
         let message_body = {
             message: str,
             sender: $peerIdStr,
-            timestamp: new Date().getTime(),
+            timestamp: Date.now(),
         };
         dispatch('broadcast', {
             event: 'message_broadcasted',
@@ -246,7 +246,7 @@
             geopose: geoPose,
             object_description: object_description,
         };
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         const scr = {
             content: content,
             id: scr_id,
@@ -257,7 +257,7 @@
         const message_body = {
             scr: scr,
             sender: $peerIdStr,
-            timestamp: new Date().getTime(),
+            timestamp: timestamp,
         };
         // share over P2P network
         // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair

@@ -6,7 +6,7 @@
 </script>
 
 {#if $availableP2pServices.length > 0}
-    <label for="p2p-server">P2P Services</label>
+    <dt><label for="p2p-server">P2P Services</label></dt>
     <div class="inline">
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>

@@ -1,8 +1,6 @@
 import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
-
 import { throttle } from 'es-toolkit';
-
 import { Client as StompClient, StompConfig, type IFrame, type messageCallbackType } from '@stomp/stompjs';
 
 const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.#'; // subscribe to all subtopics

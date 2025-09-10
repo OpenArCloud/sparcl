@@ -6,12 +6,14 @@
 
 <script lang="ts">
     import { onMount } from 'svelte';
-    import '@fortawesome/fontawesome-free/css/all.min.css';
     import { navigate } from 'svelte-routing';
+    import '@fortawesome/fontawesome-free/css/all.min.css';
+
+    // Auth0
     import auth0 from './auth0Service';
     import { createAuth0Client, Auth0Client } from '@auth0/auth0-spa-js';
-
     import { isLoggedIn, isAuthenticatedAuth0 } from '../stateStore';
+
 
     /////////////////////////////////// Handle Auth0 Login ///////////////////////////////////
 

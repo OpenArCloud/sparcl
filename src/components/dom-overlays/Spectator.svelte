@@ -36,7 +36,7 @@
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         const scr_id = object_id;
-        const timestamp = new Date().getTime();
+        const timestamp = Date.now();
         const message_body = {
             scr: {
                 content: {
@@ -93,7 +93,10 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) && !('object_created' in events) && !('clear_session' in events)) {
+        if (!('message_broadcasted' in events) &&
+            !('object_created' in events) &&
+            !('clear_session' in events)
+        ){
             console.log('Spectator: Unknown event received:');
             console.log(events);
             return;
