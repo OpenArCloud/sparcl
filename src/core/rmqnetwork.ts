@@ -40,11 +40,14 @@ export async function testRmqConnection({ url, username, password }: { url: stri
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
     // disconnect first if there already was a connection established
     rmqDisconnect();
+
+    // Sometimes we want pose updates less frequent than camera frame rate
+    const throttleMs = 0; // 0ms means no throttling
     const throttledUpdateFunction = throttle((data: any) => {
         if (updateFunction) {
             updateFunction(data);
         }
-    }, 0);
+    }, throttleMs);
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
@@ -131,7 +134,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
                     timestamp: timestamp,
                 },
             };
-            updateFunction(data);
+            throttledUpdateFunction(data);
         });
 
         console.log('Subscribing to topic ' + rmq_topic_object_created);
@@ -143,7 +146,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
                     ...msg,
                 },
             };
-            throttledUpdateFunction(data);
+            updateFunction(data); // no throttling here
         });
     };
 
