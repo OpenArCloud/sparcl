@@ -43,6 +43,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 });
                 connection.on('data', (data) => {
                     this.handleMessage(data as BroadcastChannelMessage);
+                    //console.log(`Received data from ${connection.peer}: ${data}`);
                 });
                 connection.on('close', () => {
                     const connectionIndex = this.connections.findIndex((conn) => conn.label === connection.label);
@@ -87,7 +88,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 if (!('data' in message)) {
                     this.emit('message', message);
                 } else {
-                    const data = message.data as ArrayBufferLike;
+                    const data = message.data as Uint8Array<ArrayBufferLike>;
                     this.emit('message', {
                         ...message,
                         data: new Uint8Array(data),
@@ -123,6 +124,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                             peerMetadata: this.peerMetadata,
                         });
                         connection.on('data', (data) => {
+                            //console.log(`Received data from ${connection.peer}: ${data}`);
                             this.handleMessage(data as BroadcastChannelMessage);
                         });
                         connection.on('close', () => {
