@@ -283,17 +283,18 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($enableCameraPoseSharing && $recentLocalisation.geopose?.position != undefined && $recentLocalisation.floorpose?.transform?.position != undefined) {
-                try {
-                    shareCameraPose(floorPose);
-                    const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
-                    const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
-                    currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
-                } catch (error) {
-                    // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+            if ($recentLocalisation.geopose?.position != undefined && $recentLocalisation.floorpose?.transform?.position != undefined) {
+                const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
+                const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
+                currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
+                if ($enableCameraPoseSharing) {
+                    try {
+                        shareCameraPose(floorPose);
+                    } catch (error) {
+                        // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+                    }
                 }
             }
-
             tdEngine.render(time, view);
         }
     }
