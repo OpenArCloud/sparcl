@@ -64,11 +64,6 @@
         };
     }>();
 
-    onDestroy(() => {
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
-    });
-
     const message = (msg: string) => console.log(msg);
 
     let canvas: HTMLCanvasElement;
@@ -86,7 +81,7 @@
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
     let currentGeoPose: Geopose | undefined;
-    let contentQueryInterval: NodeJS.Timer | undefined;
+    let contentQueryInterval: NodeJS.Timeout | undefined = undefined;
     let loadedH3Indices: string[] = [];
 
     // spatial contents are organized into topics.
