@@ -767,9 +767,11 @@
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2),
-                                        (pinModel) => {tdEngine.setVerticallyRotating(pinModel);}
-                                    );
+                                    const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
+                                        //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
+                                        console.log('POI ' + featureName + ' added.');
+                                    }).transform;
+                                    tdEngine.setVerticallyRotating(nodeTransform);
 
                                     let localTextPosition = localFeaturePose.position.clone();
                                     localTextPosition.y += 3;
