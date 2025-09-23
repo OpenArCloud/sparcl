@@ -139,6 +139,8 @@ export default class ogl {
      * Initialize the virtual environment
      */
     initScene() {
+        console.log('OGL initScene');
+
         if (!gl) {
             console.log('GL is not initilized yet!');
             return;
@@ -281,13 +283,13 @@ export default class ogl {
 
         let meshPromise;
         if (Object.keys(gltfCache).includes(url)) {
-            //console.log('Loading from cache', url);
+            console.log('Loading from cache', url);
             const dir = url.split('/').slice(0, -1).join('/') + '/';
             meshPromise = GLTFLoader.parse(gl, gltfCache[url], dir).then((gltf) => {
                 return afterLoad(gltf);
             });
         } else {
-            //console.log('Loading ' + url);
+            console.log('Loading ' + url);
             meshPromise = GLTFLoader.load(gl, url)
                 .then((gltf) => {
                     if (url.match(/\.glb/)) {
@@ -742,10 +744,28 @@ export default class ogl {
      *  Removes everything from the scene (including the camera)
      */
     cleanup() {
+        console.log('OGL cleanup');
+
+        // remove event handlers
+        updateHandlers = {};
+        eventHandlers = {};
+        uniforms = { time: [] };
+
         // dynamic objects
         for (const object_id in dynamic_objects_descriptions) {
             this.removeDynamicObject(object_id);
         }
+
+        // cached gltf objects
+        for (const object_id in gltf_objects_transforms) {
+            this.removeModel(object_id);
+        }
+
+        // Note: no need to clean gltfCache
+
+        // clean animations
+        towardsCameraRotatingNodes = [];
+        verticallyRotatingNodes = [];
 
         // normal models
         while (scene.children.length > 0) {
