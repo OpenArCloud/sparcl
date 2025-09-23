@@ -25,14 +25,14 @@
                     {/if}
                 </select>
             </dd>
-            <pre class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
-                    <label>URL: {$selectedP2pService?.url || 'no url'}</label>
-                    {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
+            <ul class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
+                <label for="p2pserviceurl">URL: {$selectedP2pService?.url || 'no url'}</label><br />
+                {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                     {#each $selectedP2pService.properties as prop}
-                        <label>{prop.type}: {prop.value}<br /></label>
+                        <label for="p2pserviceproperty_{prop.type}">{prop.type}: {prop.value}<br /></label>
                     {/each}
                 {/if}
-                </pre>
+            </ul>
         </dl>
         <button
             on:click={() => {
@@ -80,5 +80,13 @@
     dd.select {
         border: 0;
         padding: 0;
+    }
+
+    .serviceurl {
+        font-size: var(--serviceUrlFontSizePx) px;
+        font-family: monospace;
+        direction: ltr;
+        text-align: left;
+        padding-bottom: 3px;
     }
 </style>

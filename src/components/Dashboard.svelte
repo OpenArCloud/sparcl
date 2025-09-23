@@ -52,10 +52,6 @@
         debug_overrideGeopose,
         allowMessageBroker,
         userName,
-        enableCameraPoseSharing,
-        showOtherCameras,
-        enableReticlePoseSharing,
-        showOtherReticles,
     } from '@src/stateStore';
 
     import { lockScreenOrientation, unlockScreenOrientation } from '@core/sensors';
@@ -78,12 +74,13 @@
 
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
     let overrideGeoposePromise: Promise<void>;
-    const serviceUrlFontSizePx = 8;
+    const serviceUrlFontSizePx = 9;
 
     let rmqTestPromise: Promise<void>;
     onMount(() => {
-        if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null)
+        if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null) {
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
+        }
     });
 
     function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
@@ -269,10 +266,10 @@
             {/await}
         {/if}
 
-        <dl>
-            <dt><label for="geoposeServer">GeoPose Services</label></dt>
+        <dl class="nested">
+            <dt><label for="geoposeService">GeoPose Services</label></dt>
             <dd class="select">
-                <select id="geoposeServer" bind:value={$selectedGeoPoseService}>
+                <select id="geoposeService" bind:value={$selectedGeoPoseService}>
                     {#if $availableGeoPoseServices.length === 0}
                         <option value={null} disabled selected>Device sensors (no VPS available)</option>
                         <!--{debug_useGeolocationSensors.set(true)}-->
@@ -284,9 +281,15 @@
                     {/if}
                 </select>
             </dd>
-            <pre class="serviceurl">
-            <label for="geoposeServer">{$selectedGeoPoseService?.url || ''}</label>
-        </pre>
+            {#if $availableGeoPoseServices.length > 0}
+                <dd>
+                    <label for="geoposeServiceTitle">{$selectedGeoPoseService?.title || ''}</label>
+
+                    <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
+                        <label for="geoposeServiceUrl">{$selectedGeoPoseService?.url || ''}</label>
+                    </p>
+                </dd>
+            {/if}
         </dl>
 
         <dl>
@@ -312,7 +315,7 @@
                             on:change={(event) => handleContentServiceSelection(event, service)}
                         />
                         <label for="selectedContentService_{service.id}">{service.title}</label>
-                        <p class="serviceurl">
+                        <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
                             <label for="selectedContentService_{service.id}">{service.url || ''}</label>
                         </p>
 
@@ -362,36 +365,8 @@
             submitButtonLabel="Test Authentication"
             submitFailureMessage="Authentication unsuccessful. Reason:"
             submitSuccessMessage="Authentication successful"
+            {serviceUrlFontSizePx}
         ></MessageBrokerSelector>
-
-        <dl>
-            <table style="width:100%">
-                <tr>
-                    <td style="width:50%" align="left">
-                        <label
-                            ><input name="dashboard-share-camera-pose-checkbox" id="dashboard-share-camera-pose-checkbox" type="checkbox" bind:checked={$enableCameraPoseSharing} /> Share camera pose
-                        </label>
-                    </td>
-                    <td style="width:50%" align="left">
-                        <label
-                            ><input name="dashboard-share-reticle-pose-checkbox" id="dashboard-share-reticle-pose-checkbox" type="checkbox" bind:checked={$enableReticlePoseSharing} /> Share reticle</label
-                        >
-                    </td>
-                </tr>
-                <tr>
-                    <td style="width:50%" align="left">
-                        <label
-                            ><input name="dashboard-show-other-cameras-checkbox" id="dashboard-show-other-cameras-checkbox" type="checkbox" bind:checked={$showOtherCameras} /> Show other cameras
-                        </label>
-                    </td>
-                    <td style="width:50%" align="left">
-                        <label
-                            ><input name="dashboard-show-other-reticles-checkbox" id="dashboard-show-other-reticles-checkbox" type="checkbox" bind:checked={$showOtherReticles} /> Show other reticles
-                        </label>
-                    </td>
-                </tr>
-            </table>
-        </dl>
 
         <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} />
     </details>
@@ -653,10 +628,11 @@
     }
 
     .serviceurl {
-        font-size: calc(var(--serviceUrlFontSizePx) * 1px);
+        font-size: 8px;
+        font-family: monospace;
         direction: ltr;
         text-align: left;
-        padding-bottom: 10px;
+        padding-bottom: 3px;
     }
 
     .center-img {
