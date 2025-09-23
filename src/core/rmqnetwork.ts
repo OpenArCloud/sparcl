@@ -49,7 +49,6 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
     console.log('Connecting to RMQ ' + url);
-    console.log('url', url);
     const stompConfig = new StompConfig();
     stompConfig.brokerURL = url;
     stompConfig.reconnectDelay = 1000;
@@ -149,7 +148,7 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     };
 
     const onError = function (frame: IFrame) {
-        console.log('Error: rabbitmq connection disconnected', frame.body);
+        console.log('Error: RMQ disconnected', frame.body);
     };
 
     rmqClient = new StompClient(stompConfig);

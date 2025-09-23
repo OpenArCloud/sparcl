@@ -304,6 +304,8 @@
     }
 
     async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+        console.log('doLocalization');
+
         // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
         $recentLocalisation.geopose = cameraGeoPose;
@@ -319,7 +321,10 @@
     }
 
     async function retrieveAndPlaceContents(queryGeoPose: Geopose | undefined) {
+        console.log('retrieveAndPlaceContents');
+
         if (!queryGeoPose) {
+            console.warn('No geopose available yet, cannot query contents');
             return;
         }
         const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
@@ -341,6 +346,7 @@
      * Let's the app know that the XRSession was closed.
      */
     export function onXrSessionEnded() {
+        console.log('Viewer.onXrSessionEnded');
         firstPoseReceived = false;
         if ($debug_useGeolocationSensors) {
             stopOrientationSensor();
@@ -441,7 +447,7 @@
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addSensor(new Sensor('gps', SENSORTYPE.geolocation))
                 .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0, Date.now(), 'gps', new Privacy());
-
+            console.log('GPP request:');
             console.log(JSON.stringify(geoPoseRequest));
 
             geoPoseRequest
@@ -461,13 +467,13 @@
                             $context.isLocalisationDone = true;
                         });
 
-                        console.log('GPP response:', data);
-                        console.log(data);
+                        console.log('GPP response:');
+                        console.log(JSON.stringify(data));
 
                         // GeoPoseResp
                         // https://github.com/OpenArCloud/oscp-geopose-protocol
                         let cameraGeoPose = null;
-                        // NOTE: AugmentedCity also can also return neighboring objects in the GPP response
+                        // NOTE: AugmentedCity can also return neighboring objects in the GPP response
                         let optionalScrs: SCR[] = [];
                         if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
                             // data is AugmentedCity format which contains other entries too
@@ -484,9 +490,6 @@
                             console.log(errorMessage);
                             throw errorMessage;
                         }
-
-                        console.log('IMAGE GeoPose:');
-                        console.log(cameraGeoPose);
 
                         resolve({ cameraGeoPose, optionalScrs });
                     })

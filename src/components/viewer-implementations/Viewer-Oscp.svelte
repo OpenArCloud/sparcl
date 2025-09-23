@@ -121,10 +121,7 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (
-            !('agent_geopose_updated' in events) &&
-            !('reticle_update' in events)
-        ) {
+        if (!('agent_geopose_updated' in events) && !('reticle_update' in events)) {
             console.log('Viewer-Oscp: Unknown event received:');
             console.log(events);
             // pass on to parent
@@ -271,6 +268,7 @@
      * Called when the XRSession was closed.
      */
     function onXrSessionEnded() {
+        console.log('Viewer-OSCP.onXrSessionEnded');
         if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;

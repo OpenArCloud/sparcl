@@ -74,7 +74,7 @@
         });
     }
 
-    function placeMarker(id: string, lat: number, lon: number, color: string, title:string|undefined) {
+    function placeMarker(id: string, lat: number, lon: number, color: string, title: string | undefined) {
         if (map == null) {
             return;
         }
@@ -111,11 +111,7 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) &&
-            !('object_created' in events) &&
-            !('clear_session' in events) &&
-            !('agent_geopose_updated' in events)
-        ){
+        if (!('message_broadcasted' in events) && !('object_created' in events) && !('clear_session' in events) && !('agent_geopose_updated' in events)) {
             //console.log('Spectator: Unknown event received:');
             //console.log(events);
             return;
@@ -143,7 +139,7 @@
                     const r = Math.round(255 * data.content.object_description.color[0]);
                     const g = Math.round(255 * data.content.object_description.color[1]);
                     const b = Math.round(255 * data.content.object_description.color[2]);
-                    const markerColor = rgbToHex({r: r, g: g, b: b});
+                    const markerColor = rgbToHex({ r: r, g: g, b: b });
                     const id = data.id as string;
                     placeMarker(id, markerLat, markerLon, markerColor, undefined);
                     ephemeral_scrs[id] = data;

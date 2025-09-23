@@ -29,11 +29,13 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
             this.emit('ready', { network: this });
         });
         this.peer.on('close', () => {
+            console.log(`Connection to the PeerServer closed.`);
             p2pNetworkState.set('not connected');
         });
         this.peer.on('connection', (connection) => {
             this.connections.push(connection);
             connection.on('open', () => {
+                console.log(`Connection to peer ${connection.peer} established.`);
                 connection.send({
                     senderId: this.peerId,
                     type: 'welcome',
@@ -46,6 +48,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                     const connectionIndex = this.connections.findIndex((conn) => conn.label === connection.label);
                     if (connectionIndex !== -1) {
                         this.connections.splice(connectionIndex, 1);
+                        console.log(`Connection to peer ${connection.peer} closed.`);
                     }
                 });
             });
@@ -113,6 +116,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 if (connection) {
                     this.connections.push(connection);
                     connection.on('open', () => {
+                        console.log(`Connection to peer ${connection.peer} established.`);
                         connection.send({
                             senderId: this.peerId,
                             type: 'arrive',
@@ -125,6 +129,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                             const connectionIndex = this.connections.findIndex((conn) => conn.label === connection.label);
                             if (connectionIndex !== -1) {
                                 this.connections.splice(connectionIndex, 1);
+                                console.log(`Connection to peer ${connection.peer} closed.`);
                             }
                         });
                     });

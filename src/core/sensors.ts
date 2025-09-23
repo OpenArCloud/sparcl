@@ -159,7 +159,7 @@ export function lockScreenOrientation(orientation: string) {
     // Code from https://code-boxx.com/lock-screen-orientation/
 
     // It seems that the orientation can only be locked in fullscreen mode
-     if (!isDocumentInFullScreenMode()) {
+    if (!isDocumentInFullScreenMode()) {
         requestFullscreen();
     }
 
@@ -229,5 +229,5 @@ export function exitFullscreen() {
 }
 
 function isDocumentInFullScreenMode() {
-  return document.fullscreenElement !== null;
+    return document.fullscreenElement !== null;
 }

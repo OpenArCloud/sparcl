@@ -111,7 +111,8 @@ export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
  *
  * @type {boolean}  true when dashboard should be shown, false otherwise
  */
-const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
+const showDashboardFromLocalStorage = localStorage.getItem('showdashboard');
+const storedShowDashboard = showDashboardFromLocalStorage === 'true' || showDashboardFromLocalStorage === null; // set true if stored true or undefined
 export const showDashboard = writable(storedShowDashboard);
 showDashboard.subscribe((value) => {
     localStorage.setItem('showdashboard', value === true ? 'true' : 'false');
@@ -454,8 +455,8 @@ debug_enablePointCloudContents.subscribe((value) => {
  *
  * @type {Writable<boolean>}
  */
-const enableOGCFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
-const storedDebug_enableOGCPoIContents = enableOGCFromLocalStorage === 'true' || enableOGCFromLocalStorage == null; // set true if stored true or undefined
+const enableOGCPoIContentsFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
+const storedDebug_enableOGCPoIContents = enableOGCPoIContentsFromLocalStorage === 'true' || enableOGCPoIContentsFromLocalStorage === null; // set true if stored true or undefined
 export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
 debug_enableOGCPoIContents.subscribe((value) => {
     localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
