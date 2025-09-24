@@ -5,7 +5,7 @@
 -->
 
 <script lang="ts">
-    import { onMount, tick, type ComponentType, SvelteComponent } from 'svelte';
+    import { onMount, tick, type ComponentType } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import Selector from '@experiments/Selector.svelte';
 
@@ -23,8 +23,6 @@
         experimentModeSettings,
         hasIntroSeen,
         isLocationAccessAllowed,
-        isLoggedIn,
-        showLogin,
         showDashboard,
         ssr,
         allowMessageBroker,
@@ -51,7 +49,7 @@
     /**
      * Start AR work
      */
-
+    export let urlParams: URLSearchParams;
     let showWelcome: boolean | null = null;
     let showOutro: boolean | null = null;
     let dashboard: Dashboard | null = null;
@@ -62,8 +60,7 @@
     let shouldShowUnavailableInfo: boolean | null = null;
 
     let isLocationAccessRefused = false;
-    let isHeadless = false;
-    let currentSharedValues = {};
+
     let p2p: typeof import('@src/core/p2pnetwork') | null = null; // PeerJS module (optional)
 
     const getViewerInstance = () => viewerInstance;
@@ -117,7 +114,7 @@
                     }
                 }
             }
-        } else if (!isHeadless) {
+        } else {
             p2p?.disconnect();
             p2p = null;
         }
@@ -128,61 +125,25 @@
      **/
     onMount(() => {
         logToElement(document.getElementById('logger')!);
-        updateLogger('--------------------------- New log entry here---------------------------');
+        updateLogger('------------------------------------------------------');
 
-        const urlParams = new URLSearchParams(location.search);
+        console.log('Onboarding.svelte'); ///
+        console.log('URL parameters: ' + urlParams?.toString() || 'none');
 
-        if (urlParams.has('peerid')) {
-            // Start as headless client
-            isHeadless = true;
-            $allowP2pNetwork = true;
+        // Start as AR client
+        // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
+        showWelcome = true;
+        showOutro = false;
 
-            import('@src/core/p2pnetwork').then((p2pModule) => {
-                p2p = p2pModule;
+        // Delay close of dashboard until next request
+        shouldShowDashboard = $showDashboard;
 
-                // TODO: these are only used in the headless client.
-                // normal clients take them from an SSR instead
-                const headlessPeerId = urlParams.get('peerid');
-                const url = urlParams.get('signal');
-                const port = urlParams.get('port');
-                const path = urlParams.get('path') || undefined;
-
-                console.log('Starting headless client...');
-                console.log('  peerid: ' + headlessPeerId);
-                console.log('  signal: ' + (url ? url : 'PeerJS default'));
-                console.log('  port: ' + (port ? port : 'PeerJS default'));
-                console.log('  path: ' + (path ? path : 'PeerJS default'));
-
-                if (headlessPeerId) {
-                    const portToUse = port ? parseInt(port) : null;
-                    p2p.connectWithExplicitUrl({
-                        url,
-                        port: portToUse,
-                        path,
-                        updateftn: (data: any) => {
-                            // DEBUG
-                            console.log(data);
-                            currentSharedValues = data;
-                        },
-                    });
-                }
-            });
-        } else {
-            // Start as AR client
-            // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
-            showWelcome = true;
-            showOutro = false;
-
-            // Delay close of dashboard until next request
-            shouldShowDashboard = $showDashboard;
-
-            if (urlParams.has('create')) {
-                $arMode = ARMODES.create;
-            } else if (urlParams.has('develop')) {
-                $arMode = ARMODES.develop;
-            } else if (urlParams.has('dashboard')) {
-                shouldShowDashboard = true;
-            }
+        if (urlParams?.has('create')) {
+            $arMode = ARMODES.create;
+        } else if (urlParams?.has('develop')) {
+            $arMode = ARMODES.develop;
+        } else if (urlParams?.has('dashboard')) {
+            shouldShowDashboard = true;
         }
     });
 
@@ -331,36 +292,31 @@
 </script>
 
 <!-- AR Dashboard -->
-{#if !isHeadless}
-    {#if arWithDashboard}
-        <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startViewer} />
-    {/if}
 
-    {#if arReady}
-        <aside>
-            <div id="frame">
-                {#if showWelcome}
-                    <WelcomeOverlay
-                        withOkFooter={true}
-                        {shouldShowDashboard}
-                        {shouldShowUnavailableInfo}
-                        {isLocationAccessRefused}
-                        on:okAction={() => closeIntro(false)}
-                        on:dashboardAction={() => closeIntro(true)}
-                        on:requestLocation={requestLocationAccess}
-                    />
-                {:else if showOutro}
-                    <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(true)} />
-                {/if}
-            </div>
-        </aside>
-    {:else if !$arIsAvailable}
-        <Spectator bind:this={spectator} on:broadcast={handleBroadcast} />
-    {/if}
-{:else}
-    <!-- Just for development to verify some internal values -->
-    <h1>Headless Mode</h1>
-    <pre>{JSON.stringify(currentSharedValues, null, 2)}</pre>
+{#if arWithDashboard}
+    <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startViewer} />
+{/if}
+
+{#if arReady}
+    <aside>
+        <div id="frame">
+            {#if showWelcome}
+                <WelcomeOverlay
+                    withOkFooter={true}
+                    {shouldShowDashboard}
+                    {shouldShowUnavailableInfo}
+                    {isLocationAccessRefused}
+                    on:okAction={() => closeIntro(false)}
+                    on:dashboardAction={() => closeIntro(true)}
+                    on:requestLocation={requestLocationAccess}
+                />
+            {:else if showOutro}
+                <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(true)} />
+            {/if}
+        </div>
+    </aside>
+{:else if !$arIsAvailable}
+    <Spectator bind:this={spectator} on:broadcast={handleBroadcast} />
 {/if}
 
 {#if showAr && viewer}

@@ -17,16 +17,31 @@
     import Login from '@src/auth/Login.svelte';
     import Onboarding from '@src/components/Onboarding.svelte';
     import Header from '@components/Header.svelte';
-    import { showLogin, showDashboard, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
+    import Headless from './components/Headless.svelte';
+    import { showLogin, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
+
+    let isHeadless = false;
+    let urlParams: URLSearchParams;
 
     // handle external route if the user not signed in & try to enter some routes
     onMount(() => {
+        urlParams = new URLSearchParams(window.location.search);
+        console.log('App.svelte');
+        console.log('URL parameters: ' + urlParams?.toString() || 'none');
+
+        if (urlParams.has('peerid')) {
+            isHeadless = true;
+            navigate('/');
+            return;
+        }
+
+        // Redirect to login if not logged in and trying to access other routes
         if ((!$isLoggedIn && window.location.pathname !== '/login') || (!$isLoggedIn && window.location.pathname !== '/loginAdmin')) {
             navigate('/login', { replace: true });
         }
     });
 
-    // handle un-valid routes
+    // handle invalid routes
     onMount(() => {
         const validRoutes = ['/'];
 
@@ -61,18 +76,22 @@
     });
 </script>
 
-<!-- Added the Header Component -->
 <Header />
 
 <main>
-    <Router>
-        {#if $isLoggedIn}
-            <!-- Define Routes -->
-            <Route path="/" component={Onboarding} />
-        {:else}
-            <Route path="/login" component={Login} />
-        {/if}
-    </Router>
+    {#if isHeadless}
+        <Router>
+            <Route path="/" component={Headless} {urlParams} />
+        </Router>
+    {:else}
+        <Router>
+            {#if $isLoggedIn}
+                <Route path="/" component={Onboarding} {urlParams} />
+            {:else}
+                <Route path="/login" component={Login} />
+            {/if}
+        </Router>
+    {/if}
 </main>
 
 <style>
