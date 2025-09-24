@@ -11,7 +11,7 @@
     Spectator view is the content shown on non-AR-capable devices.
 -->
 <script lang="ts">
-    import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices } from '@src/stateStore';
+    import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices, debug_overrideGeopose, debug_useOverrideGeopose } from '@src/stateStore';
     import { v4 as uuidv4 } from 'uuid';
 
     import L from 'leaflet';
@@ -24,9 +24,13 @@
     import P2PServiceSelector from './P2PServiceSelector.svelte';
     import { type SCR } from '@oarc/scd-access';
     import { rgbToHex } from '@src/core/common';
+    import { setInitialLocationAndServices } from '@src/core/locationTools';
 
     let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
+    let overrideGeopose = false;
+    let overrideLongitude = 0;
+    let overrideLatitude = 0;
 
     const ephemeral_markers: { [id: string]: L.Layer } = {};
     const ephemeral_scrs: { [id: string]: SCR } = {};
@@ -171,9 +175,23 @@
         }
     }
 
+    function getCurrentPosition(successCallback:(pos:{coords:{longitude:number, latitude:number}})=>any, errorCallback:(error:any)=>any, params:any){
+        if($debug_useOverrideGeopose){
+            const posObject = {
+                coords:{
+                    latitude:$debug_overrideGeopose.position.lat,
+                    longitude:$debug_overrideGeopose.position.lon
+                }
+            };
+            successCallback(posObject);
+        }else{
+            navigator.geolocation.getCurrentPosition(successCallback, errorCallback, params);
+        }
+    }
+
     function mapAction(container: HTMLElement) {
         if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
+            getCurrentPosition(
                 (position) => {
                     map = L.map(container, {
                         center: [position.coords.latitude, position.coords.longitude],
@@ -187,7 +205,7 @@
                         maxZoom: 30,
                     }).addTo(map);
 
-                    map.on('click', (event) => {
+                    map.on('click', (event: any) => {
                         if (shouldPlaceRandomObjects) {
                             const objectDescription = createRandomObjectDescription();
                             shareObject({ objectDescription, lat: event.latlng.lat, lon: event.latlng.lng });
@@ -221,6 +239,11 @@
         await testRmqConnection({ url, username, password });
         connectWithReceiveCallback({ url, username, password, updateFunction: onNetworkEvent });
     }
+
+    async function onUsePositionClick(){
+        map.panTo([$debug_overrideGeopose.position.lat, $debug_overrideGeopose.position.lon]);
+        await setInitialLocationAndServices();
+    }
 </script>
 
 <div id="place-random-object">
@@ -230,6 +253,14 @@
 
 <details>
     <summary>Multiplayer</summary>
+    <label>
+        <input name="override-geopose" id="override-geopose" type="checkbox" bind:checked={$debug_useOverrideGeopose} /> Override GeoPose<br>
+    </label>
+    {#if $debug_useOverrideGeopose}
+        Latitude: <input name="override-latitude" bind:value={$debug_overrideGeopose.position.lat} type="number"/><br>
+        Longitude: <input name="override-longitude" bind:value={$debug_overrideGeopose.position.lon} type="number"/><br>
+        <button on:click={onUsePositionClick}>Use position</button>
+    {/if}
     {#if $availableP2pServices.length === 0 && $availableMessageBrokerServices.length === 0}
         <p>No multiplayer services are available</p>
     {/if}
