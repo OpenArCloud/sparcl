@@ -108,12 +108,6 @@
         receivedContentTitles: [],
     });
 
-    onDestroy(() => {
-        tdEngine.stop();
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
-    });
-
     /**
      * Initial setup.
      *
@@ -339,20 +333,6 @@
     }
 
     /**
-     * Let's the app know that the XRSession was closed.
-     */
-    export function onXrSessionEnded() {
-        console.log('Viewer.onXrSessionEnded');
-        firstPoseReceived = false;
-        if ($debug_useGeolocationSensors) {
-            stopOrientationSensor();
-        }
-        clearInterval(contentQueryInterval);
-        tdEngine.cleanup();
-        dispatch('arSessionEnded');
-    }
-
-    /**
      * Called when no pose was reported from WebXR.
      *
      * @param time time offset at which the updated
@@ -364,6 +344,72 @@
         $context.hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
+
+    /**
+     * Let's the app know that the XRSession was closed.
+     */
+    export function onXrSessionEnded() {
+        console.log('Viewer.onXrSessionEnded');
+
+        // stop sensors if used
+        if ($debug_useGeolocationSensors) {
+            stopOrientationSensor();
+        }
+
+        // clear tracking context
+        firstPoseReceived = false;
+
+        // clear localization context
+        $context.isLocalized = false;
+        $context.isLocalizing = false;
+        $context.isLocalisationDone = false;
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+        $context.showFooter = true;
+
+        // clear content querying context
+        clearInterval(contentQueryInterval);
+        $receivedScrs = [];
+        $context.receivedContentTitles = [];
+        loadedH3Indices = [];
+
+        // clear rendering context
+        tdEngine.cleanup();
+
+        // broadcast event to parent
+        dispatch('arSessionEnded');
+    }
+
+    /**
+     * Show UI for localization again.
+     */
+    export function relocalize() {
+        console.log('Viewer.relocalize');
+
+        // clear localization context
+        $context.isLocalized = false;
+        $context.isLocalizing = false;
+        $context.isLocalisationDone = false;
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+        $context.showFooter = true;
+
+        // clear content querying context
+        clearInterval(contentQueryInterval);
+        $receivedScrs = [];
+        $context.receivedContentTitles = [];
+        loadedH3Indices = [];
+
+        // clear rendering context
+        tdEngine.reinitialize();
+    }
+
+    onDestroy(() => {
+        console.log('Viewer.onDestroy');
+
+        // stop rendering engine
+        tdEngine.stop();
+    });
 
     /**
      * Trigger localisation of the device globally using a GeoPose service.
@@ -497,27 +543,6 @@
                     });
             }
         });
-    }
-
-    /**
-     * Show ui for localisation again.
-     */
-    export function relocalize() {
-        clearInterval(contentQueryInterval);
-
-        $context.isLocalized = false;
-        $context.isLocalizing = false;
-        $context.isLocalisationDone = false;
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
-
-        $receivedScrs = [];
-        $context.receivedContentTitles = [];
-        loadedH3Indices = [];
-
-        tdEngine.reinitialize();
-
-        $context.showFooter = true;
     }
 
     /**
