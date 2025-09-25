@@ -228,7 +228,7 @@
                         $context.isLocalized = true;
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            $context.showFooter = false;
+                            $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
                         return { cameraGeoPose: $debug_overrideGeopose };
@@ -280,7 +280,7 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($recentLocalisation.geopose?.position != undefined && $recentLocalisation.floorpose?.transform?.position != undefined) {
+            if ($recentLocalisation.geopose?.position !== undefined && $recentLocalisation.floorpose?.transform?.position !== undefined) {
                 const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
                 const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
                 currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
@@ -365,10 +365,10 @@
         // clear localization context
         $context.isLocalized = false;
         $context.isLocalizing = false;
-        $context.isLocalisationDone = false;
+        //$context.isLocalisationDone = false; // Note: do not clear this otherwise the ARCloudOverlay wants to come up again
         $recentLocalisation.geopose = {};
         $recentLocalisation.floorpose = {};
-        $context.showFooter = true;
+        $context.showFooter = false;
 
         // clear content querying context
         clearInterval(contentQueryInterval);
@@ -472,7 +472,7 @@
                     $context.isLocalized = true;
                     // allow relocalization after a few seconds
                     wait(4000).then(() => {
-                        $context.showFooter = false;
+                        $context.showFooter = true;
                         $context.isLocalisationDone = true;
                     });
                     console.log('SENSOR GeoPose:');
@@ -507,8 +507,9 @@
                     .then((data) => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
+                        // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            $context.showFooter = false;
+                            $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
 
