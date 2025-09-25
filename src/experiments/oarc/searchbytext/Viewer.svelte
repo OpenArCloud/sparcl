@@ -9,18 +9,19 @@
     import type { Geopose } from '@oarc/scd-access';
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
-    import { LOCALPOSE } from '@src/core/common';
+    import { initialLocation, recentLocalisation } from '@src/stateStore';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
     let tdEngine: ogl;
     let settings: Writable<Record<string, unknown>> = writable({});
-    let currentGeopose: any;
 
     let searchEnabled = true;
 
     let parentState = writable();
     setContext('state', parentState);
+
+    let currentGeopose: Geopose | undefined = undefined;
 
     // Set the PoI search baseURL in the env file
     const baseUrl = import.meta.env.VITE_POI_SEARCH_BASEURL || undefined;
@@ -73,7 +74,11 @@
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
         parentInstance.onXrFrameUpdate(time, frame, floorPose);
-        //currentGeopose = getGeoposeFromXRViewerPose(floorPose);
+        if ($recentLocalisation.geopose !== undefined) {
+            currentGeopose = parentInstance.getCameraGeoposeFromXRViewerPose(floorPose);
+        } else {
+            currentGeopose = undefined;
+        }
         xrEngine.setViewportForView(floorPose.views[0]);
         tdEngine.render(time, floorPose.views[0]);
     }
@@ -97,28 +102,6 @@
         parentInstance.onXrNoPose(time, frame, floorPose);
     }
 
-    function getGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
-        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
-        const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
-        const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w).multiply(
-            xrQuatCorrection,
-        );
-        const globalObjectPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(position, quaternion);
-        return {
-            position: {
-                lat: globalObjectPose.position.lat,
-                lon: globalObjectPose.position.lon,
-                h: globalObjectPose.position.h,
-            },
-            quaternion: {
-                x: globalObjectPose.quaternion.x,
-                y: globalObjectPose.quaternion.y,
-                z: globalObjectPose.quaternion.z,
-                w: globalObjectPose.quaternion.w,
-            },
-        };
-    }
-
     function placePOI(name: string, lat: number, lon: number) {
         if (name === undefined || lat === undefined || lon === undefined) {
             console.log('Undefined values in POI data');
@@ -135,7 +118,7 @@
             console.log('POI ' + featureName + ' added.');
         }).transform;
         tdEngine.setVerticallyRotating(nodeTransform);
-        
+
         let localTextPosition = localFeaturePose.position.clone();
         localTextPosition.y += 3;
         const textColor = new Vec3(0.063, 0.741, 1.0);
@@ -151,10 +134,24 @@
 
     async function getPlaces(query: String) {
         if (searchEnabled) {
+            // reset 3D engine to remove old POI markers
             tdEngine.reinitialize();
-            const myLocation = await getCurrentLocation();
-            const lat = myLocation.lat;
-            const lon = myLocation.lon;
+
+            // use initial location as fallback
+            let lat = $initialLocation.lat;
+            let lon = $initialLocation.lon;
+            if (currentGeopose !== undefined) {
+                // If avaialable, use the last known geopose from visual localization and tracking
+                const myFineLocation = currentGeopose;
+                lat = myFineLocation?.position.lat;
+                lon = myFineLocation?.position.lon;
+            } else {
+                // as fallback, query the GPS. slow and inaccurate
+                const myCoarseLocation = await getCurrentLocation();
+                lat = myCoarseLocation.lat;
+                lon = myCoarseLocation.lon;
+            }
+
             if (!baseUrl) {
                 console.error('baseUrl is not defined!');
                 return;

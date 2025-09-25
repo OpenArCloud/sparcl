@@ -280,10 +280,8 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($recentLocalisation.geopose?.position !== undefined && $recentLocalisation.floorpose?.transform?.position !== undefined) {
-                const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
-                const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
-                currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
+            if ($recentLocalisation.geopose?.position !== undefined) {
+                currentGeoPose = getCameraGeoposeFromXRViewerPose(floorPose);
                 if ($enableCameraPoseSharing) {
                     try {
                         shareCameraPose(floorPose);
@@ -935,6 +933,17 @@
             value: message_body,
             routing_key: rmq_topic,
         });
+    }
+
+    // used by child components
+    export function getCameraGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
+        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
+        const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
+        const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w).multiply(
+            xrQuatCorrection,
+        );
+        const cameraGeoPose = getRenderer().convertLocalPoseToGeoPose(position, quaternion);
+        return cameraGeoPose;
     }
 
     /**
