@@ -306,10 +306,13 @@
         onLocalizationSuccess(floorPose, cameraGeoPose);
 
         // now get the contents from the SCD(s)
-        retrieveAndPlaceContents(currentGeoPose);
+        //await retrieveAndPlaceContents(currentGeoPose);
+        // TODO: this first one always fails because currentGeoPose is not yet available
+        // (floorPose here is already outdated because the device has moved meanwhile)
+
         // and repeat periodically
         contentQueryInterval = setInterval(async () => {
-            retrieveAndPlaceContents(currentGeoPose);
+            await retrieveAndPlaceContents(currentGeoPose);
         }, 5000);
     }
 
@@ -569,27 +572,39 @@
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(scrs: SCR[][]) {
-        let showContentsLog = false;
+    export async function placeContent(scrs: SCR[][]) {
         scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
             response.forEach((record) => {
+                // TODO: validate here whether we received a proper SCR
+
+                // TODO: first save the records and then start to instantiate the objects asynchronously
+
+                // Check whether we have already received this SCR
                 if ($receivedScrs.map((scr) => scr.id).includes(record.id)) {
                     return;
                 }
-                // TODO: validate here whether we received a proper SCR
-                // TODO: we can check here whether we have received this content already and break if yes.
 
-                // DEBUG
-                //console.log("Content");
-                //console.log(" -id: " + record.content.id);
-                //console.log(" -type: " + record.content.type);
-
-                // TODO: first save the records and then start to instantiate the objects
-                if (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON') {
-                    // only list the 3D models and not ephemeral objects nor stream objects
+                // remember the received SCRs except the streams and ignore them when we receive them again
+                if (record.content.type !== 'sensor_stream' && record.content.type !== 'geopose_stream') {
                     $receivedScrs.push(record);
+                    if (debugScrs) {
+                        // DEBUG
+                        console.log('New SCR received:');
+                        console.log(' -id: ' + record.content.id);
+                        console.log(' -type: ' + record.content.type);
+                        console.log(' -title: ' + record.content.title);
+                        console.log(' -keywords: ' + record.content.keywords);
+                        console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                    }
+                }
+
+                // list on the GUI the received contents of certain types
+                if (
+                    (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON',
+                    record.content.type === 'VIDEO' || record.content.type === 'POINT_CLOUD')
+                ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
 
