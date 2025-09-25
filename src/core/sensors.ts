@@ -19,7 +19,10 @@ import type { GeoposeResponseType } from '@oarc/gpp-access';
 // https://w3c.github.io/accelerometer/#screen-coordinate-system
 
 // TODO: add proper typings for this!
-let sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
+let sensor: null | AbsoluteOrientationSensor = null;
+if (typeof AbsoluteOrientationSensor != "undefined"){
+    sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
+};
 let sensorMat4 = new Float32Array(16);
 let sensorQuat = quat.create();
 
@@ -32,7 +35,7 @@ export function startOrientationSensor() {
         navigator.permissions.query({ name: 'magnetometer' as any }),
         navigator.permissions.query({ name: 'gyroscope' as any }),
     ]).then((results) => {
-        if (results.every((result) => result.state === 'granted')) {
+        if (results.every((result) => result.state === 'granted') && sensor) {
             sensor.onerror = (event: any) => console.log(event.error.name, event.error.message);
             sensor.onreading = () => {
                 sensor.populateMatrix(sensorMat4);
@@ -53,7 +56,7 @@ export function startOrientationSensor() {
  * Stops the AbsoluteOrientationSensor
  */
 export function stopOrientationSensor() {
-    sensor.stop();
+    sensor?.stop();
 }
 
 // https://w3c.github.io/geolocation-sensor/
