@@ -23,7 +23,7 @@ import type { ObjectDescription, ValueOf } from '../../../types/xr';
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
-    plane: 'plane',
+    //plane: 'plane', // do not draw planes, they are invisible from one side
     cylinder: 'cylinder',
     cone: 'cone',
     torus: 'torus',
