@@ -90,6 +90,9 @@
     // Multiplayer: poses of others
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
 
+    // whether to print info about each received SCR in the console
+    const debugScrs = false;
+
     // TODO: Setup event target array, based on info received from SCD
     const context: Writable<{
         hasLostTracking: boolean;
@@ -294,7 +297,7 @@
     }
 
     async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
-        console.log('doLocalization');
+        if (debugScrs) console.log('doLocalization');
 
         // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
@@ -311,7 +314,7 @@
     }
 
     async function retrieveAndPlaceContents(queryGeoPose: Geopose | undefined) {
-        console.log('retrieveAndPlaceContents');
+        if (debugScrs) console.log('retrieveAndPlaceContents');
 
         if (!queryGeoPose) {
             console.warn('No geopose available yet, cannot query contents');
@@ -349,7 +352,7 @@
      * Let's the app know that the XRSession was closed.
      */
     export function onXrSessionEnded() {
-        console.log('Viewer.onXrSessionEnded');
+        if (debugScrs) console.log('Viewer.onXrSessionEnded');
 
         // stop sensors if used
         if ($debug_useGeolocationSensors) {
@@ -384,7 +387,7 @@
      * Show UI for localization again.
      */
     export function relocalize() {
-        console.log('Viewer.relocalize');
+        if (debugScrs) console.log('Viewer.relocalize');
 
         // clear localization context
         $context.isLocalized = false;
@@ -405,7 +408,7 @@
     }
 
     onDestroy(() => {
-        console.log('Viewer.onDestroy');
+        if (debugScrs) console.log('Viewer.onDestroy');
 
         // stop rendering engine
         tdEngine.stop();
@@ -551,7 +554,7 @@
     export function getContentsInH3Cell(h3Index = $initialLocation.h3Index, topic = kDefaultOscpScdTopic) {
         const allScrPromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                console.log(`Receiving scrs from ${service.url} for H3 cell ${h3Index} and topic ${topic}...`);
+                console.log(`Retrieving SCRs from ${service.url} for H3 cell ${h3Index} and topic ${topic} ...`);
                 let scrPromises = getContentsAtLocation(service.url, topic, h3Index); // returns Promise<SCR[]>
                 result.push(scrPromises);
             }
@@ -595,10 +598,10 @@
                 const content_definitions: Record<string, string> = {};
                 if (record.content.definitions != undefined) {
                     const d_entries = record.content.definitions.entries();
-                    //console.log(" -definitions:")
+                    if (debugScrs) console.log(' -definitions:');
                     for (let d_entry of d_entries) {
                         const d = d_entry[1];
-                        //console.log("  -" + d.type + ": " + d.value);
+                        if (debugScrs) console.log('  -' + d.type + ': ' + d.value);
                         content_definitions[d.type] = d.value;
                     }
                 }
@@ -617,7 +620,6 @@
                     case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
                     case 'placeholder': {
                         // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
-                        showContentsLog = true; // show log if at least one 3D object was received
 
                         // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
@@ -640,9 +642,10 @@
                         //             console.log('Error: unexpected sticker subtype: ' + subtype);
                         //             break;
                         //     }
+
                         if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
-                            // TODO load all, not only first reference
+                            // TODO: load all, not only first reference
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
@@ -700,10 +703,11 @@
                     }
 
                     case 'sensor_stream': {
+                        if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
+
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-
                         const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
@@ -729,9 +733,9 @@
                             } else {
                                 url = record.content.refs ? record.content.refs[0].url : '';
                             }
-                            tdEngine.addPointCloud(url, localPosition, localQuaternion);
+                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion);
                         } else {
-                            console.log('A POINTCLOUD content was received but this type is disabled');
+                            console.log(`A POINTCLOUD content ${record.content.title} was received but this type is disabled`);
                         }
                         break;
                     }
@@ -790,7 +794,7 @@
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
                                     const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
                                         //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
-                                        console.log('POI ' + featureName + ' added.');
+                                        if (debugScrs) console.log('POI ' + featureName + ' added.');
                                     }).transform;
                                     tdEngine.setVerticallyRotating(nodeTransform);
 
@@ -812,7 +816,7 @@
 
                     case 'TEXT': {
                         if (!$debug_enableOGCPoIContents) {
-                            console.log('A TEXT content was received but this type is disabled');
+                            console.log(`A TEXT content ${record.content.title} was received but this type is disabled`);
                             break;
                         }
                         const url = record.content.refs ? record.content.refs[0].url : '';
@@ -826,8 +830,6 @@
                                 }
                             })
                             .then((textdata) => {
-                                //console.log("TEXT received:")
-                                //console.log(textdata)
                                 tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
                             })
                             .catch((error) => {
@@ -849,14 +851,6 @@
                 }
             });
         });
-
-        // DEBUG
-        if (showContentsLog) {
-            console.log('Received contents: ');
-            $receivedScrs.forEach((record) => {
-                console.log('  ' + record.content.title);
-            });
-        }
 
         tdEngine.updateSceneGraphTransforms();
 

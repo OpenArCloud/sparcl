@@ -95,6 +95,9 @@ let verticallyRotatingNodes: Transform[] = [];
 
 let gltfCache: Record<string, GLTFDescription> = {};
 
+// whether to print verbose logs in the console
+const debugOgl = false;
+
 export interface ImportResult {
     meshes: Promise<Mesh[]>;
     transform: Transform;
@@ -139,10 +142,10 @@ export default class ogl {
      * Initialize the virtual environment
      */
     initScene() {
-        console.log('OGL initScene');
+        if (debugOgl) console.log('OGL initScene');
 
         if (!gl) {
-            console.log('GL is not initilized yet!');
+            console.log('OGL WARNING: GL is not initilized yet!');
             return;
         }
 
@@ -155,10 +158,10 @@ export default class ogl {
         // To overcome this problem, we create an OGL texture here which we will never use but it reserves ID 0 in view of OGL.
         loadLogoTexture(gl, '/media/icons/icon_x48.png').then((texture) => {
             if (texture === undefined) {
-                console.log('Error: logo texture ID is undefined!');
+                console.log('OGL ERROR: logo texture ID is undefined!');
                 return;
             }
-            console.log('Dummy TEXTURE ID: ' + texture.id);
+            if(debugOgl) console.log('OGL Dummy TEXTURE ID: ' + texture.id);
             const dummyProgram = createLogoProgram(gl, texture);
             const dummyGeometry = new Plane(gl, { width: 0.1, height: 0.1 });
             const dummyMesh = new Mesh(gl, {
@@ -182,6 +185,7 @@ export default class ogl {
      * @returns {Transform}
      */
     addPlaceholder(keywords: string | string[] | undefined, position: Vec3, orientation: Quat) {
+        if (debugOgl) console.log('OGL addPlaceholder: ' + position + ' ' + orientation);
         const placeholder = getDefaultPlaceholder(gl);
         placeholder.position.copy(position);
         placeholder.quaternion.copy(orientation);
@@ -252,6 +256,7 @@ export default class ogl {
      * @returns {ImportResult}
      */
     addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0), callback?: (mesh: Mesh) => void, id?: string): ImportResult {
+        if(debugOgl) console.log('OGL addModel: ' + url);
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position.copy(position);
         gltfScene.quaternion.copy(orientation);
@@ -283,13 +288,13 @@ export default class ogl {
 
         let meshPromise;
         if (Object.keys(gltfCache).includes(url)) {
-            console.log('Loading from cache', url);
+            if(debugOgl) console.log('OGL loading from cache: ', url);
             const dir = url.split('/').slice(0, -1).join('/') + '/';
             meshPromise = GLTFLoader.parse(gl, gltfCache[url], dir).then((gltf) => {
                 return afterLoad(gltf);
             });
         } else {
-            console.log('Loading ' + url);
+            if(debugOgl) console.log('OGL loading from Web: ' + url);
             meshPromise = GLTFLoader.load(gl, url)
                 .then((gltf) => {
                     if (url.match(/\.glb/)) {
@@ -301,7 +306,7 @@ export default class ogl {
                     return afterLoad(gltf);
                 })
                 .catch((error) => {
-                    console.error(error);
+                    console.error('OGL ERROR: ' + error);
                     console.log('Unable to load model from URL: ' + url);
                     console.log('Adding placeholder box instead');
                     let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false); // red
@@ -398,7 +403,7 @@ export default class ogl {
      * @returns {Mesh}
      */
     addObject(position: Vec3, orientation: Quat, object_description: ObjectDescription) {
-        console.log('OGL addObject: ' + object_description);
+        if(debugOgl) console.log('OGL addObject: ' + object_description);
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
         mesh.position.copy(position);
         mesh.quaternion.copy(orientation);
@@ -407,6 +412,7 @@ export default class ogl {
     }
 
     addParticleObject(position: Vec3, orientation: Quat, shape: ParticleShape, baseColor: string, pointSize: number, intensity: number, systemSize: number, speed: number) {
+        if(debugOgl) console.log('OGL addParticleObject');
         const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
         particles.mesh.position.copy(position);
         particles.mesh.quaternion.copy(orientation);
@@ -420,7 +426,7 @@ export default class ogl {
             setIntensity(particles, newIntensity);
             return newIntensity;
         } else {
-            console.error('Tried to modify missing particle system!');
+            console.error('OGL Tried to modify missing particle system!');
             return -1;
         }
     }
@@ -435,7 +441,7 @@ export default class ogl {
      * @returns {Mesh}  The newly created mesh
      */
     addDynamicObject(object_id: string, position: Vec3, orientation: Quat, object_description: ObjectDescription | null = null) {
-        console.log('OGL addDynamicObject: ' + object_id);
+        if(debugOgl) console.log('OGL addDynamicObject: ' + object_id);
         let description = object_description || {
             version: 2,
             color: [1.0, 1.0, 1.0, 0.5],
@@ -465,7 +471,7 @@ export default class ogl {
     updateDynamicObject(object_id: string, position: Vec3 | null = null, orientation: Quat | null = null, object_description: ObjectDescription | null = null) {
         //console.log("OGL updateDynamicObject: " + object_id);
         if (!(object_id in dynamic_objects_descriptions)) {
-            console.log('WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
+            console.log('OGL WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
             return false;
         }
         const old_position = dynamic_objects_meshes[object_id].position;
@@ -498,7 +504,7 @@ export default class ogl {
         if (eventHandler) {
             this.addClickEvent(newObject, eventHandler);
         }
-        //console.log(object_id + ' has changed!');
+        //console.log('OGL dynamic object has changed: ' + object_id);
         return true;
     }
 
@@ -565,8 +571,8 @@ export default class ogl {
         return axes;
     }
 
-    addPointCloud(url: string, position: Vec3, quaternion: Quat) {
-        console.log('Adding point cloud ' + url);
+    async addPointCloudObject(url: string, position: Vec3, quaternion: Quat) {
+        if(debugOgl) console.log('OGL addPointCloudObject ' + url);
         MyPLYLoader.load(gl, url).then((geometry) => {
             if (geometry == null) {
                 return; // do nothing
@@ -586,8 +592,8 @@ export default class ogl {
         });
     }
 
-    addLogoObject(url: string, position: Vec3, quaternion: Quat, width = 1.0, height = 1.0) {
-        console.log('OGL addLogoObject ' + url);
+    async addLogoObject(url: string, position: Vec3, quaternion: Quat, width = 1.0, height = 1.0) {
+        if(debugOgl) console.log('OGL addLogoObject ' + url);
         loadLogoTexture(gl, url).then((texture) => {
             const logoProgram = createLogoProgram(gl, texture);
             const planeGeometry = new Plane(gl, {
@@ -607,7 +613,7 @@ export default class ogl {
     }
 
     async addTextObject(position: Vec3, quaternion: Quat, string: string, textColor: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
-        console.log('addTextOject: ' + string);
+        if(debugOgl) console.log('OGL addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
         const textMesh: Mesh = await loadTextMesh(gl, fontName, string, textColor);
         textMesh.position.copy(position);
@@ -617,7 +623,7 @@ export default class ogl {
     }
 
     async addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string) {
-        console.log('addVideoObject: ' + videoUrl);
+        if(debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
         const videoInfo = await videoHelper.loadVideo(videoUrl);
         const videoBox = videoHelper.createVideoBox(gl, scene, position, quaternion, videoInfo.videoId);
         this.addClickEvent(videoBox, () => {
@@ -720,7 +726,7 @@ export default class ogl {
     }
 
     removeDynamicObject(object_id: string) {
-        console.log('OGL removeDynamicObject: ' + object_id);
+        if(debugOgl) console.log('OGL removeDynamicObject: ' + object_id);
         if (!(object_id in dynamic_objects_meshes)) {
             console.log('WARNING: tried to delete object ' + object_id + ' which is not in the scene');
             return;
@@ -744,7 +750,7 @@ export default class ogl {
      *  Removes everything from the scene (including the camera)
      */
     cleanup() {
-        console.log('OGL cleanup');
+        if(debugOgl) console.log('OGL cleanup');
 
         // remove event handlers
         updateHandlers = {};
@@ -982,7 +988,7 @@ export default class ogl {
      */
     addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
         // TODO: implement general content placement
-        console.log('Warning: content placement is not implemented yet!');
+        console.log('OGL WARNING: addSpatialContentRecord is not implemented yet!');
         const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
 
         // calculate relative position w.r.t the camera in ENU system

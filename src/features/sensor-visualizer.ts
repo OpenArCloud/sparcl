@@ -8,6 +8,8 @@ let particleList: Record<string, ParticleSystem> = {};
 
 let textList: Record<string, TextSensor> = {};
 
+const debugSensors = false;
+
 export function createSensorVisualization(tdEngine: ogl, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
     switch (content_definitions.visualizationType) {
         case 'particle':
@@ -20,12 +22,12 @@ export function createSensorVisualization(tdEngine: ogl, localPosition: Vec3, lo
 }
 
 function createParticleSensor(tdEngine: ogl, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
-    console.log('Adding particle system', localPosition, localQuaternion);
     const sensor_id = content_definitions['sensor_id'];
     if (!sensor_id) {
         console.error('ERROR: Missing sensor_id field in content record!');
         return undefined;
     }
+    if (debugSensors) console.log('Adding sensor as particle system: ', sensor_id);
     const baseColor = content_definitions['baseColor'] ?? '0.5,0.5,0.5';
     const pointSize = parseFloat(content_definitions['pointSize'] ?? '200.0');
     const intensity = parseInt(content_definitions['intensity'] ?? '100');
@@ -54,12 +56,12 @@ function createParticleSensor(tdEngine: ogl, localPosition: Vec3, localQuaternio
 }
 
 function createTextSensor(tdEngine: ogl, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
-    console.log('Adding text sensor', localPosition, localQuaternion);
     const sensor_id = content_definitions['sensor_id'];
     if (!sensor_id) {
         console.error('ERROR: Missing sensor_id field in content record!');
         return undefined;
     }
+    if (debugSensors) console.log('Adding sensor as text: ', sensor_id);
 
     setSensorText(sensor_id, `0`, tdEngine, new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)), localQuaternion);
 
@@ -98,7 +100,7 @@ export function setSensorText(id: string, value: string, tdEngine: ogl, position
     }
 
     if (!position || !quaternion) {
-        console.error('Missing position or quaternion');
+        console.error('Missing sensor position or quaternion');
         return;
     }
 
