@@ -14,10 +14,12 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
     constructor(public peerJsServerConfig: PeerJSOption) {
         super();
     }
+
     public peer?: Peer;
     public peerId?: PeerId;
     public peerMetadata?: PeerMetadata;
     public connections: DataConnection[] = [];
+
     connect(peerId: PeerId, peerMetadata?: PeerMetadata | undefined): void {
         this.peerId = peerId;
         this.peerMetadata = peerMetadata;
@@ -55,7 +57,9 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
             });
         });
     }
+
     send(message: BroadcastChannelMessage): void {
+        //console.log(`SEND: ${message}`);
         this.connections.forEach((connection) => {
             if (connection.open) {
                 connection.send(message);
@@ -85,6 +89,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 }
                 break;
             default:
+                //console.log(`RECEIVE: ${message}`);
                 if (!('data' in message)) {
                     this.emit('message', message);
                 } else {
