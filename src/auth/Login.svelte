@@ -20,7 +20,6 @@
     let auth0Client: Auth0Client;
 
     onMount(async () => {
-        console.log('Login.svelte'); ///
         try {
             // Initialize Auth0 client with configuration
             auth0Client = await createAuth0Client({
