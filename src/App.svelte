@@ -21,15 +21,15 @@
     import { showLogin, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
 
     let isHeadless = false;
-    let urlParams: URLSearchParams;
+    // NOTE: urlParams must be read here, not in onMount, otherwise it will not be available in the initial render
+    let urlParams: URLSearchParams = new URLSearchParams(window.location.search);
 
     // handle external route if the user not signed in & try to enter some routes
     onMount(() => {
-        urlParams = new URLSearchParams(window.location.search);
         console.log('App.svelte');
         console.log('URL parameters: ' + urlParams?.toString() || 'none');
 
-        if (urlParams.has('peerid')) {
+        if (urlParams.has('headless') && urlParams.get('headless') === 'true') {
             isHeadless = true;
             navigate('/');
             return;
@@ -43,6 +43,10 @@
 
     // handle invalid routes
     onMount(() => {
+        if (isHeadless) {
+            return;
+        }
+
         const validRoutes = ['/'];
 
         // Check if user is logged in and the route is invalid
@@ -55,6 +59,10 @@
     const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
     onMount(() => {
+        if (isHeadless) {
+            return;
+        }
+
         // If authentication is disabled, set localStorage
         if (userWithoutAuth) {
             isLoggedIn.set(true);

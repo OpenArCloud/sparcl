@@ -11,17 +11,15 @@ import { type DataConnection, Peer, type PeerJSOption } from 'peerjs';
 import { p2pNetworkState } from '../stateStore';
 
 export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> implements NetworkAdapterInterface {
-    constructor(public peerJsServerConfig: PeerJSOption) {
+    constructor(public peerJsServerConfig: PeerJSOption){
         super();
     }
 
     public peer?: Peer;
-    public peerId?: PeerId;
     public peerMetadata?: PeerMetadata;
     public connections: DataConnection[] = [];
 
     connect(peerId: PeerId, peerMetadata?: PeerMetadata | undefined): void {
-        this.peerId = peerId;
         this.peerMetadata = peerMetadata;
         this.peer = new Peer(peerId, this.peerJsServerConfig);
         this.peer.on('open', (id) => {
@@ -39,7 +37,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
             connection.on('open', () => {
                 console.log(`Connection to peer ${connection.peer} established.`);
                 connection.send({
-                    senderId: this.peerId,
+                    senderId: this.peer!.id,
                     type: 'welcome',
                     peerMetadata: this.peerMetadata,
                 });
@@ -74,7 +72,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 {
                     const { peerMetadata } = message as ArriveMessage;
                     this.send({
-                        senderId: this.peerId!,
+                        senderId: this.peer!.id as PeerId,
                         targetId: senderId,
                         type: 'welcome',
                         peerMetadata: this.peerMetadata!,
@@ -124,7 +122,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                     connection.on('open', () => {
                         console.log(`Connection to peer ${connection.peer} established.`);
                         connection.send({
-                            senderId: this.peerId,
+                            senderId: this.peer!.id,
                             type: 'arrive',
                             peerMetadata: this.peerMetadata,
                         });
