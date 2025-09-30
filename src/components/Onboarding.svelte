@@ -5,7 +5,7 @@
 -->
 
 <script lang="ts">
-    import { onMount, tick, type ComponentType } from 'svelte';
+    import { onMount, onDestroy, tick, type ComponentType } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import Selector from '@experiments/Selector.svelte';
 
@@ -127,8 +127,8 @@
         logToElement(document.getElementById('logger')!);
         updateLogger('------------------------------------------------------');
 
-        console.log('Onboarding.svelte'); ///
-        console.log('URL parameters: ' + urlParams?.toString() || 'none');
+        //console.log('Onboarding.svelte');
+        //console.log('URL parameters: ' + urlParams?.toString() || 'none');
 
         // Start as AR client
         // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
@@ -145,6 +145,17 @@
         } else if (urlParams?.has('dashboard')) {
             showDashboardRequested = true;
         }
+    });
+
+    onDestroy(() => {
+        //console.log('Onboarding.svelte onDestroy');
+        p2p?.disconnect();
+        p2p = null;
+        rmq.rmqDisconnect();
+        viewerInstance = null;
+        viewer = null; 
+        spectator = null;
+        dashboard = null;
     });
 
     /**

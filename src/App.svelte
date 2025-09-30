@@ -26,8 +26,8 @@
 
     // handle external route if the user not signed in & try to enter some routes
     onMount(() => {
-        console.log('App.svelte');
-        console.log('URL parameters: ' + urlParams?.toString() || 'none');
+        //console.log('App.svelte');
+        //console.log('URL parameters: ' + urlParams?.toString() || 'none');
 
         if (urlParams.has('headless') && urlParams.get('headless') === 'true') {
             isHeadless = true;

@@ -31,8 +31,8 @@
     const h3Index = urlParams.get('h3index');
 
     onMount(() => {
-        console.log('Headless.svelte'); ///
-        console.log('URL parameters: ' + urlParams?.toString() || 'none');
+        //console.log('Headless.svelte');
+        //console.log('URL parameters: ' + urlParams?.toString() || 'none');
 
         allowP2pNetwork.set(true);
         import('@src/core/p2pnetwork').then((p2pModule) => {
