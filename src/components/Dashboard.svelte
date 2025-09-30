@@ -106,13 +106,14 @@
                 // Check if the user entered without auth
                 isAgentNameReadonly.set(false);
                 myAgentName.set($myAgentName);
-            } else if (userDetailsObject.email !== import.meta.env.VITE_AUTH_ADMIN_USERID && userDetailsObject.username !== import.meta.env.VITE_AUTH_ADMIN_USERNAME) {
-                // Check if the user is not admin username
-
-                // Extract the first name from username
-                const userName = userDetailsObject.email.split('@')[0].replace(/\./g, '_');
-                myAgentName.set(userName); // Set the input value to the first name
+            } else if (userDetailsObject && userDetailsObject.email) {
+                // Extract the first name from email
+                const firstName = userDetailsObject.email.split('@')[0].replace(/\./g, '_');
+                myAgentName.set(firstName);
                 isAgentNameReadonly.set(true);
+            } else {
+                myAgentName.set('anonymous');
+                isAgentNameReadonly.set(false);
             }
         } catch (error) {
             console.error('Failed to parse userDetailsObject:', error);

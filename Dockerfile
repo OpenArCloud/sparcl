@@ -1,13 +1,55 @@
-# build environment
-FROM node:20.14.0 as build
+# TODO use node:lts after this has been fixed https://github.com/nodejs/docker-node/issues/1946
+FROM node:22.7.0 AS build
+
 WORKDIR /app
-COPY . ./
+# package-lock.json is windows-specific and "npm ci" can't be used
+#COPY package.json ./
+#RUN npm install --verbose
+COPY package*.json ./
 RUN npm ci
+COPY . ./
+
+ARG VITE_SSD_ROOT_URL
+ARG VITE_AUTH_AUTH0_DOMAIN
+ARG VITE_AUTH_AUTH0_CLIENTID
+ARG VITE_NOAUTH
+ARG VITE_NOAUTH_USER_NAME
+ARG VITE_NOAUTH_USER_EMAIL
+ARG VITE_AUTH_REDIRECT_URI
+ARG VITE_RMQ_TOPIC_GEOPOSE_UPDATE
+ARG VITE_RMQ_TOPIC_OBJECT_CREATED
+ARG VITE_RMQ_TOPIC_SENSOR_UPDATE
+ARG VITE_RMQ_TOPIC_RETICLE_UPDATE
+
+ENV VITE_SSD_ROOT_URL=${VITE_SSD_ROOT_URL}
+ENV VITE_AUTH_AZURE_CLIENT_ID=${VITE_AUTH_AZURE_CLIENT_ID}
+ENV VITE_AUTH_AZURE_AUTHORITY_URL=${VITE_AUTH_AZURE_AUTHORITY_URL}
+ENV VITE_AUTH_AUTH0_DOMAIN=${VITE_AUTH_AUTH0_DOMAIN}
+ENV VITE_AUTH_AUTH0_CLIENTID=${VITE_AUTH_AUTH0_CLIENTID}
+ENV VITE_NOAUTH=${VITE_NOAUTH}
+ENV VITE_NOAUTH_USER_NAME=${VITE_NOAUTH_USER_NAME}
+ENV VITE_NOAUTH_USER_EMAIL=${VITE_NOAUTH_USER_EMAIL}
+ENV VITE_AUTH_REDIRECT_URI=${VITE_AUTH_REDIRECT_URI}
+ENV VITE_RMQ_TOPIC_GEOPOSE_UPDATE=${VITE_RMQ_TOPIC_GEOPOSE_UPDATE}
+ENV VITE_RMQ_TOPIC_OBJECT_CREATED=${VITE_RMQ_TOPIC_OBJECT_CREATED}
+ENV VITE_RMQ_TOPIC_SENSOR_UPDATE=${VITE_RMQ_TOPIC_SENSOR_UPDATE}
+ENV VITE_RMQ_TOPIC_RETICLE_UPDATE=${VITE_RMQ_TOPIC_RETICLE_UPDATE}
+
+
 RUN npm run build
 
-# production environment
-FROM nginx:stable-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+
+FROM nginx:stable-alpine AS deploy
+
+ARG NGINX_CONFIG
+
+COPY ${NGINX_CONFIG} /etc/nginx/templates/default.conf.template
+COPY cert.pem /etc/nginx/ssl/cert.pem
+COPY key.pem /etc/nginx/ssl/key.pem
 COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+
+# workaround for escaping the $ sign in the nginx config
+ENV a=
+
+EXPOSE 80 443
