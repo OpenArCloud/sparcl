@@ -50,14 +50,14 @@
      * Start AR work
      */
     export let urlParams: URLSearchParams;
-    let showWelcome: boolean | null = null;
-    let showOutro: boolean | null = null;
+    let showWelcome: boolean = false;
+    let showOutro: boolean = false;
     let dashboard: Dashboard | null = null;
     let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> | null | undefined;
     let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
     let spectator: Spectator | null = null;
-    let shouldShowDashboard: boolean;
-    let shouldShowUnavailableInfo: boolean | null = null;
+    let showDashboardRequested: boolean = false;
+    let showServicesUnavailableInfo: boolean = false;
 
     let isLocationAccessRefused = false;
 
@@ -68,7 +68,7 @@
     /**
      * Reactive function to define if the AR viewer can be shown.
      */
-    $: showAr = $arIsAvailable && !showWelcome && !shouldShowDashboard && !showOutro;
+    $: showAr = $arIsAvailable && !showWelcome && !showDashboardRequested && !showOutro;
 
     /**
      * Reactive function to query current location and ssr. This needs to run after isLocationAccessAllowed receives a value, that's why we use a reactive statement instead of simply using onMount
@@ -81,9 +81,9 @@
 
     $: {
         if ($ssr.length === 0) {
-            shouldShowUnavailableInfo = true;
+            showServicesUnavailableInfo = true;
         } else {
-            shouldShowUnavailableInfo = false;
+            showServicesUnavailableInfo = false;
         }
     }
 
@@ -136,14 +136,14 @@
         showOutro = false;
 
         // Delay close of dashboard until next request
-        shouldShowDashboard = $showDashboard;
+        showDashboardRequested = $showDashboard;
 
         if (urlParams?.has('create')) {
             $arMode = ARMODES.create;
         } else if (urlParams?.has('develop')) {
             $arMode = ARMODES.develop;
         } else if (urlParams?.has('dashboard')) {
-            shouldShowDashboard = true;
+            showDashboardRequested = true;
         }
     });
 
@@ -160,9 +160,9 @@
         $hasIntroSeen = true;
         showWelcome = false;
         showOutro = false;
-        shouldShowDashboard = openDashboard || shouldShowDashboard;
+        showDashboardRequested = openDashboard || showDashboardRequested;
 
-        if (!shouldShowDashboard) {
+        if (!showDashboardRequested) {
             startViewer();
         }
     }
@@ -171,7 +171,7 @@
      * Initiate start of AR session
      */
     async function startViewer() {
-        shouldShowDashboard = false;
+        showDashboardRequested = false;
         showOutro = false;
 
         let viewerImplementation: Promise<{ default: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> }> | null = null;
@@ -232,7 +232,7 @@
      */
     function sessionEnded() {
         showOutro = true;
-        shouldShowDashboard = $showDashboard;
+        showDashboardRequested = $showDashboard;
 
         viewer = null;
         rmq.rmqDisconnect();
@@ -279,7 +279,7 @@
      */
 
     $: arReady = (showWelcome || showOutro) && $arIsAvailable;
-    $: arWithDashboard = shouldShowDashboard && $arIsAvailable;
+    $: arWithDashboard = showDashboardRequested && $arIsAvailable;
 
     // Update Logger Component Items
     function updateLogger(message: string) {
@@ -303,15 +303,15 @@
             {#if showWelcome}
                 <WelcomeOverlay
                     withOkFooter={true}
-                    {shouldShowDashboard}
-                    {shouldShowUnavailableInfo}
+                    {showDashboardRequested}
+                    {showServicesUnavailableInfo}
                     {isLocationAccessRefused}
                     on:okAction={() => closeIntro(false)}
                     on:dashboardAction={() => closeIntro(true)}
                     on:requestLocation={requestLocationAccess}
                 />
             {:else if showOutro}
-                <OutroOverlay {shouldShowDashboard} on:okAction={() => closeIntro(true)} />
+                <OutroOverlay {showDashboardRequested} on:okAction={() => closeIntro(true)} />
             {/if}
         </div>
     </aside>
@@ -326,7 +326,7 @@
     <button on:click={sessionEnded} on:keydown={sessionEnded}> Go back </button>
 {/if}
 
-<div id="showdashboard" role="button" tabindex="0" on:click={() => (shouldShowDashboard = true)} on:keydown={() => (shouldShowDashboard = true)}>&nbsp;</div>
+<div id="showdashboard" role="button" tabindex="0" on:click={() => (showDashboardRequested = true)} on:keydown={() => (showDashboardRequested = true)}>&nbsp;</div>
 
 <!-- logger widget (preformatted text), see devTools logToElement() -->
 <pre id="logger"></pre>
