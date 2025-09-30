@@ -13,13 +13,12 @@
 
     // User SignedIn details
     const userDetailsString = $currentLoggedInUser;
-    let username = '';
-
+    let username = 'anonymous';
     const userDetailsObject = JSON.parse(userDetailsString);
-    if (userDetailsObject.email !== import.meta.env.VITE_AUTH_ADMIN_USERID && userDetailsObject.username !== import.meta.env.VITE_AUTH_ADMIN_USERNAME) {
-        username = userDetailsObject.username.split(' ')[0];
-    } else {
-        username = import.meta.env.VITE_AUTH_ADMIN_USERNAME;
+    if (userDetailsObject.name) {
+        username = userDetailsObject.name.split(' ')[0];
+    } else if (userDetailsObject.email) {
+        username = userDetailsObject.email.split('@')[0].replace(/\./g, '_');
     }
 
     let isMenuActive = false;
