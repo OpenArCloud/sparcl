@@ -198,14 +198,23 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
         const geoposeServices: Service[] = [];
         for (let record of $ssr) {
             record.services.map((service) => {
-                if (service.type === 'geopose') geoposeServices.push(service);
+                if (service.type === 'geopose') {
+                    geoposeServices.push(service);
+                }
             });
         }
 
         set(geoposeServices);
 
+        if (get(selectedGeoPoseService) !== null) {
+            const selected = get(selectedGeoPoseService);
+            // Make sure that the selected service is still available
+            if (!geoposeServices.find((service) => service.id === selected?.id)) {
+                selectedGeoPoseService.set(null);
+            }
+        }
+
         // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
         if (get(selectedGeoPoseService) === null && geoposeServices.length > 0) {
             selectedGeoPoseService.set(geoposeServices[0]);
         }

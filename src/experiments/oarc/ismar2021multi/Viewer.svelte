@@ -287,7 +287,12 @@
         if ('object_created' in events) {
             const data = events.object_created;
             //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-            const scr = data.scr;
+            const scr = data?.scr;
+            if (scr === undefined) {
+                console.log('Invalid object_created event received:');
+                console.log(data);
+                return;
+            }
             if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
                 parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
                 experimentOverlay?.objectReceived();

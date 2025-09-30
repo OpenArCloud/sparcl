@@ -28,9 +28,6 @@
 
     let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
-    let overrideGeopose = false;
-    let overrideLongitude = 0;
-    let overrideLatitude = 0;
 
     const ephemeral_markers: { [id: string]: L.Layer } = {};
     const ephemeral_scrs: { [id: string]: SCR } = {};

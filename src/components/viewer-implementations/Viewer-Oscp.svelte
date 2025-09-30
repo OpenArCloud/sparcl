@@ -268,7 +268,6 @@
      * Called when the XRSession was closed.
      */
     function onXrSessionEnded() {
-        console.log('Viewer-OSCP.onXrSessionEnded');
         if (hitTestSource != undefined) {
             hitTestSource.cancel();
             hitTestSource = undefined;
