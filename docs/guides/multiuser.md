@@ -7,6 +7,8 @@ nav_order: 10
 
 # Multi user setup
 
+As additional functionality, the application implements data synchronisation using automerge over p2p network using peerjs. The applications connects to the locally available p2p network automatically when allowed by the user.
+
 This is a quick rundown on how to use the multi-user features of sparcl. It can be used to offer a collective interactive experience with an imported scene.
 
 A simple use case: You're visiting a world heritage site with your friends. An interactive AR experience is available there, visualizing the mechanics of a historic machinery. Without multi user feature, the machine would be seen differently on every device. With multi user feature, the machine is shown in the same state on every device connected to the service. Exactly as it would be when the actual machine would stay at that location.
