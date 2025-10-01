@@ -600,8 +600,12 @@
 
                 // list on the GUI the received contents of certain types
                 if (
-                    (record.content.type === 'placeholder' || record.content.type === '3D' || record.content.type === 'MODEL_3D' || record.content.type === 'ICON',
-                    record.content.type === 'VIDEO' || record.content.type === 'POINT_CLOUD')
+                    record.content.type === 'placeholder' ||
+                    record.content.type === '3D' ||
+                    record.content.type === 'MODEL_3D' ||
+                    record.content.type === 'ICON' ||
+                    record.content.type === 'VIDEO' ||
+                    record.content.type === 'POINT_CLOUD'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
