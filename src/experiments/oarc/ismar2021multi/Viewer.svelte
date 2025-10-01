@@ -221,20 +221,8 @@
             return;
         }
         // Now calculate the global pose of the reticle
-        const globalObjectPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
-        const geoPose = {
-            position: {
-                lat: globalObjectPose.position.lat,
-                lon: globalObjectPose.position.lon,
-                h: globalObjectPose.position.h,
-            },
-            quaternion: {
-                x: globalObjectPose.quaternion.x,
-                y: globalObjectPose.quaternion.y,
-                z: globalObjectPose.quaternion.z,
-                w: globalObjectPose.quaternion.w,
-            },
-        };
+        const objectGeoPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
         const scr_id = object_id;
@@ -243,7 +231,7 @@
             type: 'ephemeral', //high-level OSCP type
             title: object_description.shape,
             refs: [],
-            geopose: geoPose,
+            geopose: objectGeoPose,
             object_description: object_description,
         };
         const timestamp = Date.now();
@@ -299,7 +287,12 @@
         if ('object_created' in events) {
             const data = events.object_created;
             //if (data.sender != $peerIdStr) { // ignore own messages which are also delivered
-            const scr = data.scr;
+            const scr = data?.scr;
+            if (scr === undefined) {
+                console.log('Invalid object_created event received:');
+                console.log(data);
+                return;
+            }
             if ('tenant' in scr && scr.tenant === 'ISMAR2021demo') {
                 parentInstance.placeContent([[scr]]); // WARNING: wrap into an array
                 experimentOverlay?.objectReceived();

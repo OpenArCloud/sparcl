@@ -77,7 +77,7 @@
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
                 creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
+                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation).transform;
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
                 creatorObject = experiencePlaceholderObject;

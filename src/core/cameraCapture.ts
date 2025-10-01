@@ -145,9 +145,9 @@ export function getCameraIntrinsics(projectionMatrix: Float32Array, viewport: XR
         viewport.y +
         '}';
     if (!intrinsicsPrinted[intrinsicString]) {
+        intrinsicsPrinted[intrinsicString] = true;
         console.log('projection:', Array.from(projectionMatrix).join(', '));
         console.log(intrinsicString);
-        intrinsicsPrinted[intrinsicString] = true;
     }
 
     const cameraIntrinsics = {

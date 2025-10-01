@@ -33,20 +33,13 @@ documentHandleStore.subscribe((documentHandle) => {
     documentHandle?.on('change', onDocumentChange);
 });
 
+// TODO: Make h3Index configurable, and/or take it from the current location instead of the initial location
+// because now, if the user moves to another location, the h3Index will not be updated
+// and the user will not see any data for the new location. This is a limitation of the current implementation.
 const getH3Index = () => {
     return get(initialLocation).h3Index;
 };
 
-/**
- * Connects to the signaling server, to allow other devices to connect to this one.
- *
- * A headless client just registers itself at the signaling server, regular clients also connect to the headless client
- * when allowed by respective global setting.
- *
- * @param headlessPeerId  String        The peer ID of the headless client
- * @param isHeadless  boolean       true when the current device should be set up as headless client
- * @param updateftn  Function       Function to call when updated values arrived
- */
 export function connectFromStateStore(updateftn: (data: any) => void) {
     updateFunction = updateftn;
     const selected = get(selectedP2pService);
@@ -117,6 +110,8 @@ function setupAutomergeRepo({ url, port, path }: { url: string | null | undefine
     console.log('Creating P2P network:');
     console.log('  Server URL: ' + (options?.host || 'PeerJS default'));
     console.log('  Server port: ' + (options?.port || 'PeerJS default'));
+    console.log('  Server path: ' + (options?.path || 'PeerJS default'));
+    console.log('  Server key: ' + (options?.key || 'PeerJS default'));
 
     peerjsNetworkAdapter = new PeerjsNetworkAdapter(options);
     repo = new Repo({
@@ -158,9 +153,13 @@ const shouldSwitchDocument = (currentDocumentHandle: DocHandle<DocumentData>, ne
 
 const onDocumentChange = (document: DocHandleChangePayload<DocumentData>) => {
     const h3Index = getH3Index();
+    console.log('Document changed, h3Index:', h3Index, 'data:', document.patchInfo.after?.data?.[h3Index]);
     const dataToRender = [];
     for (const data of document.patchInfo.after?.data?.[h3Index] || []) {
-        const contentId = data.scr.content.id;
+        const contentId = data.scr?.content?.id;
+        if (contentId === undefined) {
+            continue; // skip invalid data
+        }
         if (!alreadyRenderedContentIds.includes(contentId)) {
             dataToRender.push(data);
             alreadyRenderedContentIds.push(contentId);

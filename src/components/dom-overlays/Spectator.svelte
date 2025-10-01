@@ -11,7 +11,7 @@
     Spectator view is the content shown on non-AR-capable devices.
 -->
 <script lang="ts">
-    import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices } from '@src/stateStore';
+    import { allowP2pNetwork, selectedP2pService, availableP2pServices, p2pNetworkState, peerIdStr, availableMessageBrokerServices, debug_overrideGeopose, debug_useOverrideGeopose } from '@src/stateStore';
     import { v4 as uuidv4 } from 'uuid';
 
     import L from 'leaflet';
@@ -23,6 +23,8 @@
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';
     import P2PServiceSelector from './P2PServiceSelector.svelte';
     import { type SCR } from '@oarc/scd-access';
+    import { rgbToHex } from '@src/core/common';
+    import { setInitialLocationAndServices } from '@src/core/locationTools';
 
     let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
@@ -73,18 +75,35 @@
         });
     }
 
-    function placeMarker(id: string, lat: number, lon: number, color: string) {
+    function placeMarker(id: string, lat: number, lon: number, color: string, title: string | undefined) {
         if (map == null) {
             return;
         }
-        const marker = L.circle([lat, lon], {
-            color: color,
+        if (ephemeral_markers[id]) {
+            ephemeral_markers[id].removeFrom(map);
+            delete ephemeral_markers[id];
+            //ephemeral_markers[id].setLatLng([lat, lon]); // does not work :(
+        }
+        const circleMarker = L.circle([lat, lon], {
+            color: color, //'#ffffff',
             fillColor: color,
             fillOpacity: 0.5,
             radius: 1,
         });
-        marker.addTo(map);
-        ephemeral_markers[id] = marker;
+        circleMarker.addTo(map);
+        ephemeral_markers[id] = circleMarker;
+
+        if (title && ephemeral_markers[`${id}_title`]) {
+            //ephemeral_markers[`${id}_title`].removeFrom(map);
+            //delete ephemeral_markers[`${id}_title`];
+            ephemeral_markers[`${id}_title`].setLatLng([lat, lon]);
+        } else if (title) {
+            const titleMarker = L.marker([lat, lon], {
+                title: title,
+            });
+            titleMarker.addTo(map);
+            ephemeral_markers[`${id}_title`] = titleMarker;
+        }
     }
 
     /**
@@ -93,12 +112,9 @@
      */
     export function onNetworkEvent(events: any) {
         // Simply print any other events and return
-        if (!('message_broadcasted' in events) &&
-            !('object_created' in events) &&
-            !('clear_session' in events)
-        ){
-            console.log('Spectator: Unknown event received:');
-            console.log(events);
+        if (!('message_broadcasted' in events) && !('object_created' in events) && !('clear_session' in events) && !('agent_geopose_updated' in events)) {
+            //console.log('Spectator: Unknown event received:');
+            //console.log(events);
             return;
         }
 
@@ -124,9 +140,9 @@
                     const r = Math.round(255 * data.content.object_description.color[0]);
                     const g = Math.round(255 * data.content.object_description.color[1]);
                     const b = Math.round(255 * data.content.object_description.color[2]);
-                    const markerColor = 'rgb(' + r + ',' + g + ',' + b + ')';
+                    const markerColor = rgbToHex({ r: r, g: g, b: b });
                     const id = data.id as string;
-                    placeMarker(id, markerLat, markerLon, markerColor);
+                    placeMarker(id, markerLat, markerLon, markerColor, undefined);
                     ephemeral_scrs[id] = data;
                 }
             }
@@ -144,11 +160,35 @@
                 delete ephemeral_scrs[id];
             }
         }
+
+        if ('agent_geopose_updated' in events) {
+            let data = events.agent_geopose_updated;
+            const agent_id = data.agent_id;
+            const agent_name = data.agent_name;
+            const marker_lat = data.geopose.position.lat;
+            const marker_lon = data.geopose.position.lon;
+            const marker_color = rgbToHex(data.color);
+            placeMarker(agent_id, marker_lat, marker_lon, marker_color, agent_name);
+        }
+    }
+
+    function getCurrentPosition(successCallback:(pos:{coords:{longitude:number, latitude:number}})=>any, errorCallback:(error:any)=>any, params:any){
+        if($debug_useOverrideGeopose){
+            const posObject = {
+                coords:{
+                    latitude:$debug_overrideGeopose.position.lat,
+                    longitude:$debug_overrideGeopose.position.lon
+                }
+            };
+            successCallback(posObject);
+        }else{
+            navigator.geolocation.getCurrentPosition(successCallback, errorCallback, params);
+        }
     }
 
     function mapAction(container: HTMLElement) {
         if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
+            getCurrentPosition(
                 (position) => {
                     map = L.map(container, {
                         center: [position.coords.latitude, position.coords.longitude],
@@ -162,7 +202,7 @@
                         maxZoom: 30,
                     }).addTo(map);
 
-                    map.on('click', (event) => {
+                    map.on('click', (event: any) => {
                         if (shouldPlaceRandomObjects) {
                             const objectDescription = createRandomObjectDescription();
                             shareObject({ objectDescription, lat: event.latlng.lat, lon: event.latlng.lng });
@@ -196,6 +236,11 @@
         await testRmqConnection({ url, username, password });
         connectWithReceiveCallback({ url, username, password, updateFunction: onNetworkEvent });
     }
+
+    async function onUsePositionClick(){
+        map.panTo([$debug_overrideGeopose.position.lat, $debug_overrideGeopose.position.lon]);
+        await setInitialLocationAndServices();
+    }
 </script>
 
 <div id="place-random-object">
@@ -205,6 +250,14 @@
 
 <details>
     <summary>Multiplayer</summary>
+    <label>
+        <input name="override-geopose" id="override-geopose" type="checkbox" bind:checked={$debug_useOverrideGeopose} /> Override GeoPose<br>
+    </label>
+    {#if $debug_useOverrideGeopose}
+        Latitude: <input name="override-latitude" bind:value={$debug_overrideGeopose.position.lat} type="number"/><br>
+        Longitude: <input name="override-longitude" bind:value={$debug_overrideGeopose.position.lon} type="number"/><br>
+        <button on:click={onUsePositionClick}>Use position</button>
+    {/if}
     {#if $availableP2pServices.length === 0 && $availableMessageBrokerServices.length === 0}
         <p>No multiplayer services are available</p>
     {/if}

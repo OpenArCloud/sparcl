@@ -19,7 +19,10 @@ import type { GeoposeResponseType } from '@oarc/gpp-access';
 // https://w3c.github.io/accelerometer/#screen-coordinate-system
 
 // TODO: add proper typings for this!
-let sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
+let sensor: null | AbsoluteOrientationSensor = null;
+if (typeof AbsoluteOrientationSensor != "undefined"){
+    sensor = new AbsoluteOrientationSensor({ referenceFrame: 'device' });
+};
 let sensorMat4 = new Float32Array(16);
 let sensorQuat = quat.create();
 
@@ -32,7 +35,7 @@ export function startOrientationSensor() {
         navigator.permissions.query({ name: 'magnetometer' as any }),
         navigator.permissions.query({ name: 'gyroscope' as any }),
     ]).then((results) => {
-        if (results.every((result) => result.state === 'granted')) {
+        if (results.every((result) => result.state === 'granted') && sensor) {
             sensor.onerror = (event: any) => console.log(event.error.name, event.error.message);
             sensor.onreading = () => {
                 sensor.populateMatrix(sensorMat4);
@@ -53,7 +56,7 @@ export function startOrientationSensor() {
  * Stops the AbsoluteOrientationSensor
  */
 export function stopOrientationSensor() {
-    sensor.stop();
+    sensor?.stop();
 }
 
 // https://w3c.github.io/geolocation-sensor/
@@ -159,7 +162,9 @@ export function lockScreenOrientation(orientation: string) {
     // Code from https://code-boxx.com/lock-screen-orientation/
 
     // It seems that the orientation can only be locked in fullscreen mode
-    requestFullscreen();
+    if (!isDocumentInFullScreenMode()) {
+        requestFullscreen();
+    }
 
     (screen.orientation as any).lock(orientation).then(
         (success: string) => {
@@ -177,11 +182,15 @@ export function lockScreenOrientation(orientation: string) {
  */
 export function unlockScreenOrientation() {
     screen.orientation.unlock();
-
-    exitFullscreen();
+    if (isDocumentInFullScreenMode()) {
+        exitFullscreen();
+    }
 }
 
 export function requestFullscreen() {
+    if (isDocumentInFullScreenMode()) {
+        return;
+    }
     try {
         document.addEventListener('fullscreenerror', (event) => {
             console.error('Could not change to fullscreen');
@@ -204,6 +213,9 @@ export function requestFullscreen() {
     }
 }
 export function exitFullscreen() {
+    if (!isDocumentInFullScreenMode()) {
+        return;
+    }
     try {
         if (document.exitFullscreen) {
             document.exitFullscreen();
@@ -217,4 +229,8 @@ export function exitFullscreen() {
     } catch (err) {
         console.log('Could not exit fullscreen');
     }
+}
+
+function isDocumentInFullScreenMode() {
+    return document.fullscreenElement !== null;
 }

@@ -17,7 +17,7 @@ Note that sparcl is a proof of concept and experimentation application, a refere
 - [ogl](https://www.npmjs.com/package/ogl) 3D engine
   OGL is a very small 3D engine on top of WebGL.
 
-- [automerge](https://www.npmjs.com/package/automerge), [perge](https://www.npmjs.com/package/perge), [peerjs](https://www.npmjs.com/package/peerjs) for multi-user communicaton. Adding peer-to-peer communication was not as easy as expected, and the synchronisation between peers is not fully working yet. But the general functionality is there, for more information see the [respective guide](/sparcl/guides/multiuser).
+- [automerge](https://www.npmjs.com/package/automerge), [peerjs](https://www.npmjs.com/package/peerjs) for multi-user communicaton. Adding peer-to-peer communication was not as easy as expected, and the synchronisation between peers is not fully working yet. But the general functionality is there, for more information see the [respective guide](/sparcl/guides/multiuser).
 
 - [geodesy](https://www.npmjs.com/package/geodesy)
   Very helpful package for geodesic calculations.

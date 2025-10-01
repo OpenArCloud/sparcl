@@ -13,7 +13,7 @@
 
 import { readable, writable, derived, get } from 'svelte/store';
 
-import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES } from './core/common.js';
+import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES, type RGBA } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
 import type { Geopose, SCR } from '@oarc/scd-access';
@@ -111,7 +111,8 @@ export const isLocationAccessAllowed = readable<boolean>(false, (set) => {
  *
  * @type {boolean}  true when dashboard should be shown, false otherwise
  */
-const storedShowDashboard = localStorage.getItem('showdashboard') === 'true';
+const showDashboardFromLocalStorage = localStorage.getItem('showdashboard');
+const storedShowDashboard = showDashboardFromLocalStorage === 'true' || showDashboardFromLocalStorage === null; // set true if stored true or undefined
 export const showDashboard = writable(storedShowDashboard);
 showDashboard.subscribe((value) => {
     localStorage.setItem('showdashboard', value === true ? 'true' : 'false');
@@ -197,14 +198,23 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
         const geoposeServices: Service[] = [];
         for (let record of $ssr) {
             record.services.map((service) => {
-                if (service.type === 'geopose') geoposeServices.push(service);
+                if (service.type === 'geopose') {
+                    geoposeServices.push(service);
+                }
             });
         }
 
         set(geoposeServices);
 
+        if (get(selectedGeoPoseService) !== null) {
+            const selected = get(selectedGeoPoseService);
+            // Make sure that the selected service is still available
+            if (!geoposeServices.find((service) => service.id === selected?.id)) {
+                selectedGeoPoseService.set(null);
+            }
+        }
+
         // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
         if (get(selectedGeoPoseService) === null && geoposeServices.length > 0) {
             selectedGeoPoseService.set(geoposeServices[0]);
         }
@@ -454,8 +464,8 @@ debug_enablePointCloudContents.subscribe((value) => {
  *
  * @type {Writable<boolean>}
  */
-const enableOGCFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
-const storedDebug_enableOGCPoIContents = enableOGCFromLocalStorage === 'true' || enableOGCFromLocalStorage == null; // set true if stored true or undefined
+const enableOGCPoIContentsFromLocalStorage = localStorage.getItem('debug_enableOGCPoIContents');
+const storedDebug_enableOGCPoIContents = enableOGCPoIContentsFromLocalStorage === 'true' || enableOGCPoIContentsFromLocalStorage === null; // set true if stored true or undefined
 export const debug_enableOGCPoIContents = writable(storedDebug_enableOGCPoIContents);
 debug_enableOGCPoIContents.subscribe((value) => {
     localStorage.setItem('debug_enableOGCPoIContents', value === true ? 'true' : 'false');
@@ -471,12 +481,31 @@ const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: bool
     multiplayer: true,
     debug: true,
 };
+
 export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe((value) => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
 });
 
 export const receivedScrs = writable<SCR[]>([]);
+
+export const enableCameraPoseSharing = writable(localStorage.getItem('enableCameraPoseSharing') === null || localStorage.getItem('enableCameraPoseSharing') === 'true'); // set true if stored true or undefined
+enableCameraPoseSharing.subscribe((value) => {
+    localStorage.setItem('enableCameraPoseSharing', `${value}`);
+});
+export const showOtherCameras = writable(localStorage.getItem('showOtherCameras') === null || localStorage.getItem('showOtherCameras') === 'true'); // set true if stored true or undefined
+showOtherCameras.subscribe((value) => {
+    localStorage.setItem('showOtherCameras', `${value}`);
+});
+
+export const enableReticlePoseSharing = writable(localStorage.getItem('enableReticlePoseSharing') === null || localStorage.getItem('enableReticlePoseSharing') === 'true'); // set true if stored true or undefined
+enableReticlePoseSharing.subscribe((value) => {
+    localStorage.setItem('enableReticlePoseSharing', `${value}`);
+});
+export const showOtherReticles = writable(localStorage.getItem('showOtherReticles') === null || localStorage.getItem('showOtherReticles') === 'true'); // set true if stored true or undefined
+showOtherReticles.subscribe((value) => {
+    localStorage.setItem('showOtherReticles', `${value}`);
+});
 
 /**
  * Used to store a random uuid that corresponds to the current user's agent name
@@ -513,9 +542,9 @@ const getRandomColorValue = () => {
 /**
  * Used to store a the users preferred color.
  *
- * @type {Writable<{r: number, g: number, b: number, a: number}>}
+ * @type {Writable<RGBA>}
  */
-const storedMyAgentColor: { r: number; g: number; b: number; a: number } | null = localStorage.getItem('myAgentColor')
+const storedMyAgentColor: RGBA | null = localStorage.getItem('myAgentColor')
     ? JSON.parse(localStorage.getItem('myAgentColor') || 'null')
     : { r: getRandomColorValue(), g: getRandomColorValue(), b: getRandomColorValue(), a: 1 };
 export const myAgentColor = writable(storedMyAgentColor);

@@ -39,8 +39,8 @@
     import { ARMODES } from '@core/common';
 
     export let withOkFooter = true;
-    export let shouldShowDashboard: boolean;
-    export let shouldShowUnavailableInfo: boolean | null;
+    export let showDashboardRequested: boolean;
+    export let showServicesUnavailableInfo: boolean;
     export let isLocationAccessRefused = false;
 
     // Used to dispatch events to parent
@@ -78,7 +78,7 @@
                 <p class="page-refresh-req">{$PageRefreshRequired}</p>
             {:else}
                 <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
-                    {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+                    {showDashboardRequested ? $dashboardOkLabel : $startedOkLabel}
                 </button>
             {/if}
         {/if}
@@ -125,7 +125,7 @@
             <p>Always keep aware of your surroundings.</p>
         </Screen>
         <Screen>
-            {#if shouldShowUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
+            {#if showServicesUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
                 <h4>{$noservicesavailable}</h4>
                 <div>{$unavailableInfo}</div>
                 {#if withOkFooter}
@@ -141,7 +141,7 @@
                 {/if}
                 {#if withOkFooter}
                     <button disabled={!$isLocationAccessAllowed} on:click={() => dispatch('okAction')} on:keydown={() => dispatch('okAction')}>
-                        {shouldShowDashboard ? $dashboardOkLabel : $startedOkLabel}
+                        {showDashboardRequested ? $dashboardOkLabel : $startedOkLabel}
                     </button>
                 {/if}
             {/if}

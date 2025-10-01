@@ -4,6 +4,7 @@ import { throttle } from 'es-toolkit';
 import { Client as StompClient, StompConfig, type IFrame, type messageCallbackType } from '@stomp/stompjs';
 
 const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.#'; // subscribe to all subtopics
+const rmq_topic_reticle_update = import.meta.env.VITE_RMQ_TOPIC_RETICLE_UPDATE + '.#'; // subscribe to all subtopics
 const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
 const rmq_topic_sensor_update = import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE;
 
@@ -39,16 +40,18 @@ export async function testRmqConnection({ url, username, password }: { url: stri
 export function connectWithReceiveCallback({ updateFunction, url, username, password }: { updateFunction: (data: any) => void; url: string; username: string; password: string }) {
     // disconnect first if there already was a connection established
     rmqDisconnect();
+
+    // Sometimes we want pose updates less frequent than camera frame rate
+    const throttleMs = 0; // 0ms means no throttling
     const throttledUpdateFunction = throttle((data: any) => {
         if (updateFunction) {
             updateFunction(data);
         }
-    }, 0);
+    }, throttleMs);
 
     // We use STOMP.js for RabbitMQ connection
     // See https://www.rabbitmq.com/stomp.html
     console.log('Connecting to RMQ ' + url);
-    console.log('url', url);
     const stompConfig = new StompConfig();
     stompConfig.brokerURL = url;
     stompConfig.reconnectDelay = 1000;
@@ -102,6 +105,38 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
             throttledUpdateFunction(data);
         });
 
+        console.log('Subscribing to topic ' + rmq_topic_reticle_update);
+        rmqClient.subscribe(rmq_topic_reticle_update, function (d) {
+            const msg = JSON.parse(d.body);
+            //console.log(msg);
+
+            const agentId = msg.agent_id || '';
+            if (agentId == '' || agentId == get(myAgentId)) {
+                return;
+            }
+
+            if (msg.active === false) {
+                updateFunction({ reticle_update: msg });
+                return;
+            }
+
+            const timestamp = msg.timestamp || Date.now();
+            const agentGeopose = msg.geopose;
+            const agentName = msg.avatar.name || '';
+            const color = [msg.avatar.color.r / 255, msg.avatar.color.g / 255, msg.avatar.color.b / 255, msg.avatar.color.a];
+            const data = {
+                reticle_update: {
+                    agent_id: agentId,
+                    active: msg.active,
+                    agent_name: agentName,
+                    geopose: agentGeopose,
+                    color: color,
+                    timestamp: timestamp,
+                },
+            };
+            throttledUpdateFunction(data);
+        });
+
         console.log('Subscribing to topic ' + rmq_topic_object_created);
         rmqClient.subscribe(rmq_topic_object_created, function (d) {
             const msg = JSON.parse(d.body);
@@ -111,12 +146,12 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
                     ...msg,
                 },
             };
-            throttledUpdateFunction(data);
+            updateFunction(data); // no throttling here
         });
     };
 
     const onError = function (frame: IFrame) {
-        console.log('Error: rabbitmq connection disconnected', frame.body);
+        console.log('Error: RMQ disconnected', frame.body);
     };
 
     rmqClient = new StompClient(stompConfig);

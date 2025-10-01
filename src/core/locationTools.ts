@@ -721,7 +721,7 @@ export function convertLocalPoseToEnu(localPose: any, T_local_to_enu: any) {
     return enuPose;
 }
 
-export function convertLocalPoseToGeoPose(localPose: any, T_local_to_enu: any, refGeoPose: any) {
+export function convertLocalPoseToGeoPose(localPose: any, T_local_to_enu: any, refGeoPose: any): Geopose {
     // TODO: change any to actual type (Mat4 and Geopose)
     const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
     const enuPosition = enuPose.getTranslation();

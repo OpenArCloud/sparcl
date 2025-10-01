@@ -148,7 +148,8 @@
             }
 
             const scale = 1;
-            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, fragmentShader, options);
+            const color = undefined;
+            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, color, fragmentShader, options);
             // TODO: pass the whole program, not only the fragment shader code
             // because we only know here what kind of uniforms will be needed at render time
             // Accordingly, the render code will need to come back here and ask for updates

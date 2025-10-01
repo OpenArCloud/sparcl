@@ -38,6 +38,8 @@
         myAgentName,
         myAgentId,
         myAgentColor,
+        enableCameraPoseSharing,
+        showOtherCameras,
     } from '@src/stateStore';
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
@@ -53,7 +55,14 @@
     import { subscribeToSensor } from '@src/core/rmqnetwork';
 
     // Used to dispatch events to parent
-    const dispatch = createEventDispatcher();
+    const dispatch = createEventDispatcher<{
+        arSessionEnded: undefined;
+        broadcast: {
+            event: string;
+            value?: any;
+            routing_key?: string;
+        };
+    }>();
 
     const message = (msg: string) => console.log(msg);
 
@@ -72,7 +81,7 @@
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
     let currentGeoPose: Geopose | undefined;
-    let contentQueryInterval: NodeJS.Timer | undefined;
+    let contentQueryInterval: NodeJS.Timeout | undefined = undefined;
     let loadedH3Indices: string[] = [];
 
     // spatial contents are organized into topics.
@@ -80,6 +89,9 @@
 
     // Multiplayer: poses of others
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
+
+    // whether to print info about each received SCR in the console
+    const debugScrs = false;
 
     // TODO: Setup event target array, based on info received from SCD
     const context: Writable<{
@@ -97,12 +109,6 @@
         isLocalizing: false, // while waiting for GeoPose service localization
         isLocalisationDone: false, // whether to show the dom-overlay with 'localize' button
         receivedContentTitles: [],
-    });
-
-    onDestroy(() => {
-        tdEngine.stop();
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
     });
 
     /**
@@ -222,7 +228,7 @@
                         $context.isLocalized = true;
                         // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            $context.showFooter = false;
+                            $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
                         return { cameraGeoPose: $debug_overrideGeopose };
@@ -274,37 +280,45 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($recentLocalisation.geopose?.position != undefined || $recentLocalisation.floorpose?.transform?.position != undefined) {
-                try {
-                    shareCameraPose(floorPose);
-                    const localPos = new Vec3(floorPose.transform.position.x, floorPose.transform.position.y, floorPose.transform.position.z);
-                    const localQuat = new Quat(floorPose.transform.orientation.x, floorPose.transform.orientation.y, floorPose.transform.orientation.z, floorPose.transform.orientation.w);
-                    currentGeoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
-                } catch (error) {
-                    // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+            if ($recentLocalisation.geopose?.position !== undefined) {
+                currentGeoPose = getCameraGeoposeFromXRViewerPose(floorPose);
+                if ($enableCameraPoseSharing) {
+                    try {
+                        shareCameraPose(floorPose);
+                    } catch (error) {
+                        // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
+                    }
                 }
             }
-
             tdEngine.render(time, view);
         }
     }
 
     async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+        if (debugScrs) console.log('doLocalization');
+
+        // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
         $recentLocalisation.geopose = cameraGeoPose;
         $recentLocalisation.floorpose = floorPose;
         onLocalizationSuccess(floorPose, cameraGeoPose);
 
-        // retrieve now
-        retrieveAndPlaceContents(currentGeoPose);
+        // now get the contents from the SCD(s)
+        //await retrieveAndPlaceContents(currentGeoPose);
+        // TODO: this first one always fails because currentGeoPose is not yet available
+        // (floorPose here is already outdated because the device has moved meanwhile)
+
         // and repeat periodically
         contentQueryInterval = setInterval(async () => {
-            retrieveAndPlaceContents(currentGeoPose);
+            await retrieveAndPlaceContents(currentGeoPose);
         }, 5000);
     }
 
     async function retrieveAndPlaceContents(queryGeoPose: Geopose | undefined) {
+        if (debugScrs) console.log('retrieveAndPlaceContents');
+
         if (!queryGeoPose) {
+            console.warn('No geopose available yet, cannot query contents');
             return;
         }
         const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
@@ -323,18 +337,6 @@
     }
 
     /**
-     * Let's the app know that the XRSession was closed.
-     */
-    export function onXrSessionEnded() {
-        firstPoseReceived = false;
-        if ($debug_useGeolocationSensors) {
-            stopOrientationSensor();
-        }
-        clearInterval(contentQueryInterval);
-        dispatch('arSessionEnded');
-    }
-
-    /**
      * Called when no pose was reported from WebXR.
      *
      * @param time time offset at which the updated
@@ -346,6 +348,72 @@
         $context.hasLostTracking = true;
         tdEngine.render(time, floorPose.views[0]);
     }
+
+    /**
+     * Let's the app know that the XRSession was closed.
+     */
+    export function onXrSessionEnded() {
+        if (debugScrs) console.log('Viewer.onXrSessionEnded');
+
+        // stop sensors if used
+        if ($debug_useGeolocationSensors) {
+            stopOrientationSensor();
+        }
+
+        // clear tracking context
+        firstPoseReceived = false;
+
+        // clear localization context
+        $context.isLocalized = false;
+        $context.isLocalizing = false;
+        //$context.isLocalisationDone = false; // Note: do not clear this otherwise the ARCloudOverlay wants to come up again
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+        $context.showFooter = false;
+
+        // clear content querying context
+        clearInterval(contentQueryInterval);
+        $receivedScrs = [];
+        $context.receivedContentTitles = [];
+        loadedH3Indices = [];
+
+        // clear rendering context
+        tdEngine.cleanup();
+
+        // broadcast event to parent
+        dispatch('arSessionEnded');
+    }
+
+    /**
+     * Show UI for localization again.
+     */
+    export function relocalize() {
+        if (debugScrs) console.log('Viewer.relocalize');
+
+        // clear localization context
+        $context.isLocalized = false;
+        $context.isLocalizing = false;
+        $context.isLocalisationDone = false;
+        $recentLocalisation.geopose = {};
+        $recentLocalisation.floorpose = {};
+        $context.showFooter = true;
+
+        // clear content querying context
+        clearInterval(contentQueryInterval);
+        $receivedScrs = [];
+        $context.receivedContentTitles = [];
+        loadedH3Indices = [];
+
+        // clear rendering context
+        tdEngine.reinitialize();
+    }
+
+    onDestroy(() => {
+        if (debugScrs) console.log('Viewer.onDestroy');
+
+        // stop rendering engine
+        tdEngine.stop();
+    });
 
     /**
      * Trigger localisation of the device globally using a GeoPose service.
@@ -405,7 +473,7 @@
                     $context.isLocalized = true;
                     // allow relocalization after a few seconds
                     wait(4000).then(() => {
-                        $context.showFooter = false;
+                        $context.showFooter = true;
                         $context.isLocalisationDone = true;
                     });
                     console.log('SENSOR GeoPose:');
@@ -425,7 +493,7 @@
             const geoPoseRequest = new GeoPoseRequest(uuidv4())
                 .addSensor(new Sensor('gps', SENSORTYPE.geolocation))
                 .addGeoLocationData($initialLocation.lat, $initialLocation.lon, 0, 0, 0, 0, 0, Date.now(), 'gps', new Privacy());
-
+            console.log('GPP request:');
             console.log(JSON.stringify(geoPoseRequest));
 
             geoPoseRequest
@@ -440,18 +508,19 @@
                     .then((data) => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
+                        // allow relocalization after a few seconds
                         wait(4000).then(() => {
-                            $context.showFooter = false;
+                            $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
 
-                        console.log('GPP response:', data);
-                        console.log(data);
+                        console.log('GPP response:');
+                        console.log(JSON.stringify(data));
 
                         // GeoPoseResp
                         // https://github.com/OpenArCloud/oscp-geopose-protocol
                         let cameraGeoPose = null;
-                        // NOTE: AugmentedCity also can also return neighboring objects in the GPP response
+                        // NOTE: AugmentedCity can also return neighboring objects in the GPP response
                         let optionalScrs: SCR[] = [];
                         if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
                             // data is AugmentedCity format which contains other entries too
@@ -469,9 +538,6 @@
                             throw errorMessage;
                         }
 
-                        console.log('IMAGE GeoPose:');
-                        console.log(cameraGeoPose);
-
                         resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error) => {
@@ -485,33 +551,12 @@
     }
 
     /**
-     * Show ui for localisation again.
-     */
-    export function relocalize() {
-        clearInterval(contentQueryInterval);
-
-        $context.isLocalized = false;
-        $context.isLocalizing = false;
-        $context.isLocalisationDone = false;
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
-
-        $receivedScrs = [];
-        $context.receivedContentTitles = [];
-        loadedH3Indices = [];
-
-        tdEngine.clearScene(); // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
-
-        $context.showFooter = true;
-    }
-
-    /**
      * Request content from SCD available around the current location.
      */
     export function getContentsInH3Cell(h3Index = $initialLocation.h3Index, topic = kDefaultOscpScdTopic) {
         const allScrPromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
-                console.log(`Receiving scrs from ${service.url} for H3 cell ${h3Index} and topic ${topic}...`);
+                console.log(`Retrieving SCRs from ${service.url} for H3 cell ${h3Index} and topic ${topic} ...`);
                 let scrPromises = getContentsAtLocation(service.url, topic, h3Index); // returns Promise<SCR[]>
                 result.push(scrPromises);
             }
@@ -525,21 +570,45 @@
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export function placeContent(scrs: SCR[][]) {
-        let showContentsLog = false;
+    export async function placeContent(scrs: SCR[][]) {
         scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
             response.forEach((record) => {
+                // TODO: validate here whether we received a proper SCR
+
+                // TODO: first save the records and then start to instantiate the objects asynchronously
+
+                // Check whether we have already received this SCR
                 if ($receivedScrs.map((scr) => scr.id).includes(record.id)) {
                     return;
                 }
-                // TODO: validate here whether we received a proper SCR
-                // TODO: we can check here whether we have received this content already and break if yes.
-                // TODO: first save the records and then start to instantiate the objects
-                $receivedScrs.push(record);
-                $context.receivedContentTitles.push(record.content.title);
-                console.log('New content: ', record.content.title);
+
+                // remember the received SCRs except the streams and ignore them when we receive them again
+                if (record.content.type !== 'sensor_stream' && record.content.type !== 'geopose_stream') {
+                    $receivedScrs.push(record);
+                    if (debugScrs) {
+                        // DEBUG
+                        console.log('New SCR received:');
+                        console.log(' -id: ' + record.content.id);
+                        console.log(' -type: ' + record.content.type);
+                        console.log(' -title: ' + record.content.title);
+                        console.log(' -keywords: ' + record.content.keywords);
+                        console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                    }
+                }
+
+                // list on the GUI the received contents of certain types
+                if (
+                    record.content.type === 'placeholder' ||
+                    record.content.type === '3D' ||
+                    record.content.type === 'MODEL_3D' ||
+                    record.content.type === 'ICON' ||
+                    record.content.type === 'VIDEO' ||
+                    record.content.type === 'POINT_CLOUD'
+                ) {
+                    $context.receivedContentTitles.push(record.content.title);
+                }
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
                 record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
@@ -547,10 +616,10 @@
                 const content_definitions: Record<string, string> = {};
                 if (record.content.definitions != undefined) {
                     const d_entries = record.content.definitions.entries();
-                    //console.log(" -definitions:")
+                    if (debugScrs) console.log(' -definitions:');
                     for (let d_entry of d_entries) {
                         const d = d_entry[1];
-                        //console.log("  -" + d.type + ": " + d.value);
+                        if (debugScrs) console.log('  -' + d.type + ': ' + d.value);
                         content_definitions[d.type] = d.value;
                     }
                 }
@@ -569,7 +638,6 @@
                     case '3D': // NOTE: AC-specific type 3D is the same as OSCP MODEL_3D // AC added it in Nov.2022
                     case 'placeholder': {
                         // NOTE: placeholder is a temporary type we use in all demos until we come up with a good list // AC removed it in Nov.2022
-                        showContentsLog = true; // show log if at least one 3D object was received
 
                         // DEPRECATED
                         // Augmented City proprietary structure (has no refs, has type infosticker and has custom_data fieds)
@@ -592,17 +660,18 @@
                         //             console.log('Error: unexpected sticker subtype: ' + subtype);
                         //             break;
                         //     }
+
                         if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
-                            // TODO load all, not only first reference
+                            // TODO: load all, not only first reference
                             const contentType = record.content.refs[0].contentType;
                             const url = record.content.refs[0].url;
                             if (contentType.includes('gltf')) {
-                                const node = tdEngine.addModel(url, localPosition, localQuaternion);
+                                const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
                                 if (content_definitions['animation'] != undefined) {
                                     switch (content_definitions['animation']) {
                                         case 'SPIN_UP':
-                                            tdEngine.setVerticallyRotating(node);
+                                            tdEngine.setVerticallyRotating(nodeTransform);
                                             break;
                                         default:
                                             break;
@@ -635,12 +704,13 @@
                     }
 
                     case 'geopose_stream': {
-                        // NGI Search 2025 demo
-                        if (record.tenant === 'NGISearch2025') {
-                            let object_description = (record.content as any).object_description;
+                        // NGI Search 2025 demo on agent pose sharing
+                        if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
                             let globalObjectPose = record.content.geopose;
                             let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
                             let object_id = record.content.id;
+
+                            let object_description = (record.content as any).object_description;
                             if (tdEngine.getDynamicObjectMesh(object_id) != null) {
                                 tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
                             } else {
@@ -651,10 +721,11 @@
                     }
 
                     case 'sensor_stream': {
+                        if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
+
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
                         let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
-
                         const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
@@ -680,9 +751,9 @@
                             } else {
                                 url = record.content.refs ? record.content.refs[0].url : '';
                             }
-                            tdEngine.addPointCloud(url, localPosition, localQuaternion);
+                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion);
                         } else {
-                            console.log('A POINTCLOUD content was received but this type is disabled');
+                            console.log(`A POINTCLOUD content ${record.content.title} was received but this type is disabled`);
                         }
                         break;
                     }
@@ -739,8 +810,11 @@
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
                                     const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
-                                    const pinModel = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2));
-                                    tdEngine.setVerticallyRotating(pinModel);
+                                    const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
+                                        //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
+                                        if (debugScrs) console.log('POI ' + featureName + ' added.');
+                                    }).transform;
+                                    tdEngine.setVerticallyRotating(nodeTransform);
 
                                     let localTextPosition = localFeaturePose.position.clone();
                                     localTextPosition.y += 3;
@@ -760,7 +834,7 @@
 
                     case 'TEXT': {
                         if (!$debug_enableOGCPoIContents) {
-                            console.log('A TEXT content was received but this type is disabled');
+                            console.log(`A TEXT content ${record.content.title} was received but this type is disabled`);
                             break;
                         }
                         const url = record.content.refs ? record.content.refs[0].url : '';
@@ -774,8 +848,6 @@
                                 }
                             })
                             .then((textdata) => {
-                                //console.log("TEXT received:")
-                                //console.log(textdata)
                                 tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
                             })
                             .catch((error) => {
@@ -797,14 +869,6 @@
                 }
             });
         });
-
-        // DEBUG
-        if (showContentsLog) {
-            console.log('Received contents: ');
-            $receivedScrs.forEach((record) => {
-                console.log('  ' + record.content.title);
-            });
-        }
 
         tdEngine.updateSceneGraphTransforms();
 
@@ -873,6 +937,17 @@
             value: message_body,
             routing_key: rmq_topic,
         });
+    }
+
+    // used by child components
+    export function getCameraGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
+        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
+        const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
+        const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w).multiply(
+            xrQuatCorrection,
+        );
+        const cameraGeoPose = getRenderer().convertLocalPoseToGeoPose(position, quaternion);
+        return cameraGeoPose;
     }
 
     /**

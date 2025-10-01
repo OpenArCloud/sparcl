@@ -11,15 +11,15 @@ import { type DataConnection, Peer, type PeerJSOption } from 'peerjs';
 import { p2pNetworkState } from '../stateStore';
 
 export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> implements NetworkAdapterInterface {
-    constructor(public peerJsServerConfig: PeerJSOption) {
+    constructor(public peerJsServerConfig: PeerJSOption){
         super();
     }
+
     public peer?: Peer;
-    public peerId?: PeerId;
     public peerMetadata?: PeerMetadata;
     public connections: DataConnection[] = [];
+
     connect(peerId: PeerId, peerMetadata?: PeerMetadata | undefined): void {
-        this.peerId = peerId;
         this.peerMetadata = peerMetadata;
         this.peer = new Peer(peerId, this.peerJsServerConfig);
         this.peer.on('open', (id) => {
@@ -29,29 +29,35 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
             this.emit('ready', { network: this });
         });
         this.peer.on('close', () => {
+            console.log(`Connection to the PeerServer closed.`);
             p2pNetworkState.set('not connected');
         });
         this.peer.on('connection', (connection) => {
             this.connections.push(connection);
             connection.on('open', () => {
+                console.log(`Connection to peer ${connection.peer} established.`);
                 connection.send({
-                    senderId: this.peerId,
+                    senderId: this.peer!.id,
                     type: 'welcome',
                     peerMetadata: this.peerMetadata,
                 });
                 connection.on('data', (data) => {
                     this.handleMessage(data as BroadcastChannelMessage);
+                    //console.log(`Received data from ${connection.peer}: ${data}`);
                 });
                 connection.on('close', () => {
                     const connectionIndex = this.connections.findIndex((conn) => conn.label === connection.label);
                     if (connectionIndex !== -1) {
                         this.connections.splice(connectionIndex, 1);
+                        console.log(`Connection to peer ${connection.peer} closed.`);
                     }
                 });
             });
         });
     }
+
     send(message: BroadcastChannelMessage): void {
+        //console.log(`SEND: ${message}`);
         this.connections.forEach((connection) => {
             if (connection.open) {
                 connection.send(message);
@@ -66,7 +72,7 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 {
                     const { peerMetadata } = message as ArriveMessage;
                     this.send({
-                        senderId: this.peerId!,
+                        senderId: this.peer!.id as PeerId,
                         targetId: senderId,
                         type: 'welcome',
                         peerMetadata: this.peerMetadata!,
@@ -81,10 +87,11 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 }
                 break;
             default:
+                //console.log(`RECEIVE: ${message}`);
                 if (!('data' in message)) {
                     this.emit('message', message);
                 } else {
-                    const data = message.data as ArrayBufferLike;
+                    const data = message.data as Uint8Array<ArrayBufferLike>;
                     this.emit('message', {
                         ...message,
                         data: new Uint8Array(data),
@@ -113,18 +120,21 @@ export class PeerjsNetworkAdapter extends EventEmitter<NetworkAdapterEvents> imp
                 if (connection) {
                     this.connections.push(connection);
                     connection.on('open', () => {
+                        console.log(`Connection to peer ${connection.peer} established.`);
                         connection.send({
-                            senderId: this.peerId,
+                            senderId: this.peer!.id,
                             type: 'arrive',
                             peerMetadata: this.peerMetadata,
                         });
                         connection.on('data', (data) => {
+                            //console.log(`Received data from ${connection.peer}: ${data}`);
                             this.handleMessage(data as BroadcastChannelMessage);
                         });
                         connection.on('close', () => {
                             const connectionIndex = this.connections.findIndex((conn) => conn.label === connection.label);
                             if (connectionIndex !== -1) {
                                 this.connections.splice(connectionIndex, 1);
+                                console.log(`Connection to peer ${connection.peer} closed.`);
                             }
                         });
                     });

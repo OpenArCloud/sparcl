@@ -17,17 +17,36 @@
     import Login from '@src/auth/Login.svelte';
     import Onboarding from '@src/components/Onboarding.svelte';
     import Header from '@components/Header.svelte';
-    import { showLogin, showDashboard, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
+    import Headless from './components/Headless.svelte';
+    import { showLogin, isLoggedIn, currentLoggedInUser, userNoAuth, isAuthenticatedAuth0 } from './stateStore';
+
+    let isHeadless = false;
+    // NOTE: urlParams must be read here, not in onMount, otherwise it will not be available in the initial render
+    let urlParams: URLSearchParams = new URLSearchParams(window.location.search);
 
     // handle external route if the user not signed in & try to enter some routes
     onMount(() => {
+        //console.log('App.svelte');
+        //console.log('URL parameters: ' + urlParams?.toString() || 'none');
+
+        if (urlParams.has('headless') && urlParams.get('headless') === 'true') {
+            isHeadless = true;
+            navigate('/');
+            return;
+        }
+
+        // Redirect to login if not logged in and trying to access other routes
         if ((!$isLoggedIn && window.location.pathname !== '/login') || (!$isLoggedIn && window.location.pathname !== '/loginAdmin')) {
             navigate('/login', { replace: true });
         }
     });
 
-    // handle un-valid routes
+    // handle invalid routes
     onMount(() => {
+        if (isHeadless) {
+            return;
+        }
+
         const validRoutes = ['/'];
 
         // Check if user is logged in and the route is invalid
@@ -40,6 +59,10 @@
     const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
     onMount(() => {
+        if (isHeadless) {
+            return;
+        }
+
         // If authentication is disabled, set localStorage
         if (userWithoutAuth) {
             isLoggedIn.set(true);
@@ -61,18 +84,22 @@
     });
 </script>
 
-<!-- Added the Header Component -->
 <Header />
 
 <main>
-    <Router>
-        {#if $isLoggedIn}
-            <!-- Define Routes -->
-            <Route path="/" component={Onboarding} />
-        {:else}
-            <Route path="/login" component={Login} />
-        {/if}
-    </Router>
+    {#if isHeadless}
+        <Router>
+            <Route path="/" component={Headless} {urlParams} />
+        </Router>
+    {:else}
+        <Router>
+            {#if $isLoggedIn}
+                <Route path="/" component={Onboarding} {urlParams} />
+            {:else}
+                <Route path="/login" component={Login} />
+            {/if}
+        </Router>
+    {/if}
 </main>
 
 <style>

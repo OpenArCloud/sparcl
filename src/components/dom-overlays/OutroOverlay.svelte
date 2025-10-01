@@ -16,7 +16,7 @@
 
     import { outroGreeting, outro, doitOkLabel, dashboardOkLabel } from '@src/contentStore';
 
-    export let shouldShowDashboard: boolean | null = null;
+    export let showDashboardRequested: boolean;
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ okAction: undefined }>();
@@ -28,7 +28,7 @@
 
     <footer>
         <button on:click={() => dispatch('okAction')}>
-            {shouldShowDashboard === true ? $dashboardOkLabel : $doitOkLabel}
+            {showDashboardRequested === true ? $dashboardOkLabel : $doitOkLabel}
         </button>
     </footer>
 </div>
