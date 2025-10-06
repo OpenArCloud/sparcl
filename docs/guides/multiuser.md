@@ -82,9 +82,9 @@ Activate P2P connectivity:
 Restart sparcl to connect to the headless client
 
 
-## Preparation for the content
+# Content, experiences, events
 
-The interactivity needs to be implemented in the scene itself. The only thing to add for multi user functionality is to send events. The format and content of the events can be defined by the developer, sparcl doesn't interpret these events, but forwards them over PeerJS to distribute them to all connected peers. The events (including the own events) received are written into every client's own automerge document. Automerge makes sure that there are no conflicts. Changes in the automerge document trigger actions in sparcl, for example newly received objects get added to the renderer.
+The interactivity needs to be implemented in the scene itself. The only thing to add for multi user functionality is to send events. The format and content of the events can be defined by the developer, sparcl doesn't interpret these events, but forwards them over PeerJS to distribute them to all connected peers. The events (including the own events) received are written into every client's own automerge document. Automerge makes sure that there are no conflicts. Changes in the automerge document trigger actions in sparcl, for example newly received objects get added to the renderer (see `Viewer.onNetworkEvent()`).
 
 ### Register your scene with [SCD](https://openarcloud.github.io/sparcl/glossary.html#spatial-content-discovery-scd)
 
