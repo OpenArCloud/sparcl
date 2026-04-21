@@ -35,10 +35,11 @@ Steps to setup the project:
 
 ## Production
 
-Create `.env` file containing the URL to OSCP SSD
+Create `.env` file containing the URL to OSCP SSD (and optionally the frame transform service URL).
 
 ```js
 VITE_SSD_ROOT_URL = `YOUR_SSD_ROOT_URL`;
+// Optional: VITE_FRAME_TRANSFORMS_URL = `YOUR_FRAME_TRANSFORM_SERVICE_ROOT`;
 ```
 
 ### Build:
@@ -61,6 +62,9 @@ To build a docker image run the `npm run build:docker` script. Make sure you hav
 ```Dockerfile
 ARG VITE_SSD_ROOT_URL
 ENV VITE_SSD_ROOT_URL=$VITE_SSD_ROOT_URL
+# Optional, if you use FrameTransformsClient with HTTP baseUrl:
+# ARG VITE_FRAME_TRANSFORMS_URL
+# ENV VITE_FRAME_TRANSFORMS_URL=$VITE_FRAME_TRANSFORMS_URL
 ```
 and to run the docker build script with the following command line argument: `docker build --build-arg VITE_SSD_ROOT_URL=https://your-ssd-url-domain.com . -t sparcl`
 
@@ -93,6 +97,9 @@ VITE_RMQ_TOPIC_OBJECT_CREATED="/exchange/ngi_search/object_created"
 
 ## PoI Search (optional, see OSCP PoI search service)
 VITE_POI_SEARCH_BASEURL=""
+
+## Frame transform graph (optional, HTTP; see docs/workingwithcode/poseconversions.md)
+VITE_FRAME_TRANSFORMS_URL=""
 ```
 
 # References
