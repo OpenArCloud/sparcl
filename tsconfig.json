@@ -31,5 +31,5 @@
         "checkJs": true,
         "isolatedModules": true
     },
-    "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte"]
+    "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "test/**/*.ts"]
 }

@@ -12,7 +12,8 @@
         "build:docker": "docker build . -t sparcl",
         "start:docker": "docker run -p 8034:80 -d sparcl:latest",
         "preview": "vite preview --port 8080",
-        "test": "npx mocha --reporter spec 'test/**/*.js'",
+        "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/spatialAlignment.test.ts",
+        "test:mocha": "npx mocha --reporter spec 'test/**/*.js'",
         "lint": "eslint .",
         "format": "prettier --write ."
     },
@@ -55,6 +56,7 @@
         "prettier-plugin-svelte": "^3.4.0",
         "svelte": "^4.2.3",
         "tslib": "^2.6.2",
+        "tsx": "^4.21.0",
         "typescript": "^5.3.3",
         "vite": "^5.0.0",
         "vite-plugin-glsl": "^1.2.0",
