@@ -21,6 +21,7 @@ import {
     getRelativeOrientation,
 } from '@core/locationTools';
 
+import { bumpWorldAlignmentRevision } from '../stateStore';
 import { OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
 
 export type Vec3Like = { x: number; y: number; z: number };
@@ -86,6 +87,7 @@ export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, g
         tRefFromScene: mat4.clone(kin.tRefFromScene),
         anchorGeopose: cloneGeopose(kin.anchorGeopose),
     };
+    bumpWorldAlignmentRevision();
     return {
         tSceneFromRef: _activeGeoAlignment.tSceneFromRef,
         tRefFromScene: _activeGeoAlignment.tRefFromScene,
@@ -95,15 +97,12 @@ export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, g
 /** Clears session alignment (e.g. when the XR session ends or matrix-only alignment is applied). */
 export function clearActiveGeoAlignment(): void {
     _activeGeoAlignment = null;
+    bumpWorldAlignmentRevision();
 }
 
-export function hasActiveGeoAlignment(): boolean {
+/** True after a successful localization ({@link setActiveGeoAlignmentFromCapture}) until {@link clearActiveGeoAlignment}. */
+export function hasActiveWorldAlignment(): boolean {
     return _activeGeoAlignment !== null;
-}
-
-/** Deep-copied anchor GeoPose for the current session (throws if not localized). */
-export function getActiveAnchorGeopose(): Geopose {
-    return cloneGeopose(requireActiveGeoAlignment().anchorGeopose);
 }
 
 export function convertGeoPoseToLocalPose(objectGeopose: Geopose): RigidPose {

@@ -12,7 +12,6 @@
 -->
 
 <script lang="ts">
-    import { get } from 'svelte/store';
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
@@ -21,7 +20,7 @@
     import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
     import type { ObjectDescription, XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
-    import { myAgentName, myAgentId, myAgentColor, recentLocalisation, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
+    import { myAgentName, myAgentId, myAgentColor, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
     import { createEventDispatcher } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
     import * as worldAlignment from '@core/worldAlignment';
@@ -129,7 +128,7 @@
             return parentInstance.onNetworkEvent(events);
         }
 
-        if (get(recentLocalisation)?.geopose?.position == undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             // we need to localize at least once to be able to do anything
             //console.log('Network event received but we are not localized yet!');
             //console.log(events);
@@ -242,7 +241,7 @@
             }
 
             // hide if there was no localization yet
-            if ($recentLocalisation.geopose?.position === undefined) {
+            if (!worldAlignment.hasActiveWorldAlignment()) {
                 reticle.visible = false;
             }
 

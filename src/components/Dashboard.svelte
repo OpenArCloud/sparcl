@@ -28,7 +28,6 @@
         arMode,
         currentMarkerImage,
         currentMarkerImageWidth,
-        recentLocalisation,
         allowP2pNetwork,
         p2pNetworkState,
         isLocationAccessAllowed,
@@ -291,13 +290,6 @@
                     </p>
                 </dd>
             {/if}
-        </dl>
-
-        <dl>
-            <dt>Recent GeoPose</dt>
-            <dd class="autoheight">
-                <pre>{JSON.stringify($recentLocalisation.geopose, null, 2)}</pre>
-            </dd>
         </dl>
 
         <dl class="nested">

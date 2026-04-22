@@ -10,7 +10,7 @@
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
     import * as worldAlignment from '@core/worldAlignment';
-    import { initialLocation, recentLocalisation } from '@src/stateStore';
+    import { initialLocation } from '@src/stateStore';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -75,7 +75,7 @@
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
-        if ($recentLocalisation.geopose !== undefined) {
+        if (worldAlignment.hasActiveWorldAlignment()) {
             const localPose = xrViewerPose;
             currentGeopose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
                 { x: localPose.transform.position.x, y: localPose.transform.position.y, z: localPose.transform.position.z },

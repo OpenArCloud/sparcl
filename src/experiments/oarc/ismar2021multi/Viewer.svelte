@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
-    import { get, writable, type Writable } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { Vec3, Quat, type Transform } from 'ogl';
 
@@ -10,7 +10,7 @@
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
-    import { peerIdStr, recentLocalisation } from '../../../stateStore';
+    import { peerIdStr, worldAlignmentRevision } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
     import * as worldAlignment from '@core/worldAlignment';
@@ -32,7 +32,8 @@
     setContext('state', parentState);
 
     $: {
-        if ($recentLocalisation?.geopose.position != null) {
+        void $worldAlignmentRevision;
+        if (worldAlignment.hasActiveWorldAlignment()) {
             const assets = getAutomergeDocumentData();
             if (assets) {
                 for (const asset of assets) {
@@ -215,9 +216,7 @@
     }
 
     function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
-        const latestGlobalPose = $recentLocalisation.geopose;
-        const latestLocalPose = $recentLocalisation.xrViewerPose;
-        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
@@ -269,7 +268,7 @@
             return parentInstance.onNetworkEvent(events);
         }
 
-        if (get(recentLocalisation)?.geopose?.position == undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             // we need to localize at least once to be able to do anything
             console.log('Network event received but we are not localized yet!');
             console.log(events);

@@ -12,7 +12,7 @@
 -->
 <script lang="ts">
     import { createEventDispatcher, getContext, onDestroy } from 'svelte';
-    import { writable, type Writable, get } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
@@ -30,7 +30,6 @@
         debug_enableOGCPoIContents,
         initialLocation,
         receivedScrs,
-        recentLocalisation,
         selectedContentServices,
         selectedGeoPoseService,
         debug_overrideGeopose,
@@ -281,7 +280,7 @@
             updateSensorVisualization();
 
             // optionally share the camera pose with other players
-            if ($recentLocalisation.geopose?.position !== undefined) {
+            if (worldAlignment.hasActiveWorldAlignment()) {
                 currentGeoPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
                     {
                         x: xrViewerPose.transform.position.x,
@@ -312,8 +311,6 @@
 
         // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
-        $recentLocalisation.geopose = cameraGeoPose;
-        $recentLocalisation.xrViewerPose = xrViewerPose;
         onLocalizationSuccess(xrViewerPose, cameraGeoPose);
 
         // now get the contents from the SCD(s)
@@ -380,8 +377,6 @@
         $context.isLocalized = false;
         $context.isLocalizing = false;
         //$context.isLocalisationDone = false; // Note: do not clear this otherwise the ARCloudOverlay wants to come up again
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.xrViewerPose = {};
         $context.showFooter = false;
 
         // clear content querying context
@@ -408,8 +403,6 @@
         $context.isLocalized = false;
         $context.isLocalizing = false;
         $context.isLocalisationDone = false;
-        $recentLocalisation.geopose = {};
-        $recentLocalisation.xrViewerPose = {};
         $context.showFooter = true;
 
         // clear content querying context
@@ -976,7 +969,7 @@
             return;
         }
 
-        if (get(recentLocalisation)?.geopose?.position == undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             // we need to localize at least once to be able to do anything
             //console.log('Network event received but we are not localized yet!');
             //console.log(events);

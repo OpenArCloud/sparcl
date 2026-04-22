@@ -316,12 +316,15 @@ export const availableMessageBrokerServices = derived<typeof ssr, (Service & { g
 export const isRabbitmqConnectionTestSuccessful = writable(null);
 
 /**
- * Used to store the values of the most up to date localisation.
+ * Monotonic counter bumped when `@core/worldAlignment` session alignment is set or cleared.
+ * Subscribe in Svelte as `$worldAlignmentRevision` so `$:` blocks react to alignment changes.
  */
-export const recentLocalisation = writable<{ geopose: Partial<Geopose>; xrViewerPose: Partial<XRViewerPose> }>({
-    geopose: {},
-    xrViewerPose: {},
-});
+export const worldAlignmentRevision = writable(0);
+
+/** Called from `@core/worldAlignment` when active alignment is applied or cleared. */
+export function bumpWorldAlignmentRevision(): void {
+    worldAlignmentRevision.update((n) => n + 1);
+}
 
 /**
  * The ones of the received content services to be used to request content around the current location from.
