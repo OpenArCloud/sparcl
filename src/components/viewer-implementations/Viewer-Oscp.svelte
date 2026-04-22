@@ -209,10 +209,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
-     * @param floorSpaceReference
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
+     * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) {
         if (useReticle && myGl) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
@@ -226,7 +226,7 @@
             } else {
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 if (hitTestResults.length > 0) {
-                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                    const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
@@ -249,7 +249,7 @@
         } // useReticle
 
         // Call parent Viewer's onXrFrameUpdate which performs localization and rendering
-        parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
+        parentInstance.onXrFrameUpdate(time, frame, xrViewerPose); // this renders scene and captures the camera image for localization
     }
 
     /**
@@ -258,10 +258,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 
     /**

@@ -57,10 +57,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrFrameUpdate(time, frame, floorPose);
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
     }
 
     /**
@@ -76,10 +76,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 </script>
 

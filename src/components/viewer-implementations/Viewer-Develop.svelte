@@ -66,9 +66,9 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose     The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -79,10 +79,10 @@
                 tdEngine.addAxes();
             }
 
-            for (let view of floorPose.views) {
+            for (let view of xrViewerPose.views) {
                 console.log('fake localisation');
                 const geoPose = fakeLocationResult.geopose.geopose;
-                onLocalizationSuccess(floorPose, geoPose);
+                onLocalizationSuccess(xrViewerPose, geoPose);
                 isLocalized = true;
 
                 wait(1000).then(() => (showFooter = false));
@@ -93,10 +93,10 @@
         }
 
         xrEngine.handleAnchors(frame);
-        xrEngine.setViewportForView(floorPose.views[0]);
-        parentInstance.handleExternalExperience(floorPose.views[0]);
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        parentInstance.handleExternalExperience(xrViewerPose.views[0]);
         updateSensorVisualization();
-        tdEngine.render(time, floorPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 </script>
 

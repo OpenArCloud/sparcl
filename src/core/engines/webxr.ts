@@ -19,11 +19,11 @@ import type { AttributeData, Mat4, OGLRenderingContext } from 'ogl';
 let xrSessionEndedCallback: (() => void) | null = null;
 let xrFrameUpdateCallback: XrFrameUpdateCallbackType | null = null;
 let xrMarkerFrameUpdateCallback: XrMarkerFrameUpdateCallbackType;
-let xrReferenceSpaceResetCallback: (transform: XRRigidTransform) => void;
-let xrNoPoseCallback: XrNoPoseCallbackType | null;
+let xrReferenceSpaceResetCallback: ((transform: XRRigidTransform) => void) | null = null;
+let xrNoPoseCallback: XrNoPoseCallbackType | null = null;
 let animationFrameCallback: (time: DOMHighResTimeStamp, xrFrame: XRFrame) => void;
-let floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace;
-let localSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace;
+let localFloorWebXrReferenceSpace: XRReferenceSpace;
+let localWebXrReferenceSpace: XRReferenceSpace;
 let gl: OGLRenderingContext | null;
 
 /**
@@ -228,7 +228,8 @@ export default class webxr {
      */
     createRootAnchor(frame: XRFrame, rootUpdater: (matrix: number[] | AttributeData) => Mat4) {
         if (frame.createAnchor) {
-            const anchorPromise = frame.createAnchor(new XRRigidTransform(), floorSpaceReference);
+            // note: we use the local floor reference space for the anchors
+            const anchorPromise = frame.createAnchor(new XRRigidTransform(), localFloorWebXrReferenceSpace);
             if (anchorPromise) {
                 anchorPromise
                     .then((anchor) => {
@@ -251,7 +252,8 @@ export default class webxr {
      */
     handleAnchors(frame: XRFrame) {
         frame.trackedAnchors?.forEach((anchor) => {
-            const anchorPose = frame.getPose(anchor.anchorSpace, floorSpaceReference);
+            // note: we use the local floor reference space for the anchors
+            const anchorPose = frame.getPose(anchor.anchorSpace, localFloorWebXrReferenceSpace);
             if (anchorPose) {
                 anchor.context?.rootUpdater(anchorPose.transform.matrix);
             }
@@ -281,11 +283,11 @@ export default class webxr {
         // Note: reference spaces viewer, local, and local-floor are always available, but others may not
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
         Promise.all([this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')]).then((values) => {
-            floorSpaceReference = values[0];
-            localSpaceReference = values[1];
+            localFloorWebXrReferenceSpace = values[0];
+            localWebXrReferenceSpace = values[1];
             // TODO: use unbounded space, if available
-            floorSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
-            localSpaceReference.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
+            localFloorWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
+            localWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
             this.session?.requestAnimationFrame(animationFrameCallback);
         });
     }
@@ -305,18 +307,20 @@ export default class webxr {
         gl?.bindFramebuffer(gl.FRAMEBUFFER, session?.renderState?.baseLayer?.framebuffer || null);
 
         // TODO(soeroesg): we could query the pose in multiple reference frames and trigger respective callbacks
-        const floorPose = xrFrame.getViewerPose(floorSpaceReference);
-        if (floorPose) {
+        const xrViewerPose = xrFrame.getViewerPose(localFloorWebXrReferenceSpace);
+        if (xrViewerPose) {
             if (xrFrameUpdateCallback) {
-                xrFrameUpdateCallback(time, xrFrame, floorPose, floorSpaceReference);
+                xrFrameUpdateCallback(time, xrFrame, xrViewerPose, localFloorWebXrReferenceSpace);
             }
 
             if (xrMarkerFrameUpdateCallback) {
                 const results = xrFrame.getImageTrackingResults();
                 if (results.length > 0) {
-                    const localPose = xrFrame.getPose(results[0].imageSpace, floorSpaceReference);
-                    if (localPose) {
-                        xrMarkerFrameUpdateCallback(time, xrFrame, floorPose, localPose, results[0]);
+                    // TODO: markerPose is actually the pose of image space relative to the localFloor reference space
+                    // so the naming is incorrect
+                    const markerPose = xrFrame.getPose(results[0].imageSpace, localFloorWebXrReferenceSpace);
+                    if (markerPose) {
+                        xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
                     }
                 }
             }

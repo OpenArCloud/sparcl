@@ -54,9 +54,9 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         showFooter = false;
 
         if (firstPoseReceived === false) {
@@ -88,7 +88,7 @@
         }
 
         xrEngine.handleAnchors(frame);
-        for (let view of floorPose.views) {
+        for (let view of xrViewerPose.views) {
             xrEngine.setViewportForView(view);
             parentInstance.handleExternalExperience(view);
             tdEngine.render(time, view);

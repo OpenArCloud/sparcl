@@ -188,9 +188,9 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         handlePoseHeartbeat();
 
         if (firstPoseReceived === false) {
@@ -202,7 +202,7 @@
         }
 
         // TODO: Handle multiple views and the localisation correctly
-        for (let view of floorPose.views) {
+        for (let view of xrViewerPose.views) {
             xrEngine.setViewportForView(view);
 
             handleExternalExperience(view);
@@ -233,7 +233,7 @@
                         });
                         return { cameraGeoPose: $debug_overrideGeopose };
                     };
-                    doLocalization({ floorPose, getGeopose });
+                    doLocalization({ xrViewerPose, getGeopose });
                 } else {
                     //const imageWidth = viewport.width; // old Chrome 91
                     //const imageHeight = viewport.height; // old Chrome 91
@@ -273,7 +273,7 @@
                         const img = await image;
                         return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                     };
-                    doLocalization({ floorPose, getGeopose });
+                    doLocalization({ xrViewerPose, getGeopose });
                 }
             }
 
@@ -281,10 +281,10 @@
 
             // optionally share the camera pose with other players
             if ($recentLocalisation.geopose?.position !== undefined) {
-                currentGeoPose = getCameraGeoposeFromXRViewerPose(floorPose);
+                currentGeoPose = getCameraGeoposeFromXRViewerPose(xrViewerPose);
                 if ($enableCameraPoseSharing) {
                     try {
-                        shareCameraPose(floorPose);
+                        shareCameraPose(xrViewerPose);
                     } catch (error) {
                         // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
                     }
@@ -294,19 +294,19 @@
         }
     }
 
-    async function doLocalization({ floorPose, getGeopose }: { floorPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+    async function doLocalization({ xrViewerPose, getGeopose }: { xrViewerPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
         if (debugScrs) console.log('doLocalization');
 
         // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
         $recentLocalisation.geopose = cameraGeoPose;
-        $recentLocalisation.floorpose = floorPose;
-        onLocalizationSuccess(floorPose, cameraGeoPose);
+        $recentLocalisation.xrViewerPose = xrViewerPose;
+        onLocalizationSuccess(xrViewerPose, cameraGeoPose);
 
         // now get the contents from the SCD(s)
         //await retrieveAndPlaceContents(currentGeoPose);
         // TODO: this first one always fails because currentGeoPose is not yet available
-        // (floorPose here is already outdated because the device has moved meanwhile)
+        // (xrViewerPose here is already outdated because the device has moved meanwhile)
 
         // and repeat periodically
         contentQueryInterval = setInterval(async () => {
@@ -342,11 +342,11 @@
      * @param time time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         $context.hasLostTracking = true;
-        tdEngine.render(time, floorPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -368,7 +368,7 @@
         $context.isLocalizing = false;
         //$context.isLocalisationDone = false; // Note: do not clear this otherwise the ARCloudOverlay wants to come up again
         $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
+        $recentLocalisation.xrViewerPose = {};
         $context.showFooter = false;
 
         // clear content querying context
@@ -395,7 +395,7 @@
         $context.isLocalizing = false;
         $context.isLocalisationDone = false;
         $recentLocalisation.geopose = {};
-        $recentLocalisation.floorpose = {};
+        $recentLocalisation.xrViewerPose = {};
         $context.showFooter = true;
 
         // clear content querying context

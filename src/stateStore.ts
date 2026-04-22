@@ -318,9 +318,9 @@ export const isRabbitmqConnectionTestSuccessful = writable(null);
 /**
  * Used to store the values of the most up to date localisation.
  */
-export const recentLocalisation = writable<{ geopose: Partial<Geopose>; floorpose: Partial<XRViewerPose> }>({
+export const recentLocalisation = writable<{ geopose: Partial<Geopose>; xrViewerPose: Partial<XRViewerPose> }>({
     geopose: {},
-    floorpose: {},
+    xrViewerPose: {},
 });
 
 /**
