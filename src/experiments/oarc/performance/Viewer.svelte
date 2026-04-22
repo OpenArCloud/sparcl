@@ -252,7 +252,7 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded>
+<Parent bind:this={parentInstance} on:arSessionEnded on:worldAlignmentEstablished on:worldAlignmentCleared>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
             <p>{receivedContentTitles.join()}</p>

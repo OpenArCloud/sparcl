@@ -19,7 +19,6 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
-    import * as worldAlignment from '@core/worldAlignment';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
@@ -52,23 +51,7 @@
      * @param globalImagePose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localImageXrPose: XRPose, globalImagePose: Geopose) {
-        const localImagePose: WebXrRigidPose = {
-            position: {
-                x: localImageXrPose.transform.position.x,
-                y: localImageXrPose.transform.position.y,
-                z: localImageXrPose.transform.position.z,
-            },
-            orientation: {
-                x: localImageXrPose.transform.orientation.x,
-                y: localImageXrPose.transform.orientation.y,
-                z: localImageXrPose.transform.orientation.z,
-                w: localImageXrPose.transform.orientation.w,
-            },
-        };
-        const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5]); // yellow
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5]); // cyan
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5]); // white
+        parentInstance.onLocalizationSuccess(localImageXrPose, globalImagePose);
     }
 
     /**
@@ -111,4 +94,10 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded
+    on:broadcast
+    on:worldAlignmentEstablished
+    on:worldAlignmentCleared
+/>

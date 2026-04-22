@@ -57,6 +57,8 @@
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{
         arSessionEnded: undefined;
+        worldAlignmentEstablished: undefined;
+        worldAlignmentCleared: undefined;
         broadcast: {
             event: string;
             value?: any;
@@ -387,6 +389,7 @@
 
         // clear rendering context
         worldAlignment.clearActiveGeoAlignment();
+        dispatch('worldAlignmentCleared');
         tdEngine.cleanup();
 
         // broadcast event to parent
@@ -413,6 +416,7 @@
 
         // clear rendering context
         worldAlignment.clearActiveGeoAlignment();
+        dispatch('worldAlignmentCleared');
         tdEngine.reinitialize();
     }
 
@@ -453,6 +457,7 @@
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5]); // yellow
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5]); // cyan
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5]); // white
+        dispatch('worldAlignmentEstablished');
     }
 
     /**

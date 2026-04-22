@@ -96,4 +96,10 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded
+    on:broadcast
+    on:worldAlignmentEstablished
+    on:worldAlignmentCleared
+/>
