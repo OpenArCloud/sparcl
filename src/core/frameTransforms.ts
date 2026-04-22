@@ -2,9 +2,11 @@
   (c) 2026 Open AR Cloud / contributors
   SPDX-License-Identifier: MIT
 
-  By "frames" we mean coordinate reference frames (spatial references), each identified by a unique string id.
+  Coordinate reference frames are identified by a **FrameRef** (`uuid` + `fqn`); see `FrameRef` below and
+  docs/workingwithcode/poseconversions.md. Resolver APIs may still use string keys (often `uuid`) until
+  the transform-graph wire format accepts structured FrameRefs end-to-end.
 
-  Helpers and a small client for 4×4 transforms between those frames (e.g. HTTP transform-graph).
+  Helpers and a small client for 4×4 transforms between frames (e.g. HTTP transform-graph).
   Conventions: docs/workingwithcode/poseconversions.md
 */
 
