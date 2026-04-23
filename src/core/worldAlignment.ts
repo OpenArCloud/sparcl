@@ -238,11 +238,6 @@ export function mat4LocalizationDebugEnuAxes(anchorGeopose: Geopose, tSceneFromR
     return mat4ComposeSceneFromRefLocal(tSceneFromRef, mRef);
 }
 
-/** Alias for {@link mat4SceneFromGeoPose} (GeoPose object → WebXR scene **T_scene_from_object**). */
-export function convertGeoPoseToSceneMat4(anchorGeopose: Geopose, objectGeopose: Geopose, tSceneFromRef: ReadonlyMat4): mat4 {
-    return mat4SceneFromGeoPose(anchorGeopose, objectGeopose, tSceneFromRef);
-}
-
 /** Decomposed WebXR scene pose for a GeoPose under geopose alignment (same as **T_scene_from_ref * T_ref_from_object**). */
 export function convertGeoPoseToSceneRigidPose(anchorGeopose: Geopose, objectGeopose: Geopose, tSceneFromRef: ReadonlyMat4): RigidPose {
     const m = mat4SceneFromGeoPose(anchorGeopose, objectGeopose, tSceneFromRef);
@@ -292,16 +287,6 @@ export function convertScenePoseToGeopose(position: Vec3Like, quaternion: QuatLi
             w: enuQuaternion[3],
         },
     };
-}
-
-/** Same as {@link convertScenePoseToGeopose} (kept for tests and older call sites). */
-export function scenePoseToGeopose(
-    position: { x: number; y: number; z: number },
-    quaternion: { x: number; y: number; z: number; w: number },
-    tRefFromScene: ReadonlyMat4,
-    anchorGeopose: Geopose,
-): Geopose {
-    return convertScenePoseToGeopose(position, quaternion, tRefFromScene, anchorGeopose);
 }
 
 /**

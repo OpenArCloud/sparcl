@@ -13,14 +13,12 @@ import {
     computeGeoAlignmentFromPosePair,
     convertCameraWebXrPoseToGeopose,
     convertGeoPoseToLocalPose,
-    convertGeoPoseToSceneMat4,
     convertGeoPoseToSceneRigidPose,
     convertScenePoseToGeopose,
     convertScenePoseToGeoposeFromActive,
     geoPoseToEnuPose,
     mat4ObjectInRefFromGeoPose,
     mat4SceneFromGeoPose,
-    scenePoseToGeopose,
     setActiveGeoAlignmentFromCapture,
 } from '@core/worldAlignment';
 
@@ -104,7 +102,7 @@ describe('worldAlignment', () => {
         assertMat4Near(got, expected);
     });
 
-    it('scenePoseToGeopose inverts mat4SceneFromGeoPose (round-trip)', () => {
+    it('convertScenePoseToGeopose inverts mat4SceneFromGeoPose (round-trip)', () => {
         const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
         const anchor = kin.anchorGeopose;
         const objectGeo: Geopose = normalizeGeoposeQuat({
@@ -114,7 +112,7 @@ describe('worldAlignment', () => {
 
         const mScene = mat4SceneFromGeoPose(anchor, objectGeo, kin.tSceneFromRef);
         const { position, quaternion } = decomposePosQuat(mScene);
-        const back = scenePoseToGeopose(position, quaternion, kin.tRefFromScene, anchor);
+        const back = convertScenePoseToGeopose(position, quaternion, kin.tRefFromScene, anchor);
         assertGeoposeNear(back, objectGeo);
     });
 
@@ -144,26 +142,6 @@ describe('worldAlignment', () => {
             1,
         );
         assertMat4Near(kin.tSceneFromRef, expected, 2e-5);
-    });
-
-    it('convertGeoPoseToSceneMat4 matches mat4SceneFromGeoPose', () => {
-        const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
-        const objectGeo: Geopose = normalizeGeoposeQuat({
-            position: { lat: 47.4985, lon: 19.0415, h: 158.2 },
-            quaternion: { x: 0.15, y: 0.2, z: 0.25, w: 0.93 },
-        });
-        const a = mat4SceneFromGeoPose(globalCapture, objectGeo, kin.tSceneFromRef);
-        const b = convertGeoPoseToSceneMat4(globalCapture, objectGeo, kin.tSceneFromRef);
-        assertMat4Near(a, b);
-    });
-
-    it('convertScenePoseToGeopose matches scenePoseToGeopose', () => {
-        const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
-        const pos = { x: 0.5, y: 0.25, z: -1.1 };
-        const q = { x: 0.18, y: 0.64, z: -0.12, w: 0.74 };
-        const a = scenePoseToGeopose(pos, q, kin.tRefFromScene, kin.anchorGeopose);
-        const b = convertScenePoseToGeopose(pos, q, kin.tRefFromScene, kin.anchorGeopose);
-        assertGeoposeNear(a, b);
     });
 
     it('geoPoseToEnuPose position matches convertGeodeticToEnu', () => {
