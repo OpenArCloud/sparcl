@@ -252,6 +252,58 @@ export function convertGeoPoseToSceneRigidPose(anchorGeopose: Geopose, objectGeo
 }
 
 /**
+ * Converts a local pose to an ENU pose using the local to ENU transformation matrix.
+ * @param localPose - The local pose to convert.
+ * @param T_local_to_enu - The local to ENU transformation matrix.
+ * @returns The ENU pose.
+ */
+export function convertLocalPoseToEnu(localPose: ReadonlyMat4, T_local_to_enu: ReadonlyMat4) {
+    const enuPose = mat4.create();
+    mat4.multiply(enuPose, T_local_to_enu, localPose);
+    return enuPose;
+}
+
+/**
+ * Converts a local pose to a GeoPose using the local to ENU transformation matrix and the anchor geopose.
+ * @param localPose - The local pose to convert.
+ * @param T_local_to_enu - The local to ENU transformation matrix.
+ * @param anchorGeopose - The anchor geopose.
+ * @returns The GeoPose.
+ */
+export function convertLocalPoseToGeoPose(localPose: ReadonlyMat4, T_local_to_enu: ReadonlyMat4, anchorGeopose: Geopose): Geopose {
+    const enuPose:mat4 = convertLocalPoseToEnu(localPose, T_local_to_enu);
+    const enuPosition = vec3.create();
+    mat4.getTranslation(enuPosition, enuPose);
+    const enuQuaternion = quat.create();
+    mat4.getRotation(enuQuaternion, enuPose);
+
+    const dE = enuPosition[0];
+    const dN = enuPosition[1];
+    const dU = enuPosition[2];
+    const lat_ref = anchorGeopose.position.lat;
+    const lon_ref = anchorGeopose.position.lon;
+    const h_ref = anchorGeopose.position.h;
+    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
+
+    const geoPose = {
+        position: {
+            lat: geodetic.lat,
+            lon: geodetic.lon,
+            h: geodetic.h,
+        },
+        quaternion: {
+            x: enuQuaternion[0],
+            y: enuQuaternion[1],
+            z: enuQuaternion[2],
+            w: enuQuaternion[3],
+        },
+    };
+    return geoPose;
+}
+// TODO(soeroesg): this is almost the same as convertLocalPoseToGeoPose, merge them
+// The only difference is that the above has no Web2Geo conversion. Why?
+
+/**
  * WebXR scene rigid pose → OSCP:WGS84-ENU GeoPose using the anchor and **T_ref_from_scene**
  * (`T_ref_from_scene * T_scene_from_object` in the reference frame).
  */
