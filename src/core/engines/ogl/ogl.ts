@@ -50,24 +50,11 @@ import {
     PRIMITIVES,
 } from '@core/engines/ogl/modelTemplates';
 
-import {
-    convertAugmentedCityCam2WebQuat,
-    convertAugmentedCityCam2WebVec3,
-    convertGeo2WebVec3,
-    convertWeb2GeoVec3,
-    convertGeodeticToEnu,
-    getRelativeGlobalPosition,
-    getRelativeOrientation,
-    convertWeb2GeoQuat,
-    convertGeo2WebQuat,
-    convertEnuToGeodetic,
-} from '@core/locationTools';
-
 import { printOglTransform, checkGLError } from '@core/devTools';
 
-import { quat, vec3 } from 'gl-matrix';
+import type { ReadonlyMat4 } from 'gl-matrix';
+import type { RigidPose } from '@core/worldAlignment';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
-import type { Geopose, SCR } from '@oarc/scd-access';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
 let gl: OGLRenderingContext;
@@ -79,10 +66,7 @@ let axesHelper;
 let updateHandlers: Record<string, () => number> = {};
 let eventHandlers: Record<string, { model: Mesh; handler: () => void }> = {};
 let uniforms = { time: [] as Mesh<Geometry, Program>[] };
-let _geo2ArTransformNode: Transform;
-let _ar2GeoTransformNode: Transform;
-let _globalImagePose: Geopose;
-let _localImagePose: { position: Vec3; orientation: Quat };
+
 let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 
 let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
@@ -882,126 +866,17 @@ export default class ogl {
     }
 
     /**
-     * This method calculates the transformations between the Geo coordinate system and the current WebXR session
-     * based on a pair of (localImagePose, globalImagePose) that belong to the same photo.
-     * @param {*} localImagePose The local pose of the photo
-     * @param {*} globalImagePose The global pose of the photo
+     * Draws a small axis placeholder mesh with the given **world** column-major `mat4` (e.g. from `@core/worldAlignment` debug helpers).
      */
-    updateGeoAlignment(localImagePose: { position: Vec3; orientation: Quat }, globalImagePose: Geopose) {
-        // NOTE:
-        // The GeoPose location coordinates are in local tangent plane (LTP) approximation, in
-        // East-North-Up (ENU) right-handed coordinate system
-        // https://en.wikipedia.org/wiki/Local_tangent_plane_coordinates
-        // The GeoPose orientation is ENU (but it used to be WebXR (Y up) in the previous version)
-
-        // The WebXR (and OGL Renderer's scene) coordinate system has its origin where the AR session started,
-        // and uses a Y up right-handed coordinate system.
-
-        // We receive the GeoPose of the camera and the GeoPoses of objects, plus the local pose of the camera in the WebXR coordinate system.
-        // We want to place the objects in the WebXR coordinate system, and we know the position of the objects relative to the camera.
-        // The basic idea is the following:
-        // 1. calculate the relative displacement between camera and object in Geo coordinate system (LTP approximation East-North-Up)
-        // 2. convert relative displacement from Geo (right handed, Z up) to WebXR/GLEngine (right handed, Y up).
-        // 3. OLD AC API:
-        //      calculate the _relative_ rotation between the camera in local and the camera in global coordinate system (both orientations were given in WebXR coordinates).
-        //    NEW AC API:
-        //      stay in the ENU system, just take the ENU quaternion but rotate it by additional -90 around UP so that the camera orientation is measured w.r.t North instead of East.
-        //      Next, swap the axes from ENU to match the WebXR axes. No relative calculations needed.
-        // 4. We create a new scene node, which will represent the camera in the Geo system.
-        // 5. For all objects, we create a scene node and append the relative transformation (calculated in the Geo system) between camera and object as child of the camera node.
-        // 6. We rotate the camera node to match the WebXR coordinate system
-        // 7. We translate the camera node to the local camera pose.
-        // (It is unsure whether and how we need to take into account the photo's portrait/landscape orientation, and similary the UI orientation, and the camera sensor orientation)
-
-        let localImageOrientation = quat.fromValues(localImagePose.orientation.x, localImagePose.orientation.y, localImagePose.orientation.z, localImagePose.orientation.w);
-
-        // We add the AR Camera for visualization
-        // this represents the camera in the WebXR coordinate system
-        let arCamNode = new Transform(); // This is a virtual node at the local camera pose where the photo was taken
-        scene.addChild(arCamNode);
-        let arCamSubNode = createAxesBoxPlaceholder(gl, [1, 1, 0, 0.5], false); // yellow
-        arCamSubNode.scale.set(0.02, 0.04, 0.06);
-        arCamSubNode.position.set(0.001, 0.001, 0.001); // tiny offset so that we can see both the yellow and the cyan when the alignment is correct
-        arCamNode.addChild(arCamSubNode);
-        arCamNode.position.set(localImagePose.position.x, localImagePose.position.y, localImagePose.position.z);
-        arCamNode.quaternion.set(localImagePose.orientation.x, localImagePose.orientation.y, localImagePose.orientation.z, localImagePose.orientation.w);
-
-        _geo2ArTransformNode = new Transform();
-        scene.addChild(_geo2ArTransformNode);
-        _geo2ArTransformNode.position.set(0, 0, 0);
-        _geo2ArTransformNode.quaternion.set(0, 0, 0, 1);
-
-        // DEBUG: place GeoPose of camera as a content entry with full orientation
-        // this should appear exactly where the picture was taken, with the same orientation of the camera in the world
-        let geoCamNode = createAxesBoxPlaceholder(gl, [0, 1, 1, 0.5], false); // cyan
-        _geo2ArTransformNode.addChild(geoCamNode);
-        geoCamNode.scale.set(0.02, 0.04, 0.06);
-        let geoCamRelativePosition = getRelativeGlobalPosition(globalImagePose, globalImagePose); // will be (0,0,0)
-        geoCamRelativePosition = convertAugmentedCityCam2WebVec3(geoCamRelativePosition); // convert from AC to WebXR
-        geoCamNode.position.set(geoCamRelativePosition[0], geoCamRelativePosition[1], geoCamRelativePosition[2]); // from vec3 to Vec3
-        let globalImagePoseQuaternion = quat.fromValues(globalImagePose.quaternion.x, globalImagePose.quaternion.y, globalImagePose.quaternion.z, globalImagePose.quaternion.w);
-        let geoCamOrientation = convertAugmentedCityCam2WebQuat(globalImagePoseQuaternion); // convert from AC to WebXR
-        geoCamNode.quaternion.set(geoCamOrientation[0], geoCamOrientation[1], geoCamOrientation[2], geoCamOrientation[3]);
-
-        // DEBUG: place GeoPose of camera as a content entry with zero orientation
-        // this should appear exactly where the picture was taken, but oriented according to the Geo axes.
-        let geoCoordinateSystemNode = createAxesBoxPlaceholder(gl, [1, 1, 1, 0.5]); // white
-        _geo2ArTransformNode.addChild(geoCoordinateSystemNode);
-        geoCoordinateSystemNode.scale.set(0.02, 0.04, 0.06);
-        let geoCoordinateSystemRelativePosition = getRelativeGlobalPosition(globalImagePose, globalImagePose); // will be (0,0,0)
-        geoCoordinateSystemRelativePosition = convertGeo2WebVec3(geoCoordinateSystemRelativePosition); // convert from Geo to WebXR
-        geoCoordinateSystemNode.position.set(geoCoordinateSystemRelativePosition[0], geoCoordinateSystemRelativePosition[1], geoCoordinateSystemRelativePosition[2]); // from vec3 to Vec3
-        geoCoordinateSystemNode.quaternion.set(0, 0, 0, 1); // neutral orientation
-
-        let deltaRotAr2Geo = getRelativeOrientation(localImageOrientation, geoCamOrientation); // WebXR to Geo
-        let deltaRotGeo2Ar = quat.create(); // Geo to WebXR
-        quat.invert(deltaRotGeo2Ar, deltaRotAr2Geo);
-
-        _globalImagePose = globalImagePose;
-        _localImagePose = localImagePose;
-
-        // rotate around the origin by the rotation that brings the Geo system to the WebXR system
-        _geo2ArTransformNode.quaternion.set(deltaRotGeo2Ar[0], deltaRotGeo2Ar[1], deltaRotGeo2Ar[2], deltaRotGeo2Ar[3]); // from quat to Quat
-        // translate to the camera position
-        _geo2ArTransformNode.position.x = _geo2ArTransformNode.position.x + localImagePose.position.x;
-        _geo2ArTransformNode.position.y = _geo2ArTransformNode.position.y + localImagePose.position.y;
-        _geo2ArTransformNode.position.z = _geo2ArTransformNode.position.z + localImagePose.position.z;
-        _geo2ArTransformNode.updateMatrix();
-        _geo2ArTransformNode.updateMatrixWorld(true);
-
-        _ar2GeoTransformNode = new Transform();
-        scene.addChild(_ar2GeoTransformNode);
-        // [R|t]^{-1} = [R^{T} | -R^{T} * t]
-        // there is no matrix-vector multiplication in OGL :( Therefore we do the pose inversion directly with matrices
-        _ar2GeoTransformNode.matrix.inverse(_geo2ArTransformNode.matrix);
-        _ar2GeoTransformNode.decompose();
-        _ar2GeoTransformNode.updateMatrixWorld(true);
-
-        //printOglTransform("_geo2ArTransformNode", _geo2ArTransformNode);
-        //printOglTransform("_ar2GeoTransformNode", _ar2GeoTransformNode);
-    }
-
-    /**
-     * This adds a spatial content record (SCR) to the scene at a given GeoPose
-     * @param {*} globalObjectPose GeoPose of the content
-     * @param {*} content The content entry
-     */
-    addSpatialContentRecord(globalObjectPose: Geopose, content: SCR) {
-        // TODO: implement general content placement
-        console.log('OGL WARNING: addSpatialContentRecord is not implemented yet!');
-        const object = createAxesBoxPlaceholder(gl, [0.7, 0.7, 0.7, 1.0]); // gray
-
-        // calculate relative position w.r.t the camera in ENU system
-        let relativePosition = getRelativeGlobalPosition(_globalImagePose, globalObjectPose);
-        relativePosition = convertGeo2WebVec3(relativePosition);
-        // set _local_ transformation w.r.t parent _geo2ArTransformNode
-        object.position.set(relativePosition[0], relativePosition[1], relativePosition[2]); // from vec3 to Vec3
-        // set the objects' orientation as in the GeoPose response, that is already in ENU
-        object.quaternion.set(globalObjectPose.quaternion.x, globalObjectPose.quaternion.y, globalObjectPose.quaternion.z, globalObjectPose.quaternion.w);
-
-        // now rotate and translate it into the local WebXR coordinate system by appending it to the transformation node
-        _geo2ArTransformNode.addChild(object);
-        object.updateMatrixWorld(true);
+    addDebugAxesAtWorldMatrix(worldMatrix: ReadonlyMat4, color: [number, number, number, number]): Transform {
+        const node = createAxesBoxPlaceholder(gl, color, false);
+        scene.addChild(node);
+        for (let i = 0; i < 16; i++) {
+            node.matrix[i] = worldMatrix[i]!;
+        }
+        node.decompose();
+        node.updateMatrixWorld(true);
+        return node;
     }
 
     /**
@@ -1011,102 +886,12 @@ export default class ogl {
         scene.updateMatrixWorld(true);
     }
 
-    convertGeoPoseToLocalPose(geoPose: Geopose) {
-        if (_geo2ArTransformNode === undefined) {
-            throw 'No localization has happened yet!';
-        }
-
-        // First, assemble an ENU pose
-        let transform = new Transform();
-        // position as displacement relative to the last known global camera positision
-        const enuPosition = getRelativeGlobalPosition(_globalImagePose, geoPose);
-        const webxrEnuPosition = convertGeo2WebVec3(enuPosition);
-        transform.position.set(webxrEnuPosition[0], webxrEnuPosition[1], webxrEnuPosition[2]);
-
-        // The geoPose orientation is given in ENU, but we must convert the directions to WebXR first
-        const enuQuaternion = [geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w] as const;
-        const webxrEnuQuaternion = convertGeo2WebQuat(enuQuaternion); // conversion from ENU axes to WebXR axes, but keep the orientation
-        transform.quaternion.set(webxrEnuQuaternion[0], webxrEnuQuaternion[1], webxrEnuQuaternion[2], webxrEnuQuaternion[3]);
-
-        // Then convert the ENU pose to local pose
-        _geo2ArTransformNode.addChild(transform);
-        _geo2ArTransformNode.updateMatrixWorld(true);
-        let localPose = new Transform();
-        localPose.matrix = transform.worldMatrix; // we need to take out the world matrix instead of the local node transform
-        localPose.decompose(); // this fills all other internal entries based on the internal matrix
-        _geo2ArTransformNode.removeChild(transform);
-
-        return localPose;
-    }
-
-    convertLocalPoseToGeoPose(position: Vec3, quaternion: Quat): Geopose {
-        if (_ar2GeoTransformNode === undefined) {
-            throw 'No localization has happened yet!';
-        }
-
-        let localPose = new Transform();
-        localPose.position.copy(position);
-        localPose.quaternion.copy(quaternion);
-        localPose.updateMatrix();
-        _ar2GeoTransformNode.addChild(localPose);
-        _ar2GeoTransformNode.updateMatrixWorld();
-
-        let webxrEnuPose = new Transform(); // this will be still with WebXR axes but already aligned with ENU
-        webxrEnuPose.matrix = localPose.worldMatrix;
-        webxrEnuPose.decompose();
-        _ar2GeoTransformNode.removeChild(localPose);
-
-        const webxrEnuPosition = vec3.fromValues(webxrEnuPose.position.x, webxrEnuPose.position.y, webxrEnuPose.position.z);
-        const enuPosition = convertWeb2GeoVec3(webxrEnuPosition); // conversion from WebXR axes to ENU axes
-        const dE = enuPosition[0];
-        const dN = enuPosition[1];
-        const dU = enuPosition[2];
-
-        const refGeoPose = _globalImagePose;
-        const geodetic = convertEnuToGeodetic(dE, dN, dU, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
-
-        // TODO: double-check how to swap orientation axes
-        const webxrEnuQuaternion = quat.fromValues(webxrEnuPose.quaternion.x, webxrEnuPose.quaternion.y, webxrEnuPose.quaternion.z, webxrEnuPose.quaternion.w);
-        const enuQuaternion = convertWeb2GeoQuat(webxrEnuQuaternion);
-
-        const geoPose = {
-            position: {
-                lat: geodetic.lat,
-                lon: geodetic.lon,
-                h: geodetic.h,
-            },
-            quaternion: {
-                x: enuQuaternion[0],
-                y: enuQuaternion[1],
-                z: enuQuaternion[2],
-                w: enuQuaternion[3],
-            },
-        };
-        return geoPose;
-    }
-
-    convertCameraLocalPoseToGeoPose(position: Vec3, quaternion: Quat): Geopose {
-        // Warning: conversion from the WebXR camera orientation to GeoPose camera orientation
-        // An extra 90 deg rotation around the UP axis is needed to comply with the GeoPose standard.
-        // By the standard, identity orientation of a camera means it is looking towards East.
-        const quatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
-        const newQuaternion = new Quat().copy(quaternion).multiply(quatCorrection);
-        const cameraGeoPose = this.convertLocalPoseToGeoPose(position, newQuaternion);
-        return cameraGeoPose;
-    }
-
-    /**
-     * Converts a GeoPose object into East-North-Up coordinate system (local tangent plane approximation)
-     * @param {*} geoPose GeoPose to convert
-     * @param {*} refGeoPose reference GeoPose
-     * @returns
-     */
-    geoPose_to_ENU(geoPose: Geopose, refGeoPose: Geopose) {
-        let enuPosition = convertGeodeticToEnu(geoPose.position.lat, geoPose.position.lon, geoPose.position.h, refGeoPose.position.lat, refGeoPose.position.lon, refGeoPose.position.h);
-        let enuPose = new Transform();
-        enuPose.position.set(enuPosition.x, enuPosition.y, enuPosition.z);
-        enuPose.quaternion.set(geoPose.quaternion.x, geoPose.quaternion.y, geoPose.quaternion.z, geoPose.quaternion.w);
-        enuPose.updateMatrix();
-        return enuPose;
+    /** Builds an OGL `Transform` from a plain rigid pose (e.g. `convertGeoPoseToLocalPose` in `@core/worldAlignment`). */
+    transformFromRigidPose(rp: RigidPose): Transform {
+        const t = new Transform();
+        t.position.set(rp.position.x, rp.position.y, rp.position.z);
+        t.quaternion.set(rp.orientation.x, rp.orientation.y, rp.orientation.z, rp.orientation.w);
+        t.updateMatrix();
+        return t;
     }
 }

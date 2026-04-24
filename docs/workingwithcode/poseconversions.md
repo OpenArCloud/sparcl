@@ -35,7 +35,8 @@ Implementations may add more reserved IDs later (for example EPSG URNs); documen
 
 ## WebXR and OGL scene graph
 
-- The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (`updateGeoAlignment` and `convertGeo2Web*` helpers).
+- The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (e.g. `addDebugAxesAtWorldMatrix` for debug meshes) and `convertGeo2Web*` in [`locationTools.ts`](../../src/core/locationTools.ts).
+- **GeoPose localization**: the Viewer calls `setActiveGeoAlignmentFromCapture` in [`worldAlignment.ts`](../../src/core/worldAlignment.ts) (anchor + **T_scene_from_ref** / **T_ref_from_scene**). Optional debug axis placeholders use precomputed world **`mat4`** values (`mat4LocalizationDebug*` helpers) and `ogl.addDebugAxesAtWorldMatrix`. Pose conversions that depend on the anchor use the `*FromActive` helpers in the same module.
 - Any pose matrix from **VPS** or other **OSCP service** that targets this scene graph must either be supplied in that convention or converted at the boundary in one place, not scattered across call sites.
 
 ## Transform graph
