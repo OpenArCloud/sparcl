@@ -9,6 +9,7 @@
     import type { Geopose } from '@oarc/scd-access';
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
+    import * as worldAlignment from '@core/worldAlignment';
     import { initialLocation, recentLocalisation } from '@src/stateStore';
 
     let parentInstance: Parent;
@@ -75,7 +76,11 @@
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
         if ($recentLocalisation.geopose !== undefined) {
-            currentGeopose = parentInstance.getCameraGeoposeFromXRViewerPose(xrViewerPose);
+            const localPose = xrViewerPose;
+            currentGeopose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
+                { x: localPose.transform.position.x, y: localPose.transform.position.y, z: localPose.transform.position.z },
+                { x: localPose.transform.orientation.x, y: localPose.transform.orientation.y, z: localPose.transform.orientation.z, w: localPose.transform.orientation.w },
+            );
         } else {
             currentGeopose = undefined;
         }
@@ -112,7 +117,7 @@
             position: { lat: lat, lon: lon, h: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
         };
-        const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+        const localFeaturePose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(featureGeopose));
         const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
             //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
             console.log('POI ' + featureName + ' added.');
@@ -135,6 +140,7 @@
     async function getPlaces(query: String) {
         if (searchEnabled) {
             // reset 3D engine to remove old POI markers
+            worldAlignment.clearActiveGeoAlignment();
             tdEngine.reinitialize();
 
             // use initial location as fallback

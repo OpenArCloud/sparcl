@@ -19,7 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
-    import { Quat, Vec3 } from 'ogl';
+    import * as worldAlignment from '@core/worldAlignment';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
@@ -48,16 +48,27 @@
     }
 
     /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     * @param localImageXrPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalImagePose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
-    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = {
-            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
-            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w),
+    export function onLocalizationSuccess(localImageXrPose: XRPose, globalImagePose: Geopose) {
+        const localImagePose: WebXrRigidPose = {
+            position: {
+                x: localImageXrPose.transform.position.x,
+                y: localImageXrPose.transform.position.y,
+                z: localImageXrPose.transform.position.z,
+            },
+            orientation: {
+                x: localImageXrPose.transform.orientation.x,
+                y: localImageXrPose.transform.orientation.y,
+                z: localImageXrPose.transform.orientation.z,
+                w: localImageXrPose.transform.orientation.w,
+            },
         };
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+        const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5]); // yellow
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5]); // cyan
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5]); // white
     }
 
     /**

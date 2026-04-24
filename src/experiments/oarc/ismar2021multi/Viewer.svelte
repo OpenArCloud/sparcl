@@ -13,6 +13,7 @@
     import { peerIdStr, recentLocalisation } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
+    import * as worldAlignment from '@core/worldAlignment';
     import type { ObjectDescription } from '../../../types/xr';
     import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
@@ -221,7 +222,7 @@
             return;
         }
         // Now calculate the global pose of the reticle
-        const objectGeoPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+        const objectGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(position, quaternion);
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid

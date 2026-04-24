@@ -24,6 +24,7 @@
     import { myAgentName, myAgentId, myAgentColor, recentLocalisation, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
     import { createEventDispatcher } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
+    import * as worldAlignment from '@core/worldAlignment';
 
     let parentInstance: Parent;
 
@@ -152,7 +153,9 @@
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;
             const targetAgentId = msg.agent_id;
             const globalTargetPose = msg.geopose;
-            const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+            const localTargetPose = parentInstance
+                .getRenderer()
+                .transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalTargetPose));
             const color = msg.color;
             drawReticle({ localTargetPose, targetAgentId, color });
         }
@@ -164,7 +167,7 @@
         if (reticle && reticle.visible) {
             let curReticleLocalPose: { position: Vec3; quaternion: Quat };
             curReticleLocalPose = { position: reticle.position, quaternion: reticle.quaternion };
-            curReticleGeoPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(curReticleLocalPose.position, curReticleLocalPose.quaternion);
+            curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(curReticleLocalPose.position, curReticleLocalPose.quaternion);
         } else {
             // If the reticle did not find a hitpoint, do not share anything
             return;

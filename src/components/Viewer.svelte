@@ -46,6 +46,7 @@
     import { ARMODES, wait } from '@core/common';
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
+    import * as worldAlignment from '@core/worldAlignment';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
@@ -281,7 +282,19 @@
 
             // optionally share the camera pose with other players
             if ($recentLocalisation.geopose?.position !== undefined) {
-                currentGeoPose = getCameraGeoposeFromXRViewerPose(xrViewerPose);
+                currentGeoPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
+                    {
+                        x: xrViewerPose.transform.position.x,
+                        y: xrViewerPose.transform.position.y,
+                        z: xrViewerPose.transform.position.z,
+                    },
+                    {
+                        x: xrViewerPose.transform.orientation.x,
+                        y: xrViewerPose.transform.orientation.y,
+                        z: xrViewerPose.transform.orientation.z,
+                        w: xrViewerPose.transform.orientation.w,
+                    },
+                );
                 if ($enableCameraPoseSharing) {
                     try {
                         shareCameraPose(xrViewerPose);
@@ -378,6 +391,7 @@
         loadedH3Indices = [];
 
         // clear rendering context
+        worldAlignment.clearActiveGeoAlignment();
         tdEngine.cleanup();
 
         // broadcast event to parent
@@ -405,6 +419,7 @@
         loadedH3Indices = [];
 
         // clear rendering context
+        worldAlignment.clearActiveGeoAlignment();
         tdEngine.reinitialize();
     }
 
@@ -424,16 +439,27 @@
     }
 
     /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+     * @param localImageXrPose XRPose      The pose of the camera when localisation was started in local reference space
+     * @param globalImagePose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
-    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = {
-            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
-            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w),
+    export function onLocalizationSuccess(localImageXrPose: XRPose, globalImagePose: Geopose) {
+        const localImagePose = {
+            position: {
+                x: localImageXrPose.transform.position.x,
+                y: localImageXrPose.transform.position.y,
+                z: localImageXrPose.transform.position.z,
+            },
+            orientation: {
+                x: localImageXrPose.transform.orientation.x,
+                y: localImageXrPose.transform.orientation.y,
+                z: localImageXrPose.transform.orientation.z,
+                w: localImageXrPose.transform.orientation.w,
+            },
         };
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+        const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5]); // yellow
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5]); // cyan
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5]); // white
     }
 
     /**
@@ -625,12 +651,10 @@
                 }
 
                 const globalObjectPose = record.content.geopose;
-                const localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                const localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                 const localPosition = localObjectPose.position;
                 const localQuaternion = localObjectPose.quaternion;
 
-                // TODO: this method could handle any type of content:
-                //tdEngine.addSpatialContentRecord(globalObjectPose, record.content)
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -707,7 +731,7 @@
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
                             let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                            let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                             let object_id = record.content.id;
 
                             let object_description = (record.content as any).object_description;
@@ -725,7 +749,7 @@
 
                         // handle general sensor stream objects
                         let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.convertGeoPoseToLocalPose(globalObjectPose);
+                        let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                         const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
@@ -809,7 +833,7 @@
                                         position: { lat: poiLat, lon: poiLon, h: poiH },
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
-                                    const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+                                    const localFeaturePose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(featureGeopose));
                                     const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
                                         //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
                                         if (debugScrs) console.log('POI ' + featureName + ' added.');
@@ -919,9 +943,10 @@
 
     function shareCameraPose(localPose: XRViewerPose) {
         const timestamp = Date.now();
-        const localPos = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
-        const localQuat = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w);
-        const geoPose = tdEngine.convertCameraLocalPoseToGeoPose(localPos, localQuat);
+        const geoPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
+            { x: localPose.transform.position.x, y: localPose.transform.position.y, z: localPose.transform.position.z },
+            { x: localPose.transform.orientation.x, y: localPose.transform.orientation.y, z: localPose.transform.orientation.z, w: localPose.transform.orientation.w },
+        );
         const message_body = {
             agent_id: $myAgentId,
             avatar: {
@@ -937,17 +962,6 @@
             value: message_body,
             routing_key: rmq_topic,
         });
-    }
-
-    // used by child components
-    export function getCameraGeoposeFromXRViewerPose(localPose: XRViewerPose): Geopose {
-        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(0, 1, 0), Math.PI / 2);
-        const position = new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z);
-        const quaternion = new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w).multiply(
-            xrQuatCorrection,
-        );
-        const cameraGeoPose = getRenderer().convertLocalPoseToGeoPose(position, quaternion);
-        return cameraGeoPose;
     }
 
     /**

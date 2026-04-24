@@ -10,8 +10,16 @@
 
 import { mat4, type ReadonlyMat4 } from 'gl-matrix';
 
-/** Reserved frame id for legacy OSCP GeoPose (WGS-84 + ENU), per poseconversions.md */
-export const OSCP_WGS84_ENU_FRAME_ID = 'OSCP:WGS84-ENU';
+export type FrameRef = {
+    uuid: string; // unique identifier for the frame
+    fqn: string; // fully qualified namespace (e.g. "OSCP:WGS84-ENU")
+};
+
+/** Reserved frame reference for OSCP GeoPose (WGS-84 + ENU), per poseconversions.md */
+export const OSCP_WGS84_ENU_FRAME_REF = {
+    uuid: 'OSCP:WGS84-ENU',
+    fqn: 'OSCP:WGS84-ENU',
+};
 
 const CACHE_KEY_SEP = '\x1e';
 
