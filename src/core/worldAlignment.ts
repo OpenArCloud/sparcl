@@ -6,7 +6,7 @@
   Conventions: docs/workingwithcode/poseconversions.md
 */
 
-import { mat4, quat, vec3, type ReadonlyMat4 } from 'gl-matrix';
+import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat } from 'gl-matrix';
 import type { Geopose } from '@oarc/scd-access';
 import {
     convertAugmentedCityCam2WebQuat,
@@ -102,6 +102,8 @@ export function hasActiveWorldAlignment(): boolean {
     return _activeGeoAlignment !== null;
 }
 
+// TODO: add FromActive in the name
+// TODO convertGeoPoseToSceneRigidPose reorder parameters to objectGeopose, tSceneFromRef, anchorGeopose
 export function convertGeoPoseToLocalPose(objectGeopose: Geopose): RigidPose {
     const a = requireActiveGeoAlignment();
     return convertGeoPoseToSceneRigidPose(a.anchorGeopose, objectGeopose, a.tSceneFromRef);
@@ -131,13 +133,13 @@ export function computeGeoAlignmentFromPosePair(
         localCapture.orientation.z,
         localCapture.orientation.w,
     );
-    const globalImagePoseQuaternion = quat.fromValues(
+    const globalImageOrientation = quat.fromValues(
         globalCapture.quaternion.x,
         globalCapture.quaternion.y,
         globalCapture.quaternion.z,
         globalCapture.quaternion.w,
     );
-    const geoCamOrientation = convertAugmentedCityCam2WebQuat(globalImagePoseQuaternion);
+    const geoCamOrientation = convertAugmentedCityCam2WebQuat(globalImageOrientation);
 
     const deltaRotAr2Geo = getRelativeOrientation(localImageOrientation, geoCamOrientation);
     const deltaRotGeo2Ar = quat.create();
@@ -192,49 +194,62 @@ export function mat4ComposeSceneFromRefLocal(tSceneFromRef: ReadonlyMat4, mInRef
     return out;
 }
 
-/** Column-major world matrix from a plain rigid pose (optional placeholder scale). */
-export function mat4FromRigidPose(rp: RigidPose, scale: readonly [number, number, number] = [1.0, 1.0, 1.0]): mat4 {
-    const out = mat4.create();
-    mat4.fromRotationTranslationScale(
-        out,
-        quat.fromValues(rp.orientation.x, rp.orientation.y, rp.orientation.z, rp.orientation.w),
-        vec3.fromValues(rp.position.x, rp.position.y, rp.position.z),
-        scale,
-    );
-    return out;
-}
-
 /** Same scale as legacy `createAxesBoxPlaceholder` debug nodes under the alignment root. */
 const DEBUG_AXIS_PLACEHOLDER_SCALE: [number, number, number] = [0.02, 0.04, 0.06];
 
 /** WebXR world matrix for the "AR camera at localization" debug axes. */
 export function mat4LocalizationDebugArCamera(localCapture: WebXrRigidPose): mat4 {
-    return mat4FromRigidPose(localCapture, DEBUG_AXIS_PLACEHOLDER_SCALE);
+    const webxrPos = vec3.fromValues(localCapture.position.x, localCapture.position.y, localCapture.position.z);    
+    // tiny offset so that we can see both the yellow and the cyan when the alignment is correct
+    vec3.add(webxrPos, webxrPos, vec3.fromValues(0.001, 0.001, 0.001)); // small offset to avoid z-fighting
+    const webxrQuat = quat.fromValues(localCapture.orientation.x, localCapture.orientation.y, localCapture.orientation.z, localCapture.orientation.w);
+    const webxrScale = vec3.fromValues(0.02, 0.04, 0.06);
+    const out = mat4.create();
+    mat4.fromRotationTranslationScale(
+        out,
+        webxrQuat,
+        webxrPos,
+        webxrScale,
+    );
+    return out;
 }
 
 /** WebXR world matrix for the "global GeoPose camera at the localization" debug axes (legacy child of **T_scene_from_ref**). */
 export function mat4LocalizationDebugGeoCamera(anchorGeopose: Geopose, tSceneFromRef: ReadonlyMat4): mat4 {
-    const enuDelta = getRelativeGlobalPosition(anchorGeopose, anchorGeopose);
-    const webxrPos = convertAugmentedCityCam2WebVec3(enuDelta);
+    const enuDelta = getRelativeGlobalPosition(anchorGeopose, anchorGeopose); // [0,0,0] vector
+    const webxrPos = convertAugmentedCityCam2WebVec3(enuDelta); // convert from AC to WebXR // [0,0,0] vector
     const qGlob = quat.fromValues(
         anchorGeopose.quaternion.x,
         anchorGeopose.quaternion.y,
         anchorGeopose.quaternion.z,
         anchorGeopose.quaternion.w,
     );
-    const qRef = convertAugmentedCityCam2WebQuat(qGlob);
+    const qRef = convertAugmentedCityCam2WebQuat(qGlob); // convert from AC to WebXR
     const mRef = mat4.create();
     mat4.fromRotationTranslationScale(mRef, qRef, webxrPos, DEBUG_AXIS_PLACEHOLDER_SCALE);
     return mat4ComposeSceneFromRefLocal(tSceneFromRef, mRef);
 }
 
-/** WebXR world matrix for the "ENU axes at the localization" debug axes (legacy child of **T_scene_from_ref**). */
+/**
+ * WebXR world matrix for the **ENU tangent triad** at the anchor
+ * Orientation in the reference frame is **not** raw WebXR identity: it is ENU identity
+ * Position is the anchor offset in ref (zero when object equals anchor).
+ * The resulting matrix is still left-multiplied by **`T_scene_from_ref`**, so the triad is placed
+ * at the capture position and includes VPS↔WebXR alignment.
+ */
 export function mat4LocalizationDebugEnuAxes(anchorGeopose: Geopose, tSceneFromRef: ReadonlyMat4): mat4 {
-    const enuDelta = getRelativeGlobalPosition(anchorGeopose, anchorGeopose);
-    const webxrPos = convertGeo2WebVec3(enuDelta);
-    const qId = quat.create();
+    // Hamilton unit quaternion (x, y, z, w) = (0, 0, 0, 1)
+    // The body / object frame is aligned with the local tangent **East, North, Up** axes at the reference geodetic point.
+    // This is the same numeric identity as “no rotation” in that frame
+    // Map into WebXR with {@link convertGeo2WebQuat}
+    const enuOrientation = [0, 0, 0, 1]; // ENU identity quaternion
+    const webxrOrientation = convertGeo2WebQuat(enuOrientation); // [0,0,0,1] webxr identity quaternion
+    
+    const enuPositionDelta = getRelativeGlobalPosition(anchorGeopose, anchorGeopose); // [0,0,0] vector
+    const webxrPosition = convertGeo2WebVec3(enuPositionDelta); // [0,0,0] vector
+    
     const mRef = mat4.create();
-    mat4.fromRotationTranslationScale(mRef, qId, webxrPos, DEBUG_AXIS_PLACEHOLDER_SCALE);
+    mat4.fromRotationTranslationScale(mRef, webxrOrientation, webxrPosition, DEBUG_AXIS_PLACEHOLDER_SCALE);
     return mat4ComposeSceneFromRefLocal(tSceneFromRef, mRef);
 }
 

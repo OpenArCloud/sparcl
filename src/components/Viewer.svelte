@@ -440,7 +440,7 @@
      * @param globalImagePose  GeoPose       The global camera GeoPose as returned from the GeoPose service
      */
     export function onLocalizationSuccess(localImageXrPose: XRPose, globalImagePose: Geopose) {
-        const localImagePose = {
+        const localImagePose: WebXrRigidPose = {
             position: {
                 x: localImageXrPose.transform.position.x,
                 y: localImageXrPose.transform.position.y,
@@ -454,9 +454,15 @@
             },
         };
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5]); // yellow
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5]); // cyan
-        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5]); // white
+
+        // This represents the camera in the WebXR coordinate system at the time of localization
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true); // yellow
+
+        // This represents the geopose of the camera returned by the VPS. It should be coincident with the above
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugGeoCamera(globalImagePose, mats.tSceneFromRef), [0, 1, 1, 0.5], false); // cyan
+
+        // This represents ENU axes at the place where the image was captured
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5], true); // white
         dispatch('worldAlignmentEstablished');
     }
 
