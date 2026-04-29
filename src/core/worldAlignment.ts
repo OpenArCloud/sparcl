@@ -2,11 +2,12 @@
   (c) 2026 Open AR Cloud / contributors
   SPDX-License-Identifier: MIT
 
-  World / GeoPose (OSCP:WGS84-ENU) alignment kinematics: no OGL / WebGL.
+  World alignment kinematics (arbitrary anchor **FrameRef** + **T_scene_from_ref**): WGS84/ENU GeoPose path
+  and optional matrix-only / local-frame path. No OGL / WebGL.
   Conventions: docs/workingwithcode/poseconversions.md
 */
 
-import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat } from 'gl-matrix';
+import { mat4, quat, vec3, type ReadonlyMat4 } from 'gl-matrix';
 import type { Geopose } from '@oarc/scd-access';
 import {
     convertAugmentedCityCam2WebQuat,
@@ -21,7 +22,7 @@ import {
     getRelativeOrientation,
 } from '@core/locationTools';
 
-import { OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
+import { type FrameRef, normalizeColumnMajorMat4, OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
 
 export type Vec3Like = { x: number; y: number; z: number };
 export type QuatLike = { x: number; y: number; z: number; w: number };
@@ -46,7 +47,7 @@ export type GeoAlignmentKinematics = {
     /** Anchor geopose at capture (localization reference). */
     anchorGeopose: Geopose;
     /** Reference frame for the anchor pose. */
-    referenceFrameRef: typeof OSCP_WGS84_ENU_FRAME_REF;
+    referenceFrameRef: FrameRef;
 };
 
 export type ActiveWorldAlignmentMatrices = {
@@ -54,13 +55,55 @@ export type ActiveWorldAlignmentMatrices = {
     tRefFromScene: ReadonlyMat4;
 };
 
-type ActiveGeoAlignmentState = {
-    tSceneFromRef: mat4;
-    tRefFromScene: mat4;
-    anchorGeopose: Geopose;
+/**
+ * Set alignment from precomputed **T_scene_from_ref** (and optional inverse), e.g. after **rigidPoseInFrame** + XR
+ * capture fusion or transform-graph composition. For GeoPose ↔ scene conversions you still need
+ * {@link OSCP_WGS84_ENU_FRAME_REF} and {@link SetWorldAlignmentFromMatricesParams.anchorGeopose}.
+ */
+export type SetWorldAlignmentFromMatricesParams = {
+    tSceneFromRef: ReadonlyMat4 | Float32Array | readonly number[];
+    /** If omitted, computed as {@link mat4.invert}(`tSceneFromRef`). */
+    tRefFromScene?: ReadonlyMat4 | Float32Array | readonly number[];
+    referenceFrameRef: FrameRef;
+    /**
+     * Anchor geodetic pose when using global GeoPose semantics (**OSCP:WGS84-ENU** ref).
+     * Omit or `null` for purely local / Euclidean anchors (scene ↔ GeoPose helpers will throw until supplied).
+     */
+    anchorGeopose?: Geopose | null;
 };
 
-let _activeGeoAlignment: ActiveGeoAlignmentState | null = null;
+type ActiveWorldAlignmentState = {
+    tSceneFromRef: mat4;
+    tRefFromScene: mat4;
+    referenceFrameRef: FrameRef;
+    /** Present when coarse global pose exists for ENU / H3 / legacy conversion paths. */
+    anchorGeopose: Geopose | null;
+};
+
+let _activeWorldAlignment: ActiveWorldAlignmentState | null = null;
+
+function isOscpWgs84Enu(ref: FrameRef): boolean {
+    return ref.uuid === OSCP_WGS84_ENU_FRAME_REF.uuid && ref.fqn === OSCP_WGS84_ENU_FRAME_REF.fqn;
+}
+
+function cloneFrameRef(r: FrameRef): FrameRef {
+    return { uuid: r.uuid, fqn: r.fqn };
+}
+
+function cloneMatLike(m: ReadonlyMat4 | Float32Array | readonly number[]): mat4 {
+    if (Array.isArray(m) || m instanceof Float32Array) {
+        return normalizeColumnMajorMat4(m);
+    }
+    return mat4.clone(m);
+}
+
+function mat4FromRigidPose(pose: RigidPose): mat4 {
+    const q = quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+    const tr = vec3.fromValues(pose.position.x, pose.position.y, pose.position.z);
+    const m = mat4.create();
+    mat4.fromRotationTranslation(m, q, tr);
+    return m;
+}
 
 function cloneGeopose(g: Geopose): Geopose {
     return {
@@ -69,54 +112,148 @@ function cloneGeopose(g: Geopose): Geopose {
     };
 }
 
-function requireActiveGeoAlignment(): ActiveGeoAlignmentState {
-    if (_activeGeoAlignment === null) {
-        throw new Error('No active GeoPose alignment. Call setActiveGeoAlignmentFromCapture after localization.');
+function requireActiveWorldAlignment(): ActiveWorldAlignmentState {
+    if (_activeWorldAlignment === null) {
+        throw new Error('No active world alignment. Call setActiveGeoAlignmentFromCapture or setActiveWorldAlignmentFromMatrices after localization.');
     }
-    return _activeGeoAlignment;
+    return _activeWorldAlignment;
 }
 
 /**
  * Computes alignment from the capture pair and stores it for {@link convertGeoPoseToLocalPose} and related helpers.
+ * Anchor frame is **OSCP:WGS84-ENU** with a full **anchorGeopose**.
  */
 export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, globalCapture: Geopose): ActiveWorldAlignmentMatrices {
     const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
-    _activeGeoAlignment = {
+    _activeWorldAlignment = {
         tSceneFromRef: mat4.clone(kin.tSceneFromRef),
         tRefFromScene: mat4.clone(kin.tRefFromScene),
+        referenceFrameRef: cloneFrameRef(kin.referenceFrameRef),
         anchorGeopose: cloneGeopose(kin.anchorGeopose),
     };
     return {
-        tSceneFromRef: _activeGeoAlignment.tSceneFromRef,
-        tRefFromScene: _activeGeoAlignment.tRefFromScene,
+        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
+        tRefFromScene: _activeWorldAlignment.tRefFromScene,
     };
 }
 
-/** Clears session alignment (e.g. when the XR session ends or matrix-only alignment is applied). */
-export function clearActiveGeoAlignment(): void {
-    _activeGeoAlignment = null;
+/**
+ * Stores alignment from explicit **T_scene_from_ref** / **T_ref_from_scene** (see poseconversions.md).
+ * Use for non-geodetic anchors once **referenceFrameRef** and matrices are known (e.g. VPS **rigidPoseInFrame** path).
+ */
+export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFromMatricesParams): ActiveWorldAlignmentMatrices {
+    const tSceneFromRef = cloneMatLike(params.tSceneFromRef);
+    let tRefFromScene: mat4;
+    if (params.tRefFromScene !== undefined) {
+        tRefFromScene = cloneMatLike(params.tRefFromScene);
+    } else {
+        tRefFromScene = mat4.create();
+        if (!mat4.invert(tRefFromScene, tSceneFromRef)) {
+            throw new Error('setActiveWorldAlignmentFromMatrices: singular tSceneFromRef');
+        }
+    }
+    const prod = mat4.create();
+    mat4.multiply(prod, tSceneFromRef, tRefFromScene);
+    const identityCheck = mat4.create();
+    mat4.identity(identityCheck);
+    let maxErr = 0;
+    for (let i = 0; i < 16; i++) {
+        maxErr = Math.max(maxErr, Math.abs(prod[i]! - identityCheck[i]!));
+    }
+    if (maxErr > 1e-4) {
+        throw new Error('setActiveWorldAlignmentFromMatrices: tSceneFromRef and tRefFromScene are not mutual inverses');
+    }
+
+    const anchorGeopose =
+        params.anchorGeopose === undefined ? null : params.anchorGeopose === null ? null : cloneGeopose(params.anchorGeopose);
+
+    _activeWorldAlignment = {
+        tSceneFromRef,
+        tRefFromScene,
+        referenceFrameRef: cloneFrameRef(params.referenceFrameRef),
+        anchorGeopose,
+    };
+    return {
+        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
+        tRefFromScene: _activeWorldAlignment.tRefFromScene,
+    };
 }
 
-/** True after a successful localization ({@link setActiveGeoAlignmentFromCapture}) until {@link clearActiveGeoAlignment}. */
-export function hasActiveWorldAlignment(): boolean {
-    return _activeGeoAlignment !== null;
+/** Clears session alignment (e.g. when the XR session ends or before applying new alignment). */
+export function clearActiveGeoAlignment(): void {
+    _activeWorldAlignment = null;
 }
+
+/** True after a successful localization until {@link clearActiveGeoAlignment}. */
+export function hasActiveWorldAlignment(): boolean {
+    return _activeWorldAlignment !== null;
+}
+
+/** Active anchor **FrameRef**, or `null` if no alignment. */
+export function getActiveReferenceFrameRef(): FrameRef | null {
+    return _activeWorldAlignment === null ? null : cloneFrameRef(_activeWorldAlignment.referenceFrameRef);
+}
+
+/** Anchor geodetic pose when present (global GeoPose path); otherwise `null`. */
+export function getActiveAnchorGeopose(): Geopose | null {
+    if (_activeWorldAlignment === null || _activeWorldAlignment.anchorGeopose === null) {
+        return null;
+    }
+    return cloneGeopose(_activeWorldAlignment.anchorGeopose);
+}
+
+/** Re-export for callers that store anchor metadata alongside alignment. */
+export type { FrameRef } from '@core/frameTransforms';
 
 // TODO: add FromActive in the name
 // TODO convertGeoPoseToSceneRigidPose reorder parameters to objectGeopose, tSceneFromRef, anchorGeopose
 export function convertGeoPoseToLocalPose(objectGeopose: Geopose): RigidPose {
-    const a = requireActiveGeoAlignment();
+    const a = requireActiveWorldAlignment();
+    if (!isOscpWgs84Enu(a.referenceFrameRef) || a.anchorGeopose === null) {
+        throw new Error(
+            'convertGeoPoseToLocalPose requires an OSCP:WGS84-ENU anchor with anchorGeopose. For other frames, use convertRigidPoseInAnchorFrameToSceneRigidPose or graph composition.',
+        );
+    }
     return convertGeoPoseToSceneRigidPose(a.anchorGeopose, objectGeopose, a.tSceneFromRef);
 }
 
 export function convertScenePoseToGeoposeFromActive(position: Vec3Like, quaternion: QuatLike): Geopose {
-    const a = requireActiveGeoAlignment();
+    const a = requireActiveWorldAlignment();
+    if (a.anchorGeopose === null) {
+        throw new Error(
+            'convertScenePoseToGeoposeFromActive requires anchorGeopose (coarse global pose). Unavailable for purely local anchors.',
+        );
+    }
     return convertScenePoseToGeopose(position, quaternion, a.tRefFromScene, a.anchorGeopose);
 }
 
 export function convertCameraWebXrPoseToGeoposeFromActive(position: Vec3Like, quaternion: QuatLike): Geopose {
-    const a = requireActiveGeoAlignment();
+    const a = requireActiveWorldAlignment();
+    if (a.anchorGeopose === null) {
+        throw new Error(
+            'convertCameraWebXrPoseToGeoposeFromActive requires anchorGeopose (coarse global pose). Unavailable for purely local anchors.',
+        );
+    }
     return convertCameraWebXrPoseToGeopose(position, quaternion, a.tRefFromScene, a.anchorGeopose);
+}
+
+/**
+ * Maps a **RigidPose** expressed in the active anchor reference frame into WebXR scene **RigidPose**
+ * (**T_scene_from_ref * T_ref_from_body**).
+ */
+export function convertRigidPoseInAnchorFrameToSceneRigidPose(poseInRef: RigidPose): RigidPose {
+    const a = requireActiveWorldAlignment();
+    const mRefObj = mat4FromRigidPose(poseInRef);
+    const mScene = mat4.create();
+    mat4.multiply(mScene, a.tSceneFromRef, mRefObj);
+    const tr = vec3.create();
+    mat4.getTranslation(tr, mScene);
+    const qr = quat.create();
+    mat4.getRotation(qr, mScene);
+    return {
+        position: { x: tr[0], y: tr[1], z: tr[2] },
+        orientation: { x: qr[0], y: qr[1], z: qr[2], w: qr[3] },
+    };
 }
 
 /**

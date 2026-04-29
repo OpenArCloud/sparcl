@@ -14,13 +14,17 @@ import {
     convertCameraWebXrPoseToGeopose,
     convertGeoPoseToLocalPose,
     convertGeoPoseToSceneRigidPose,
+    convertRigidPoseInAnchorFrameToSceneRigidPose,
     convertScenePoseToGeopose,
     convertScenePoseToGeoposeFromActive,
     geoPoseToEnuPose,
+    getActiveReferenceFrameRef,
     mat4ObjectInRefFromGeoPose,
     mat4SceneFromGeoPose,
     setActiveGeoAlignmentFromCapture,
+    setActiveWorldAlignmentFromMatrices,
 } from '@core/worldAlignment';
+import { OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
 
 const EPS_MAT = 1e-5;
 
@@ -195,7 +199,7 @@ describe('worldAlignment', () => {
         const b = convertScenePoseToGeopose(pos, q, mats.tRefFromScene, globalCapture);
         assertGeoposeNear(a, b);
         clearActiveGeoAlignment();
-        assert.throws(() => convertScenePoseToGeoposeFromActive(pos, q), /No active GeoPose alignment/);
+        assert.throws(() => convertScenePoseToGeoposeFromActive(pos, q), /No active world alignment/);
     });
 
     it('session: convertGeoPoseToLocalPose matches convertGeoPoseToSceneRigidPose', () => {
@@ -207,6 +211,64 @@ describe('worldAlignment', () => {
         const a = convertGeoPoseToLocalPose(objectGeo);
         const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
         const b = convertGeoPoseToSceneRigidPose(globalCapture, objectGeo, kin.tSceneFromRef);
+        assert.ok(Math.abs(a.position.x - b.position.x) < 1e-5);
+        assert.ok(Math.abs(a.orientation.w - b.orientation.w) < 1e-5);
+        clearActiveGeoAlignment();
+    });
+
+    it('setActiveWorldAlignmentFromMatrices: identity maps pose in ref to same scene rigid pose', () => {
+        const id = mat4.create();
+        mat4.identity(id);
+        const roomFrame = { uuid: 'room-uuid', fqn: 'vendor:RoomA' };
+        setActiveWorldAlignmentFromMatrices({
+            tSceneFromRef: id,
+            referenceFrameRef: roomFrame,
+            anchorGeopose: null,
+        });
+        assert.strictEqual(getActiveReferenceFrameRef()?.uuid, 'room-uuid');
+        const poseInRef = {
+            position: { x: 1, y: 2, z: -0.5 },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+        };
+        const inScene = convertRigidPoseInAnchorFrameToSceneRigidPose(poseInRef);
+        assert.ok(Math.abs(inScene.position.x - 1) < 1e-6);
+        assert.ok(Math.abs(inScene.position.y - 2) < 1e-6);
+        assert.ok(Math.abs(inScene.position.z + 0.5) < 1e-6);
+        clearActiveGeoAlignment();
+    });
+
+    it('convertGeoPoseToLocalPose throws for non-WGS84 anchor', () => {
+        const id = mat4.create();
+        mat4.identity(id);
+        setActiveWorldAlignmentFromMatrices({
+            tSceneFromRef: id,
+            referenceFrameRef: { uuid: 'local', fqn: 'local:map' },
+            anchorGeopose: null,
+        });
+        const someGeo: Geopose = normalizeGeoposeQuat({
+            position: { lat: 47.5, lon: 19.0, h: 100 },
+            quaternion: { x: 0, y: 0, z: 0, w: 1 },
+        });
+        assert.throws(() => convertGeoPoseToLocalPose(someGeo), /OSCP:WGS84-ENU anchor/);
+        clearActiveGeoAlignment();
+    });
+
+    it('setActiveWorldAlignmentFromMatrices matches setActiveGeoAlignmentFromCapture for conversions', () => {
+        const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
+        setActiveWorldAlignmentFromMatrices({
+            tSceneFromRef: kin.tSceneFromRef,
+            tRefFromScene: kin.tRefFromScene,
+            referenceFrameRef: OSCP_WGS84_ENU_FRAME_REF,
+            anchorGeopose: kin.anchorGeopose,
+        });
+        const objectGeo: Geopose = normalizeGeoposeQuat({
+            position: { lat: 47.4985, lon: 19.0415, h: 158.2 },
+            quaternion: { x: 0.15, y: 0.2, z: 0.25, w: 0.93 },
+        });
+        const a = convertGeoPoseToLocalPose(objectGeo);
+        clearActiveGeoAlignment();
+        setActiveGeoAlignmentFromCapture(localCapture, globalCapture);
+        const b = convertGeoPoseToLocalPose(objectGeo);
         assert.ok(Math.abs(a.position.x - b.position.x) < 1e-5);
         assert.ok(Math.abs(a.orientation.w - b.orientation.w) < 1e-5);
         clearActiveGeoAlignment();
