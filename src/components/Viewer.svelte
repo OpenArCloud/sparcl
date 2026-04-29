@@ -46,6 +46,7 @@
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import * as worldAlignment from '@core/worldAlignment';
+    import type { WebXrRigidPose } from '@core/worldAlignment';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
@@ -203,7 +204,7 @@
             }
         }
 
-        // TODO: Handle multiple views and the localisation correctly
+        // TODO: Handle multiple views and the localization correctly if there are multiple views
         for (let view of xrViewerPose.views) {
             xrEngine.setViewportForView(view);
 
@@ -221,6 +222,15 @@
                 cameraViewport = res?.cameraViewport;
             }
 
+            // NOTE: local WebXR pose of the headset rig (it may have multiple cameras) is xrViewerPose.transform
+
+            // local WebXR pose of the camera that belongs to view (there can be more in a headset)
+            const viewPose = view.transform;
+            const localImagePose: WebXrRigidPose = {
+                position: { x: viewPose.position.x, y: viewPose.position.y, z: viewPose.position.z },
+                orientation: { x: viewPose.orientation.x, y: viewPose.orientation.y, z: viewPose.orientation.z, w: viewPose.orientation.w },
+            };
+
             if (startLocalizing) {
                 startLocalizing = false;
 
@@ -235,7 +245,8 @@
                         });
                         return { cameraGeoPose: $debug_overrideGeopose };
                     };
-                    doLocalization({ xrViewerPose, getGeopose });
+
+                    doLocalization({ localImagePose, getGeopose });
                 } else {
                     //const imageWidth = viewport.width; // old Chrome 91
                     //const imageHeight = viewport.height; // old Chrome 91
@@ -275,50 +286,54 @@
                         const img = await image;
                         return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                     };
-                    doLocalization({ xrViewerPose, getGeopose });
+
+                    doLocalization({ localImagePose, getGeopose });
                 }
             }
 
             updateSensorVisualization();
 
-            // optionally share the camera pose with other players
+            // If we know the world alignment...
             if (worldAlignment.hasActiveWorldAlignment()) {
+                
+                // store the viewer's current geopose for later use
                 currentGeoPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
-                    {
-                        x: xrViewerPose.transform.position.x,
-                        y: xrViewerPose.transform.position.y,
-                        z: xrViewerPose.transform.position.z,
-                    },
-                    {
-                        x: xrViewerPose.transform.orientation.x,
-                        y: xrViewerPose.transform.orientation.y,
-                        z: xrViewerPose.transform.orientation.z,
-                        w: xrViewerPose.transform.orientation.w,
-                    },
+                    xrViewerPose.transform.position, xrViewerPose.transform.orientation
                 );
+
+                // optionally share the camera pose with other players
                 if ($enableCameraPoseSharing) {
                     try {
+                        // NOTE: this shares the viewer (rig) pose which might not be the same as the/a camera pose
                         shareCameraPose(xrViewerPose);
                     } catch (error) {
                         // do nothing. we can expect some exceptions because the pose conversion is not yet possible in the first few frames.
                     }
                 }
+
             }
+
             tdEngine.render(time, view);
         }
     }
 
-    async function doLocalization({ xrViewerPose, getGeopose }: { xrViewerPose: XRViewerPose; getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }> }) {
+    async function doLocalization({
+        localImagePose,
+        getGeopose,
+    }: {
+        localImagePose: WebXrRigidPose;
+        getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>;
+    }) {
         if (debugScrs) console.log('doLocalization');
 
         // wait for the localization result, whichever method it comes from
         const { cameraGeoPose } = await getGeopose();
-        onLocalizationSuccess(xrViewerPose, cameraGeoPose);
+        onLocalizationSuccess(localImagePose, cameraGeoPose);
 
         // now get the contents from the SCD(s)
         //await retrieveAndPlaceContents(currentGeoPose);
         // TODO: this first one always fails because currentGeoPose is not yet available
-        // (xrViewerPose here is already outdated because the device has moved meanwhile)
+        // (localImagePose here is already outdated because the device has moved meanwhile)
 
         // and repeat periodically
         contentQueryInterval = setInterval(async () => {
@@ -435,27 +450,16 @@
         $context.isLocalizing = true;
     }
 
-    /*
-     * @param localImageXrPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalImagePose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+    /**
+     * @param localImagePose Camera pose in **local-floor** space at capture time, from the {@link XRView} used for
+     *        the image / render pass (`view.transform`). Not the viewer rig (`XRViewerPose`), which can differ in stereo setups.
+     * @param globalImagePose GeoPose from the GeoPose service for that capture.
      */
-    export function onLocalizationSuccess(localImageXrPose: XRPose, globalImagePose: Geopose) {
-        const localImagePose: WebXrRigidPose = {
-            position: {
-                x: localImageXrPose.transform.position.x,
-                y: localImageXrPose.transform.position.y,
-                z: localImageXrPose.transform.position.z,
-            },
-            orientation: {
-                x: localImageXrPose.transform.orientation.x,
-                y: localImageXrPose.transform.orientation.y,
-                z: localImageXrPose.transform.orientation.z,
-                w: localImageXrPose.transform.orientation.w,
-            },
-        };
+    export function onLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
 
         // This represents the camera in the WebXR coordinate system at the time of localization
+        // Note: local(yellow/cyan debug vs optical axis).
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true); // yellow
 
         // This represents the geopose of the camera returned by the VPS. It should be coincident with the above
@@ -945,11 +949,10 @@
         return tdEngine;
     }
 
-    function shareCameraPose(localPose: XRViewerPose) {
+    function shareCameraPose(localViewerPose: XRViewerPose) {
         const timestamp = Date.now();
-        const geoPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
-            { x: localPose.transform.position.x, y: localPose.transform.position.y, z: localPose.transform.position.z },
-            { x: localPose.transform.orientation.x, y: localPose.transform.orientation.y, z: localPose.transform.orientation.z, w: localPose.transform.orientation.w },
+        const globalViewerPose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
+            localViewerPose.transform.position, localViewerPose.transform.orientation
         );
         const message_body = {
             agent_id: $myAgentId,
@@ -957,7 +960,7 @@
                 name: $myAgentName,
                 color: { r: $myAgentColor?.r, g: $myAgentColor?.g, b: $myAgentColor?.b, a: $myAgentColor?.a },
             },
-            geopose: geoPose,
+            geopose: globalViewerPose,
             timestamp: timestamp,
         };
         const rmq_topic = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.' + String($myAgentId); // send to subtopic with our agent ID

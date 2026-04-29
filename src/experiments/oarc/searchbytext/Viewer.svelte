@@ -75,15 +75,16 @@
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
+
         if (worldAlignment.hasActiveWorldAlignment()) {
-            const localPose = xrViewerPose;
+            // store the viewer geopose for later use
             currentGeopose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
-                { x: localPose.transform.position.x, y: localPose.transform.position.y, z: localPose.transform.position.z },
-                { x: localPose.transform.orientation.x, y: localPose.transform.orientation.y, z: localPose.transform.orientation.z, w: localPose.transform.orientation.w },
+                xrViewerPose.transform.position, xrViewerPose.transform.orientation
             );
         } else {
             currentGeopose = undefined;
         }
+
         xrEngine.setViewportForView(xrViewerPose.views[0]);
         tdEngine.render(time, xrViewerPose.views[0]);
     }

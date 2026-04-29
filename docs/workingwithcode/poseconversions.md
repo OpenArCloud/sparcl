@@ -47,6 +47,10 @@ For a **local tangent** frame at a geodetic point whose **body axes** align with
 - **Not** the same as vendor **camera** zero orientations (e.g. AugmentedCity “camera facing East” uses different conventions; see `convertAugmentedCityCam2WebQuat` in [`locationTools.ts`](../../src/core/locationTools.ts)).
 - To express that ENU frame in the **WebXR** scene, apply **`convertGeo2WebQuat`** to that quaternion—the same ENU → WebXR boundary used when building object transforms from `geopose.quaternion` in [`mat4ObjectInRefFromGeoPose`](../../src/core/worldAlignment.ts).
 
+## Camera pose
+
+**Viewer pose vs camera (`XRView`) pose** — `XRViewerPose.transform` is the **viewer / device rig** in the reference space; each **`XRView.transform`** is the **camera for that view** (texture + projection used in `ogl.render`). Localization and **`setActiveGeoAlignmentFromCapture`** must use the **same** transform as the freeze-frame camera—typically **`views[0]`** in mono AR—otherwise alignment is consistent internally but **wrong relative to the captured image**.
+
 ## WebXR and OGL scene graph
 
 - The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (e.g. `addDebugAxesAtWorldMatrix` for debug meshes) and `convertGeo2Web*` in [`locationTools.ts`](../../src/core/locationTools.ts).
@@ -87,3 +91,4 @@ Work is intentionally split so global GeoPose stays stable while local frames an
 - **2026-04-20** — Initial contract.
 - **2026-04-22** — **FrameRef** (`uuid` + `fqn`) as the canonical frame handle; transform graph and VPS sections updated; phased roadmap; **`Viewer`** alignment events; placement-helper note for **`placeContent`**.
 - **2026-04-28** — **ENU frame identity** quaternion and **`convertGeo2WebQuat`** on white debug; 
+- **2026-04-29** - **`onLocalizationSuccess`** uses for **`localImagePose`** the **`RigidPose`** of the primary camera (from XRView.transform) instead of the pose of the whole rig (XRViewerPose). This matters only if there are multiple cameras on the device.
