@@ -12,7 +12,7 @@
 */
 
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
-import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
+import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import * as h3 from 'h3-js';
 
 import { supportedCountries } from '@oarc/ssd-access';
@@ -353,7 +353,7 @@ export function getEuler(out: vec3, quat: ReadonlyQuat) {
  * @param {*} geoVec3 vec3
  * @returns vec3
  */
-export function convertGeo2WebVec3(geoVec3: vec3) {
+export function convertGeo2WebVec3(geoVec3: ReadonlyVec3) {
     // X_WebXR =  X_ENU
     // Y_WebXR =  Z_ENU
     // Z_WebXR = -Y_ENU
@@ -365,7 +365,7 @@ export function convertGeo2WebVec3(geoVec3: vec3) {
  * @param {*} webVec3 vecc3
  * @returns vec3
  */
-export function convertWeb2GeoVec3(webVec3: vec3) {
+export function convertWeb2GeoVec3(webVec3: ReadonlyVec3) {
     // X_ENU =  X_WebXR
     // Y_ENU = -Z_WebXR
     // Z_ENU =  Y_WebXR
@@ -403,7 +403,7 @@ export function convertWeb2GeoQuat(webQuat: ReadonlyQuat) {
  * @param {*} acVec3 vec3
  * @returns vec3
  */
-export function convertAugmentedCityCam2WebVec3(acVec3: vec3) {
+export function convertAugmentedCityCam2WebVec3(acVec3: ReadonlyVec3) {
     // flip the axes from ENU to WebXR
     // X_WebXR = -Y_AC
     // Y_WebXR =  Z_AC

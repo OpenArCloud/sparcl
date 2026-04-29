@@ -40,6 +40,13 @@ Implementations may add more reserved **`FrameRef`** values later; document them
 - **Order**: \((x, y, z, w)\), matching **`gl-matrix` `quat`** and **OGL `Quat`** in this repo.
 - **Convention**: Hamilton / right-handed rotation; rotation acts on column vectors in the usual way (same as `gl-matrix`).
 
+## ENU frame identity (OSCP:WGS84-ENU)
+
+For a **local tangent** frame at a geodetic point whose **body axes** align with **East, North, Up** (standard GeoPose / OSCP `OSCP:WGS84-ENU` semantics), the **orientation quaternion** is the **identity** \((x, y, z, w) = (0, 0, 0, 1)\): “no rotation” *within* that ENU frame.
+
+- **Not** the same as vendor **camera** zero orientations (e.g. AugmentedCity “camera facing East” uses different conventions; see `convertAugmentedCityCam2WebQuat` in [`locationTools.ts`](../../src/core/locationTools.ts)).
+- To express that ENU frame in the **WebXR** scene, apply **`convertGeo2WebQuat`** to that quaternion—the same ENU → WebXR boundary used when building object transforms from `geopose.quaternion` in [`mat4ObjectInRefFromGeoPose`](../../src/core/worldAlignment.ts).
+
 ## WebXR and OGL scene graph
 
 - The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (e.g. `addDebugAxesAtWorldMatrix` for debug meshes) and `convertGeo2Web*` in [`locationTools.ts`](../../src/core/locationTools.ts).
@@ -79,3 +86,4 @@ Work is intentionally split so global GeoPose stays stable while local frames an
 
 - **2026-04-20** — Initial contract.
 - **2026-04-22** — **FrameRef** (`uuid` + `fqn`) as the canonical frame handle; transform graph and VPS sections updated; phased roadmap; **`Viewer`** alignment events; placement-helper note for **`placeContent`**.
+- **2026-04-28** — **ENU frame identity** quaternion and **`convertGeo2WebQuat`** on white debug; 

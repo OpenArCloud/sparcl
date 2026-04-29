@@ -868,9 +868,11 @@ export default class ogl {
     /**
      * Draws a small axis placeholder mesh with the given **world** column-major `mat4` (e.g. from `@core/worldAlignment` debug helpers).
      */
-    addDebugAxesAtWorldMatrix(worldMatrix: ReadonlyMat4, color: [number, number, number, number]): Transform {
-        const node = createAxesBoxPlaceholder(gl, color, false);
+    addDebugAxesAtWorldMatrix(worldMatrix: ReadonlyMat4, color: [number, number, number, number], showAxes: boolean = false): Transform {
+        const node = createAxesBoxPlaceholder(gl, color, showAxes);
         scene.addChild(node);
+        // Keep the explicit gl-matrix 4×4; do not let updateMatrix() rebuild from TRS (non-uniform scale + decompose can drift).
+        node.matrixAutoUpdate = false;
         for (let i = 0; i < 16; i++) {
             node.matrix[i] = worldMatrix[i]!;
         }
