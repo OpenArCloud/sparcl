@@ -1,5 +1,7 @@
 /*
   (c) 2026 Open AR Cloud / contributors
+  (c) 2026 Nokia
+  Licensed under the MIT License
   SPDX-License-Identifier: MIT
 */
 
@@ -21,6 +23,7 @@ import {
     getActiveReferenceFrameRef,
     mat4ObjectInRefFromGeoPose,
     mat4SceneFromGeoPose,
+    setActiveAlignmentInFrame,
     setActiveGeoAlignmentFromCapture,
     setActiveWorldAlignmentFromMatrices,
 } from '@core/worldAlignment';
@@ -271,6 +274,22 @@ describe('worldAlignment', () => {
         const b = convertGeoPoseToLocalPose(objectGeo);
         assert.ok(Math.abs(a.position.x - b.position.x) < 1e-5);
         assert.ok(Math.abs(a.orientation.w - b.orientation.w) < 1e-5);
+        clearActiveGeoAlignment();
+    });
+
+    it('setActiveAlignmentInFrame: identity poses preserve axis offset in ref', () => {
+        const local = { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } };
+        const vps = {
+            frameRef: { uuid: 'r', fqn: 'r:f' },
+            position: { x: 0, y: 0, z: 0 },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+        };
+        setActiveAlignmentInFrame(local, vps, null);
+        const inScene = convertRigidPoseInAnchorFrameToSceneRigidPose({
+            position: { x: 1, y: 0, z: 0 },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+        });
+        assert.ok(Math.abs(inScene.position.x - 1) < 1e-5);
         clearActiveGeoAlignment();
     });
 });

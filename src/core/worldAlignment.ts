@@ -1,8 +1,10 @@
 /*
   (c) 2026 Open AR Cloud / contributors
+  (c) 2026 Nokia
+  Licensed under the MIT License
   SPDX-License-Identifier: MIT
 
-  World alignment kinematics (arbitrary anchor **FrameRef** + **T_scene_from_ref**): WGS84/ENU GeoPose path
+  World alignment kinematics (arbitrary anchor `FrameRef` + `T_scene_from_ref`): WGS84/ENU GeoPose path
   and optional matrix-only / local-frame path. No OGL / WebGL.
   Conventions: docs/workingwithcode/poseconversions.md
 */
@@ -56,7 +58,7 @@ export type ActiveWorldAlignmentMatrices = {
 };
 
 /**
- * Set alignment from precomputed **T_scene_from_ref** (and optional inverse), e.g. after **rigidPoseInFrame** + XR
+ * Set alignment from precomputed `T_scene_from_ref` (and optional inverse), e.g. after VPS `poses` / XR
  * capture fusion or transform-graph composition. For GeoPose ↔ scene conversions you still need
  * {@link OSCP_WGS84_ENU_FRAME_REF} and {@link SetWorldAlignmentFromMatricesParams.anchorGeopose}.
  */
@@ -114,14 +116,16 @@ function cloneGeopose(g: Geopose): Geopose {
 
 function requireActiveWorldAlignment(): ActiveWorldAlignmentState {
     if (_activeWorldAlignment === null) {
-        throw new Error('No active world alignment. Call setActiveGeoAlignmentFromCapture or setActiveWorldAlignmentFromMatrices after localization.');
+        throw new Error(
+            'No active world alignment. Call setActiveGeoAlignmentFromCapture, setActiveWorldAlignmentFromMatrices, or setActiveAlignmentInFrame after localization.',
+        );
     }
     return _activeWorldAlignment;
 }
 
 /**
  * Computes alignment from the capture pair and stores it for {@link convertGeoPoseToLocalPose} and related helpers.
- * Anchor frame is **OSCP:WGS84-ENU** with a full **anchorGeopose**.
+ * Anchor frame is **OSCP:WGS84-ENU** with a full `anchorGeopose`.
  */
 export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, globalCapture: Geopose): ActiveWorldAlignmentMatrices {
     const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
@@ -138,8 +142,8 @@ export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, g
 }
 
 /**
- * Stores alignment from explicit **T_scene_from_ref** / **T_ref_from_scene** (see poseconversions.md).
- * Use for non-geodetic anchors once **referenceFrameRef** and matrices are known (e.g. VPS **rigidPoseInFrame** path).
+ * Stores alignment from explicit `T_scene_from_ref` / `T_ref_from_scene` (see poseconversions.md).
+ * Use for non-geodetic anchors once **referenceFrameRef** and matrices are known (e.g. VPS extended `poses` path).
  */
 export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFromMatricesParams): ActiveWorldAlignmentMatrices {
     const tSceneFromRef = cloneMatLike(params.tSceneFromRef);
@@ -179,6 +183,55 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
     };
 }
 
+/** Pose of the **camera** in a named reference frame **R** (meters + unit quaternion). Often from wire `poses` (SpatialDDS `FramedPose`). */
+export type FramedPose = {
+    frameRef: FrameRef;
+    position: Vec3Like;
+    orientation: QuatLike;
+};
+
+/**
+ * Aligns WebXR session space to **R** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
+ * `T_scene_from_R` = `T_scene_from_cam * inv(T_R_from_cam)`.
+ *
+ * When the response also includes a coarse `geopose`, pass it as `coarseAnchorGeopose` so H3 and scene→GeoPose helpers keep working.
+ */
+export function setActiveAlignmentInFrame(
+    localCapture: WebXrRigidPose,
+    cameraPoseInRef: FramedPose,
+    coarseAnchorGeopose?: Geopose | null,
+): ActiveWorldAlignmentMatrices {
+    const mRFromCam = mat4FromRigidPose({
+        position: cameraPoseInRef.position,
+        orientation: cameraPoseInRef.orientation,
+    });
+    const mCamFromR = mat4.create();
+    if (!mat4.invert(mCamFromR, mRFromCam)) {
+        throw new Error('setActiveAlignmentInFrame: singular rigid pose in frame');
+    }
+    const mSceneFromCam = mat4FromRigidPose(localCapture);
+    const tSceneFromRef = mat4.create();
+    mat4.multiply(tSceneFromRef, mSceneFromCam, mCamFromR);
+    const tRefFromScene = mat4.create();
+    if (!mat4.invert(tRefFromScene, tSceneFromRef)) {
+        throw new Error('setActiveAlignmentInFrame: singular alignment');
+    }
+
+    const anchorGeopose =
+        coarseAnchorGeopose === undefined ? null : coarseAnchorGeopose === null ? null : cloneGeopose(coarseAnchorGeopose);
+
+    _activeWorldAlignment = {
+        tSceneFromRef,
+        tRefFromScene,
+        referenceFrameRef: cloneFrameRef(cameraPoseInRef.frameRef),
+        anchorGeopose,
+    };
+    return {
+        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
+        tRefFromScene: _activeWorldAlignment.tRefFromScene,
+    };
+}
+
 /** Clears session alignment (e.g. when the XR session ends or before applying new alignment). */
 export function clearActiveGeoAlignment(): void {
     _activeWorldAlignment = null;
@@ -189,12 +242,12 @@ export function hasActiveWorldAlignment(): boolean {
     return _activeWorldAlignment !== null;
 }
 
-/** Active anchor **FrameRef**, or `null` if no alignment. */
+/** Active anchor `FrameRef`, or `null` if no alignment. */
 export function getActiveReferenceFrameRef(): FrameRef | null {
     return _activeWorldAlignment === null ? null : cloneFrameRef(_activeWorldAlignment.referenceFrameRef);
 }
 
-/** Anchor geodetic pose when present (global GeoPose path); otherwise `null`. */
+/** Anchor geopose when present (global GeoPose path); otherwise `null`. */
 export function getActiveAnchorGeopose(): Geopose | null {
     if (_activeWorldAlignment === null || _activeWorldAlignment.anchorGeopose === null) {
         return null;
@@ -238,8 +291,8 @@ export function convertCameraWebXrPoseToGeoposeFromActive(position: Vec3Like, qu
 }
 
 /**
- * Maps a **RigidPose** expressed in the active anchor reference frame into WebXR scene **RigidPose**
- * (**T_scene_from_ref * T_ref_from_body**).
+ * Maps a `RigidPose` expressed in the active anchor reference frame into WebXR scene `RigidPose`
+ * (`T_scene_from_ref * T_ref_from_body`).
  */
 export function convertRigidPoseInAnchorFrameToSceneRigidPose(poseInRef: RigidPose): RigidPose {
     const a = requireActiveWorldAlignment();
@@ -303,7 +356,7 @@ export function computeGeoAlignmentFromPosePair(
 }
 
 /**
- * Rigid transform of an object's GeoPose **relative to the anchor** (ENU offset → WebXR axes + ENU quat → WebXR quat).
+ * Rigid transform of an object's GeoPose `relative to the anchor` (ENU offset → WebXR axes + ENU quat → WebXR quat).
  * This is **T_ref_from_object** when the object frame is identity at the object origin.
  */
 export function mat4ObjectInRefFromGeoPose(anchorGeopose: Geopose, objectGeopose: Geopose): mat4 {
@@ -351,7 +404,7 @@ export function mat4LocalizationDebugArCamera(localCapture: WebXrRigidPose): mat
     return out;
 }
 
-/** WebXR world matrix for the "global GeoPose camera at the localization" debug axes (legacy child of **T_scene_from_ref**). */
+/** WebXR world matrix for the "global GeoPose camera at the localization" debug axes (legacy child of `T_scene_from_ref`). */
 export function mat4LocalizationDebugGeoCamera(anchorGeopose: Geopose, tSceneFromRef: ReadonlyMat4): mat4 {
     const enuDelta = getRelativeGlobalPosition(anchorGeopose, anchorGeopose); // [0,0,0] vector
     const webxrPos = convertAugmentedCityCam2WebVec3(enuDelta); // convert from AC to WebXR // [0,0,0] vector
@@ -368,15 +421,15 @@ export function mat4LocalizationDebugGeoCamera(anchorGeopose: Geopose, tSceneFro
 }
 
 /**
- * WebXR world matrix for the **ENU tangent triad** at the anchor
+ * WebXR world matrix for the **ENU** tangent triad at the anchor.
  * Orientation in the reference frame is **not** raw WebXR identity: it is ENU identity
  * Position is the anchor offset in ref (zero when object equals anchor).
- * The resulting matrix is still left-multiplied by **`T_scene_from_ref`**, so the triad is placed
+ * The resulting matrix is still left-multiplied by `T_scene_from_ref`, so the triad is placed
  * at the capture position and includes VPS↔WebXR alignment.
  */
 export function mat4LocalizationDebugEnuAxes(anchorGeopose: Geopose, tSceneFromRef: ReadonlyMat4): mat4 {
     // Hamilton unit quaternion (x, y, z, w) = (0, 0, 0, 1)
-    // The body / object frame is aligned with the local tangent **East, North, Up** axes at the reference geodetic point.
+    // The body / object frame is aligned with the local tangent **East, North, Up** axes at the reference geopoint.
     // This is the same numeric identity as “no rotation” in that frame
     // Map into WebXR with {@link convertGeo2WebQuat}
     const enuOrientation = [0, 0, 0, 1]; // ENU identity quaternion
@@ -390,7 +443,7 @@ export function mat4LocalizationDebugEnuAxes(anchorGeopose: Geopose, tSceneFromR
     return mat4ComposeSceneFromRefLocal(tSceneFromRef, mRef);
 }
 
-/** Decomposed WebXR scene pose for a GeoPose under geopose alignment (same as **T_scene_from_ref * T_ref_from_object**). */
+/** Decomposed WebXR scene pose for a GeoPose under geopose alignment (same as `T_scene_from_ref * T_ref_from_object`). */
 export function convertGeoPoseToSceneRigidPose(anchorGeopose: Geopose, objectGeopose: Geopose, tSceneFromRef: ReadonlyMat4): RigidPose {
     const m = mat4SceneFromGeoPose(anchorGeopose, objectGeopose, tSceneFromRef);
     const tr = vec3.create();
@@ -404,7 +457,7 @@ export function convertGeoPoseToSceneRigidPose(anchorGeopose: Geopose, objectGeo
 }
 
 /**
- * Converts a local pose to an ENU pose using the local to ENU transformation matrix.
+ * Converts a local pose to an ENU pose using the local to ENU transformation matrix `T_local_to_enu`.
  * @param localPose - The local pose to convert.
  * @param T_local_to_enu - The local to ENU transformation matrix.
  * @returns The ENU pose.
@@ -416,7 +469,7 @@ export function convertLocalPoseToEnu(localPose: ReadonlyMat4, T_local_to_enu: R
 }
 
 /**
- * Converts a local pose to a GeoPose using the local to ENU transformation matrix and the anchor geopose.
+ * Converts a local pose to a GeoPose using the local to ENU transformation matrix `T_local_to_enu` and the anchor geopose.
  * @param localPose - The local pose to convert.
  * @param T_local_to_enu - The local to ENU transformation matrix.
  * @param anchorGeopose - The anchor geopose.
@@ -456,7 +509,7 @@ export function convertLocalPoseToGeoPose(localPose: ReadonlyMat4, T_local_to_en
 // The only difference is that the above has no Web2Geo conversion. Why?
 
 /**
- * WebXR scene rigid pose → OSCP:WGS84-ENU GeoPose using the anchor and **T_ref_from_scene**
+ * WebXR scene rigid pose → OSCP:WGS84-ENU GeoPose using the anchor and `T_ref_from_scene`
  * (`T_ref_from_scene * T_scene_from_object` in the reference frame).
  */
 export function convertScenePoseToGeopose(position: Vec3Like, quaternion: QuatLike, tRefFromScene: ReadonlyMat4, anchorGeopose: Geopose): Geopose {
@@ -494,7 +547,7 @@ export function convertScenePoseToGeopose(position: Vec3Like, quaternion: QuatLi
 }
 
 /**
- * WebXR **camera** local pose → GeoPose camera orientation (identity looks East): applies +π/2 about scene **+Y**, then {@link convertScenePoseToGeopose}.
+ * WebXR `camera` local pose → GeoPose camera orientation (identity looks East): applies +π/2 about scene **+Y**, then {@link convertScenePoseToGeopose}.
  * Matches legacy `ogl.convertCameraLocalPoseToGeoPose` (OGL `Quat.multiply(camera, y90)`).
  */
 export function convertCameraWebXrPoseToGeopose(
@@ -512,7 +565,7 @@ export function convertCameraWebXrPoseToGeopose(
 }
 
 /**
- * GeoPose in WGS-84 → ENU offset frame at `refGeoPose` (tangent plane meters + same ENU quaternion as `geoPose`).
+ * GeoPose in WGS-84 → ENU offset frame at `refGeoPose` (tangent plane meters + same ENU quaternion as `GeoPose`).
  * Pure counterpart to legacy `ogl.geoPose_to_ENU` (which wrapped the result in an OGL `Transform`).
  */
 export function geoPoseToEnuPose(geoPose: Geopose, refGeoPose: Geopose): EnuRigidPose {

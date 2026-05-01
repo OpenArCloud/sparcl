@@ -15,7 +15,7 @@
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
-    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
     import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
@@ -46,7 +46,8 @@
     import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { WebXrRigidPose } from '@core/worldAlignment';
+    import type { WebXrRigidPose, FramedPose } from '@core/worldAlignment';
+    import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
@@ -243,7 +244,7 @@
                             $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
-                        return { cameraGeoPose: $debug_overrideGeopose };
+                        return { geopose: $debug_overrideGeopose };
                     };
 
                     doLocalization({ localImagePose, getGeopose });
@@ -319,16 +320,26 @@
 
     async function doLocalization({
         localImagePose,
-        getGeopose,
+        localizeViaGeoPoseProtocol,
     }: {
         localImagePose: WebXrRigidPose;
-        getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>;
+        localizeViaGeoPoseProtocol: () => Promise<GeoPoseResponseExtended>;
     }) {
         if (debugScrs) console.log('doLocalization');
 
-        // wait for the localization result, whichever method it comes from
-        const { cameraGeoPose } = await getGeopose();
-        onLocalizationSuccess(localImagePose, cameraGeoPose);
+        const gppResponseExtended = await localizeViaGeoPoseProtocol();
+
+        if (gppResponseExtended.poses !== undefined && gppResponseExtended.poses!.length > 0) {
+            onFramedPoseLocalizationSuccess(localImagePose, gppResponseExtended.poses[0], gppResponseExtended.geopose);
+        } else if (gppResponseExtended.geopose) {
+            onGeoPoseLocalizationSuccess(localImagePose, gppResponseExtended.geopose);
+        } else {
+            throw new Error('Localization result missing geopose and poses');
+        }
+
+        if (gppResponseExtended.scrs !== undefined && gppResponseExtended.scrs!.length > 0) {
+            placeContent([gppResponseExtended.scrs]);
+        }
 
         // now get the contents from the SCD(s)
         //await retrieveAndPlaceContents(currentGeoPose);
@@ -455,7 +466,7 @@
      *        the image / render pass (`view.transform`). Not the viewer rig (`XRViewerPose`), which can differ in stereo setups.
      * @param globalImagePose GeoPose from the GeoPose service for that capture.
      */
-    export function onLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+    export function onGeoPoseLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
 
         // This represents the camera in the WebXR coordinate system at the time of localization
@@ -467,6 +478,31 @@
 
         // This represents ENU axes at the place where the image was captured
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5], true); // white
+        dispatch('worldAlignmentEstablished');
+    }
+
+    /** When localization returns metric poses (caller uses `poses[0]` or another index), optionally with coarse geopose for H3 / debug. */
+    function onFramedPoseLocalizationSuccess(
+        localImagePose: WebXrRigidPose,
+        framed: FramedPose,
+        coarseGeopose: Geopose | undefined,
+    ) {
+        const mats = worldAlignment.setActiveAlignmentInFrame(localImagePose, framed, coarseGeopose ?? null);
+
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true);
+
+        if (coarseGeopose) {
+            tdEngine.addDebugAxesAtWorldMatrix(
+                worldAlignment.mat4LocalizationDebugGeoCamera(coarseGeopose, mats.tSceneFromRef),
+                [0, 1, 1, 0.5],
+                false,
+            );
+            tdEngine.addDebugAxesAtWorldMatrix(
+                worldAlignment.mat4LocalizationDebugEnuAxes(coarseGeopose, mats.tSceneFromRef),
+                [1, 1, 1, 0.5],
+                true,
+            );
+        }
         dispatch('worldAlignmentEstablished');
     }
 
@@ -496,7 +532,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
+        return new Promise<GeoPoseResponseExtended>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -512,7 +548,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
+                    resolve({ geopose: selfEstimatedGeoPose});
                 });
                 return;
             }
@@ -539,7 +575,7 @@
 
             if ($selectedGeoPoseService?.url) {
                 sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
-                    .then((data) => {
+                    .then((gppResponse) => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
                         // allow relocalization after a few seconds
@@ -549,30 +585,15 @@
                         });
 
                         console.log('GPP response:');
-                        console.log(JSON.stringify(data));
+                        console.log(JSON.stringify(gppResponse));
 
-                        // GeoPoseResp
-                        // https://github.com/OpenArCloud/oscp-geopose-protocol
-                        let cameraGeoPose = null;
-                        // NOTE: AugmentedCity can also return neighboring objects in the GPP response
-                        let optionalScrs: SCR[] = [];
-                        if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
-                            // data is AugmentedCity format which contains other entries too
-                            // (for example AC /geopose_objs endpoint)
-                            cameraGeoPose = (data.geopose as any).geopose;
-                            optionalScrs = (data as any).scrs;
-                            console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
-                        } else if (data.geopose != undefined) {
-                            // data is GeoPoseResp
-                            // (for example AC /geopose endpoint)
-                            cameraGeoPose = data.geopose;
-                        } else {
-                            const errorMessage = 'GPP response has no geopose field';
-                            console.log(errorMessage);
-                            throw errorMessage;
+                        try {
+                            const parsed = parseGppResponse(gppResponse);
+                            resolve(parsed);
+                        } catch (parseErr) {
+                            console.error(parseErr);
+                            reject(parseErr);
                         }
-
-                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error) => {
                         // TODO: Inform user

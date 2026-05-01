@@ -12,7 +12,7 @@
         "build:docker": "docker build . -t sparcl",
         "start:docker": "docker run -p 8034:80 -d sparcl:latest",
         "preview": "vite preview --port 8080",
-        "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/worldAlignment.test.ts",
+        "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/worldAlignment.test.ts test/geoPoseProtocolExtended.test.ts",
         "test:mocha": "npx mocha --reporter spec 'test/**/*.js'",
         "lint": "eslint .",
         "format": "prettier --write ."

@@ -91,4 +91,4 @@ Work is intentionally split so global GeoPose stays stable while local frames an
 - **2026-04-20** — Initial contract.
 - **2026-04-22** — **FrameRef** (`uuid` + `fqn`) as the canonical frame handle; transform graph and VPS sections updated; phased roadmap; **`Viewer`** alignment events; placement-helper note for **`placeContent`**.
 - **2026-04-28** — **ENU frame identity** quaternion and **`convertGeo2WebQuat`** on white debug; 
-- **2026-04-29** - **`onLocalizationSuccess`** uses for **`localImagePose`** the **`RigidPose`** of the primary camera (from XRView.transform) instead of the pose of the whole rig (XRViewerPose). This matters only if there are multiple cameras on the device.
+- **2026-04-29** - **`onGeoPoseLocalizationSuccess`** uses for **`localImagePose`** the **`RigidPose`** of the primary camera (from XRView.transform) instead of the pose of the whole rig (XRViewerPose). This matters only if there are multiple cameras on the device.
