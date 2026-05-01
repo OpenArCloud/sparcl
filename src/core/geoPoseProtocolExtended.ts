@@ -14,18 +14,14 @@
 import type { GeoPose } from '@oarc/gpp-access';
 import { GeoPoseAccuracy } from '@oarc/gpp-access';
 import type { SCR } from '@oarc/scd-access';
-import type { FramedPose } from '@core/worldAlignment';
+import { type FramedPose, type NsTime, parseFramedPose, parseNsTime } from '@core/spatial';
 
 /** Default `GeoPoseAccuracy` when the wire omits `accuracy` (matches `GeoPoseAccuracy` in `@oarc/gpp-access` / Python `sys.float_info.max`). */
 export const GEO_POSE_ACCURACY_UNSPECIFIED = new GeoPoseAccuracy();
 
 export type { GeoPoseAccuracy } from '@oarc/gpp-access';
 
-/** SpatialDDS `Time`: UTC `sec` + `nanosec` */
-export type NsTime = {
-    sec: number;
-    nanosec: number;
-};
+export type { CovarianceType, CovMatrix, NsTime } from '@core/spatial';
 
 /**
  * Parsed localization response: OSCP `GeoPoseResponse` core fields (`type`, `id`, `timestamp`, `accuracy`, `geopose`)
@@ -155,70 +151,6 @@ function parseGeopose(raw: Record<string, unknown>): GeoPose | undefined {
         position: { lat, lon, h },
         quaternion: { x: qx, y: qy, z: qz, w: qw },
     };
-}
-
-function parseFrameRef(raw: unknown): { uuid: string; fqn: string } | undefined {
-    if (!isRecord(raw)) {
-        return undefined;
-    }
-    const uuid = raw.uuid;
-    const fqn = raw.fqn;
-    if (typeof uuid !== 'string' || typeof fqn !== 'string' || uuid.length === 0 || fqn.length === 0) {
-        return undefined;
-    }
-    return { uuid, fqn };
-}
-
-/** SpatialDDS `FramedPose` wire: `pose.t` / `pose.q`, `frameRef`. */
-function parseFramedPose(raw: unknown): FramedPose | undefined {
-    if (!isRecord(raw)) {
-        return undefined;
-    }
-    const poseBlock = raw.pose;
-    if (!isRecord(poseBlock)) {
-        return undefined;
-    }
-    const t = poseBlock.t;
-    const q = poseBlock.q;
-    const frameRef = parseFrameRef(raw.frameRef ?? raw.frame_ref);
-    if (!frameRef || !isRecord(t) || !isRecord(q)) {
-        return undefined;
-    }
-    const x = t.x;
-    const y = t.y;
-    const z = t.z;
-    const ox = q.x;
-    const oy = q.y;
-    const oz = q.z;
-    const ow = q.w;
-    if (
-        typeof x !== 'number' ||
-        typeof y !== 'number' ||
-        typeof z !== 'number' ||
-        typeof ox !== 'number' ||
-        typeof oy !== 'number' ||
-        typeof oz !== 'number' ||
-        typeof ow !== 'number'
-    ) {
-        return undefined;
-    }
-    return {
-        frameRef,
-        position: { x, y, z },
-        orientation: { x: ox, y: oy, z: oz, w: ow },
-    };
-}
-
-function parseNsTime(raw: unknown): NsTime | undefined {
-    if (!isRecord(raw)) {
-        return undefined;
-    }
-    const sec = raw.sec;
-    const nanosec = raw.nanosec;
-    if (typeof sec !== 'number' || typeof nanosec !== 'number') {
-        return undefined;
-    }
-    return { sec, nanosec };
 }
 
 function parseGeoposes(raw: unknown): GeoPose[] {

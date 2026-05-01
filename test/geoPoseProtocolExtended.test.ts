@@ -86,7 +86,7 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(isParsedGeoPoseResponseExtended(r), true);
         assert.strictEqual(r.geopose, undefined);
         assert.strictEqual(r.poses?.[0]?.frameRef.uuid, 'room');
-        assert.strictEqual(r.poses?.[0]?.position.x, 1);
+        assert.strictEqual(r.poses?.[0]?.pose.t.x, 1);
         assert.strictEqual(r.time?.sec, 0);
         assert.strictEqual(r.time?.nanosec, 1_000_000);
     });
@@ -130,6 +130,39 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(r.scrs, undefined);
     });
 
+    it('parses FramedPose cov + stamp (SpatialDDS)', () => {
+        const r = parseGppResponse({
+            id: '1',
+            timestamp: 500,
+            accuracy: { position: 1, orientation: 1 },
+            type: 'geopose',
+            geopose: {
+                position: { lon: 19, lat: 47, h: 10 },
+                quaternion: { x: 0, y: 0, z: 0, w: 1 },
+            },
+            poses: [
+                {
+                    pose: {
+                        t: { x: 1, y: 0, z: 0 },
+                        q: { x: 0, y: 0, z: 0, w: 1 },
+                    },
+                    frameRef: { uuid: 'map', fqn: 'space:Map' },
+                    cov: {
+                        covarianceType: 'COV_POS3',
+                        pos: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    },
+                    stamp: { sec: 1700000000, nanosec: 250000 },
+                },
+            ],
+        });
+        assert.strictEqual(r.poses?.length, 1);
+        const fp = r.poses![0]!;
+        assert.strictEqual(fp.cov?.covarianceType, 'COV_POS3');
+        assert.strictEqual(fp.cov?.pos?.length, 9);
+        assert.strictEqual(fp.stamp?.sec, 1700000000);
+        assert.strictEqual(fp.stamp?.nanosec, 250000);
+    });
+
     it('parses GeoPoseResponseExtended poses + time (SpatialDDS FramedPose wire)', () => {
         const r = parseGppResponse({
             id: '1',
@@ -155,7 +188,7 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(r.time?.nanosec, 500);
         assert.strictEqual(r.poses?.length, 1);
         assert.strictEqual(r.poses?.[0]?.frameRef.uuid, 'map');
-        assert.strictEqual(r.poses?.[0]?.position.x, 1);
+        assert.strictEqual(r.poses?.[0]?.pose.t.x, 1);
     });
 
     it('uses geoposes[0] when geopose is omitted', () => {

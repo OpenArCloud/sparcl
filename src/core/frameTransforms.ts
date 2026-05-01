@@ -1,27 +1,28 @@
 /*
   (c) 2026 Open AR Cloud / contributors
+  (c) 2026 Nokia
+  Licensed under the MIT License
   SPDX-License-Identifier: MIT
 
-  Coordinate reference frames are identified by a **FrameRef** (`uuid` + `fqn`); see `FrameRef` below and
-  docs/workingwithcode/poseconversions.md. Resolver APIs may still use string keys (often `uuid`) until
-  the transform-graph wire format accepts structured FrameRefs end-to-end.
-
   Helpers and a small client for 4×4 transforms between frames (e.g. HTTP transform-graph).
+
+  Coordinate frames use `FrameRef` and SpatialDDS-aligned pose types from `@core/spatial`;
   Conventions: docs/workingwithcode/poseconversions.md
 */
 
 import { mat4, type ReadonlyMat4 } from 'gl-matrix';
 
-export type FrameRef = {
-    uuid: string; // unique identifier for the frame
-    fqn: string; // fully qualified namespace (e.g. "OSCP:WGS84-ENU")
-};
-
-/** Reserved frame reference for OSCP GeoPose (WGS-84 + ENU), per poseconversions.md */
-export const OSCP_WGS84_ENU_FRAME_REF = {
-    uuid: 'OSCP:WGS84-ENU',
-    fqn: 'OSCP:WGS84-ENU',
-};
+export type {
+    CovarianceType,
+    CovMatrix,
+    FrameRef,
+    FramedPose,
+    NsTime,
+    PoseSE3,
+    QuatLike,
+    Vec3Like,
+} from '@core/spatial';
+export { OSCP_WGS84_ENU_FRAME_REF } from '@core/spatial';
 
 const CACHE_KEY_SEP = '\x1e';
 

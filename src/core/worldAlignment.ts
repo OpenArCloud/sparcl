@@ -24,10 +24,14 @@ import {
     getRelativeOrientation,
 } from '@core/locationTools';
 
-import { type FrameRef, normalizeColumnMajorMat4, OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
-
-export type Vec3Like = { x: number; y: number; z: number };
-export type QuatLike = { x: number; y: number; z: number; w: number };
+import {
+    type FrameRef,
+    type FramedPose,
+    OSCP_WGS84_ENU_FRAME_REF,
+    type QuatLike,
+    type Vec3Like,
+} from '@core/spatial';
+import { normalizeColumnMajorMat4 } from '@core/frameTransforms';
 
 /** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
 export type RigidPose = {
@@ -183,13 +187,6 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
     };
 }
 
-/** Pose of the **camera** in a named reference frame **R** (meters + unit quaternion). Often from wire `poses` (SpatialDDS `FramedPose`). */
-export type FramedPose = {
-    frameRef: FrameRef;
-    position: Vec3Like;
-    orientation: QuatLike;
-};
-
 /**
  * Aligns WebXR session space to **R** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
  * `T_scene_from_R` = `T_scene_from_cam * inv(T_R_from_cam)`.
@@ -202,8 +199,8 @@ export function setActiveAlignmentInFrame(
     coarseAnchorGeopose?: Geopose | null,
 ): ActiveWorldAlignmentMatrices {
     const mRFromCam = mat4FromRigidPose({
-        position: cameraPoseInRef.position,
-        orientation: cameraPoseInRef.orientation,
+        position: cameraPoseInRef.pose.t,
+        orientation: cameraPoseInRef.pose.q,
     });
     const mCamFromR = mat4.create();
     if (!mat4.invert(mCamFromR, mRFromCam)) {
@@ -255,8 +252,17 @@ export function getActiveAnchorGeopose(): Geopose | null {
     return cloneGeopose(_activeWorldAlignment.anchorGeopose);
 }
 
-/** Re-export for callers that store anchor metadata alongside alignment. */
-export type { FrameRef } from '@core/frameTransforms';
+/** Re-export frame IDs and SpatialDDS JSON types for callers that import from `@core/worldAlignment`. */
+export type {
+    CovarianceType,
+    CovMatrix,
+    FrameRef,
+    FramedPose,
+    NsTime,
+    PoseSE3,
+    QuatLike,
+    Vec3Like,
+} from '@core/spatial';
 
 // TODO: add FromActive in the name
 // TODO convertGeoPoseToSceneRigidPose reorder parameters to objectGeopose, tSceneFromRef, anchorGeopose
