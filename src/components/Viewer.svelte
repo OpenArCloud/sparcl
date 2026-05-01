@@ -247,7 +247,7 @@
                         return { geopose: $debug_overrideGeopose };
                     };
 
-                    doLocalization({ localImagePose, getGeopose });
+                    doLocalization({ localImagePose, gppLocalizationMethod: getGeopose });
                 } else {
                     //const imageWidth = viewport.width; // old Chrome 91
                     //const imageHeight = viewport.height; // old Chrome 91
@@ -288,7 +288,7 @@
                         return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                     };
 
-                    doLocalization({ localImagePose, getGeopose });
+                    doLocalization({ localImagePose, gppLocalizationMethod: getGeopose });
                 }
             }
 
@@ -320,14 +320,14 @@
 
     async function doLocalization({
         localImagePose,
-        localizeViaGeoPoseProtocol,
+        gppLocalizationMethod,
     }: {
         localImagePose: WebXrRigidPose;
-        localizeViaGeoPoseProtocol: () => Promise<GeoPoseResponseExtended>;
+        gppLocalizationMethod: () => Promise<GeoPoseResponseExtended>;
     }) {
         if (debugScrs) console.log('doLocalization');
 
-        const gppResponseExtended = await localizeViaGeoPoseProtocol();
+        const gppResponseExtended = await gppLocalizationMethod();
 
         if (gppResponseExtended.poses !== undefined && gppResponseExtended.poses!.length > 0) {
             onFramedPoseLocalizationSuccess(localImagePose, gppResponseExtended.poses[0], gppResponseExtended.geopose);
