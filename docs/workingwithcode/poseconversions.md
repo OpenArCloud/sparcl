@@ -16,7 +16,16 @@ New APIs and payloads should identify a coordinate reference frame with a **`Fra
 - **`uuid`** — Unique identifier for this frame **instance** (stable across services and sessions when issued by a registry or VPS).
 - **`fqn`** — Fully qualified name / namespace for the frame **kind** (e.g. `OSCP:WGS84-ENU`, an EPSG URN, or a vendor-defined logical type).
 
-TypeScript type: **`FrameRef`** in [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) (`@core/frameTransforms`). Reserved global GeoPose / ENU: **`OSCP_WGS84_ENU_FRAME_REF`** (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists).
+TypeScript type: **`FrameRef`** in [`src/core/spatial.ts`](../../src/core/spatial.ts) (re-exported from [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) as `@core/frameTransforms` / `@core/spatial`). Reserved global GeoPose / ENU: **`OSCP_WGS84_ENU_FRAME_REF`** (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists).
+
+## Session alignment: geopose vs FramedPose (`worldAlignment`)
+
+The session stores **two** kinds of alignment: **`geoPoseAlignment`** (optional) and **`framedPoseAlignments`**. Clear them with `clearActiveGeoPoseAlignment` and `clearActiveFramedPoseAlignment` (call the latter with no args or an empty list to clear all framed entries; pass specific `FrameRef`s to drop only those). Typical session teardown calls **both**.
+
+- **`geoPoseAlignment`** (optional): from `setActiveGeoAlignmentFromCapture` or `setActiveWorldAlignmentFromMatrices` with **OSCP:WGS84-ENU** and a non-null **anchor** `Geopose`. Drives WGS84 content placement, H3 queries, and helpers like `convertGeoPoseToLocalPose` / `*FromActive` for geopose.
+- **`framedPoseAlignments`** (array): from `setActiveAlignmentInFrame` (VPS **poses**), or from `setActiveWorldAlignmentFromMatrices` for non-ENU / local **FrameRef**s. Each entry is **T_scene_from_ref** for that **frameRef**. Use `convertRigidPoseInFramedRefToSceneRigidPose(frameRef, …)` for metric poses in that frame.
+
+If a VPS response includes **both** `geopose` and `poses`, both are applied: geopose does **not** get overwritten by the map **FrameRef**. Cross-frame composition (e.g. object in map frame vs ENU) will use a future transform graph; see `FrameGraphMat4Resolver` in `frameTransforms.ts` and the transform graph section below.
 
 **Legacy / backwards compatibility**
 
@@ -54,7 +63,7 @@ For a **local tangent** frame at a geodetic point whose **body axes** align with
 ## WebXR and OGL scene graph
 
 - The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (e.g. `addDebugAxesAtWorldMatrix` for debug meshes) and `convertGeo2Web*` in [`locationTools.ts`](../../src/core/locationTools.ts).
-- **Global GeoPose localization**: [`Viewer.svelte`](../../src/components/Viewer.svelte) calls `setActiveGeoAlignmentFromCapture` in [`worldAlignment.ts`](../../src/core/worldAlignment.ts) (anchor + **T_scene_from_ref** / **T_ref_from_scene**). Optional debug axis placeholders use precomputed world **`mat4`** values (`mat4LocalizationDebug*` helpers) and `ogl.addDebugAxesAtWorldMatrix`. Pose conversions that depend on that session use the `*FromActive` helpers in the same module.
+- **Global GeoPose localization**: [`Viewer.svelte`](../../src/components/Viewer.svelte) may call `setActiveGeoAlignmentFromCapture` and/or `setActiveAlignmentInFrame` (see *Session alignment* above). Optional debug axis placeholders use precomputed world **`mat4`** values (`mat4LocalizationDebug*` helpers) and `ogl.addDebugAxesAtWorldMatrix`. Geopose pose conversions use the `*FromActive` helpers, which read **only** the **`geoPoseAlignment`** bucket (`worldAlignment`).
 - **`worldAlignmentEstablished`** / **`worldAlignmentCleared`** — Custom events dispatched from **`Viewer.svelte`** when session alignment is applied or cleared (e.g. after localization, relocalize, or session end). Experiments or parents should listen if they need to **replay** or **tear down** content that depends on alignment (same event on **re**-localization: treat as “placement session is (re)valid”).
 - Any pose matrix from **VPS** or other **OSCP service** that targets this scene graph must either be supplied in that convention or converted **at one boundary** (not scattered across call sites).
 

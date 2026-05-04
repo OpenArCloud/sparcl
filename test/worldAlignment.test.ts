@@ -11,16 +11,19 @@ import { mat4, quat, vec3 } from 'gl-matrix';
 import type { Geopose } from '@oarc/scd-access';
 import { convertGeodeticToEnu } from '@core/locationTools';
 import {
-    clearActiveGeoAlignment,
+    clearActiveFramedPoseAlignment,
+    clearActiveGeoPoseAlignment,
     computeGeoAlignmentFromPosePair,
     convertCameraWebXrPoseToGeopose,
     convertGeoPoseToLocalPose,
     convertGeoPoseToSceneRigidPose,
-    convertRigidPoseInAnchorFrameToSceneRigidPose,
+    convertRigidPoseInFramedRefToSceneRigidPose,
     convertScenePoseToGeopose,
     convertScenePoseToGeoposeFromActive,
-    geoPoseToEnuPose,
+    getActiveGeoAlignment,
     getActiveReferenceFrameRef,
+    getFramedPoseAlignments,
+    geoPoseToEnuPose,
     mat4ObjectInRefFromGeoPose,
     mat4SceneFromGeoPose,
     setActiveAlignmentInFrame,
@@ -30,6 +33,11 @@ import {
 import { OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
 
 const EPS_MAT = 1e-5;
+
+function clearAllWorldAlignment(): void {
+    clearActiveGeoPoseAlignment();
+    clearActiveFramedPoseAlignment();
+}
 
 function assertMat4Near(a: Readonly<mat4>, b: Readonly<mat4>, eps = EPS_MAT) {
     for (let i = 0; i < 16; i++) {
@@ -201,8 +209,8 @@ describe('worldAlignment', () => {
         const a = convertScenePoseToGeoposeFromActive(pos, q);
         const b = convertScenePoseToGeopose(pos, q, mats.tRefFromScene, globalCapture);
         assertGeoposeNear(a, b);
-        clearActiveGeoAlignment();
-        assert.throws(() => convertScenePoseToGeoposeFromActive(pos, q), /No active world alignment/);
+        clearAllWorldAlignment();
+        assert.throws(() => convertScenePoseToGeoposeFromActive(pos, q), /No active geopose alignment/);
     });
 
     it('session: convertGeoPoseToLocalPose matches convertGeoPoseToSceneRigidPose', () => {
@@ -216,7 +224,7 @@ describe('worldAlignment', () => {
         const b = convertGeoPoseToSceneRigidPose(globalCapture, objectGeo, kin.tSceneFromRef);
         assert.ok(Math.abs(a.position.x - b.position.x) < 1e-5);
         assert.ok(Math.abs(a.orientation.w - b.orientation.w) < 1e-5);
-        clearActiveGeoAlignment();
+        clearAllWorldAlignment();
     });
 
     it('setActiveWorldAlignmentFromMatrices: identity maps pose in ref to same scene rigid pose', () => {
@@ -233,11 +241,11 @@ describe('worldAlignment', () => {
             position: { x: 1, y: 2, z: -0.5 },
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
-        const inScene = convertRigidPoseInAnchorFrameToSceneRigidPose(poseInRef);
+        const inScene = convertRigidPoseInFramedRefToSceneRigidPose(roomFrame, poseInRef);
         assert.ok(Math.abs(inScene.position.x - 1) < 1e-6);
         assert.ok(Math.abs(inScene.position.y - 2) < 1e-6);
         assert.ok(Math.abs(inScene.position.z + 0.5) < 1e-6);
-        clearActiveGeoAlignment();
+        clearAllWorldAlignment();
     });
 
     it('convertGeoPoseToLocalPose throws for non-WGS84 anchor', () => {
@@ -252,8 +260,8 @@ describe('worldAlignment', () => {
             position: { lat: 47.5, lon: 19.0, h: 100 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
         });
-        assert.throws(() => convertGeoPoseToLocalPose(someGeo), /OSCP:WGS84-ENU anchor/);
-        clearActiveGeoAlignment();
+        assert.throws(() => convertGeoPoseToLocalPose(someGeo), /No active geopose alignment/);
+        clearAllWorldAlignment();
     });
 
     it('setActiveWorldAlignmentFromMatrices matches setActiveGeoAlignmentFromCapture for conversions', () => {
@@ -269,12 +277,58 @@ describe('worldAlignment', () => {
             quaternion: { x: 0.15, y: 0.2, z: 0.25, w: 0.93 },
         });
         const a = convertGeoPoseToLocalPose(objectGeo);
-        clearActiveGeoAlignment();
+        clearAllWorldAlignment();
         setActiveGeoAlignmentFromCapture(localCapture, globalCapture);
         const b = convertGeoPoseToLocalPose(objectGeo);
         assert.ok(Math.abs(a.position.x - b.position.x) < 1e-5);
         assert.ok(Math.abs(a.orientation.w - b.orientation.w) < 1e-5);
-        clearActiveGeoAlignment();
+        clearAllWorldAlignment();
+    });
+
+    it('geopose alignment is unchanged after framed pose alignment (convertGeoPoseToLocalPose)', () => {
+        const objectGeo: Geopose = normalizeGeoposeQuat({
+            position: { lat: 47.4985, lon: 19.0415, h: 158.2 },
+            quaternion: { x: 0.15, y: 0.2, z: 0.25, w: 0.93 },
+        });
+        setActiveGeoAlignmentFromCapture(localCapture, globalCapture);
+        const beforeFramed = convertGeoPoseToLocalPose(objectGeo);
+        setActiveAlignmentInFrame(localCapture, {
+            frameRef: { uuid: 'map', fqn: 'space:Map' },
+            pose: {
+                t: { x: 0, y: 0, z: 0 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        });
+        const afterFramed = convertGeoPoseToLocalPose(objectGeo);
+        assert.ok(Math.abs(beforeFramed.position.x - afterFramed.position.x) < 1e-5);
+        assert.ok(Math.abs(beforeFramed.orientation.w - afterFramed.orientation.w) < 1e-5);
+        assert.strictEqual(getFramedPoseAlignments().length, 1);
+        assert.strictEqual(getActiveGeoAlignment()?.referenceFrameRef.uuid, OSCP_WGS84_ENU_FRAME_REF.uuid);
+        assert.strictEqual(getActiveReferenceFrameRef()?.uuid, OSCP_WGS84_ENU_FRAME_REF.uuid);
+        clearAllWorldAlignment();
+    });
+
+    it('clearActiveFramedPoseAlignment: default clears all; list removes matching frames only', () => {
+        const id = mat4.create();
+        mat4.identity(id);
+        const frameA = { uuid: 'a', fqn: 'f:a' };
+        const frameB = { uuid: 'b', fqn: 'f:b' };
+        setActiveWorldAlignmentFromMatrices({
+            tSceneFromRef: id,
+            referenceFrameRef: frameA,
+            anchorGeopose: null,
+        });
+        setActiveWorldAlignmentFromMatrices({
+            tSceneFromRef: id,
+            referenceFrameRef: frameB,
+            anchorGeopose: null,
+        });
+        assert.strictEqual(getFramedPoseAlignments().length, 2);
+        clearActiveFramedPoseAlignment([frameA]);
+        assert.strictEqual(getFramedPoseAlignments().length, 1);
+        assert.strictEqual(getFramedPoseAlignments()[0]!.frameRef.uuid, 'b');
+        clearActiveFramedPoseAlignment();
+        assert.strictEqual(getFramedPoseAlignments().length, 0);
     });
 
     it('setActiveAlignmentInFrame: identity poses preserve axis offset in ref', () => {
@@ -286,12 +340,15 @@ describe('worldAlignment', () => {
                 q: { x: 0, y: 0, z: 0, w: 1 },
             },
         };
-        setActiveAlignmentInFrame(local, vps, null);
-        const inScene = convertRigidPoseInAnchorFrameToSceneRigidPose({
-            position: { x: 1, y: 0, z: 0 },
-            orientation: { x: 0, y: 0, z: 0, w: 1 },
-        });
+        setActiveAlignmentInFrame(local, vps);
+        const inScene = convertRigidPoseInFramedRefToSceneRigidPose(
+            { uuid: 'r', fqn: 'r:f' },
+            {
+                position: { x: 1, y: 0, z: 0 },
+                orientation: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        );
         assert.ok(Math.abs(inScene.position.x - 1) < 1e-5);
-        clearActiveGeoAlignment();
+        clearAllWorldAlignment();
     });
 });

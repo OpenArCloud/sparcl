@@ -183,3 +183,11 @@ export class FrameTransformsClient {
         return cloneMat4(copy);
     }
 }
+
+/**
+ * Placeholder for a future **transform graph** integration: resolve **T_B_from_A** between arbitrary
+ * frame keys (e.g. `FrameRef.uuid`). Session state in `worldAlignment` may hold **geoPose** and **framed pose**
+ * alignments; this resolver type is for edges not covered by those direct **T_scene_from_ref** matrices.
+ * See {@link FrameTransformsClient} for a cache + optional HTTP **GET** stub.
+ */
+export type FrameGraphMat4Resolver = (fromFrameId: string, toFrameId: string, signal?: AbortSignal) => Promise<mat4>;

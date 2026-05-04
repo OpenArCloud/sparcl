@@ -141,7 +141,8 @@
     async function getPlaces(query: String) {
         if (searchEnabled) {
             // reset 3D engine to remove old POI markers
-            worldAlignment.clearActiveGeoAlignment();
+            worldAlignment.clearActiveGeoPoseAlignment();
+            worldAlignment.clearActiveFramedPoseAlignment();
             tdEngine.reinitialize();
 
             // use initial location as fallback

@@ -62,6 +62,34 @@ export type ActiveWorldAlignmentMatrices = {
 };
 
 /**
+ * Session geopose alignment: **OSCP:WGS84-ENU** at `anchorGeopose` with scene ↔ ref matrices.
+ * Used for WGS84 content, H3 queries, and `convertGeoPoseToLocalPose` / `*FromActive` geopose helpers.
+ */
+export type GeoPoseAlignmentState = {
+    tSceneFromRef: mat4;
+    tRefFromScene: mat4;
+    referenceFrameRef: FrameRef;
+    anchorGeopose: Geopose;
+};
+
+/**
+ * One VPS / SpatialDDS **FramedPose** alignment: scene ↔ named **frameRef** (map, room, etc.).
+ */
+export type FramedPoseAlignmentState = {
+    frameRef: FrameRef;
+    tSceneFromRef: mat4;
+    tRefFromScene: mat4;
+    /** Original wire pose when available (debug / future transform graph). */
+    sourceFramedPose?: FramedPose;
+};
+
+/** Snapshot of both alignment buckets (matrices are live `mat4` references; clone if mutating). */
+export type ActiveWorldAlignmentSnapshot = {
+    geo: GeoPoseAlignmentState | null;
+    framed: readonly FramedPoseAlignmentState[];
+};
+
+/**
  * Set alignment from precomputed `T_scene_from_ref` (and optional inverse), e.g. after VPS `poses` / XR
  * capture fusion or transform-graph composition. For GeoPose ↔ scene conversions you still need
  * {@link OSCP_WGS84_ENU_FRAME_REF} and {@link SetWorldAlignmentFromMatricesParams.anchorGeopose}.
@@ -78,17 +106,23 @@ export type SetWorldAlignmentFromMatricesParams = {
     anchorGeopose?: Geopose | null;
 };
 
-type ActiveWorldAlignmentState = {
-    tSceneFromRef: mat4;
-    tRefFromScene: mat4;
-    referenceFrameRef: FrameRef;
-    /** Present when coarse global pose exists for ENU / H3 / legacy conversion paths. */
-    anchorGeopose: Geopose | null;
-};
+let _geoPoseAlignment: GeoPoseAlignmentState | null = null;
+let _framedPoseAlignments: FramedPoseAlignmentState[] = [];
 
-let _activeWorldAlignment: ActiveWorldAlignmentState | null = null;
+export function frameRefsEqual(a: FrameRef, b: FrameRef): boolean {
+    return a.uuid === b.uuid && a.fqn === b.fqn;
+}
 
-function isOscpWgs84Enu(ref: FrameRef): boolean {
+function upsertFramedAlignment(entry: FramedPoseAlignmentState): void {
+    const i = _framedPoseAlignments.findIndex((f) => frameRefsEqual(f.frameRef, entry.frameRef));
+    if (i >= 0) {
+        _framedPoseAlignments[i] = entry;
+    } else {
+        _framedPoseAlignments.push(entry);
+    }
+}
+
+export function isOscpWgs84Enu(ref: FrameRef): boolean {
     return ref.uuid === OSCP_WGS84_ENU_FRAME_REF.uuid && ref.fqn === OSCP_WGS84_ENU_FRAME_REF.fqn;
 }
 
@@ -118,36 +152,38 @@ function cloneGeopose(g: Geopose): Geopose {
     };
 }
 
-function requireActiveWorldAlignment(): ActiveWorldAlignmentState {
-    if (_activeWorldAlignment === null) {
+function requireGeoAlignment(): GeoPoseAlignmentState {
+    if (_geoPoseAlignment === null) {
         throw new Error(
-            'No active world alignment. Call setActiveGeoAlignmentFromCapture, setActiveWorldAlignmentFromMatrices, or setActiveAlignmentInFrame after localization.',
+            'No active geopose alignment. Call setActiveGeoAlignmentFromCapture or setActiveWorldAlignmentFromMatrices with OSCP:WGS84-ENU and anchorGeopose.',
         );
     }
-    return _activeWorldAlignment;
+    return _geoPoseAlignment;
 }
 
 /**
- * Computes alignment from the capture pair and stores it for {@link convertGeoPoseToLocalPose} and related helpers.
+ * Computes alignment from the capture pair and stores **geoPoseAlignment** for {@link convertGeoPoseToLocalPose} and related helpers.
+ * Does not modify framed pose alignments.
  * Anchor frame is **OSCP:WGS84-ENU** with a full `anchorGeopose`.
  */
 export function setActiveGeoAlignmentFromCapture(localCapture: WebXrRigidPose, globalCapture: Geopose): ActiveWorldAlignmentMatrices {
     const kin = computeGeoAlignmentFromPosePair(localCapture, globalCapture);
-    _activeWorldAlignment = {
+    _geoPoseAlignment = {
         tSceneFromRef: mat4.clone(kin.tSceneFromRef),
         tRefFromScene: mat4.clone(kin.tRefFromScene),
         referenceFrameRef: cloneFrameRef(kin.referenceFrameRef),
         anchorGeopose: cloneGeopose(kin.anchorGeopose),
     };
     return {
-        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
-        tRefFromScene: _activeWorldAlignment.tRefFromScene,
+        tSceneFromRef: _geoPoseAlignment.tSceneFromRef,
+        tRefFromScene: _geoPoseAlignment.tRefFromScene,
     };
 }
 
 /**
- * Stores alignment from explicit `T_scene_from_ref` / `T_ref_from_scene` (see poseconversions.md).
- * Use for non-geodetic anchors once **referenceFrameRef** and matrices are known (e.g. VPS extended `poses` path).
+ * Stores alignment from explicit `T_scene_from_ref` / `T_ref_from_scene`.
+ * If **referenceFrameRef** is **OSCP:WGS84-ENU** and **anchorGeopose** is non-null, updates {@link _geoPoseAlignment}.
+ * Otherwise upserts a **framed** alignment for that **referenceFrameRef** (map / local frames).
  */
 export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFromMatricesParams): ActiveWorldAlignmentMatrices {
     const tSceneFromRef = cloneMatLike(params.tSceneFromRef);
@@ -175,29 +211,32 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
     const anchorGeopose =
         params.anchorGeopose === undefined ? null : params.anchorGeopose === null ? null : cloneGeopose(params.anchorGeopose);
 
-    _activeWorldAlignment = {
+    if (isOscpWgs84Enu(params.referenceFrameRef) && anchorGeopose !== null) {
+        _geoPoseAlignment = {
+            tSceneFromRef,
+            tRefFromScene,
+            referenceFrameRef: cloneFrameRef(params.referenceFrameRef),
+            anchorGeopose,
+        };
+    } else {
+        upsertFramedAlignment({
+            frameRef: cloneFrameRef(params.referenceFrameRef),
+            tSceneFromRef,
+            tRefFromScene,
+        });
+    }
+    return {
         tSceneFromRef,
         tRefFromScene,
-        referenceFrameRef: cloneFrameRef(params.referenceFrameRef),
-        anchorGeopose,
-    };
-    return {
-        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
-        tRefFromScene: _activeWorldAlignment.tRefFromScene,
     };
 }
 
 /**
- * Aligns WebXR session space to **R** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
+ * Aligns WebXR session space to **frameRef** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
  * `T_scene_from_R` = `T_scene_from_cam * inv(T_R_from_cam)`.
- *
- * When the response also includes a coarse `geopose`, pass it as `coarseAnchorGeopose` so H3 and scene→GeoPose helpers keep working.
+ * Updates **framed** alignments only; does not modify {@link _geoPoseAlignment}.
  */
-export function setActiveAlignmentInFrame(
-    localCapture: WebXrRigidPose,
-    cameraPoseInRef: FramedPose,
-    coarseAnchorGeopose?: Geopose | null,
-): ActiveWorldAlignmentMatrices {
+export function setActiveAlignmentInFrame(localCapture: WebXrRigidPose, cameraPoseInRef: FramedPose): ActiveWorldAlignmentMatrices {
     const mRFromCam = mat4FromRigidPose({
         position: cameraPoseInRef.pose.t,
         orientation: cameraPoseInRef.pose.q,
@@ -214,42 +253,99 @@ export function setActiveAlignmentInFrame(
         throw new Error('setActiveAlignmentInFrame: singular alignment');
     }
 
-    const anchorGeopose =
-        coarseAnchorGeopose === undefined ? null : coarseAnchorGeopose === null ? null : cloneGeopose(coarseAnchorGeopose);
-
-    _activeWorldAlignment = {
+    upsertFramedAlignment({
+        frameRef: cloneFrameRef(cameraPoseInRef.frameRef),
         tSceneFromRef,
         tRefFromScene,
-        referenceFrameRef: cloneFrameRef(cameraPoseInRef.frameRef),
-        anchorGeopose,
-    };
+        sourceFramedPose: cameraPoseInRef,
+    });
+
     return {
-        tSceneFromRef: _activeWorldAlignment.tSceneFromRef,
-        tRefFromScene: _activeWorldAlignment.tRefFromScene,
+        tSceneFromRef,
+        tRefFromScene,
     };
 }
 
-/** Clears session alignment (e.g. when the XR session ends or before applying new alignment). */
-export function clearActiveGeoAlignment(): void {
-    _activeWorldAlignment = null;
+/** Clears only geopose (**OSCP:WGS84-ENU**) session alignment. Does not remove framed pose alignments. */
+export function clearActiveGeoPoseAlignment(): void {
+    _geoPoseAlignment = null;
 }
 
-/** True after a successful localization until {@link clearActiveGeoAlignment}. */
+/**
+ * Removes framed pose alignments. With the default **empty** list, clears **all** framed alignments.
+ * With one or more **FrameRef**s, removes only entries that match (see {@link frameRefsEqual}).
+ */
+export function clearActiveFramedPoseAlignment(frameRefs: readonly FrameRef[] = []): void {
+    if (frameRefs.length === 0) {
+        _framedPoseAlignments = [];
+        return;
+    }
+    _framedPoseAlignments = _framedPoseAlignments.filter(
+        (f) => !frameRefs.some((r) => frameRefsEqual(r, f.frameRef)),
+    );
+}
+
+/** True after any alignment is stored until the corresponding clear (see {@link clearActiveGeoPoseAlignment} / {@link clearActiveFramedPoseAlignment}). */
 export function hasActiveWorldAlignment(): boolean {
-    return _activeWorldAlignment !== null;
+    return _geoPoseAlignment !== null || _framedPoseAlignments.length > 0;
 }
 
-/** Active anchor `FrameRef`, or `null` if no alignment. */
-export function getActiveReferenceFrameRef(): FrameRef | null {
-    return _activeWorldAlignment === null ? null : cloneFrameRef(_activeWorldAlignment.referenceFrameRef);
+/** Geopose alignment bucket, or `null`. */
+export function getActiveGeoAlignment(): GeoPoseAlignmentState | null {
+    return _geoPoseAlignment;
 }
 
-/** Anchor geopose when present (global GeoPose path); otherwise `null`. */
-export function getActiveAnchorGeopose(): Geopose | null {
-    if (_activeWorldAlignment === null || _activeWorldAlignment.anchorGeopose === null) {
+/** Framed pose alignments (copy of array reference; entries hold cloned frame refs and matrices). */
+export function getFramedPoseAlignments(): readonly FramedPoseAlignmentState[] {
+    return _framedPoseAlignments;
+}
+
+/** Find a framed alignment by **frameRef**, or `undefined`. */
+export function findFramedPoseAlignment(frameRef: FrameRef): FramedPoseAlignmentState | undefined {
+    return _framedPoseAlignments.find((f) => frameRefsEqual(f.frameRef, frameRef));
+}
+
+/** Geo alignment **referenceFrameRef** (OSCP:WGS84-ENU when set via geo path), or `null`. */
+export function getGeoAlignmentReferenceFrameRef(): FrameRef | null {
+    return _geoPoseAlignment === null ? null : cloneFrameRef(_geoPoseAlignment.referenceFrameRef);
+}
+
+/** Anchor geopose for geo alignment; `null` if geo alignment is unset. */
+export function getGeoAlignmentAnchorGeopose(): Geopose | null {
+    if (_geoPoseAlignment === null) {
         return null;
     }
-    return cloneGeopose(_activeWorldAlignment.anchorGeopose);
+    return cloneGeopose(_geoPoseAlignment.anchorGeopose);
+}
+
+/**
+ * Back-compat: geo alignment frame ref if present, else first framed alignment’s **frameRef**, else `null`.
+ * Prefer {@link getGeoAlignmentReferenceFrameRef} / {@link getFramedPoseAlignments} for unambiguous use.
+ */
+export function getActiveReferenceFrameRef(): FrameRef | null {
+    const g = getGeoAlignmentReferenceFrameRef();
+    if (g !== null) {
+        return g;
+    }
+    if (_framedPoseAlignments.length === 0) {
+        return null;
+    }
+    return cloneFrameRef(_framedPoseAlignments[0]!.frameRef);
+}
+
+/**
+ * Back-compat: same as {@link getGeoAlignmentAnchorGeopose} (anchor is only defined for geo alignment).
+ */
+export function getActiveAnchorGeopose(): Geopose | null {
+    return getGeoAlignmentAnchorGeopose();
+}
+
+/** Composite snapshot of geo + framed alignments. */
+export function getActiveWorldAlignment(): ActiveWorldAlignmentSnapshot {
+    return {
+        geo: _geoPoseAlignment,
+        framed: [..._framedPoseAlignments],
+    };
 }
 
 /** Re-export frame IDs and SpatialDDS JSON types for callers that import from `@core/worldAlignment`. */
@@ -267,44 +363,39 @@ export type {
 // TODO: add FromActive in the name
 // TODO convertGeoPoseToSceneRigidPose reorder parameters to objectGeopose, tSceneFromRef, anchorGeopose
 export function convertGeoPoseToLocalPose(objectGeopose: Geopose): RigidPose {
-    const a = requireActiveWorldAlignment();
-    if (!isOscpWgs84Enu(a.referenceFrameRef) || a.anchorGeopose === null) {
+    const a = requireGeoAlignment();
+    if (!isOscpWgs84Enu(a.referenceFrameRef)) {
         throw new Error(
-            'convertGeoPoseToLocalPose requires an OSCP:WGS84-ENU anchor with anchorGeopose. For other frames, use convertRigidPoseInAnchorFrameToSceneRigidPose or graph composition.',
+            'convertGeoPoseToLocalPose requires an OSCP:WGS84-ENU geo alignment. For other frames, use convertRigidPoseInFramedRefToSceneRigidPose or graph composition.',
         );
     }
     return convertGeoPoseToSceneRigidPose(a.anchorGeopose, objectGeopose, a.tSceneFromRef);
 }
 
 export function convertScenePoseToGeoposeFromActive(position: Vec3Like, quaternion: QuatLike): Geopose {
-    const a = requireActiveWorldAlignment();
-    if (a.anchorGeopose === null) {
-        throw new Error(
-            'convertScenePoseToGeoposeFromActive requires anchorGeopose (coarse global pose). Unavailable for purely local anchors.',
-        );
-    }
+    const a = requireGeoAlignment();
     return convertScenePoseToGeopose(position, quaternion, a.tRefFromScene, a.anchorGeopose);
 }
 
 export function convertCameraWebXrPoseToGeoposeFromActive(position: Vec3Like, quaternion: QuatLike): Geopose {
-    const a = requireActiveWorldAlignment();
-    if (a.anchorGeopose === null) {
-        throw new Error(
-            'convertCameraWebXrPoseToGeoposeFromActive requires anchorGeopose (coarse global pose). Unavailable for purely local anchors.',
-        );
-    }
+    const a = requireGeoAlignment();
     return convertCameraWebXrPoseToGeopose(position, quaternion, a.tRefFromScene, a.anchorGeopose);
 }
 
 /**
- * Maps a `RigidPose` expressed in the active anchor reference frame into WebXR scene `RigidPose`
- * (`T_scene_from_ref * T_ref_from_body`).
+ * Maps a `RigidPose` expressed in **frameRef** into WebXR scene space (`T_scene_from_ref * T_ref_from_body`).
+ * Requires a matching {@link findFramedPoseAlignment} entry (from VPS **poses** / {@link setActiveAlignmentInFrame}).
  */
-export function convertRigidPoseInAnchorFrameToSceneRigidPose(poseInRef: RigidPose): RigidPose {
-    const a = requireActiveWorldAlignment();
+export function convertRigidPoseInFramedRefToSceneRigidPose(frameRef: FrameRef, poseInRef: RigidPose): RigidPose {
+    const fa = findFramedPoseAlignment(frameRef);
+    if (fa === undefined) {
+        throw new Error(
+            `No framed alignment for frameRef uuid=${frameRef.uuid} fqn=${frameRef.fqn}. Localize with that FramedPose or compose transforms via the transform service.`,
+        );
+    }
     const mRefObj = mat4FromRigidPose(poseInRef);
     const mScene = mat4.create();
-    mat4.multiply(mScene, a.tSceneFromRef, mRefObj);
+    mat4.multiply(mScene, fa.tSceneFromRef, mRefObj);
     const tr = vec3.create();
     mat4.getTranslation(tr, mScene);
     const qr = quat.create();

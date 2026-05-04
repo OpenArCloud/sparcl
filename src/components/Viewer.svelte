@@ -328,15 +328,21 @@
         if (debugScrs) console.log('doLocalization');
 
         const gppResponseExtended = await gppLocalizationMethod();
-
-        if (gppResponseExtended.poses !== undefined && gppResponseExtended.poses!.length > 0) {
-            onFramedPoseLocalizationSuccess(localImagePose, gppResponseExtended.poses[0], gppResponseExtended.geopose);
-        } else if (gppResponseExtended.geopose) {
-            onGeoPoseLocalizationSuccess(localImagePose, gppResponseExtended.geopose);
-        } else {
+        if (!gppResponseExtended.geopose && !gppResponseExtended.geoposes && !gppResponseExtended.poses){
             throw new Error('Localization result missing geopose and poses');
         }
 
+        // set geo-alignment, if available
+        if (gppResponseExtended.geopose) { // TODO: also check for geoposes if the VPS may return multiple solutions
+            onGeoPoseLocalizationSuccess(localImagePose, gppResponseExtended.geopose);
+        } 
+
+        // set world alignment, if available
+        if (gppResponseExtended.poses !== undefined && gppResponseExtended.poses!.length > 0) {
+            onFramedPoseLocalizationSuccess(localImagePose, gppResponseExtended.poses[0], gppResponseExtended.geopose);
+        }
+        
+        // place optional SCRs (if any in the response)
         if (gppResponseExtended.scrs !== undefined && gppResponseExtended.scrs!.length > 0) {
             placeContent([gppResponseExtended.scrs]);
         }
@@ -414,7 +420,8 @@
         loadedH3Indices = [];
 
         // clear rendering context
-        worldAlignment.clearActiveGeoAlignment();
+        worldAlignment.clearActiveGeoPoseAlignment();
+        worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
         tdEngine.cleanup();
 
@@ -441,7 +448,8 @@
         loadedH3Indices = [];
 
         // clear rendering context
-        worldAlignment.clearActiveGeoAlignment();
+        worldAlignment.clearActiveGeoPoseAlignment();
+        worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
         tdEngine.reinitialize();
     }
@@ -487,18 +495,32 @@
         framed: FramedPose,
         coarseGeopose: Geopose | undefined,
     ) {
-        const mats = worldAlignment.setActiveAlignmentInFrame(localImagePose, framed, coarseGeopose ?? null);
+        const mats = worldAlignment.setActiveAlignmentInFrame(localImagePose, framed);
 
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true);
 
-        if (coarseGeopose) {
+        // add axes at origin
+        const origin: WebXrRigidPose = {
+            position: { x: 0, y: 0, z: 0 },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+        };
+        tdEngine.addDebugAxesAtWorldMatrix(
+            tdEngine.transformFromRigidPose(origin),
+            [1, 1, 1, 0.5],
+            true,
+        );
+
+        const geoAlign = worldAlignment.getActiveGeoAlignment();
+        const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
+        const tSceneFromGeo = geoAlign?.tSceneFromRef;
+        if (anchorForEnuDebug !== undefined && tSceneFromGeo !== undefined) {
             tdEngine.addDebugAxesAtWorldMatrix(
-                worldAlignment.mat4LocalizationDebugGeoCamera(coarseGeopose, mats.tSceneFromRef),
+                worldAlignment.mat4LocalizationDebugGeoCamera(anchorForEnuDebug, tSceneFromGeo),
                 [0, 1, 1, 0.5],
                 false,
             );
             tdEngine.addDebugAxesAtWorldMatrix(
-                worldAlignment.mat4LocalizationDebugEnuAxes(coarseGeopose, mats.tSceneFromRef),
+                worldAlignment.mat4LocalizationDebugEnuAxes(anchorForEnuDebug, tSceneFromGeo),
                 [1, 1, 1, 0.5],
                 true,
             );
@@ -679,6 +701,17 @@
                     }
                 }
 
+                if (!worldAlignment.hasActiveWorldAlignment()) {
+                    console.log(`There is no world alignment!`);
+                    return;
+                }
+
+                // get active reference frame
+                //const activeFrameRef: FrameRef = worldAlignment.getActiveReferenceFrameRef();
+                //console.log(`Active FrameRef: ${JSON.stringify(activeFrameRef)} (${worldAlignment.isOscpWgs84Enu(activeFrameRef)?"WGS84":"non-WGS84"})`);
+                //console.log(`Active anchor GeoPose: ${JSON.stringify(worldAlignment.getActiveAnchorGeopose())}`);
+                //console.log(`Active world alignmente: ${JSON.stringify(worldAlignment.getActiveWorldAlignment())}`);
+                
                 const globalObjectPose = record.content.geopose;
                 const localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                 const localPosition = localObjectPose.position;
