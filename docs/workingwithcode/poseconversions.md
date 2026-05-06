@@ -27,8 +27,6 @@ The session stores **two** kinds of alignment: **`geoPoseAlignment`** (optional)
 
 If a VPS response includes **both** `geopose` and `poses`, both are applied: geopose does **not** get overwritten by the map **FrameRef**. Cross-frame composition (e.g. object in map frame vs ENU) will use a future transform graph; see `FrameGraphMat4Resolver` in `frameTransforms.ts` and the transform graph section below.
 
-**Dev: Override geopose** in the Viewer uses `buildDebugOverrideLocalizationResponse` in [`src/core/devTools.ts`](../../src/core/devTools.ts): the dashboard geopose is unchanged, and a fixed `poses[0]` (`DEBUG_OVERRIDE_VPS_FRAMED_POSE` in **`sparcl:WebXRScene`**, translation `(1,0,1)`, identity quaternion) is added so framed alignment runs like an extended GPP response. The temp SCR `fakeContentWithFramedPose` uses the same `FrameRef` so the framed duck aligns with that stub.
-
 ## SCR content (Spatial Content Discovery)
 
 Each SCR **`content`** object must include **`geopose`** and/or **`framedPose`**. The latter follows SpatialDDS **`FramedPose`** JSON: **`frameRef`** (`uuid`, `fqn`), **`pose`** with **`t`** / **`q`** (Vec3 + quaternion), plus optional **`cov`** and **`stamp`**. Zod schemas are defined in **`@oarc/scd-access`** (`contentSchema`, `framedPoseSchema`).

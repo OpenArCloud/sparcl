@@ -43,7 +43,7 @@
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
-    import { fakeContentWithFramedPose, loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
+    import { buildFakeLocalizationResponse, fakeContentWithFramedPose, loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
     import * as worldAlignment from '@core/worldAlignment';
@@ -245,7 +245,13 @@
                             $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
-                        return { geopose: $debug_overrideGeopose };
+
+                        // Pass the overrideGeopose defined by the user on the Dashboard as the fake VPS GeoPose response.
+                        const fakeVpsGeoPose = $debug_overrideGeopose;
+                        // Pass the current pose of the camera within the XR scene as the fake VPS FramedPose response,
+                        // because the debug contents are defined in the FrameRef of the XR scene for simplicity
+                        const fakeVpsFramedPose = localImagePose;
+                        return buildFakeLocalizationResponse(fakeVpsGeoPose, fakeVpsFramedPose);
                     };
 
                     doLocalization({ localImagePose, gppLocalizationMethod: getGeopose });

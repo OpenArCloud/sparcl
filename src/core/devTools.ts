@@ -11,8 +11,11 @@ import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
-import type { SCR } from '@oarc/scd-access';
-import type { GeoPoseResponse } from '@oarc/gpp-access';
+import type { Geopose, SCR } from '@oarc/scd-access';
+import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
+import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
+import type { FrameRef } from '@core/spatial';
+import type { RigidPose } from '@core/worldAlignment';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -469,7 +472,57 @@ export const fakeLocationResult = {
     ],
 };
 
-/** Dev-only SCR using **framedPose** only (requires matching framed alignment, e.g. `demo-map-frame`). */
+/** Dev `FrameRef` for override localization: synthetic VPS `poses[0]` and {@link fakeContentWithFramedPose} share this frame. */
+export const SPARCL_WEBXR_SCENE_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-scene-frame',
+    fqn: 'sparcl:WebXRScene',
+};
+
+/**
+ * Builds a full {@link GeoPoseResponseExtended} for the **Override geopose** dev path.
+ * fakeVpsGeoPose can be for example the dashboard override `geopose` value.
+ * fakeVpsFramedPose is optional, it can be for example the camera's current pose in the XR scene
+ * as FrameRef, the {@link SPARCL_WEBXR_SCENE_FRAME_REF} (the WebXR scene coordinate frame) is used,
+ * so {@link setActiveAlignmentInFrame} aligns **T_scene_from_ref** with the XR session itself.
+ * The temp SCR `fakeContentWithFramedPose` uses the same {@link SPARCL_WEBXR_SCENE_FRAME_REF},
+ * so if you change its coordinates, it will appear at the same coordinates within the WebXR scene.
+ */
+export function buildFakeLocalizationResponse(
+    fakeVpsGeoPose: Geopose,
+    fakeVpsFramedPose?: RigidPose,
+): GeoPoseResponseExtended {
+    const now = Date.now();
+    const out: GeoPoseResponseExtended = {
+        type: 'geopose',
+        id: 'debug-override-localization',
+        timestamp: now,
+        accuracy: GEO_POSE_ACCURACY_UNSPECIFIED,
+        geopose: fakeVpsGeoPose as unknown as GeoPose,
+    };
+    if (fakeVpsFramedPose !== undefined) {
+        out.poses = [
+            {
+                frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
+                pose: {
+                    t: {
+                        x: fakeVpsFramedPose.position.x,
+                        y: fakeVpsFramedPose.position.y,
+                        z: fakeVpsFramedPose.position.z,
+                    },
+                    q: {
+                        x: fakeVpsFramedPose.orientation.x,
+                        y: fakeVpsFramedPose.orientation.y,
+                        z: fakeVpsFramedPose.orientation.z,
+                        w: fakeVpsFramedPose.orientation.w,
+                    },
+                },
+            },
+        ];
+    }
+    return out;
+}
+
+/** Dev-only SCR using **framedPose** only (requires framed alignment for {@link SPARCL_WEBXR_SCENE_FRAME_REF}, e.g. override localization). */
 export const fakeContentWithFramedPose: SCR = {
     content: {
         description: '',
@@ -479,9 +532,9 @@ export const fakeContentWithFramedPose: SCR = {
         title: 'Framed-only Duck',
         type: 'MODEL_3D',
         framedPose: {
-            frameRef: { uuid: 'demo-map-frame', fqn: 'demo:MapFrame' },
+            frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
             pose: {
-                t: { x: 0, y: 1.5, z: -2 },
+                t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },
             },
         },
