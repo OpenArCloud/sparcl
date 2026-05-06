@@ -8,7 +8,8 @@
 */
 
 import type { Content } from '@oarc/scd-access';
-import type { FrameRef } from '@core/spatial';
+import { SPARCL_WEBXR_SCENE_FRAME_REF, parseFramedPose, type FramedPose } from '@core/spatial';
+import { frameTransformGraph } from '@core/frameTransforms';
 import { upgradeGeoPoseStandard } from '@core/locationTools';
 import * as worldAlignment from '@core/worldAlignment';
 import type { RigidPose } from '@core/worldAlignment';
@@ -17,7 +18,7 @@ export type SceneRigidPoseResult =
     | { ok: true; pose: RigidPose }
     | { ok: false; reason: string };
 
-function framedWireToRigidPose(framedPose: NonNullable<Content['framedPose']>): RigidPose {
+function framedPoseToRigidPose(framedPose: FramedPose): RigidPose {
     const { t, q } = framedPose.pose;
     return {
         position: { x: t.x, y: t.y, z: t.z },
@@ -29,21 +30,40 @@ function framedWireToRigidPose(framedPose: NonNullable<Content['framedPose']>): 
  * Maps SCR **content** to a scene **RigidPose** using {@link worldAlignment}.
  *
  * Precedence when **both** `framedPose` and `geopose` are present:
- * use **framedPose** if {@link worldAlignment.findFramedPoseAlignment} matches `frameRef`; otherwise fall back to **geopose** when {@link worldAlignment.getActiveGeoAlignment} is set.
+ * use **framedPose** if {@link worldAlignment.findFramedPoseAlignment} matches `frameRef`, else try **frameTransformGraph**
+ * **T_scene_from_ref** from content frame → {@link SPARCL_WEBXR_SCENE_FRAME_REF}; otherwise fall back to **geopose** when {@link worldAlignment.getActiveGeoAlignment} is set.
  */
 export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseResult {
-    const framedPose = content.framedPose;
+    const framedPoseWire = content.framedPose;
     const geoPose = content.geopose;
 
+    const framedPose = framedPoseWire === undefined ? undefined : parseFramedPose(framedPoseWire as unknown);
+    if (framedPoseWire !== undefined && framedPose === undefined) {
+        return {
+            ok: false,
+            reason: 'content.framedPose is not a valid SpatialDDS FramedPose (frameRef, pose.t, pose.q)',
+        };
+    }
+
     if (framedPose !== undefined) {
-        const ref = framedPose.frameRef as FrameRef;
-        if (worldAlignment.findFramedPoseAlignment(ref) !== undefined) {
+        const frameRef = framedPose.frameRef;
+        if (worldAlignment.findFramedPoseAlignment(frameRef) !== undefined) {
             try {
-                const rigid = framedWireToRigidPose(framedPose);
-                const pose = worldAlignment.convertFramedPoseToLocalPose(ref, rigid);
+                const rigid = framedPoseToRigidPose(framedPose);
+                const pose = worldAlignment.convertFramedPoseToLocalPose(frameRef, rigid);
                 return { ok: true, pose };
             } catch (e) {
                 return { ok: false, reason: `framedPose conversion failed: ${e}` };
+            }
+        }
+        const graphMat = frameTransformGraph.getTransform(frameRef.uuid, SPARCL_WEBXR_SCENE_FRAME_REF.uuid);
+        if (graphMat !== null) {
+            try {
+                const rigid = framedPoseToRigidPose(framedPose);
+                const pose = worldAlignment.convertRigidPoseToSceneRigidPose(graphMat, rigid);
+                return { ok: true, pose };
+            } catch (e) {
+                return { ok: false, reason: `framedPose graph conversion failed: ${e}` };
             }
         }
     }
