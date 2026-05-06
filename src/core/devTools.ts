@@ -7,13 +7,14 @@
   SPDX-License-Identifier: MIT
 */
 
-import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
+import { mat4, quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
+import { frameTransformGraph } from '@core/frameTransforms';
 import { SPARCL_WEBXR_SCENE_FRAME_REF, type FrameRef } from '@core/spatial';
 import type { RigidPose } from '@core/worldAlignment';
 
@@ -475,13 +476,54 @@ export const fakeLocationResult = {
 /** Re-export canonical WebXR scene {@link FrameRef} from `@core/spatial` for dev SCRs and override localization. */
 export { SPARCL_WEBXR_SCENE_FRAME_REF };
 
+/** Debug content frame: one transform hop from {@link SPARCL_WEBXR_SCENE_FRAME_REF} (see {@link seedSparclTestFrameGraph}). */
+export const SPARCL_TEST_HOP1_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-test-frame-hop1',
+    fqn: 'sparcl:TestFrameHop1',
+};
+
+/** Debug content frame: two hops from {@link SPARCL_WEBXR_SCENE_FRAME_REF} (see {@link seedSparclTestFrameGraph}). */
+export const SPARCL_TEST_HOP2_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-test-frame-hop2',
+    fqn: 'sparcl:TestFrameHop2',
+};
+
+/** **T_Hop1_from_scene** — arbitrary rigid edge for the debug transform chain (column-major `mat4`). */
+const SPARCL_DEBUG_T_HOP1_FROM_SCENE: mat4 = (() => {
+    const m = mat4.create();
+    const q = quat.identity(quat.create());
+    const t = vec3.fromValues(3, 0, 0);
+    mat4.fromRotationTranslation(m, q, t);
+    return m;
+})();
+
+/** **T_Hop2_from_hop1** — arbitrary rigid edge for the debug transform chain (column-major `mat4`). */
+const SPARCL_DEBUG_T_HOP2_FROM_HOP1: mat4 = (() => {
+    const m = mat4.create();
+    const q = quat.create();
+    quat.setAxisAngle(q, vec3.fromValues(0, 1, 0), Math.PI);
+    const t = vec3.fromValues(0, 0, 0);
+    mat4.fromRotationTranslation(m, q, t);
+    return m;
+})();
+
+/**
+ * Registers the debug two-hop chain on {@link frameTransformGraph}: scene → hop1 → hop2 (**T_to_from** per edge).
+ * Safe to call more than once (replaces the same edges). Does not touch {@link worldAlignment}.
+ */
+export function seedSparclTestFrameGraph(): void {
+    const sceneUuid = SPARCL_WEBXR_SCENE_FRAME_REF.uuid;
+    frameTransformGraph.registerEdge(sceneUuid, SPARCL_TEST_HOP1_FRAME_REF.uuid, SPARCL_DEBUG_T_HOP1_FROM_SCENE);
+    frameTransformGraph.registerEdge(SPARCL_TEST_HOP1_FRAME_REF.uuid, SPARCL_TEST_HOP2_FRAME_REF.uuid, SPARCL_DEBUG_T_HOP2_FROM_HOP1);
+}
+
 /**
  * Builds a full {@link GeoPoseResponseExtended} for the **Override geopose** dev path.
  * fakeVpsGeoPose can be for example the dashboard override `geopose` value.
  * fakeVpsFramedPose is optional, it can be for example the camera's current pose in the XR scene
  * as FrameRef, the {@link SPARCL_WEBXR_SCENE_FRAME_REF} (the WebXR scene coordinate frame) is used,
  * so {@link setActiveAlignmentInFrame} aligns **T_scene_from_ref** with the XR session itself.
- * The temp SCR `fakeContentWithFramedPose` uses the same {@link SPARCL_WEBXR_SCENE_FRAME_REF},
+ * The temp SCR `fakeContentWithFramedPoseScene` uses the same {@link SPARCL_WEBXR_SCENE_FRAME_REF},
  * so if you change its coordinates, it will appear at the same coordinates within the WebXR scene.
  */
 export function buildFakeLocalizationResponse(
@@ -519,8 +561,8 @@ export function buildFakeLocalizationResponse(
     return out;
 }
 
-/** Dev-only SCR using **framedPose** only (requires framed alignment for {@link SPARCL_WEBXR_SCENE_FRAME_REF}, e.g. override localization). */
-export const fakeContentWithFramedPose: SCR = {
+/** Dev-only SCR using **framedPose** in {@link SPARCL_WEBXR_SCENE_FRAME_REF} (requires framed alignment for that frame, e.g. override localization). */
+export const fakeContentWithFramedPoseScene: SCR = {
     content: {
         description: '',
         id: 'framed-demo-1',
@@ -539,6 +581,31 @@ export const fakeContentWithFramedPose: SCR = {
     id: 'framed-demo-scr-1',
     tenant: 'public',
     timestamp: 1726751197000,
+    type: 'scr',
+};
+
+/**
+ * Dev-only SCR: **framedPose** in {@link SPARCL_TEST_HOP2_FRAME_REF} (needs {@link seedSparclTestFrameGraph} + graph path hop2→scene; no VPS framed alignment for hop2).
+ */
+export const fakeContentWithFramedPoseHop2: SCR = {
+    content: {
+        description: '',
+        id: 'framed-demo-hop2',
+        keywords: ['framed', 'hop2'],
+        refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
+        title: 'Framed hop2 Duck',
+        type: 'MODEL_3D',
+        framedPose: {
+            frameRef: SPARCL_TEST_HOP2_FRAME_REF,
+            pose: {
+                t: { x: 0, y: 0, z: 0 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        },
+    },
+    id: 'framed-demo-scr-hop2',
+    tenant: 'public',
+    timestamp: 1726751198000,
     type: 'scr',
 };
 

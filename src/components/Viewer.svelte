@@ -11,7 +11,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
-    import { createEventDispatcher, getContext, onDestroy } from 'svelte';
+    import { createEventDispatcher, getContext, onDestroy, onMount } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
@@ -43,7 +43,15 @@
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
-    import { buildFakeLocalizationResponse, fakeContentWithFramedPose, loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
+    import {
+        buildFakeLocalizationResponse,
+        fakeContentWithFramedPoseScene,
+        fakeContentWithFramedPoseHop2,
+        loadImageBase64,
+        saveImageBase64,
+        saveText,
+        seedSparclTestFrameGraph,
+    } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
     import * as worldAlignment from '@core/worldAlignment';
@@ -354,6 +362,14 @@
             placeContent([gppResponseExtended.scrs]);
         }
 
+        // TEMP: fill FrameTransformGraph with test transforms
+        seedSparclTestFrameGraph();
+        // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_WEBXR_SCENE_FRAME_REF (trivial)
+        placeContent([[fakeContentWithFramedPoseScene]]);
+        // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_TEST_HOP2_FRAME_REF (requies FrameTransformGraph)
+        placeContent([[fakeContentWithFramedPoseHop2]]);
+        // (remove these when SCD serves framed content end-to-end).
+
         // now get the contents from the SCD(s)
         //await retrieveAndPlaceContents(currentGeoPose);
         // TODO: this first one always fails because currentGeoPose is not yet available
@@ -386,8 +402,6 @@
             placeContent(scrs);
         }
 
-        // TEMP: inject dev framed-pose SCR (remove when SCD serves framed content end-to-end).
-        placeContent([[fakeContentWithFramedPose]]);
     }
 
     /**
