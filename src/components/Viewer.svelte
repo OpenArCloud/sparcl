@@ -43,8 +43,9 @@
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
-    import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
+    import { fakeContentWithFramedPose, loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
+    import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
     import * as worldAlignment from '@core/worldAlignment';
     import type { WebXrRigidPose, FramedPose } from '@core/worldAlignment';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
@@ -378,6 +379,9 @@
             const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
             placeContent(scrs);
         }
+
+        // TEMP: inject dev framed-pose SCR (remove when SCD serves framed content end-to-end).
+        placeContent([[fakeContentWithFramedPose]]);
     }
 
     /**
@@ -648,6 +652,11 @@
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
     export async function placeContent(scrs: SCR[][]) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
+            console.log(`There is no world alignment!`);
+            return;
+        }
+
         scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
@@ -671,7 +680,12 @@
                         console.log(' -type: ' + record.content.type);
                         console.log(' -title: ' + record.content.title);
                         console.log(' -keywords: ' + record.content.keywords);
-                        console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                        if (record.content.geopose !== undefined) {
+                            console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                        }
+                        if (record.content.framedPose !== undefined) {
+                            console.log(' -framedPose: ' + JSON.stringify(record.content.framedPose));
+                        }
                     }
                 }
 
@@ -688,7 +702,9 @@
                 }
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
-                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+                if (record.content.geopose !== undefined) {
+                    record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+                }
 
                 const content_definitions: Record<string, string> = {};
                 if (record.content.definitions != undefined) {
@@ -701,22 +717,14 @@
                     }
                 }
 
-                if (!worldAlignment.hasActiveWorldAlignment()) {
-                    console.log(`There is no world alignment!`);
+                const poseResult = sceneRigidPoseFromScrContent(record.content);
+                if (!poseResult.ok) {
+                    console.log(`Skipping SCR ${record.content.id} (${record.content.type}): ${poseResult.reason}`);
                     return;
                 }
-
-                // get active reference frame
-                //const activeFrameRef: FrameRef = worldAlignment.getActiveReferenceFrameRef();
-                //console.log(`Active FrameRef: ${JSON.stringify(activeFrameRef)} (${worldAlignment.isOscpWgs84Enu(activeFrameRef)?"WGS84":"non-WGS84"})`);
-                //console.log(`Active anchor GeoPose: ${JSON.stringify(worldAlignment.getActiveAnchorGeopose())}`);
-                //console.log(`Active world alignmente: ${JSON.stringify(worldAlignment.getActiveWorldAlignment())}`);
-                
-                const globalObjectPose = record.content.geopose;
-                const localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
-                const localPosition = localObjectPose.position;
-                const localQuaternion = localObjectPose.quaternion;
-
+                const lp = tdEngine.transformFromRigidPose(poseResult.pose);
+                const localPosition = lp.position;
+                const localQuaternion = lp.quaternion;
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -792,15 +800,13 @@
                     case 'geopose_stream': {
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
-                            let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                             let object_id = record.content.id;
 
                             let object_description = (record.content as any).object_description;
                             if (tdEngine.getDynamicObjectMesh(object_id) != null) {
-                                tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                                tdEngine.updateDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             } else {
-                                tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                                tdEngine.addDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             }
                         }
                         break;
@@ -810,9 +816,7 @@
                         if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
 
                         // handle general sensor stream objects
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
-                        const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
+                        const sensor_id = createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
                             break;

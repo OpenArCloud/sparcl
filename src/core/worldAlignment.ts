@@ -366,7 +366,7 @@ export function convertGeoPoseToLocalPose(objectGeopose: Geopose): RigidPose {
     const a = requireGeoAlignment();
     if (!isOscpWgs84Enu(a.referenceFrameRef)) {
         throw new Error(
-            'convertGeoPoseToLocalPose requires an OSCP:WGS84-ENU geo alignment. For other frames, use convertRigidPoseInFramedRefToSceneRigidPose or graph composition.',
+            'convertGeoPoseToLocalPose requires an OSCP:WGS84-ENU geo alignment. For other frames, use convertFramedPoseToLocalPose or graph composition.',
         );
     }
     return convertGeoPoseToSceneRigidPose(a.anchorGeopose, objectGeopose, a.tSceneFromRef);
@@ -386,7 +386,7 @@ export function convertCameraWebXrPoseToGeoposeFromActive(position: Vec3Like, qu
  * Maps a `RigidPose` expressed in **frameRef** into WebXR scene space (`T_scene_from_ref * T_ref_from_body`).
  * Requires a matching {@link findFramedPoseAlignment} entry (from VPS **poses** / {@link setActiveAlignmentInFrame}).
  */
-export function convertRigidPoseInFramedRefToSceneRigidPose(frameRef: FrameRef, poseInRef: RigidPose): RigidPose {
+export function convertFramedPoseToLocalPose(frameRef: FrameRef, poseInRef: RigidPose): RigidPose {
     const fa = findFramedPoseAlignment(frameRef);
     if (fa === undefined) {
         throw new Error(

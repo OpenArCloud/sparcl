@@ -17,7 +17,7 @@ import {
     convertCameraWebXrPoseToGeopose,
     convertGeoPoseToLocalPose,
     convertGeoPoseToSceneRigidPose,
-    convertRigidPoseInFramedRefToSceneRigidPose,
+    convertFramedPoseToLocalPose,
     convertScenePoseToGeopose,
     convertScenePoseToGeoposeFromActive,
     getActiveGeoAlignment,
@@ -241,7 +241,7 @@ describe('worldAlignment', () => {
             position: { x: 1, y: 2, z: -0.5 },
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
-        const inScene = convertRigidPoseInFramedRefToSceneRigidPose(roomFrame, poseInRef);
+        const inScene = convertFramedPoseToLocalPose(roomFrame, poseInRef);
         assert.ok(Math.abs(inScene.position.x - 1) < 1e-6);
         assert.ok(Math.abs(inScene.position.y - 2) < 1e-6);
         assert.ok(Math.abs(inScene.position.z + 0.5) < 1e-6);
@@ -341,7 +341,7 @@ describe('worldAlignment', () => {
             },
         };
         setActiveAlignmentInFrame(local, vps);
-        const inScene = convertRigidPoseInFramedRefToSceneRigidPose(
+        const inScene = convertFramedPoseToLocalPose(
             { uuid: 'r', fqn: 'r:f' },
             {
                 position: { x: 1, y: 0, z: 0 },

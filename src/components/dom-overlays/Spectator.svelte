@@ -135,15 +135,20 @@
             if ('scr' in data) {
                 data = data.scr;
                 if ('tenant' in data && data.tenant == 'ISMAR2021demo') {
-                    const markerLat = data.content.geopose.position.lat;
-                    const markerLon = data.content.geopose.position.lon;
-                    const r = Math.round(255 * data.content.object_description.color[0]);
-                    const g = Math.round(255 * data.content.object_description.color[1]);
-                    const b = Math.round(255 * data.content.object_description.color[2]);
-                    const markerColor = rgbToHex({ r: r, g: g, b: b });
-                    const id = data.id as string;
-                    placeMarker(id, markerLat, markerLon, markerColor, undefined);
-                    ephemeral_scrs[id] = data;
+                    const geo = data.content.geopose;
+                    if (geo !== undefined) {
+                        const markerLat = geo.position.lat;
+                        const markerLon = geo.position.lon;
+                        const r = Math.round(255 * data.content.object_description.color[0]);
+                        const g = Math.round(255 * data.content.object_description.color[1]);
+                        const b = Math.round(255 * data.content.object_description.color[2]);
+                        const markerColor = rgbToHex({ r: r, g: g, b: b });
+                        const id = data.id as string;
+                        placeMarker(id, markerLat, markerLon, markerColor, undefined);
+                        ephemeral_scrs[id] = data;
+                    } else {
+                        console.warn('Spectator: ISMAR2021demo SCR has no geopose; skipping map marker (framed-only content).');
+                    }
                 }
             }
             ///}

@@ -23,9 +23,15 @@ TypeScript type: **`FrameRef`** in [`src/core/spatial.ts`](../../src/core/spatia
 The session stores **two** kinds of alignment: **`geoPoseAlignment`** (optional) and **`framedPoseAlignments`**. Clear them with `clearActiveGeoPoseAlignment` and `clearActiveFramedPoseAlignment` (call the latter with no args or an empty list to clear all framed entries; pass specific `FrameRef`s to drop only those). Typical session teardown calls **both**.
 
 - **`geoPoseAlignment`** (optional): from `setActiveGeoAlignmentFromCapture` or `setActiveWorldAlignmentFromMatrices` with **OSCP:WGS84-ENU** and a non-null **anchor** `Geopose`. Drives WGS84 content placement, H3 queries, and helpers like `convertGeoPoseToLocalPose` / `*FromActive` for geopose.
-- **`framedPoseAlignments`** (array): from `setActiveAlignmentInFrame` (VPS **poses**), or from `setActiveWorldAlignmentFromMatrices` for non-ENU / local **FrameRef**s. Each entry is **T_scene_from_ref** for that **frameRef**. Use `convertRigidPoseInFramedRefToSceneRigidPose(frameRef, …)` for metric poses in that frame.
+- **`framedPoseAlignments`** (array): from `setActiveAlignmentInFrame` (VPS **poses**), or from `setActiveWorldAlignmentFromMatrices` for non-ENU / local **FrameRef**s. Each entry is **T_scene_from_ref** for that **frameRef**. Use `convertFramedPoseToLocalPose(frameRef, …)` for metric poses in that frame.
 
 If a VPS response includes **both** `geopose` and `poses`, both are applied: geopose does **not** get overwritten by the map **FrameRef**. Cross-frame composition (e.g. object in map frame vs ENU) will use a future transform graph; see `FrameGraphMat4Resolver` in `frameTransforms.ts` and the transform graph section below.
+
+## SCR content (Spatial Content Discovery)
+
+Each SCR **`content`** object must include **`geopose`** and/or **`framedPose`**. The latter follows SpatialDDS **`FramedPose`** JSON: **`frameRef`** (`uuid`, `fqn`), **`pose`** with **`t`** / **`q`** (Vec3 + quaternion), plus optional **`cov`** and **`stamp`**. Zod schemas are defined in **`@oarc/scd-access`** (`contentSchema`, `framedPoseSchema`).
+
+Runtime placement resolves a WebXR rigid pose via **`sceneRigidPoseFromScrContent`** in [`src/core/scrPlacement.ts`](../../src/core/scrPlacement.ts): if **`framedPose`** is set **and** [`findFramedPoseAlignment`](../../src/core/worldAlignment.ts) succeeds for that **`frameRef`**, that framed path is used; otherwise **`geopose`** is converted with **`convertGeoPoseToLocalPose`** when geopose alignment exists. If **both** fields are present, **framed** takes precedence when the framed alignment is available; otherwise the implementation falls back to **geopose**. UI that plots SCRs on a **lat/lon** map still needs **`geopose`** (or a separate georeferencing strategy).
 
 **Legacy / backwards compatibility**
 

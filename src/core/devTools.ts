@@ -469,6 +469,29 @@ export const fakeLocationResult = {
     ],
 };
 
+/** Dev-only SCR using **framedPose** only (requires matching framed alignment, e.g. `demo-map-frame`). */
+export const fakeContentWithFramedPose: SCR = {
+    content: {
+        description: '',
+        id: 'framed-demo-1',
+        keywords: ['framed'],
+        refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
+        title: 'Framed-only Duck',
+        type: 'MODEL_3D',
+        framedPose: {
+            frameRef: { uuid: 'demo-map-frame', fqn: 'demo:MapFrame' },
+            pose: {
+                t: { x: 0, y: 1.5, z: -2 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        },
+    },
+    id: 'framed-demo-scr-1',
+    tenant: 'public',
+    timestamp: 1726751197000,
+    type: 'scr',
+};
+
 export const fakeLocationResult2: { geopose: GeoPoseResponse; scrs: SCR[] } = {
     geopose: {
         accuracy: {
