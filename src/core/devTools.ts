@@ -14,7 +14,7 @@ import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
-import type { FrameRef } from '@core/spatial';
+import { SPARCL_WEBXR_SCENE_FRAME_REF, type FrameRef } from '@core/spatial';
 import type { RigidPose } from '@core/worldAlignment';
 
 // Here a good source of test quaternions:
@@ -472,11 +472,8 @@ export const fakeLocationResult = {
     ],
 };
 
-/** Dev `FrameRef` for override localization: synthetic VPS `poses[0]` and {@link fakeContentWithFramedPose} share this frame. */
-export const SPARCL_WEBXR_SCENE_FRAME_REF: FrameRef = {
-    uuid: 'sparcl-scene-frame',
-    fqn: 'sparcl:WebXRScene',
-};
+/** Re-export canonical WebXR scene {@link FrameRef} from `@core/spatial` for dev SCRs and override localization. */
+export { SPARCL_WEBXR_SCENE_FRAME_REF };
 
 /**
  * Builds a full {@link GeoPoseResponseExtended} for the **Override geopose** dev path.

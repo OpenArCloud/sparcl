@@ -21,6 +21,15 @@ export const OSCP_WGS84_ENU_FRAME_REF: FrameRef = {
     fqn: 'OSCP:WGS84-ENU',
 };
 
+/**
+ * Canonical WebXR session / renderer scene frame for transform-graph edges (sparcl convention).
+ * Matches the scene frame used by dev override localization and SCR framing.
+ */
+export const SPARCL_WEBXR_SCENE_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-scene-frame',
+    fqn: 'sparcl:WebXRScene',
+};
+
 /** Plain 3-vector (`spatial::common::Vec3` JSON: `x`, `y`, `z`). */
 export type Vec3Like = { x: number; y: number; z: number };
 
