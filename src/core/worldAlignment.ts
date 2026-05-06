@@ -28,10 +28,11 @@ import {
     type FrameRef,
     type FramedPose,
     OSCP_WGS84_ENU_FRAME_REF,
+    SPARCL_WEBXR_SCENE_FRAME_REF,
     type QuatLike,
     type Vec3Like,
 } from '@core/spatial';
-import { normalizeColumnMajorMat4 } from '@core/frameTransforms';
+import { frameTransformGraph, normalizeColumnMajorMat4 } from '@core/frameTransforms';
 
 /** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
 export type RigidPose = {
@@ -120,6 +121,15 @@ function upsertFramedAlignment(entry: FramedPoseAlignmentState): void {
     } else {
         _framedPoseAlignments.push(entry);
     }
+}
+
+/** One-way: copies session **T_scene_from_ref** into {@link frameTransformGraph} (VPS/map frame → WebXR scene). Does not read from the graph. */
+function addFramedPoseAlignmentToTransformGraph(frameRef: FrameRef, tSceneFromRef: ReadonlyMat4): void {
+    const sceneUuid = SPARCL_WEBXR_SCENE_FRAME_REF.uuid;
+    if (frameRef.uuid === sceneUuid) {
+        return;
+    }
+    frameTransformGraph.registerEdge(frameRef.uuid, sceneUuid, tSceneFromRef);
 }
 
 export function isOscpWgs84Enu(ref: FrameRef): boolean {
@@ -224,6 +234,7 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
             tSceneFromRef,
             tRefFromScene,
         });
+        addFramedPoseAlignmentToTransformGraph(params.referenceFrameRef, tSceneFromRef);
     }
     return {
         tSceneFromRef,
@@ -259,6 +270,7 @@ export function setActiveAlignmentInFrame(localCapture: WebXrRigidPose, cameraPo
         tRefFromScene,
         sourceFramedPose: cameraPoseInRef,
     });
+    addFramedPoseAlignmentToTransformGraph(cameraPoseInRef.frameRef, tSceneFromRef);
 
     return {
         tSceneFromRef,
@@ -276,13 +288,23 @@ export function clearActiveGeoPoseAlignment(): void {
  * With one or more **FrameRef**s, removes only entries that match (see {@link frameRefsEqual}).
  */
 export function clearActiveFramedPoseAlignment(frameRefs: readonly FrameRef[] = []): void {
+    const sceneUuid = SPARCL_WEBXR_SCENE_FRAME_REF.uuid;
+    const refsToStripFromGraph: readonly FrameRef[] =
+        frameRefs.length === 0 ? _framedPoseAlignments.map((f) => f.frameRef) : frameRefs;
+
     if (frameRefs.length === 0) {
         _framedPoseAlignments = [];
-        return;
+    } else {
+        _framedPoseAlignments = _framedPoseAlignments.filter(
+            (f) => !frameRefs.some((r) => frameRefsEqual(r, f.frameRef)),
+        );
     }
-    _framedPoseAlignments = _framedPoseAlignments.filter(
-        (f) => !frameRefs.some((r) => frameRefsEqual(r, f.frameRef)),
-    );
+
+    for (const r of refsToStripFromGraph) {
+        if (r.uuid !== sceneUuid) {
+            frameTransformGraph.removeUndirectedEdge(r.uuid, sceneUuid);
+        }
+    }
 }
 
 /** True after any alignment is stored until the corresponding clear (see {@link clearActiveGeoPoseAlignment} / {@link clearActiveFramedPoseAlignment}). */
@@ -393,9 +415,16 @@ export function convertFramedPoseToLocalPose(frameRef: FrameRef, poseInRef: Rigi
             `No framed alignment for frameRef uuid=${frameRef.uuid} fqn=${frameRef.fqn}. Localize with that FramedPose or compose transforms via the transform service.`,
         );
     }
+    return convertRigidPoseToSceneRigidPose(fa.tSceneFromRef, poseInRef);
+}
+
+/**
+ * Applies **T_scene_from_ref** to a **RigidPose** in that reference frame (same kinematics as {@link convertFramedPoseToLocalPose}, without session lookup).
+ */
+export function convertRigidPoseToSceneRigidPose(tSceneFromRef: ReadonlyMat4, poseInRef: RigidPose): RigidPose {
     const mRefObj = mat4FromRigidPose(poseInRef);
     const mScene = mat4.create();
-    mat4.multiply(mScene, fa.tSceneFromRef, mRefObj);
+    mat4.multiply(mScene, tSceneFromRef, mRefObj);
     const tr = vec3.create();
     mat4.getTranslation(tr, mScene);
     const qr = quat.create();
