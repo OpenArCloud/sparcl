@@ -224,7 +224,7 @@
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
-        // Now calculate the global pose of the reticle
+        // Now calculate the global pose of the object
         const objectGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(position, quaternion);
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
