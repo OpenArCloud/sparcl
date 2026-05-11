@@ -54,7 +54,7 @@ import {
 import { printOglTransform, checkGLError } from '@core/devTools';
 
 import type { ReadonlyMat4 } from 'gl-matrix';
-import type { RigidPose } from '@core/worldAlignment';
+import type { RigidPose } from '@core/frameTransforms';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
