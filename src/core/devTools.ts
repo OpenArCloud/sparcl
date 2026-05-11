@@ -16,7 +16,7 @@ import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
 import { frameTransformGraph } from '@core/frameTransforms';
 import { SPARCL_WEBXR_SCENE_FRAME_REF, type FrameRef } from '@core/spatial';
-import type { RigidPose } from '@core/worldAlignment';
+import type { RigidPose } from '@core/frameTransforms';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm

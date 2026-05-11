@@ -19,7 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
-    import type { WebXrRigidPose } from '@core/worldAlignment';
+    import type { WebXrRigidPose } from '@core/frameTransforms';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
