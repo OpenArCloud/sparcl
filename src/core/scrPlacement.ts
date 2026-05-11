@@ -12,7 +12,7 @@ import { SPARCL_WEBXR_SCENE_FRAME_REF, parseFramedPose, type FramedPose } from '
 import { frameTransformGraph } from '@core/frameTransforms';
 import { upgradeGeoPoseStandard } from '@core/locationTools';
 import * as worldAlignment from '@core/worldAlignment';
-import type { RigidPose } from '@core/worldAlignment';
+import type { RigidPose } from '@core/frameTransforms';
 
 export type SceneRigidPoseResult =
     | { ok: true; pose: RigidPose }

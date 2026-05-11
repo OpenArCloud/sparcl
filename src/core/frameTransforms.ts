@@ -10,7 +10,9 @@
   Conventions: docs/workingwithcode/poseconversions.md
 */
 
-import { mat4, vec3, type ReadonlyMat4 } from 'gl-matrix';
+import { mat4, quat, vec3, type ReadonlyMat4 } from 'gl-matrix';
+
+import type { FrameRef, FramedPose, PoseSE3, QuatLike, Vec3Like } from '@core/spatial';
 
 export type {
     CovarianceType,
@@ -24,10 +26,49 @@ export type {
 } from '@core/spatial';
 export { OSCP_WGS84_ENU_FRAME_REF } from '@core/spatial';
 
+/** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
+export type RigidPose = {
+    position: Vec3Like;
+    orientation: QuatLike;
+};
+
+/** WebXR / capture pose at localization (plain numbers, no OGL types). */
+export type WebXrRigidPose = RigidPose;
+
+/** GeoPose expressed in a local ENU tangent plane at `refGeoPose` (meters east / north / up, quaternion unchanged from GeoPose / ENU). */
+export type EnuRigidPose = RigidPose;
+
 const CACHE_KEY_SEP = '\x1e';
 
 function cacheKey(fromFrameId: string, toFrameId: string): string {
     return `${fromFrameId}${CACHE_KEY_SEP}${toFrameId}`;
+}
+
+
+/**
+ * Creates a column-major `mat4` from a **4×4 row-major** layout: each inner array is one matrix row (4 numbers).
+ * @param rowWise4 - Exactly four rows of four finite numbers (e.g. parsed JSON or literal `number[][]`).
+ * @returns Column-major `mat4` for `gl-matrix`.
+ */
+export function createColumnWiseMat4FromRowWiseArray4(rowWise4: number[][]): mat4 {
+    return mat4.fromValues(
+        rowWise4[0][0]!,
+        rowWise4[1][0]!,
+        rowWise4[2][0]!,
+        rowWise4[3][0]!,
+        rowWise4[0][1]!,
+        rowWise4[1][1]!,
+        rowWise4[2][1]!,
+        rowWise4[3][1]!,
+        rowWise4[0][2]!,
+        rowWise4[1][2]!,
+        rowWise4[2][2]!,
+        rowWise4[3][2]!,
+        rowWise4[0][3]!,
+        rowWise4[1][3]!,
+        rowWise4[2][3]!,
+        rowWise4[3][3]!,
+    );
 }
 
 /**
@@ -48,6 +89,43 @@ export function invertFrameTransform(out: mat4, tBFromA: ReadonlyMat4): mat4 | n
 /** Copy a 4×4 column-major matrix into a new mat4. */
 export function cloneMat4(m: ReadonlyMat4): mat4 {
     return mat4.clone(m);
+}
+
+/**
+ * Rigid transform **T_ref_from_body** for SpatialDDS {@link PoseSE3} (`t`, `q`): maps body/camera coordinates into the pose’s reference frame (see {@link FramedPose}).
+ * Returned `mat4` is usable as {@link ReadonlyMat4} (column-major float32); clone before mutating.
+ */
+export function mat4FromPoseSE3(pose: PoseSE3): mat4 {
+    const q = quat.fromValues(pose.q.x, pose.q.y, pose.q.z, pose.q.w);
+    const tr = vec3.fromValues(pose.t.x, pose.t.y, pose.t.z);
+    const out = mat4.create();
+    mat4.fromRotationTranslation(out, q, tr);
+    return out;
+}
+
+/**
+ * Same kinematics as {@link mat4FromPoseSE3} using {@link FramedPose.pose} only (`frameRef`, `cov`, `stamp` are ignored).
+ */
+export function mat4FromFramedPose(framedPose: FramedPose): mat4 {
+    return mat4FromPoseSE3(framedPose.pose);
+}
+
+/** Column-major **T_ref_from_body** from WebXR-style `position` + `orientation` (same kinematics as SpatialDDS `PoseSE3` with `t`/`q` renamed). */
+export function mat4FromRigidPose(pose: RigidPose): mat4 {
+    const q = quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+    const tr = vec3.fromValues(pose.position.x, pose.position.y, pose.position.z);
+    const m = mat4.create();
+    mat4.fromRotationTranslation(m, q, tr);
+    return m;
+}
+
+/** Max absolute element-wise difference between two 4×4 column-major matrices (tests / diagnostics). */
+export function maxAbsDiffMat4(a: ReadonlyMat4, b: ReadonlyMat4): number {
+    let m = 0;
+    for (let i = 0; i < 16; i++) {
+        m = Math.max(m, Math.abs(a[i]! - b[i]!));
+    }
+    return m;
 }
 
 /** Column-major 4×4 identity. */
@@ -359,3 +437,64 @@ export class FrameTransformsClient {
  * See {@link FrameTransformsClient} for a cache + optional HTTP **GET** stub.
  */
 export type FrameGraphMat4Resolver = (fromFrameId: string, toFrameId: string, signal?: AbortSignal) => Promise<mat4>;
+
+// --- Camera frame bridge (wire VPS camera convention ↔ graphics / XRView session camera) ---
+//
+// **T_wireCam_from_graphicsCam** constants: treat as immutable (clone with `mat4.clone` if you need a writable `mat4`).
+
+const _mat4VpsFrameBridgeIdentity = mat4.create();
+mat4.identity(_mat4VpsFrameBridgeIdentity);
+/** **T_graphicsCam_from_graphicsCam** = **I** when wire and graphics camera conventions match. */
+export const MAT4_VPS_FRAME_BRIDGE_IDENTITY: ReadonlyMat4 = _mat4VpsFrameBridgeIdentity;
+
+const _mat4VisionCamFromGraphicsCam = mat4.create();
+mat4.set(_mat4VisionCamFromGraphicsCam, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1);
+/**
+ * **T_visionCam_from_graphicsCam** — maps vectors from the **graphics** (WebXR view) camera frame into the
+ * **vision** (OpenCV / COLMAP-style) camera frame on typical VPS wires (+X right, +Y down, +Z forward vs +Y up, −Z optical).
+ */
+export const MAT4_VISION_CAM_FROM_GRAPHICS_CAM: ReadonlyMat4 = _mat4VisionCamFromGraphicsCam;
+
+const _mat4RoboticsCamFromGraphicsCam = mat4.create();
+// Linear AC→graphics: p_g = M p_r with M column-major cols (0,0,-1), (-1,0,0), (0,1,0). B = M^{-1} = M^T.
+mat4.set(_mat4RoboticsCamFromGraphicsCam, 0, -1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 1);
+/**
+ * **T_roboticsCam_from_graphicsCam** — rigid rotation matching the **linear** part of Augmented City / robotics
+ * camera → graphics; translation zero.
+ */
+export const MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM: ReadonlyMat4 = _mat4RoboticsCamFromGraphicsCam;
+
+const GRAPHICS_FQN_TOKENS = ['webxr', 'graphics', 'opengl', 'webgl'] as const;
+const ROBOTICS_FQN_TOKENS = ['robotics', 'ros', 'ac', 'augmentedcity'] as const;
+const VISION_FQN_TOKENS = ['hloc', 'colmap', 'vision', 'opencv'] as const;
+
+function frameRefHaystackLower(frameRef: FrameRef): string {
+    return `${frameRef.fqn}\n${frameRef.uuid}`.toLowerCase();
+}
+
+function haystackIncludesAny(haystackLower: string, tokens: readonly string[]): boolean {
+    for (const t of tokens) {
+        if (haystackLower.includes(t)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Returns **T_wireCam_from_graphicsCam** for fusing VPS **FramedPose** (wire camera) with **graphics** `XRView` capture.
+ * Uses lowercase substring rules on **`frameRef.fqn`** and **`frameRef.uuid`** (first matching row wins).
+ */
+export function vpsCameraFrameBridgeFromFrameRef(frameRef: FrameRef): ReadonlyMat4 {
+    const hay = frameRefHaystackLower(frameRef);
+    if (haystackIncludesAny(hay, GRAPHICS_FQN_TOKENS)) {
+        return MAT4_VPS_FRAME_BRIDGE_IDENTITY;
+    }
+    if (haystackIncludesAny(hay, ROBOTICS_FQN_TOKENS)) {
+        return MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM;
+    }
+    if (haystackIncludesAny(hay, VISION_FQN_TOKENS)) {
+        return MAT4_VISION_CAM_FROM_GRAPHICS_CAM;
+    }
+    return MAT4_VPS_FRAME_BRIDGE_IDENTITY;
+}

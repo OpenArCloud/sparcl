@@ -56,7 +56,8 @@
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
     import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { WebXrRigidPose, FramedPose } from '@core/worldAlignment';
+    import type { WebXrRigidPose } from '@core/frameTransforms';
+    import type { FramedPose } from '@core/spatial';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';

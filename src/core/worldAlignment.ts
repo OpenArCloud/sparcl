@@ -32,19 +32,15 @@ import {
     type QuatLike,
     type Vec3Like,
 } from '@core/spatial';
-import { frameTransformGraph, normalizeColumnMajorMat4 } from '@core/frameTransforms';
-
-/** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
-export type RigidPose = {
-    position: Vec3Like;
-    orientation: QuatLike;
-};
-
-/** WebXR / capture pose at localization (plain numbers, no OGL types). */
-export type WebXrRigidPose = RigidPose;
-
-/** GeoPose expressed in a local ENU tangent plane at `refGeoPose` (meters east / north / up, quaternion unchanged from GeoPose / ENU). */
-export type EnuRigidPose = RigidPose;
+import {
+    frameTransformGraph,
+    mat4FromRigidPose,
+    normalizeColumnMajorMat4,
+    vpsCameraFrameBridgeFromFrameRef,
+    type EnuRigidPose,
+    type RigidPose,
+    type WebXrRigidPose,
+} from '@core/frameTransforms';
 
 export type GeoAlignmentKinematics = {
     /** T_scene_from_ref — maps reference (ENU-at-anchor) into WebXR scene. */
@@ -147,14 +143,6 @@ function cloneMatLike(m: ReadonlyMat4 | Float32Array | readonly number[]): mat4 
     return mat4.clone(m);
 }
 
-function mat4FromRigidPose(pose: RigidPose): mat4 {
-    const q = quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
-    const tr = vec3.fromValues(pose.position.x, pose.position.y, pose.position.z);
-    const m = mat4.create();
-    mat4.fromRotationTranslation(m, q, tr);
-    return m;
-}
-
 function cloneGeopose(g: Geopose): Geopose {
     return {
         position: { lat: g.position.lat, lon: g.position.lon, h: g.position.h },
@@ -246,12 +234,22 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
  * Aligns WebXR session space to **frameRef** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
  * `T_scene_from_R` = `T_scene_from_cam * inv(T_R_from_cam)`.
  * Updates **framed** alignments only; does not modify {@link _geoPoseAlignment}.
+ *
+ * Wire **FramedPose** camera convention vs **graphics** `localCapture` uses **T_map_from_graphicsCam** =
+ * **T_map_from_wireCam · T_wireCam_from_graphicsCam**, where **T_wireCam_from_graphicsCam** comes from
+ * {@link vpsCameraFrameBridgeFromFrameRef} on **`frameRef.fqn`** / **`frameRef.uuid`** (see `test/cameraFrameBridge.test.ts`).
  */
-export function setActiveAlignmentInFrame(localCapture: WebXrRigidPose, cameraPoseInRef: FramedPose): ActiveWorldAlignmentMatrices {
-    const mRFromCam = mat4FromRigidPose({
+export function setActiveAlignmentInFrame(
+    localCapture: WebXrRigidPose,
+    cameraPoseInRef: FramedPose,
+): ActiveWorldAlignmentMatrices {
+    const mRefFromWireCam = mat4FromRigidPose({
         position: cameraPoseInRef.pose.t,
         orientation: cameraPoseInRef.pose.q,
     });
+    const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frameRef);
+    const mRFromCam = mat4.create();
+    mat4.multiply(mRFromCam, mRefFromWireCam, wireFromGraphics);
     const mCamFromR = mat4.create();
     if (!mat4.invert(mCamFromR, mRFromCam)) {
         throw new Error('setActiveAlignmentInFrame: singular rigid pose in frame');
@@ -369,18 +367,6 @@ export function getActiveWorldAlignment(): ActiveWorldAlignmentSnapshot {
         framed: [..._framedPoseAlignments],
     };
 }
-
-/** Re-export frame IDs and SpatialDDS JSON types for callers that import from `@core/worldAlignment`. */
-export type {
-    CovarianceType,
-    CovMatrix,
-    FrameRef,
-    FramedPose,
-    NsTime,
-    PoseSE3,
-    QuatLike,
-    Vec3Like,
-} from '@core/spatial';
 
 // TODO: add FromActive in the name
 // TODO convertGeoPoseToSceneRigidPose reorder parameters to objectGeopose, tSceneFromRef, anchorGeopose

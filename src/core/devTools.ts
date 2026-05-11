@@ -16,7 +16,7 @@ import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
 import { frameTransformGraph } from '@core/frameTransforms';
 import { SPARCL_WEBXR_SCENE_FRAME_REF, type FrameRef } from '@core/spatial';
-import type { RigidPose } from '@core/worldAlignment';
+import type { RigidPose } from '@core/frameTransforms';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -593,7 +593,6 @@ export const fakeContentWithFramedPoseHop2: SCR = {
         id: 'framed-demo-hop2',
         keywords: ['framed', 'hop2'],
         refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
-        title: 'Framed hop2 Duck',
         title: 'Content at HOP2 FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {
