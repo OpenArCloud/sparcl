@@ -593,7 +593,6 @@ export const fakeContentWithFramedPoseHop2: SCR = {
         id: 'framed-demo-hop2',
         keywords: ['framed', 'hop2'],
         refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
-        title: 'Framed hop2 Duck',
         title: 'Content at HOP2 FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {

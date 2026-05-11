@@ -12,7 +12,7 @@
 
 import { mat4, quat, vec3, type ReadonlyMat4 } from 'gl-matrix';
 
-import type { FramedPose, PoseSE3, QuatLike, Vec3Like } from '@core/spatial';
+import type { FrameRef, FramedPose, PoseSE3, QuatLike, Vec3Like } from '@core/spatial';
 
 export type {
     CovarianceType,
@@ -437,3 +437,64 @@ export class FrameTransformsClient {
  * See {@link FrameTransformsClient} for a cache + optional HTTP **GET** stub.
  */
 export type FrameGraphMat4Resolver = (fromFrameId: string, toFrameId: string, signal?: AbortSignal) => Promise<mat4>;
+
+// --- Camera frame bridge (wire VPS camera convention ↔ graphics / XRView session camera) ---
+//
+// **T_wireCam_from_graphicsCam** constants: treat as immutable (clone with `mat4.clone` if you need a writable `mat4`).
+
+const _mat4VpsFrameBridgeIdentity = mat4.create();
+mat4.identity(_mat4VpsFrameBridgeIdentity);
+/** **T_graphicsCam_from_graphicsCam** = **I** when wire and graphics camera conventions match. */
+export const MAT4_VPS_FRAME_BRIDGE_IDENTITY: ReadonlyMat4 = _mat4VpsFrameBridgeIdentity;
+
+const _mat4VisionCamFromGraphicsCam = mat4.create();
+mat4.set(_mat4VisionCamFromGraphicsCam, 1, 0, 0, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0, 0, 0, 1);
+/**
+ * **T_visionCam_from_graphicsCam** — maps vectors from the **graphics** (WebXR view) camera frame into the
+ * **vision** (OpenCV / COLMAP-style) camera frame on typical VPS wires (+X right, +Y down, +Z forward vs +Y up, −Z optical).
+ */
+export const MAT4_VISION_CAM_FROM_GRAPHICS_CAM: ReadonlyMat4 = _mat4VisionCamFromGraphicsCam;
+
+const _mat4RoboticsCamFromGraphicsCam = mat4.create();
+// Linear AC→graphics: p_g = M p_r with M column-major cols (0,0,-1), (-1,0,0), (0,1,0). B = M^{-1} = M^T.
+mat4.set(_mat4RoboticsCamFromGraphicsCam, 0, -1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, 0, 0, 0, 1);
+/**
+ * **T_roboticsCam_from_graphicsCam** — rigid rotation matching the **linear** part of Augmented City / robotics
+ * camera → graphics; translation zero.
+ */
+export const MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM: ReadonlyMat4 = _mat4RoboticsCamFromGraphicsCam;
+
+const GRAPHICS_FQN_TOKENS = ['webxr', 'graphics', 'opengl', 'webgl'] as const;
+const ROBOTICS_FQN_TOKENS = ['robotics', 'ros', 'ac', 'augmentedcity'] as const;
+const VISION_FQN_TOKENS = ['hloc', 'colmap', 'vision', 'opencv'] as const;
+
+function frameRefHaystackLower(frameRef: FrameRef): string {
+    return `${frameRef.fqn}\n${frameRef.uuid}`.toLowerCase();
+}
+
+function haystackIncludesAny(haystackLower: string, tokens: readonly string[]): boolean {
+    for (const t of tokens) {
+        if (haystackLower.includes(t)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Returns **T_wireCam_from_graphicsCam** for fusing VPS **FramedPose** (wire camera) with **graphics** `XRView` capture.
+ * Uses lowercase substring rules on **`frameRef.fqn`** and **`frameRef.uuid`** (first matching row wins).
+ */
+export function vpsCameraFrameBridgeFromFrameRef(frameRef: FrameRef): ReadonlyMat4 {
+    const hay = frameRefHaystackLower(frameRef);
+    if (haystackIncludesAny(hay, GRAPHICS_FQN_TOKENS)) {
+        return MAT4_VPS_FRAME_BRIDGE_IDENTITY;
+    }
+    if (haystackIncludesAny(hay, ROBOTICS_FQN_TOKENS)) {
+        return MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM;
+    }
+    if (haystackIncludesAny(hay, VISION_FQN_TOKENS)) {
+        return MAT4_VISION_CAM_FROM_GRAPHICS_CAM;
+    }
+    return MAT4_VPS_FRAME_BRIDGE_IDENTITY;
+}

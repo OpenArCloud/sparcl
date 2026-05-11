@@ -36,6 +36,7 @@ import {
     frameTransformGraph,
     mat4FromRigidPose,
     normalizeColumnMajorMat4,
+    vpsCameraFrameBridgeFromFrameRef,
     type EnuRigidPose,
     type RigidPose,
     type WebXrRigidPose,
@@ -233,12 +234,22 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
  * Aligns WebXR session space to **frameRef** using the capture-time camera pose in scene and the VPS `T_R_from_camera`.
  * `T_scene_from_R` = `T_scene_from_cam * inv(T_R_from_cam)`.
  * Updates **framed** alignments only; does not modify {@link _geoPoseAlignment}.
+ *
+ * Wire **FramedPose** camera convention vs **graphics** `localCapture` uses **T_map_from_graphicsCam** =
+ * **T_map_from_wireCam · T_wireCam_from_graphicsCam**, where **T_wireCam_from_graphicsCam** comes from
+ * {@link vpsCameraFrameBridgeFromFrameRef} on **`frameRef.fqn`** / **`frameRef.uuid`** (see `test/cameraFrameBridge.test.ts`).
  */
-export function setActiveAlignmentInFrame(localCapture: WebXrRigidPose, cameraPoseInRef: FramedPose): ActiveWorldAlignmentMatrices {
-    const mRFromCam = mat4FromRigidPose({
+export function setActiveAlignmentInFrame(
+    localCapture: WebXrRigidPose,
+    cameraPoseInRef: FramedPose,
+): ActiveWorldAlignmentMatrices {
+    const mRefFromWireCam = mat4FromRigidPose({
         position: cameraPoseInRef.pose.t,
         orientation: cameraPoseInRef.pose.q,
     });
+    const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frameRef);
+    const mRFromCam = mat4.create();
+    mat4.multiply(mRFromCam, mRefFromWireCam, wireFromGraphics);
     const mCamFromR = mat4.create();
     if (!mat4.invert(mCamFromR, mRFromCam)) {
         throw new Error('setActiveAlignmentInFrame: singular rigid pose in frame');
