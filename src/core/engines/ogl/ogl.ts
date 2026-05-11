@@ -32,7 +32,8 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
-import { createSimplePointCloudProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
+import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
+import { pointCloudFormatFromRef } from '@core/engines/ogl/oglContentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from './oglVideoHelper';
@@ -555,25 +556,61 @@ export default class ogl {
         return axes;
     }
 
-    async addPointCloudObject(url: string, position: Vec3, quaternion: Quat) {
-        if(debugOgl) console.log('OGL addPointCloudObject ' + url);
-        MyPLYLoader.load(gl, url).then((geometry) => {
-            if (geometry == null) {
-                return; // do nothing
+    /**
+     * Load a PLY (point cloud or indexed triangle mesh) and add it to the scene.
+     * @returns the created mesh, or `null` if loading or parsing failed.
+     */
+    async addPlyObject(
+        url: string,
+        position: Vec3,
+        quaternion: Quat,
+        plyOptions?: PlyLoadOptions,
+    ): Promise<Mesh | null> {
+        if (debugOgl) console.log('OGL addPlyObject ' + url);
+        try {
+            const loaded = await MyPLYLoader.loadDisplayGeometry(gl, url, plyOptions ?? {});
+            if (loaded == null) {
+                console.error(`OGL: failed to load PLY from ${url} (no usable geometry)`);
+                return null;
             }
-            const pclProgram = createSimplePointCloudProgram(gl);
+            const program =
+                loaded.primitive === 'triangles' ? getPlyMeshProgram(gl) : getPlyPointsProgram(gl);
             const pclMesh = new Mesh(gl, {
-                mode: gl.POINTS,
-                geometry: geometry,
-                program: pclProgram,
-                //frustumCulled: false, // TODO: try to turn on, maybe it gets faster
-                //renderOrder: 0
+                mode: loaded.mode,
+                geometry: loaded.geometry,
+                program,
+                frustumCulled: loaded.primitive === 'triangles',
             });
             pclMesh.position.copy(position);
             pclMesh.quaternion.copy(quaternion);
             pclMesh.setParent(scene); // this is very slow
             return pclMesh;
-        });
+        } catch (error) {
+            console.error(`OGL: failed to load PLY from ${url}`, error);
+            return null;
+        }
+    }
+
+    /**
+     * Place spatial point-cloud content. Supported formats are resolved from URL path and MIME type
+     * (today: PLY via {@link addPlyObject}); unknown combinations log a warning and return `null`.
+     */
+    async addPointCloudObject(
+        url: string,
+        position: Vec3,
+        quaternion: Quat,
+        options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
+    ): Promise<Mesh | null> {
+        const { contentType = '', scrContentType, ...plyOpts } = options ?? {};
+        const fmt = pointCloudFormatFromRef(url, contentType, scrContentType);
+        if (fmt === 'ply') {
+            const plyOnly = Object.keys(plyOpts).length > 0 ? (plyOpts as PlyLoadOptions) : undefined;
+            return this.addPlyObject(url, position, quaternion, plyOnly);
+        }
+        console.warn(
+            `OGL addPointCloudObject: no point-cloud loader for this ref (supported: .ply path or MIME containing "ply"): ${url} (MIME: ${contentType || 'none'}, SCR type: ${scrContentType ?? 'unspecified'})`,
+        );
+        return null;
     }
 
     async addLogoObject(url: string, position: Vec3, quaternion: Quat, width = 1.0, height = 1.0) {
@@ -897,3 +934,13 @@ export default class ogl {
         return t;
     }
 }
+
+export {
+    getUrlExtension,
+    pointCloudFormatFromRef,
+    model3DFormatFromRef,
+    isScrPointCloudContentType,
+    isScrModel3dContentType,
+    type PointCloudSourceFormat,
+    type Model3dSourceFormat,
+} from './oglContentFormats';

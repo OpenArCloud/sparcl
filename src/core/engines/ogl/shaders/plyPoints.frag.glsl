@@ -5,7 +5,8 @@
 
 precision highp float;
 
+varying vec3 vColor;
+
 void main() {
-    gl_FragColor.rgb = vec3(0.9, 0.9, 0.0);
-    gl_FragColor.a = 1.0;
+    gl_FragColor = vec4(vColor, 1.0);
 }

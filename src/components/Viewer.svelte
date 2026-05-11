@@ -54,16 +54,56 @@
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
+    import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
     import type { WebXrRigidPose, FramedPose } from '@core/worldAlignment';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
-    import ogl from '../core/engines/ogl/ogl';
-    import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
+    import ogl, { model3DFormatFromRef } from '../core/engines/ogl/ogl';
+    import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
+
+    /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
+    function plyLoadOptions(def: Record<string, string>): PlyLoadOptions | undefined {
+        const out: PlyLoadOptions = {};
+        const mode = def['plyColorMode'];
+        if (mode === 'auto' || mode === 'vertex' || mode === 'uniform') {
+            out.colorMode = mode;
+        }
+        const ucs = def['plyUniformColor'];
+        if (ucs) {
+            const parts = ucs
+                .split(/[,\s]+/)
+                .map((s) => parseFloat(s.trim()))
+                .filter((n) => !Number.isNaN(n));
+            if (parts.length >= 3) {
+                out.uniformColor = [parts[0], parts[1], parts[2]];
+            }
+        }
+        return Object.keys(out).length > 0 ? out : undefined;
+    }
+
+    /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
+    function applyModel3dDefinitionAnimations(
+        engine: ogl,
+        root: Transform,
+        definitions: Record<string, string>,
+    ) {
+        const animation = definitions['animation'];
+        if (animation == undefined) {
+            return;
+        }
+        switch (animation) {
+            case 'SPIN_UP':
+                engine.setVerticallyRotating(root);
+                break;
+            default:
+                break;
+        }
+    }
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{
@@ -716,7 +756,8 @@
                     record.content.type === 'MODEL_3D' ||
                     record.content.type === 'ICON' ||
                     record.content.type === 'VIDEO' ||
-                    record.content.type === 'POINT_CLOUD'
+                    record.content.type === 'POINT_CLOUD' ||
+                    record.content.type === 'POINTCLOUD'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
@@ -778,24 +819,42 @@
                         if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
                             // TODO: load all, not only first reference
-                            const contentType = record.content.refs[0].contentType;
+                            const contentType = record.content.refs[0].contentType || '';
                             const url = record.content.refs[0].url;
-                            if (contentType.includes('gltf')) {
-                                const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
-                                if (content_definitions['animation'] != undefined) {
-                                    switch (content_definitions['animation']) {
-                                        case 'SPIN_UP':
-                                            tdEngine.setVerticallyRotating(nodeTransform);
-                                            break;
-                                        default:
-                                            break;
-                                    }
+                            const modelFormat = model3DFormatFromRef(url, contentType, record.content.type);
+
+                            switch (modelFormat) {
+                                case 'gltf': {
+                                    const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
+                                    applyModel3dDefinitionAnimations(tdEngine, nodeTransform, content_definitions);
+                                    break;
                                 }
-                            } else {
-                                // we cannot load anything else but GLTF
-                                // so draw a placeholder instead
-                                const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
-                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                case 'ply': {
+                                    void tdEngine
+                                        .addPlyObject(url, localPosition, localQuaternion, plyLoadOptions(content_definitions))
+                                        .then((mesh) => {
+                                            if (mesh == null) {
+                                                const placeholder = tdEngine.addPlaceholder(
+                                                    record.content.keywords,
+                                                    localPosition,
+                                                    localQuaternion,
+                                                );
+                                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                            } else {
+                                                applyModel3dDefinitionAnimations(tdEngine, mesh, content_definitions);
+                                            }
+                                        });
+                                    break;
+                                }
+                                default: {
+                                    // Unsupported MODEL_3D format for now — extend model3DFormatFromRef + this branch when adding loaders
+                                    const placeholder = tdEngine.addPlaceholder(
+                                        record.content.keywords,
+                                        localPosition,
+                                        localQuaternion,
+                                    );
+                                    handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                }
                             }
                         } else {
                             // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
@@ -853,6 +912,7 @@
                         break;
                     }
 
+                    case 'POINT_CLOUD':
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
                             let url = '';
@@ -861,9 +921,14 @@
                             } else {
                                 url = record.content.refs ? record.content.refs[0].url : '';
                             }
-                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion);
+                            const refContentType = record.content.refs?.[0]?.contentType ?? '';
+                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion, {
+                                ...(plyLoadOptions(content_definitions) ?? {}),
+                                contentType: refContentType,
+                                scrContentType: record.content.type,
+                            });
                         } else {
-                            console.log(`A POINTCLOUD content ${record.content.title} was received but this type is disabled`);
+                            console.log(`A point cloud content ${record.content.title} was received but this type is disabled`);
                         }
                         break;
                     }

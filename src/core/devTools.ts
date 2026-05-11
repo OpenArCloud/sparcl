@@ -567,8 +567,8 @@ export const fakeContentWithFramedPoseScene: SCR = {
         description: '',
         id: 'framed-demo-1',
         keywords: ['framed'],
-        refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
-        title: 'Framed-only Duck',
+        refs: [{ url: '/media/models/cube.ply', contentType: 'model/ply' }],
+        title: 'Content at SCENE FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {
             frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
@@ -594,6 +594,7 @@ export const fakeContentWithFramedPoseHop2: SCR = {
         keywords: ['framed', 'hop2'],
         refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
         title: 'Framed hop2 Duck',
+        title: 'Content at HOP2 FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {
             frameRef: SPARCL_TEST_HOP2_FRAME_REF,
