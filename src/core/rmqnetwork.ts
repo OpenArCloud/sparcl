@@ -170,6 +170,7 @@ export const rmqDisconnect = () => {
 };
 
 const notConnectedErrorMessage = throttle(() => console.error('RMQ not connected, cannot send messages'), 3000);
+
 export function send(routing_key: string, headers: Record<string, any>, data: any) {
     if (!isConnected()) {
         notConnectedErrorMessage();

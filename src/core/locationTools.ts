@@ -82,7 +82,7 @@ let lastTimeCurrentLocationQuery = 0;
  */
 export const setInitialLocationAndServices = async () => {
     console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
-    if (get(isLocationAccessAllowed)) {
+    if (get(isLocationAccessAllowed) || get(debug_useOverrideGeopose)) {
         // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
         try {
             const currentLocation = await getCurrentLocation();

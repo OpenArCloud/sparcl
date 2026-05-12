@@ -259,12 +259,14 @@
             headers?: Record<string, any> | undefined;
         }>,
     ) {
-        if (p2p != null) {
-            p2p.send(event.detail);
+        if (event.detail.routing_key != undefined && event.detail.value != undefined) {
+            rmq.send(event.detail.routing_key, event.detail.headers || {}, event.detail.value);
         }
 
-        if (event.detail.routing_key != undefined && event.detail.value) {
-            rmq.send(event.detail.routing_key, event.detail.headers || {}, event.detail.value);
+        // If the RabbitMQ routing key is undefined, send the message to the p2p network
+        // This path is used in the ISMAR2021Multi experiment
+        if (event.detail.routing_key === undefined && p2p != null) {
+            p2p.send(event.detail);
         }
     }
 
