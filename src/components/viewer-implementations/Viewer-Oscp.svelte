@@ -147,6 +147,7 @@
 
             if (events.reticle_update.active === false) {
                 removeReticle(events.reticle_update.agent_id);
+                return;
             }
 
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;

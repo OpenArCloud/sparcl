@@ -103,33 +103,35 @@
      * @param xrReferenceSpace
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
-        parentInstance.handlePoseHeartbeat();
-
-        if (!hitTestSource) {
+        // If localization is required and not done yet, pass on to the parent
+        if ($settings.localizationRequired && !$parentState.isLocalized) {
             parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             return;
         }
 
+        // If there is no hit test source, we have nothing to do here, pass on to the parent
+        if (!hitTestSource) {
+            parentInstance.onXrFrameUpdate(time, frame, xrViewerPose); // performs rendering
+            return;
+        }
+
+        // If there is a hit test source, we need to update the reticle pose
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
-            if ($settings.localizationRequired && !$parentState.isLocalized) {
-                parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
-            } else {
-                $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
-                if (reticle === null) {
-                    reticle = tdEngine.addReticle();
-                }
-                const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
-                const position = reticlePose?.transform.position;
-                const orientation = reticlePose?.transform.orientation;
-                if (position && orientation) {
-                    tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
-                }
+            $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
+            if (reticle === null) {
+                reticle = tdEngine.addReticle();
+            }
+            const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
+            const position = reticlePose?.transform.position;
+            const orientation = reticlePose?.transform.orientation;
+            if (position && orientation) {
+                tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
             }
         }
 
-        xrEngine.setViewportForView(xrViewerPose.views[0]);
-        tdEngine.render(time, xrViewerPose.views[0]);
+        // Pass on to the parent to perform rendering
+        parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
     }
 
     /**
@@ -251,7 +253,7 @@
             sender: $peerIdStr,
             timestamp: timestamp,
         };
-        // share over P2P network
+        // NOTE: do not add routing_key so that these messages are not sent over RabbitMQ but only over the P2P network
         // NOTE: the dispatch method is part of Svelte's event system which takes one key-value pair
         // and the value will be forwarded to the p2pnetwork.js
         dispatch('broadcast', {
