@@ -30,7 +30,7 @@ import {
     setActiveGeoAlignmentFromCapture,
     setActiveWorldAlignmentFromMatrices,
 } from '@core/worldAlignment';
-import { OSCP_WGS84_ENU_FRAME_REF } from '@core/frameTransforms';
+import { OSCP_WGS84_ENU_FRAME_REF } from '@core/spatial';
 
 const EPS_MAT = 1e-5;
 

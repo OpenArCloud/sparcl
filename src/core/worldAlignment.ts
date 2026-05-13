@@ -30,7 +30,7 @@ import {
     OSCP_WGS84_ENU_FRAME_REF,
     SPARCL_WEBXR_SCENE_FRAME_REF,
     type QuatLike,
-    translationScaleFactorForFrameRef,
+    getMetricScaleFactorForFrameRef,
     type Vec3Like,
 } from '@core/spatial';
 import {
@@ -254,7 +254,7 @@ export function setActiveAlignmentInFrame(
     localCapture: WebXrRigidPose,
     cameraPoseInRef: FramedPose,
 ): ActiveWorldAlignmentMatrices {
-    const s = translationScaleFactorForFrameRef(cameraPoseInRef.frameRef);
+    const s = getMetricScaleFactorForFrameRef(cameraPoseInRef.frameRef);
     const t = cameraPoseInRef.pose.t;
     const mRefFromWireCam = mat4FromRigidPose({
         position: { x: t.x * s, y: t.y * s, z: t.z * s },

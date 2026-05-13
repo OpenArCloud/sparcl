@@ -27,13 +27,6 @@ export type {
     QuatLike,
     Vec3Like,
 } from '@core/spatial';
-export {
-    DEFAULT_FRAME_COORD_CONVENTION,
-    OSCP_WGS84_ENU_FRAME_REF,
-    parseCoordConvention,
-    parseCoordScale,
-    translationScaleFactorForFrameRef,
-} from '@core/spatial';
 
 /** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
 export type RigidPose = {

@@ -166,7 +166,7 @@ export function parseCoordScale(raw: unknown): CoordScale | undefined {
  * Factor to multiply {@link FramedPose} translation components by for metric fusion (see {@link FrameRef.coord_scale}).
  * Returns **1** when `coord_scale` is absent or unusable.
  */
-export function translationScaleFactorForFrameRef(frameRef: FrameRef): number {
+export function getMetricScaleFactorForFrameRef(frameRef: FrameRef): number {
     const cs = frameRef.coord_scale;
     if (cs === undefined) {
         return 1;

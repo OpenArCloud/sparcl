@@ -16,7 +16,7 @@ New APIs and payloads should identify a coordinate reference frame with a **`Fra
 - **`uuid`** — Unique identifier for this frame **instance** (stable across services and sessions when issued by a registry or VPS).
 - **`fqn`** — Fully qualified name / namespace for the frame **kind** (e.g. `OSCP:WGS84-ENU`, an EPSG URN, or a vendor-defined logical type).
 
-TypeScript type: **`FrameRef`** in [`src/core/spatial.ts`](../../src/core/spatial.ts) (re-exported from [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) as `@core/frameTransforms` / `@core/spatial`). Reserved global GeoPose / ENU: **`OSCP_WGS84_ENU_FRAME_REF`** (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists).
+TypeScript type: **`FrameRef`** and reserved global GeoPose / ENU constant **`OSCP_WGS84_ENU_FRAME_REF`** live in [`src/core/spatial.ts`](../../src/core/spatial.ts) (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists). [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) re-exports SpatialDDS pose-related **types** for convenience alongside matrix helpers.
 
 ## Session alignment: geopose vs FramedPose (`worldAlignment`)
 
