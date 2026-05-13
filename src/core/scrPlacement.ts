@@ -34,8 +34,9 @@ function framedPoseToRigidPose(framedPose: FramedPose): RigidPose {
  * **T_scene_from_ref** from content frame → {@link SPARCL_WEBXR_SCENE_FRAME_REF}; otherwise fall back to **geopose** when {@link worldAlignment.getActiveGeoAlignment} is set.
  */
 export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseResult {
-    const framedPoseWire = content.framedPose;
-    const geoPose = content.geopose;
+    const c = content as Content & { framedPose?: unknown; geopose?: unknown };
+    const framedPoseWire = c.framedPose;
+    const geoPose = c.geopose;
 
     const framedPose = framedPoseWire === undefined ? undefined : parseFramedPose(framedPoseWire as unknown);
     if (framedPoseWire !== undefined && framedPose === undefined) {
