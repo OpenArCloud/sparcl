@@ -210,6 +210,36 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(r.poses, undefined);
     });
 
+    it('parses FrameRef coord_convention and coord_scale on poses (SpatialDDS 1.6 + VPS)', () => {
+        const r = parseGppResponse({
+            id: '1',
+            timestamp: 1,
+            accuracy: { position: 1, orientation: 1 },
+            type: 'geopose',
+            geopose: {
+                position: { lon: 19, lat: 47, h: 10 },
+                quaternion: { x: 0, y: 0, z: 0, w: 1 },
+            },
+            poses: [
+                {
+                    pose: {
+                        t: { x: 1, y: 0, z: 0 },
+                        q: { x: 0, y: 0, z: 0, w: 1 },
+                    },
+                    frameRef: {
+                        uuid: 'map',
+                        fqn: 'space:Map',
+                        coord_convention: 'CV',
+                        coord_scale: { unit: 'SI_METER', scale_factor: 0.001 },
+                    },
+                },
+            ],
+        });
+        const fr = r.poses?.[0]?.frameRef;
+        assert.strictEqual(fr?.coord_convention, 'CV');
+        assert.deepStrictEqual(fr?.coord_scale, { unit: 'SI_METER', scale_factor: 0.001 });
+    });
+
     it('throws when neither pose is present', () => {
         assert.throws(() => parseGppResponse({ id: 'x' }), /no usable geopose/);
     });

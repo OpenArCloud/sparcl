@@ -5,14 +5,49 @@
   SPDX-License-Identifier: MIT
 
   SpatialDDS-aligned JSON types (Core Profile / OSCP GeoPose extensions) and parsers for wire payloads.
-  Specification: [SpatialDDS Appendix A — Core Profile](https://spatialdds.org/v1.5/appendix-a/).
+  Specification: [SpatialDDS 1.6 — Core Profile / FrameRef](https://spatialdds.org/SpatialDDS-1.6-full/) (Appendix A).
   Conventions: docs/workingwithcode/poseconversions.md
 */
+
+/**
+ * SpatialDDS 1.6 `spatial::common::CoordConvention` — axis convention for poses in this frame (`FrameRef.coord_convention`).
+ * When the wire omits the field (or `has_coord_convention` is false), the spec assumes **ENU** for frame semantics;
+ * the client camera bridge still uses legacy `fqn`/`uuid` heuristics unless **`coord_convention` is explicitly set**.
+ */
+export type CoordConvention = 'ENU' | 'CV' | 'GRAPHICS' | 'UNITY_LH' | 'NED' | 'OTHER';
+
+const COORD_CONVENTION_NAMES = new Set<string>([
+    'ENU',
+    'CV',
+    'GRAPHICS',
+    'UNITY_LH',
+    'NED',
+    'OTHER',
+]);
+
+/** SpatialDDS 1.6 default when `coord_convention` is absent (`has_coord_convention` false). */
+export const DEFAULT_FRAME_COORD_CONVENTION: CoordConvention = 'ENU';
+
+/** VPS extension (not yet in SpatialDDS): target unit for {@link FrameRef.coord_scale}. */
+export type CoordScaleUnit = 'SI_METER';
+
+/** VPS extension: scale wire translations to metric SI meters. */
+export type CoordScale = {
+    unit: CoordScaleUnit;
+    scale_factor: number;
+};
 
 /** SpatialDDS `spatial::common::FrameRef`: stable frame identity (`uuid` equality; `fqn` is a normalized human-readable alias). */
 export type FrameRef = {
     uuid: string;
     fqn: string;
+    /** SpatialDDS 1.6 optional axis convention for poses in this frame. */
+    coord_convention?: CoordConvention;
+    /**
+     * VPS extension (optional): multiply {@link FramedPose} translation `pose.t` by `scale_factor` to obtain **meters**
+     * when `unit` is {@link CoordScaleUnit} **`SI_METER`**.
+     */
+    coord_scale?: CoordScale;
 };
 
 /** Reserved frame reference for OSCP GeoPose (WGS-84 + ENU), per poseconversions.md */
@@ -96,6 +131,56 @@ export function parseNsTime(raw: unknown): NsTime | undefined {
     return { sec, nanosec };
 }
 
+/** Parse a single `coord_convention` wire string. */
+export function parseCoordConvention(raw: unknown): CoordConvention | undefined {
+    if (typeof raw !== 'string' || !COORD_CONVENTION_NAMES.has(raw)) {
+        return undefined;
+    }
+    return raw as CoordConvention;
+}
+
+/**
+ * Parse `FrameRef.coord_scale` JSON (`unit`, `scale_factor`; accepts camelCase `scaleFactor`).
+ * Unsupported `unit` values log a console warning and yield `undefined`.
+ */
+export function parseCoordScale(raw: unknown): CoordScale | undefined {
+    if (!isRecord(raw)) {
+        return undefined;
+    }
+    const unitRaw = raw.unit;
+    const scaleRaw = raw.scale_factor ?? raw.scaleFactor;
+    if (typeof unitRaw !== 'string') {
+        return undefined;
+    }
+    if (unitRaw !== 'SI_METER') {
+        console.warn(`FrameRef.coord_scale: unsupported unit "${unitRaw}", ignoring coord_scale`);
+        return undefined;
+    }
+    if (typeof scaleRaw !== 'number' || !Number.isFinite(scaleRaw)) {
+        return undefined;
+    }
+    return { unit: 'SI_METER', scale_factor: scaleRaw };
+}
+
+/**
+ * Factor to multiply {@link FramedPose} translation components by for metric fusion (see {@link FrameRef.coord_scale}).
+ * Returns **1** when `coord_scale` is absent or unusable.
+ */
+export function translationScaleFactorForFrameRef(frameRef: FrameRef): number {
+    const cs = frameRef.coord_scale;
+    if (cs === undefined) {
+        return 1;
+    }
+    if (cs.unit !== 'SI_METER') {
+        console.warn(`FrameRef.coord_scale: unsupported unit "${cs.unit}", ignoring scale`);
+        return 1;
+    }
+    if (typeof cs.scale_factor !== 'number' || !Number.isFinite(cs.scale_factor)) {
+        return 1;
+    }
+    return cs.scale_factor;
+}
+
 function parseFrameRef(raw: unknown): FrameRef | undefined {
     if (!isRecord(raw)) {
         return undefined;
@@ -105,7 +190,26 @@ function parseFrameRef(raw: unknown): FrameRef | undefined {
     if (typeof uuid !== 'string' || typeof fqn !== 'string' || uuid.length === 0 || fqn.length === 0) {
         return undefined;
     }
-    return { uuid, fqn };
+    const out: FrameRef = { uuid, fqn };
+
+    const hasCoordConvention = raw.has_coord_convention ?? raw.hasCoordConvention;
+    const ccWire = raw.coord_convention ?? raw.coordConvention;
+    if (hasCoordConvention !== false && ccWire !== undefined && ccWire !== null) {
+        const cc = parseCoordConvention(ccWire);
+        if (cc !== undefined) {
+            out.coord_convention = cc;
+        }
+    }
+
+    const csWire = raw.coord_scale ?? raw.coordScale;
+    if (csWire !== undefined && csWire !== null) {
+        const cs = parseCoordScale(csWire);
+        if (cs !== undefined) {
+            out.coord_scale = cs;
+        }
+    }
+
+    return out;
 }
 
 function parseFiniteNumberArray(raw: unknown): readonly number[] | undefined {

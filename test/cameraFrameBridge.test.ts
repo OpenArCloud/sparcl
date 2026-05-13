@@ -5,13 +5,14 @@
   SPDX-License-Identifier: MIT
 
   Camera frame bridge: vision / robotics / graphics wire conventions vs graphics session camera (`XRView`),
-  selected by `FrameRef.fqn` and `FrameRef.uuid` (see `vpsCameraFrameBridgeFromFrameRef` in `@core/frameTransforms`).
+  via explicit `FrameRef.coord_convention` (SpatialDDS 1.6) when set, else `FrameRef.fqn` / `FrameRef.uuid` heuristics
+  (see `vpsCameraFrameBridgeFromFrameRef` in `@core/frameTransforms`).
 */
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { mat4, quat, vec3, vec4, type ReadonlyMat4 } from 'gl-matrix';
-import type { FramedPose } from '@core/spatial';
+import type { FramedPose, FrameRef } from '@core/spatial';
 import { SPARCL_WEBXR_SCENE_FRAME_REF } from '@core/spatial';
 import { convertAugmentedCityCam2WebVec3 } from '@core/locationTools';
 import {
@@ -78,6 +79,21 @@ describe('vpsCameraFrameBridgeFromFrameRef', () => {
         assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef({ uuid: 'u', fqn: 'openvps/HLOC' }), MAT4_VISION_CAM_FROM_GRAPHICS_CAM) < 1e-9);
         assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef({ uuid: 'u', fqn: 'map/COLMAP' }), MAT4_VISION_CAM_FROM_GRAPHICS_CAM) < 1e-9);
         assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef({ uuid: 'u', fqn: 'foo/opencv/bar' }), MAT4_VISION_CAM_FROM_GRAPHICS_CAM) < 1e-9);
+    });
+
+    it('explicit coord_convention CV overrides graphics fqn (SpatialDDS 1.6)', () => {
+        const ref: FrameRef = { uuid: 'x', fqn: 'sparcl:WebXRScene', coord_convention: 'CV' };
+        assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef(ref), MAT4_VISION_CAM_FROM_GRAPHICS_CAM) < 1e-9);
+    });
+
+    it('explicit coord_convention GRAPHICS overrides vision fqn tokens', () => {
+        const ref: FrameRef = { uuid: 'u', fqn: 'map/COLMAP', coord_convention: 'GRAPHICS' };
+        assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef(ref), MAT4_VPS_FRAME_BRIDGE_IDENTITY) < 1e-9);
+    });
+
+    it('explicit coord_convention ENU uses robotics bridge', () => {
+        const ref: FrameRef = { uuid: 'id-99', fqn: 'orbit:moon', coord_convention: 'ENU' };
+        assert.ok(maxAbsDiffMat4(vpsCameraFrameBridgeFromFrameRef(ref), MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM) < 1e-9);
     });
 
     it('unknown fqn/uuid yields identity', () => {
@@ -253,6 +269,39 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
         const expected = getAlignmentTransformWithCameraFrameBridge(local, mapFromWire, MAT4_VPS_FRAME_BRIDGE_IDENTITY);
         const viaFqn = setActiveAlignmentInFrame(local, framed);
         assert.ok(maxAbsDiffMat4(expected, viaFqn.tSceneFromRef) < 1e-5);
+        clearActiveFramedPoseAlignment();
+    });
+
+    it('setActiveAlignmentInFrame applies FrameRef.coord_scale (SI_METER) to translation before fusion', () => {
+        clearActiveFramedPoseAlignment();
+        const local = {
+            position: { x: 0.12, y: 1.55, z: -0.08 },
+            orientation: { x: 0.02, y: 0.61, z: -0.05, w: 0.79 },
+        };
+        const pose = {
+            t: { x: 0.5, y: -0.2, z: 1.1 },
+            q: { x: 0.1, y: 0.3, z: -0.15, w: 0.93 },
+        };
+        const n = Math.hypot(pose.q.x, pose.q.y, pose.q.z, pose.q.w) || 1;
+        const qn = { x: pose.q.x / n, y: pose.q.y / n, z: pose.q.z / n, w: pose.q.w / n };
+        const scale = 0.25;
+        const frameRef: FrameRef = {
+            uuid: 'test-map-webxr',
+            fqn: 'test:Map',
+            coord_scale: { unit: 'SI_METER', scale_factor: scale },
+        };
+        const framed: FramedPose = {
+            frameRef,
+            pose: { t: pose.t, q: qn },
+        };
+        const mapFromWireScaled = mat4FromPoseSE3({
+            t: { x: pose.t.x * scale, y: pose.t.y * scale, z: pose.t.z * scale },
+            q: qn,
+        });
+        const expected = getAlignmentTransformWithCameraFrameBridge(local, mapFromWireScaled, MAT4_VPS_FRAME_BRIDGE_IDENTITY);
+        const mats = setActiveAlignmentInFrame(local, framed);
+        const d = maxAbsDiffMat4(expected, mats.tSceneFromRef);
+        assert.ok(d < 1e-5, `scaled translation fusion should match helper, maxAbsDiff=${d}`);
         clearActiveFramedPoseAlignment();
     });
 });

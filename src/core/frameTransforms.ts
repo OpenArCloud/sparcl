@@ -15,6 +15,9 @@ import { mat4, quat, vec3, type ReadonlyMat4 } from 'gl-matrix';
 import type { FrameRef, FramedPose, PoseSE3, QuatLike, Vec3Like } from '@core/spatial';
 
 export type {
+    CoordConvention,
+    CoordScale,
+    CoordScaleUnit,
     CovarianceType,
     CovMatrix,
     FrameRef,
@@ -24,7 +27,13 @@ export type {
     QuatLike,
     Vec3Like,
 } from '@core/spatial';
-export { OSCP_WGS84_ENU_FRAME_REF } from '@core/spatial';
+export {
+    DEFAULT_FRAME_COORD_CONVENTION,
+    OSCP_WGS84_ENU_FRAME_REF,
+    parseCoordConvention,
+    parseCoordScale,
+    translationScaleFactorForFrameRef,
+} from '@core/spatial';
 
 /** Position + unit quaternion in a Cartesian frame (WebXR scene, ENU tangent offset, etc.). */
 export type RigidPose = {
@@ -483,9 +492,28 @@ function haystackIncludesAny(haystackLower: string, tokens: readonly string[]): 
 
 /**
  * Returns **T_wireCam_from_graphicsCam** for fusing VPS **FramedPose** (wire camera) with **graphics** `XRView` capture.
- * Uses lowercase substring rules on **`frameRef.fqn`** and **`frameRef.uuid`** (first matching row wins).
+ * When **`frameRef.coord_convention`** is set (SpatialDDS 1.6), that value selects the bridge; otherwise uses
+ * lowercase substring rules on **`frameRef.fqn`** / **`frameRef.uuid`** (first matching row wins).
  */
 export function vpsCameraFrameBridgeFromFrameRef(frameRef: FrameRef): ReadonlyMat4 {
+    const cc = frameRef.coord_convention;
+    if (cc !== undefined) {
+        switch (cc) {
+            case 'CV':
+                return MAT4_VISION_CAM_FROM_GRAPHICS_CAM;
+            case 'GRAPHICS':
+                return MAT4_VPS_FRAME_BRIDGE_IDENTITY;
+            case 'ENU':
+                return MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM;
+            case 'NED':
+            case 'UNITY_LH':
+            case 'OTHER':
+                break;
+            default:
+                break;
+        }
+    }
+
     const hay = frameRefHaystackLower(frameRef);
     if (haystackIncludesAny(hay, GRAPHICS_FQN_TOKENS)) {
         return MAT4_VPS_FRAME_BRIDGE_IDENTITY;

@@ -30,6 +30,7 @@ import {
     OSCP_WGS84_ENU_FRAME_REF,
     SPARCL_WEBXR_SCENE_FRAME_REF,
     type QuatLike,
+    translationScaleFactorForFrameRef,
     type Vec3Like,
 } from '@core/spatial';
 import {
@@ -133,7 +134,14 @@ export function isOscpWgs84Enu(ref: FrameRef): boolean {
 }
 
 function cloneFrameRef(r: FrameRef): FrameRef {
-    return { uuid: r.uuid, fqn: r.fqn };
+    const out: FrameRef = { uuid: r.uuid, fqn: r.fqn };
+    if (r.coord_convention !== undefined) {
+        out.coord_convention = r.coord_convention;
+    }
+    if (r.coord_scale !== undefined) {
+        out.coord_scale = { unit: r.coord_scale.unit, scale_factor: r.coord_scale.scale_factor };
+    }
+    return out;
 }
 
 function cloneMatLike(m: ReadonlyMat4 | Float32Array | readonly number[]): mat4 {
@@ -237,14 +245,19 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
  *
  * Wire **FramedPose** camera convention vs **graphics** `localCapture` uses **T_map_from_graphicsCam** =
  * **T_map_from_wireCam · T_wireCam_from_graphicsCam**, where **T_wireCam_from_graphicsCam** comes from
- * {@link vpsCameraFrameBridgeFromFrameRef} on **`frameRef.fqn`** / **`frameRef.uuid`** (see `test/cameraFrameBridge.test.ts`).
+ * {@link vpsCameraFrameBridgeFromFrameRef} on **`frameRef.coord_convention`** when set, else **`frameRef.fqn`** /
+ * **`frameRef.uuid`** heuristics (see `test/cameraFrameBridge.test.ts`).
+ * When **`frameRef.coord_scale`** is present with `unit === SI_METER`, **`pose.t`** is multiplied by **`scale_factor`**
+ * before fusion (wire units → meters).
  */
 export function setActiveAlignmentInFrame(
     localCapture: WebXrRigidPose,
     cameraPoseInRef: FramedPose,
 ): ActiveWorldAlignmentMatrices {
+    const s = translationScaleFactorForFrameRef(cameraPoseInRef.frameRef);
+    const t = cameraPoseInRef.pose.t;
     const mRefFromWireCam = mat4FromRigidPose({
-        position: cameraPoseInRef.pose.t,
+        position: { x: t.x * s, y: t.y * s, z: t.z * s },
         orientation: cameraPoseInRef.pose.q,
     });
     const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frameRef);
