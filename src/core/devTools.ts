@@ -540,6 +540,7 @@ export function buildFakeLocalizationResponse(
     };
     if (fakeVpsFramedPose !== undefined) {
         out.poses = [
+            /*
             {
                 frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
                 pose: {
@@ -555,6 +556,29 @@ export function buildFakeLocalizationResponse(
                         w: fakeVpsFramedPose.orientation.w,
                     },
                 },
+            },
+            */
+            { 
+                // inside the robot demo room, facing the IROS22 poster
+                "pose": { 
+                    "t": { "x": -3.0257560867308566, "y": -0.7564251042563817, "z": -0.3659372765833804 },
+                    "q": { "x": 0.021376899162677647, "y": 0.9391319008002059, "z": 0.2440668305675748, "w": 0.2408436905926322 },
+                },
+                "frameRef": {
+                    "uuid": "136b8300-6f05-49cc-92cb-4fb622dda8f1",
+                    "fqn": "openvps/hloc/136b8300-6f05-49cc-92cb-4fb622dda8f1/colmap_world",
+                    "has_coord_convention": true, "coord_convention": "CV",
+                    "has_coord_scale": true, "coord_scale": { "target_unit": "SI_METER", "scale_factor": 0.20833299999999996 },
+                },
+                "cov": { "covariance_type": "COV_NONE" },
+                "stamp": { "sec": 1779260958, "nanosec": 747000000 },
+            },
+        ];
+
+        out.geoposes = [
+            {
+                "position": { "lat": 47.46781515517768, "lon": 19.025021538851384, "h": 3.572303542867303 },
+                "quaternion": { "x": 0.0849880638742312, "y": -0.059007554428777365, "z": -0.7164606153601714, "w": -0.689912548195037 },
             },
         ];
     }
