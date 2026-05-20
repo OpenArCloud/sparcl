@@ -49,6 +49,7 @@ Implementations may add more reserved **`FrameRef`** values later; document them
 
 - **Storage layout** in JavaScript must match **`gl-matrix` `mat4`** (and WebGL): **column-major** 16-element array, so the translation components occupy indices `12, 13, 14`.
 - **Composition**: if \(\mathbf{p}_C = T_{C \leftarrow B}\, \mathbf{p}_B\) and \(\mathbf{p}_B = T_{B \leftarrow A}\, \mathbf{p}_A\), then \(\mathbf{p}_C = T_{C \leftarrow B}\, T_{B \leftarrow A}\, \mathbf{p}_A\) (multiply in that order for column vectors).
+- **Rigid vs similarity**: helpers **`isSimilarityTransformMat4`** (uniform scale × rotation, valid bottom row) and **`isRigidTransformMat4`** (unit scale, proper rotation `det = +1`) live in [`frameTransforms.ts`](../../src/core/frameTransforms.ts); **`mat4ToRigidPose(m, true)`** throws when the matrix is not rigid.
 
 ## Quaternions
 

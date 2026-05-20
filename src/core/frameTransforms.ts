@@ -121,6 +121,26 @@ export function mat4FromRigidPose(pose: RigidPose): mat4 {
     return m;
 }
 
+/**
+ * Inverse of {@link mat4FromRigidPose}: reads translation from column-major indices `12–14` and the rotational part of the upper-left 3×3 into a unit quaternion \((x,y,z,w)\), matching **`gl-matrix`** (same kinematics as **T_ref_from_body** in {@link mat4FromPoseSE3}).
+ * For arbitrary similarity or affine matrices, `mat4.getRotation` follows **`gl-matrix`** decomposition rules (not a strict rigid-body inverse). When **`requireRigid`** is true, throws if {@link isRigidTransformMat4} is false.
+ */
+export function mat4ToRigidPose(m: ReadonlyMat4, requireRigid?: boolean): RigidPose {
+    if (requireRigid && !isRigidTransformMat4(m)) {
+        throw new Error(
+            'mat4ToRigidPose: expected a rigid transform (orthonormal 3×3 with determinant +1, translation in 12–14, bottom row 0,0,0,1); got scale, shear, reflection, or invalid layout',
+        );
+    }
+    const tr = vec3.create();
+    mat4.getTranslation(tr, m);
+    const q = quat.create();
+    mat4.getRotation(q, m);
+    return {
+        position: { x: tr[0], y: tr[1], z: tr[2] },
+        orientation: { x: q[0], y: q[1], z: q[2], w: q[3] },
+    };
+}
+
 /** Max absolute element-wise difference between two 4×4 column-major matrices (tests / diagnostics). */
 export function maxAbsDiffMat4(a: ReadonlyMat4, b: ReadonlyMat4): number {
     let m = 0;
@@ -219,6 +239,61 @@ export function isSimilarityTransformMat4(
     const d02 = vec3.dot(v0, v2);
     const d12 = vec3.dot(v1, v2);
     if (Math.abs(d01) > tol || Math.abs(d02) > tol || Math.abs(d12) > tol) {
+        return false;
+    }
+    return true;
+}
+
+/** Default: squared column length must be within this absolute band of `1` for {@link isRigidTransformMat4}. */
+export const RIGID_TRANSFORM_DEFAULT_EPS_UNIT_SQ = 2e-3;
+/** Default: `det(R)` must lie in `[1 - eps, 1 + eps]` when reflections are disallowed. */
+export const RIGID_TRANSFORM_DEFAULT_EPS_DET = 2e-3;
+
+export type IsRigidTransformMat4Options = {
+    epsBottom?: number;
+    epsGramRel?: number;
+    /** Max deviation of each `‖column‖²` from `1` (after {@link isSimilarityTransformMat4} passes). */
+    epsUnitSq?: number;
+    /** Allowed deviation of `det(R)` from `+1` (or from `±1` when {@link allowReflection} is true). */
+    epsDet?: number;
+    /** When true, allow `det(R) ≈ -1` (improper / reflected rigid). */
+    allowReflection?: boolean;
+};
+
+/**
+ * True if `m` is a **proper rigid** transform in column-major `mat4` layout: similarity with **unit** scale (orthonormal columns), translation in `12–14`, bottom row `[0,0,0,1]`, and determinant **+1** (right-handed rotation).
+ * Uses {@link isSimilarityTransformMat4} first, then rejects uniform scale ≠ 1 and (by default) improper rotations (`det ≈ -1`).
+ */
+export function isRigidTransformMat4(m: ReadonlyMat4, options?: IsRigidTransformMat4Options): boolean {
+    const epsBottom = options?.epsBottom ?? SIMILARITY_TRANSFORM_DEFAULT_EPS_BOTTOM;
+    const epsGramRel = options?.epsGramRel ?? SIMILARITY_TRANSFORM_DEFAULT_EPS_GRAM;
+    const epsUnitSq = options?.epsUnitSq ?? RIGID_TRANSFORM_DEFAULT_EPS_UNIT_SQ;
+    const epsDet = options?.epsDet ?? RIGID_TRANSFORM_DEFAULT_EPS_DET;
+    const allowReflection = options?.allowReflection ?? false;
+
+    if (!isSimilarityTransformMat4(m, epsBottom, epsGramRel)) {
+        return false;
+    }
+    const v0 = vec3.fromValues(m[0]!, m[1]!, m[2]!);
+    const v1 = vec3.fromValues(m[4]!, m[5]!, m[6]!);
+    const v2 = vec3.fromValues(m[8]!, m[9]!, m[10]!);
+    const d00 = vec3.dot(v0, v0);
+    const d11 = vec3.dot(v1, v1);
+    const d22 = vec3.dot(v2, v2);
+    if (Math.abs(d00 - 1) > epsUnitSq || Math.abs(d11 - 1) > epsUnitSq || Math.abs(d22 - 1) > epsUnitSq) {
+        return false;
+    }
+    const cross = vec3.create();
+    vec3.cross(cross, v1, v2);
+    const det = vec3.dot(v0, cross);
+    if (!Number.isFinite(det)) {
+        return false;
+    }
+    if (allowReflection) {
+        if (Math.abs(Math.abs(det) - 1) > epsDet) {
+            return false;
+        }
+    } else if (Math.abs(det - 1) > epsDet) {
         return false;
     }
     return true;

@@ -7,7 +7,7 @@
 
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { mat4, quat, vec3 } from 'gl-matrix';
+import { mat4, quat } from 'gl-matrix';
 import type { Geopose } from '@oarc/scd-access';
 import { convertGeodeticToEnu } from '@core/locationTools';
 import {
@@ -31,6 +31,7 @@ import {
     setActiveWorldAlignmentFromMatrices,
 } from '@core/worldAlignment';
 import { OSCP_WGS84_ENU_FRAME_REF } from '@core/spatial';
+import { isRigidTransformMat4, mat4ToRigidPose } from '@core/frameTransforms';
 
 const EPS_MAT = 1e-5;
 
@@ -65,17 +66,6 @@ function assertGeoposeNear(a: Geopose, b: Geopose) {
             a.quaternion.w * b.quaternion.w,
     );
     assert.ok(Math.abs(dot - 1) < 1e-4, `quat alignment dot=${dot}`);
-}
-
-function decomposePosQuat(m: Readonly<mat4>) {
-    const p = vec3.create();
-    const q = quat.create();
-    mat4.getTranslation(p, m);
-    mat4.getRotation(q, m);
-    return {
-        position: { x: p[0], y: p[1], z: p[2] },
-        quaternion: { x: q[0], y: q[1], z: q[2], w: q[3] },
-    };
 }
 
 describe('worldAlignment', () => {
@@ -126,8 +116,9 @@ describe('worldAlignment', () => {
         });
 
         const mScene = mat4SceneFromGeoPose(anchor, objectGeo, kin.tSceneFromRef);
-        const { position, quaternion } = decomposePosQuat(mScene);
-        const back = convertScenePoseToGeopose(position, quaternion, kin.tRefFromScene, anchor);
+        assert.ok(isRigidTransformMat4(mScene), 'mat4SceneFromGeoPose should yield a rigid transform');
+        const { position, orientation } = mat4ToRigidPose(mScene, true);
+        const back = convertScenePoseToGeopose(position, orientation, kin.tRefFromScene, anchor);
         assertGeoposeNear(back, objectGeo);
     });
 
