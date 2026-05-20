@@ -139,7 +139,10 @@ function cloneFrameRef(r: FrameRef): FrameRef {
         out.coord_convention = r.coord_convention;
     }
     if (r.coord_scale !== undefined) {
-        out.coord_scale = { unit: r.coord_scale.unit, scale_factor: r.coord_scale.scale_factor };
+        out.coord_scale = {
+            target_unit: r.coord_scale.target_unit,
+            scale_factor: r.coord_scale.scale_factor,
+        };
     }
     return out;
 }
@@ -247,8 +250,14 @@ export function setActiveWorldAlignmentFromMatrices(params: SetWorldAlignmentFro
  * **T_map_from_wireCam · T_wireCam_from_graphicsCam**, where **T_wireCam_from_graphicsCam** comes from
  * {@link vpsCameraFrameBridgeFromFrameRef} on **`frameRef.coord_convention`** when set, else **`frameRef.fqn`** /
  * **`frameRef.uuid`** heuristics (see `test/cameraFrameBridge.test.ts`).
- * When **`frameRef.coord_scale`** is present with `unit === SI_METER`, **`pose.t`** is multiplied by **`scale_factor`**
- * before fusion (wire units → meters).
+ * When **`frameRef.coord_scale`** is present with `target_unit === SI_METER`, **`pose.t`** is multiplied by **`scale_factor`**
+ * before fusion (wire translation → meters). The wire still carries a **unit quaternion** (no length scale).
+ *
+ * When **`s !== 1`**, **`T_scene_from_ref`** is additionally right-multiplied by **`diag(s,s,s,1)`** so that the
+ * alignment maps **ref-frame positions** the same way as **raw map / PLY vertex coordinates** (which stay in wire
+ * units) relative to the **meterized** camera translation above. Without this, composing **`T_scene_from_ref`**
+ * with transform-graph edges that use **raw** map units (or **similarity** **T_world_from_vps** with baked **s**)
+ * mis-scales offsets. Applies to **any** localized `FrameRef` that reports **`coord_scale`** with **`s ≠ 1`**.
  */
 export function setActiveAlignmentInFrame(
     localCapture: WebXrRigidPose,

@@ -31,9 +31,9 @@ export const DEFAULT_FRAME_COORD_CONVENTION: CoordConvention = 'ENU';
 /** VPS extension (not yet in SpatialDDS): target unit for {@link FrameRef.coord_scale}. */
 export type CoordScaleUnit = 'SI_METER';
 
-/** VPS extension: scale wire translations to metric SI meters. */
+/** VPS extension: scale wire translations to metric SI meters (`target_unit` per SpatialDDS). */
 export type CoordScale = {
-    unit: CoordScaleUnit;
+    target_unit: CoordScaleUnit;
     scale_factor: number;
 };
 
@@ -45,7 +45,7 @@ export type FrameRef = {
     coord_convention?: CoordConvention;
     /**
      * VPS extension (optional): multiply {@link FramedPose} translation `pose.t` by `scale_factor` to obtain **meters**
-     * when `unit` is {@link CoordScaleUnit} **`SI_METER`**.
+     * when `target_unit` is {@link CoordScaleUnit} **`SI_METER`**.
      */
     coord_scale?: CoordScale;
 };
@@ -92,14 +92,15 @@ export type CovarianceType =
     | 'COV_POSE6_TWIST6';
 
 /**
- * SpatialDDS `CovMatrix` JSON — discriminated by `covarianceType`; payload keys match OSCP / SpatialDDS extensions.
+ * SpatialDDS `CovMatrix` — discriminated by `covariance_type`; optional payload arrays.
+ * Parsed in-memory shape uses SpatialDDS snake_case; wire JSON may also send camelCase aliases (`covarianceType`, `poseTwist`).
  */
 export type CovMatrix = {
-    covarianceType: CovarianceType;
+    covariance_type: CovarianceType;
     pos?: readonly number[];
     pose?: readonly number[];
     rot?: readonly number[];
-    poseTwist?: readonly number[];
+    pose_twist?: readonly number[];
 };
 
 /**
@@ -118,13 +119,18 @@ function isRecord(x: unknown): x is Record<string, unknown> {
     return x !== null && typeof x === 'object' && !Array.isArray(x);
 }
 
+/** Read a field from JSON that may use SpatialDDS snake_case or common camelCase aliases. */
+function pickWire(rec: Record<string, unknown>, snake: string, camel: string): unknown {
+    return rec[snake] ?? rec[camel];
+}
+
 /** Parse SpatialDDS / OSCP JSON `time` object (`sec` + `nanosec`). */
 export function parseNsTime(raw: unknown): NsTime | undefined {
     if (!isRecord(raw)) {
         return undefined;
     }
     const sec = raw.sec;
-    const nanosec = raw.nanosec;
+    const nanosec = pickWire(raw, 'nanosec', 'nanoSec');
     if (typeof sec !== 'number' || typeof nanosec !== 'number') {
         return undefined;
     }
@@ -140,15 +146,16 @@ export function parseCoordConvention(raw: unknown): CoordConvention | undefined 
 }
 
 /**
- * Parse `FrameRef.coord_scale` JSON (`target_unit`, `scale_factor`).
- * Unsupported `target_unit` values log a console warning and yield `undefined`.
+ * Parse `FrameRef.coord_scale` JSON (`target_unit` / `targetUnit`; legacy wire may send `unit` for the same field).
+ * Unsupported unit values log a console warning and yield `undefined`.
  */
 export function parseCoordScale(raw: unknown): CoordScale | undefined {
     if (!isRecord(raw)) {
         return undefined;
     }
-    const targetUnitRaw = raw.target_unit;
-    const scaleFactorRaw = raw.scale_factor;
+    const targetUnitRaw =
+        pickWire(raw, 'target_unit', 'targetUnit') ?? (typeof raw.unit === 'string' ? raw.unit : undefined);
+    const scaleFactorRaw = pickWire(raw, 'scale_factor', 'scaleFactor');
     if (typeof targetUnitRaw !== 'string') {
         return undefined;
     }
@@ -159,7 +166,7 @@ export function parseCoordScale(raw: unknown): CoordScale | undefined {
     if (typeof scaleFactorRaw !== 'number' || !Number.isFinite(scaleFactorRaw)) {
         return undefined;
     }
-    return { unit: 'SI_METER', scale_factor: scaleFactorRaw };
+    return { target_unit: 'SI_METER', scale_factor: scaleFactorRaw };
 }
 
 /**
@@ -171,8 +178,8 @@ export function getMetricScaleFactorForFrameRef(frameRef: FrameRef): number {
     if (cs === undefined) {
         return 1;
     }
-    if (cs.unit !== 'SI_METER') {
-        console.warn(`FrameRef.coord_scale: unsupported unit "${cs.unit}", ignoring scale`);
+    if (cs.target_unit !== 'SI_METER') {
+        console.warn(`FrameRef.coord_scale: unsupported unit "${cs.target_unit}", ignoring scale`);
         return 1;
     }
     if (typeof cs.scale_factor !== 'number' || !Number.isFinite(cs.scale_factor)) {
@@ -192,8 +199,8 @@ function parseFrameRef(raw: unknown): FrameRef | undefined {
     }
     const out: FrameRef = { uuid, fqn };
 
-    const hasCoordConvention = raw.has_coord_convention ?? raw.hasCoordConvention;
-    const ccWire = raw.coord_convention ?? raw.coordConvention;
+    const hasCoordConvention = pickWire(raw, 'has_coord_convention', 'hasCoordConvention');
+    const ccWire = pickWire(raw, 'coord_convention', 'coordConvention');
     if (hasCoordConvention !== false && ccWire !== undefined && ccWire !== null) {
         const cc = parseCoordConvention(ccWire);
         if (cc !== undefined) {
@@ -201,8 +208,8 @@ function parseFrameRef(raw: unknown): FrameRef | undefined {
         }
     }
 
-    const hasCoordScale = raw.has_coord_scale ?? raw.hasCoordScale;
-    const csWire = raw.coord_scale ?? raw.coordScale;
+    const hasCoordScale = pickWire(raw, 'has_coord_scale', 'hasCoordScale');
+    const csWire = pickWire(raw, 'coord_scale', 'coordScale');
     if (hasCoordScale !== false && csWire !== undefined && csWire !== null) {
         const cs = parseCoordScale(csWire);
         if (cs !== undefined) {
@@ -235,21 +242,21 @@ const COVARIANCE_TYPES = new Set<CovarianceType>([
     'COV_POSE6_TWIST6',
 ]);
 
-/** SpatialDDS `CovMatrix` on JSON wire (`covarianceType` + optional payload arrays). */
+/** Parse SpatialDDS `CovMatrix` JSON (`covariance_type` / `covarianceType` + optional payload arrays). */
 export function parseCovMatrix(raw: unknown): CovMatrix | undefined {
     if (!isRecord(raw)) {
         return undefined;
     }
-    const ctRaw = raw.covarianceType ?? raw.covariance_type;
+    const ctRaw = pickWire(raw, 'covariance_type', 'covarianceType');
     if (typeof ctRaw !== 'string' || !COVARIANCE_TYPES.has(ctRaw as CovarianceType)) {
         return undefined;
     }
-    const covarianceType = ctRaw as CovarianceType;
+    const covariance_type = ctRaw as CovarianceType;
     const pos = parseFiniteNumberArray(raw.pos);
     const pose = parseFiniteNumberArray(raw.pose);
     const rot = parseFiniteNumberArray(raw.rot);
-    const poseTwist = parseFiniteNumberArray(raw.poseTwist ?? raw.pose_twist);
-    const out: CovMatrix = { covarianceType };
+    const pose_twist = parseFiniteNumberArray(pickWire(raw, 'pose_twist', 'poseTwist'));
+    const out: CovMatrix = { covariance_type };
     if (pos !== undefined) {
         out.pos = pos;
     }
@@ -259,14 +266,14 @@ export function parseCovMatrix(raw: unknown): CovMatrix | undefined {
     if (rot !== undefined) {
         out.rot = rot;
     }
-    if (poseTwist !== undefined) {
-        out.poseTwist = poseTwist;
+    if (pose_twist !== undefined) {
+        out.pose_twist = pose_twist;
     }
     return out;
 }
 
 /**
- * Parse one SpatialDDS `FramedPose` JSON object: `pose.t` / `pose.q`, `frameRef`, optional `cov`, `stamp`.
+ * Parse one SpatialDDS `FramedPose` JSON object: `pose.t` / `pose.q`, `frame_ref` (or camelCase `frameRef`), optional `cov`, `stamp`.
  */
 export function parseFramedPose(raw: unknown): FramedPose | undefined {
     if (!isRecord(raw)) {
@@ -278,8 +285,8 @@ export function parseFramedPose(raw: unknown): FramedPose | undefined {
     }
     const t = poseBlock.t;
     const q = poseBlock.q;
-    const frameRef = parseFrameRef(raw.frameRef ?? raw.frame_ref);
-    if (!frameRef || !isRecord(t) || !isRecord(q)) {
+    const ref = parseFrameRef(pickWire(raw, 'frame_ref', 'frameRef'));
+    if (!ref || !isRecord(t) || !isRecord(q)) {
         return undefined;
     }
     const x = t.x;
@@ -301,7 +308,7 @@ export function parseFramedPose(raw: unknown): FramedPose | undefined {
         return undefined;
     }
     const base: FramedPose = {
-        frameRef,
+        frameRef: ref as FrameRef,
         pose: {
             t: { x, y, z },
             q: { x: ox, y: oy, z: oz, w: ow },

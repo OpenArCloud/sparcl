@@ -148,7 +148,7 @@ describe('geoPoseProtocolExtended', () => {
                     },
                     frameRef: { uuid: 'map', fqn: 'space:Map' },
                     cov: {
-                        covarianceType: 'COV_POS3',
+                        covariance_type: 'COV_POS3',
                         pos: [1, 0, 0, 0, 1, 0, 0, 0, 1],
                     },
                     stamp: { sec: 1700000000, nanosec: 250000 },
@@ -157,7 +157,7 @@ describe('geoPoseProtocolExtended', () => {
         });
         assert.strictEqual(r.poses?.length, 1);
         const fp = r.poses![0]!;
-        assert.strictEqual(fp.cov?.covarianceType, 'COV_POS3');
+        assert.strictEqual(fp.cov?.covariance_type, 'COV_POS3');
         assert.strictEqual(fp.cov?.pos?.length, 9);
         assert.strictEqual(fp.stamp?.sec, 1700000000);
         assert.strictEqual(fp.stamp?.nanosec, 250000);
@@ -230,14 +230,14 @@ describe('geoPoseProtocolExtended', () => {
                         uuid: 'map',
                         fqn: 'space:Map',
                         coord_convention: 'CV',
-                        coord_scale: { unit: 'SI_METER', scale_factor: 0.001 },
+                        coord_scale: { target_unit: 'SI_METER', scale_factor: 0.001 },
                     },
                 },
             ],
         });
         const fr = r.poses?.[0]?.frameRef;
         assert.strictEqual(fr?.coord_convention, 'CV');
-        assert.deepStrictEqual(fr?.coord_scale, { unit: 'SI_METER', scale_factor: 0.001 });
+        assert.deepStrictEqual(fr?.coord_scale, { target_unit: 'SI_METER', scale_factor: 0.001 });
     });
 
     it('throws when neither pose is present', () => {

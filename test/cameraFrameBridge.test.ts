@@ -288,7 +288,7 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
         const frameRef: FrameRef = {
             uuid: 'test-map-webxr',
             fqn: 'test:Map',
-            coord_scale: { unit: 'SI_METER', scale_factor: scale },
+            coord_scale: { target_unit: 'SI_METER', scale_factor: scale },
         };
         const framed: FramedPose = {
             frameRef,
@@ -298,7 +298,13 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
             t: { x: pose.t.x * scale, y: pose.t.y * scale, z: pose.t.z * scale },
             q: qn,
         });
-        const expected = getAlignmentTransformWithCameraFrameBridge(local, mapFromWireScaled, MAT4_VPS_FRAME_BRIDGE_IDENTITY);
+        let expected = getAlignmentTransformWithCameraFrameBridge(local, mapFromWireScaled, MAT4_VPS_FRAME_BRIDGE_IDENTITY);
+        if (scale !== 1) {
+            const toRawVertexAsMeterized = mat4.fromScaling(mat4.create(), vec3.fromValues(scale, scale, scale));
+            const tmp = mat4.create();
+            mat4.multiply(tmp, expected, toRawVertexAsMeterized);
+            expected = tmp;
+        }
         const mats = setActiveAlignmentInFrame(local, framed);
         const d = maxAbsDiffMat4(expected, mats.tSceneFromRef);
         assert.ok(d < 1e-5, `scaled translation fusion should match helper, maxAbsDiff=${d}`);
