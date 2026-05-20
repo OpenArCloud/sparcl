@@ -256,20 +256,31 @@ export function setActiveAlignmentInFrame(
 ): ActiveWorldAlignmentMatrices {
     const s = getMetricScaleFactorForFrameRef(cameraPoseInRef.frameRef);
     const t = cameraPoseInRef.pose.t;
-    const mRefFromWireCam = mat4FromRigidPose({
-        position: { x: t.x * s, y: t.y * s, z: t.z * s },
+    const mRefFromCamWire = mat4FromRigidPose({
+        position: { x: t.x * s, y: t.y * s, z: t.z * s }, // scale the translation to meters
         orientation: cameraPoseInRef.pose.q,
     });
+    // bridge the camera pose between the VPS and the WebXR conventions
     const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frameRef);
-    const mRFromCam = mat4.create();
-    mat4.multiply(mRFromCam, mRefFromWireCam, wireFromGraphics);
-    const mCamFromR = mat4.create();
-    if (!mat4.invert(mCamFromR, mRFromCam)) {
+    const tRefFromCam = mat4.create();
+    mat4.multiply(tRefFromCam, mRefFromCamWire, wireFromGraphics);
+    // invert the transform to get the camera pose in the reference frame
+    const tCamFromRef = mat4.create();
+    if (!mat4.invert(tCamFromRef, tRefFromCam)) {
         throw new Error('setActiveAlignmentInFrame: singular rigid pose in frame');
     }
-    const mSceneFromCam = mat4FromRigidPose(localCapture);
+    
+    // Calculate the transform between the reference frame and the WebXR scene frame
+    const tSceneFromCam = mat4FromRigidPose(localCapture);
     const tSceneFromRef = mat4.create();
-    mat4.multiply(tSceneFromRef, mSceneFromCam, mCamFromR);
+    mat4.multiply(tSceneFromRef, tSceneFromCam, tCamFromRef);
+    if (s !== 1.0) { // scale the whole transform to metric units
+        const toRawVertexAsMeterized = mat4.fromScaling(mat4.create(), vec3.fromValues(s, s, s));
+        const tSceneFromMetricRef = mat4.create();
+        mat4.multiply(tSceneFromMetricRef, tSceneFromRef, toRawVertexAsMeterized);
+        mat4.copy(tSceneFromRef, tSceneFromMetricRef);
+    }
+
     const tRefFromScene = mat4.create();
     if (!mat4.invert(tRefFromScene, tSceneFromRef)) {
         throw new Error('setActiveAlignmentInFrame: singular alignment');
