@@ -68,8 +68,8 @@ export function getPlyPointsProgram(gl: OGLRenderingContext): Program {
             uniforms: {},
             transparent: false,
             cullFace: gl.NONE,
-            depthTest: false,
-            depthWrite: false,
+            depthTest: true, //false,
+            depthWrite: true, //false,
         });
     }
     return forGl.points;
