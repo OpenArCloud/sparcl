@@ -140,26 +140,26 @@ export function parseCoordConvention(raw: unknown): CoordConvention | undefined 
 }
 
 /**
- * Parse `FrameRef.coord_scale` JSON (`unit`, `scale_factor`; accepts camelCase `scaleFactor`).
- * Unsupported `unit` values log a console warning and yield `undefined`.
+ * Parse `FrameRef.coord_scale` JSON (`target_unit`, `scale_factor`).
+ * Unsupported `target_unit` values log a console warning and yield `undefined`.
  */
 export function parseCoordScale(raw: unknown): CoordScale | undefined {
     if (!isRecord(raw)) {
         return undefined;
     }
-    const unitRaw = raw.unit;
-    const scaleRaw = raw.scale_factor ?? raw.scaleFactor;
-    if (typeof unitRaw !== 'string') {
+    const targetUnitRaw = raw.target_unit;
+    const scaleFactorRaw = raw.scale_factor;
+    if (typeof targetUnitRaw !== 'string') {
         return undefined;
     }
-    if (unitRaw !== 'SI_METER') {
-        console.warn(`FrameRef.coord_scale: unsupported unit "${unitRaw}", ignoring coord_scale`);
+    if (targetUnitRaw !== 'SI_METER') {
+        console.warn(`FrameRef.coord_scale: unsupported unit "${targetUnitRaw}", ignoring coord_scale`);
         return undefined;
     }
-    if (typeof scaleRaw !== 'number' || !Number.isFinite(scaleRaw)) {
+    if (typeof scaleFactorRaw !== 'number' || !Number.isFinite(scaleFactorRaw)) {
         return undefined;
     }
-    return { unit: 'SI_METER', scale_factor: scaleRaw };
+    return { unit: 'SI_METER', scale_factor: scaleFactorRaw };
 }
 
 /**
@@ -201,8 +201,9 @@ function parseFrameRef(raw: unknown): FrameRef | undefined {
         }
     }
 
+    const hasCoordScale = raw.has_coord_scale ?? raw.hasCoordScale;
     const csWire = raw.coord_scale ?? raw.coordScale;
-    if (csWire !== undefined && csWire !== null) {
+    if (hasCoordScale !== false && csWire !== undefined && csWire !== null) {
         const cs = parseCoordScale(csWire);
         if (cs !== undefined) {
             out.coord_scale = cs;
