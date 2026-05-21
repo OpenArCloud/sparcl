@@ -19,6 +19,7 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(isRawGeoPoseResponseExtended({ poses: [] }), true);
         assert.strictEqual(isRawGeoPoseResponseExtended({ geoposes: [] }), true);
         assert.strictEqual(isRawGeoPoseResponseExtended({ time: { sec: 0, nanosec: 0 } }), true);
+        assert.strictEqual(isRawGeoPoseResponseExtended({ time: { sec: 0, nanoSec: 0 } }), true);
         assert.strictEqual(
             isRawGeoPoseResponseExtended({
                 type: 'geopose',
@@ -85,7 +86,7 @@ describe('geoPoseProtocolExtended', () => {
         });
         assert.strictEqual(isParsedGeoPoseResponseExtended(r), true);
         assert.strictEqual(r.geopose, undefined);
-        assert.strictEqual(r.poses?.[0]?.frameRef.uuid, 'room');
+        assert.strictEqual(r.poses?.[0]?.frame_ref.uuid, 'room');
         assert.strictEqual(r.poses?.[0]?.pose.t.x, 1);
         assert.strictEqual(r.time?.sec, 0);
         assert.strictEqual(r.time?.nanosec, 1_000_000);
@@ -114,7 +115,7 @@ describe('geoPoseProtocolExtended', () => {
         assert.deepStrictEqual(r.accuracy, GEO_POSE_ACCURACY_UNSPECIFIED);
         assert.ok(r.geopose);
         assert.ok(r.poses?.[0]);
-        assert.strictEqual(r.poses?.[0]?.frameRef.uuid, 'u');
+        assert.strictEqual(r.poses?.[0]?.frame_ref.uuid, 'u');
     });
 
     it('parses flat geopose + omits empty scrs', () => {
@@ -163,6 +164,35 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(fp.stamp?.nanosec, 250000);
     });
 
+    it('parses FramedPose wire aliases (covMatrix, translation/orientation, covarianceType)', () => {
+        const r = parseGppResponse({
+            id: '1',
+            timestamp: 1,
+            accuracy: { position: 1, orientation: 1 },
+            type: 'geopose',
+            geopose: {
+                position: { lon: 19, lat: 47, h: 10 },
+                quaternion: { x: 0, y: 0, z: 0, w: 1 },
+            },
+            poses: [
+                {
+                    pose: {
+                        translation: { x: 2, y: -1, z: 0.5 },
+                        orientation: { x: 0, y: 0, z: 0, w: 1 },
+                    },
+                    frame_ref: { uuid: 'alias-map', fqn: 'space:Map' },
+                    covMatrix: { covarianceType: 'COV_NONE' },
+                },
+            ],
+        });
+        const fp = r.poses![0]!;
+        assert.strictEqual(fp.frame_ref.uuid, 'alias-map');
+        assert.strictEqual(fp.pose.t.x, 2);
+        assert.strictEqual(fp.pose.t.y, -1);
+        assert.strictEqual(fp.pose.t.z, 0.5);
+        assert.strictEqual(fp.cov?.covariance_type, 'COV_NONE');
+    });
+
     it('parses GeoPoseResponseExtended poses + time (SpatialDDS FramedPose wire)', () => {
         const r = parseGppResponse({
             id: '1',
@@ -187,7 +217,7 @@ describe('geoPoseProtocolExtended', () => {
         assert.strictEqual(isParsedGeoPoseResponseExtended(r), true);
         assert.strictEqual(r.time?.nanosec, 500);
         assert.strictEqual(r.poses?.length, 1);
-        assert.strictEqual(r.poses?.[0]?.frameRef.uuid, 'map');
+        assert.strictEqual(r.poses?.[0]?.frame_ref.uuid, 'map');
         assert.strictEqual(r.poses?.[0]?.pose.t.x, 1);
     });
 
@@ -235,7 +265,7 @@ describe('geoPoseProtocolExtended', () => {
                 },
             ],
         });
-        const fr = r.poses?.[0]?.frameRef;
+        const fr = r.poses?.[0]?.frame_ref;
         assert.strictEqual(fr?.coord_convention, 'CV');
         assert.deepStrictEqual(fr?.coord_scale, { target_unit: 'SI_METER', scale_factor: 0.001 });
     });

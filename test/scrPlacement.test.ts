@@ -54,7 +54,7 @@ describe('sceneRigidPoseFromScrContent', () => {
             type: 'MODEL_3D',
             title: 'x',
             geopose: objectGeo,
-        } satisfies Content;
+        } as Content;
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(r.ok);
         const expected = convertGeoPoseToLocalPose(objectGeo);
@@ -77,13 +77,13 @@ describe('sceneRigidPoseFromScrContent', () => {
             type: 'MODEL_3D',
             title: 'x',
             framedPose: {
-                frameRef: frame,
+                frame_ref: frame,
                 pose: {
                     t: { x: 1, y: 2, z: -0.5 },
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } satisfies Content;
+        } as Content;
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(r.ok);
         assert.ok(Math.abs(r.pose.position.x - 1) < 1e-5);
@@ -98,13 +98,13 @@ describe('sceneRigidPoseFromScrContent', () => {
             type: 'MODEL_3D',
             title: 'x',
             framedPose: {
-                frameRef: { uuid: 'unknown', fqn: 'x:y' },
+                frame_ref: { uuid: 'unknown', fqn: 'x:y' },
                 pose: {
                     t: { x: 0, y: 0, z: 0 },
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } satisfies Content;
+        } as Content;
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(!r.ok);
         clearAllWorldAlignment();
@@ -136,13 +136,13 @@ describe('sceneRigidPoseFromScrContent', () => {
             title: 'x',
             geopose: objectGeo,
             framedPose: {
-                frameRef: frame,
+                frame_ref: frame,
                 pose: {
                     t: { x: 2, y: 0, z: 0 },
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } satisfies Content;
+        } as Content;
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(r.ok);
         assert.ok(Math.abs(r.pose.position.x - expected.position.x) < 1e-5);

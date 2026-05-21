@@ -30,7 +30,7 @@ function framedPoseToRigidPose(framedPose: FramedPose): RigidPose {
  * Maps SCR **content** to a scene **RigidPose** using {@link worldAlignment}.
  *
  * Precedence when **both** `framedPose` and `geopose` are present:
- * use **framedPose** if {@link worldAlignment.findFramedPoseAlignment} matches `frameRef`, else try **frameTransformGraph**
+ * use **framedPose** if {@link worldAlignment.findFramedPoseAlignment} matches that pose’s `frame_ref`, else try **frameTransformGraph**
  * **T_scene_from_ref** from content frame → {@link SPARCL_WEBXR_SCENE_FRAME_REF}; otherwise fall back to **geopose** when {@link worldAlignment.getActiveGeoAlignment} is set.
  */
 export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseResult {
@@ -42,12 +42,12 @@ export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseRe
     if (framedPoseWire !== undefined && framedPose === undefined) {
         return {
             ok: false,
-            reason: 'content.framedPose is not a valid SpatialDDS FramedPose (frameRef, pose.t, pose.q)',
+            reason: 'content.framedPose is not a valid SpatialDDS FramedPose (frame_ref, pose.t, pose.q)',
         };
     }
 
     if (framedPose !== undefined) {
-        const frameRef = framedPose.frameRef;
+        const frameRef = framedPose.frame_ref;
         if (worldAlignment.findFramedPoseAlignment(frameRef) !== undefined) {
             try {
                 const rigid = framedPoseToRigidPose(framedPose);
@@ -82,7 +82,7 @@ export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseRe
     if (framedPose !== undefined) {
         return {
             ok: false,
-            reason: `No framed alignment for frameRef uuid=${framedPose.frameRef.uuid} fqn=${framedPose.frameRef.fqn}`,
+            reason: `No framed alignment for frame_ref uuid=${framedPose.frame_ref.uuid} fqn=${framedPose.frame_ref.fqn}`,
         };
     }
     if (geoPose !== undefined) {

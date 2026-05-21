@@ -159,8 +159,8 @@ describe('MAT4_ROBOTICS_CAM_FROM_GRAPHICS_CAM vs AC linear map', () => {
 });
 
 describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridge', () => {
-    const mapRefVision: FramedPose['frameRef'] = { uuid: 'test-map-frame', fqn: 'test:Map/colmap' };
-    const mapRefGraphics: FramedPose['frameRef'] = { uuid: 'test-map-webxr', fqn: 'test:Map' };
+    const mapRefVision: FramedPose['frame_ref'] = { uuid: 'test-map-frame', fqn: 'test:Map/colmap' };
+    const mapRefGraphics: FramedPose['frame_ref'] = { uuid: 'test-map-webxr', fqn: 'test:Map' };
 
     it('fusion without vision bridge matches identity wire bridge (regression harness)', () => {
         clearActiveFramedPoseAlignment();
@@ -174,7 +174,7 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
         };
         const n = Math.hypot(pose.q.x, pose.q.y, pose.q.z, pose.q.w) || 1;
         const framed: FramedPose = {
-            frameRef: mapRefGraphics,
+            frame_ref: mapRefGraphics,
             pose: {
                 t: pose.t,
                 q: { x: pose.q.x / n, y: pose.q.y / n, z: pose.q.z / n, w: pose.q.w / n },
@@ -200,7 +200,7 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
         };
         const n = Math.hypot(pose.q.x, pose.q.y, pose.q.z, pose.q.w) || 1;
         const framed: FramedPose = {
-            frameRef: mapRefVision,
+            frame_ref: mapRefVision,
             pose: {
                 t: pose.t,
                 q: { x: pose.q.x / n, y: pose.q.y / n, z: pose.q.z / n, w: pose.q.w / n },
@@ -259,7 +259,7 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
         const framed: FramedPose = {
-            frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
+            frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
             pose: {
                 t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },
@@ -284,14 +284,14 @@ describe('setActiveAlignmentInFrame vs getAlignmentTransformWithCameraFrameBridg
         };
         const n = Math.hypot(pose.q.x, pose.q.y, pose.q.z, pose.q.w) || 1;
         const qn = { x: pose.q.x / n, y: pose.q.y / n, z: pose.q.z / n, w: pose.q.w / n };
-        const scale = 0.25;
+        const scale: number = 0.25;
         const frameRef: FrameRef = {
             uuid: 'test-map-webxr',
             fqn: 'test:Map',
             coord_scale: { target_unit: 'SI_METER', scale_factor: scale },
         };
         const framed: FramedPose = {
-            frameRef,
+            frame_ref: frameRef,
             pose: { t: pose.t, q: qn },
         };
         const mapFromWireScaled = mat4FromPoseSE3({

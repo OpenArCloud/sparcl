@@ -104,11 +104,11 @@ export type CovMatrix = {
 };
 
 /**
- * SpatialDDS Core `FramedPose`: `pose`, `frameRef`; optional `cov`, `stamp`.
- * Pose of the camera (or body) expressed in `frameRef`.
+ * SpatialDDS Core `FramedPose`: `pose`, `frame_ref`; optional `cov`, `stamp`.
+ * Pose of the camera (or body) expressed in `frame_ref`.
  */
 export type FramedPose = {
-    frameRef: FrameRef;
+    frame_ref: FrameRef;
     pose: PoseSE3;
     cov?: CovMatrix;
     /** When the wire omits `stamp`, this property is omitted (not defaulted). */
@@ -119,9 +119,23 @@ function isRecord(x: unknown): x is Record<string, unknown> {
     return x !== null && typeof x === 'object' && !Array.isArray(x);
 }
 
+/**
+ * First defined value among candidate keys on a wire JSON object (SpatialDDS snake_case first, then camelCase / codegen aliases).
+ * Skips properties whose value is `undefined` so a later key can be used.
+ */
+function pickWireMany(rec: Record<string, unknown>, ...keys: string[]): unknown {
+    for (const k of keys) {
+        const v = rec[k];
+        if (v !== undefined) {
+            return v;
+        }
+    }
+    return undefined;
+}
+
 /** Read a field from JSON that may use SpatialDDS snake_case or common camelCase aliases. */
 function pickWire(rec: Record<string, unknown>, snake: string, camel: string): unknown {
-    return rec[snake] ?? rec[camel];
+    return pickWireMany(rec, snake, camel);
 }
 
 /** Parse SpatialDDS / OSCP JSON `time` object (`sec` + `nanosec`). */
@@ -130,7 +144,7 @@ export function parseNsTime(raw: unknown): NsTime | undefined {
         return undefined;
     }
     const sec = raw.sec;
-    const nanosec = pickWire(raw, 'nanosec', 'nanoSec');
+    const nanosec = pickWireMany(raw, 'nanosec', 'nanoSec', 'nano_sec');
     if (typeof sec !== 'number' || typeof nanosec !== 'number') {
         return undefined;
     }
@@ -273,19 +287,21 @@ export function parseCovMatrix(raw: unknown): CovMatrix | undefined {
 }
 
 /**
- * Parse one SpatialDDS `FramedPose` JSON object: `pose.t` / `pose.q`, `frame_ref` (or camelCase `frameRef`), optional `cov`, `stamp`.
+ * Parse one SpatialDDS `FramedPose` JSON object: `pose` (`poseSe3` alias), `pose.t` / `pose.q` (`translation` / `orientation` aliases),
+ * `frame_ref` (or `frameRef`), optional `cov` (`covMatrix` / `covariance`), `stamp`.
  */
 export function parseFramedPose(raw: unknown): FramedPose | undefined {
     if (!isRecord(raw)) {
         return undefined;
     }
-    const poseBlock = raw.pose;
-    if (!isRecord(poseBlock)) {
+    const poseBlockUnknown = pickWireMany(raw, 'pose', 'poseSe3', 'poseSE3');
+    if (!isRecord(poseBlockUnknown)) {
         return undefined;
     }
-    const t = poseBlock.t;
-    const q = poseBlock.q;
-    const ref = parseFrameRef(pickWire(raw, 'frame_ref', 'frameRef'));
+    const poseBlock = poseBlockUnknown;
+    const t = pickWireMany(poseBlock, 't', 'translation');
+    const q = pickWireMany(poseBlock, 'q', 'orientation');
+    const ref = parseFrameRef(pickWireMany(raw, 'frame_ref', 'frameRef'));
     if (!ref || !isRecord(t) || !isRecord(q)) {
         return undefined;
     }
@@ -308,7 +324,7 @@ export function parseFramedPose(raw: unknown): FramedPose | undefined {
         return undefined;
     }
     const base: FramedPose = {
-        frameRef: ref as FrameRef,
+        frame_ref: ref as FrameRef,
         pose: {
             t: { x, y, z },
             q: { x: ox, y: oy, z: oz, w: ow },
@@ -323,7 +339,7 @@ export function parseFramedPose(raw: unknown): FramedPose | undefined {
         }
     }
 
-    const covRaw = raw.cov;
+    const covRaw = pickWireMany(raw, 'cov', 'covMatrix', 'covariance');
     if (covRaw !== undefined && covRaw !== null) {
         const cov = parseCovMatrix(covRaw);
         if (cov !== undefined) {

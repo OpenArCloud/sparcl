@@ -106,7 +106,7 @@ export function mat4FromPoseSE3(pose: PoseSE3): mat4 {
 }
 
 /**
- * Same kinematics as {@link mat4FromPoseSE3} using {@link FramedPose.pose} only (`frameRef`, `cov`, `stamp` are ignored).
+ * Same kinematics as {@link mat4FromPoseSE3} using {@link FramedPose.pose} only (`frame_ref`, `cov`, `stamp` are ignored).
  */
 export function mat4FromFramedPose(framedPose: FramedPose): mat4 {
     return mat4FromPoseSE3(framedPose.pose);

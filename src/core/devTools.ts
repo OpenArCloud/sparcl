@@ -542,7 +542,7 @@ export function buildFakeLocalizationResponse(
         out.poses = [
             /*
             {
-                frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
+                frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
                 pose: {
                     t: {
                         x: fakeVpsFramedPose.position.x,
@@ -564,7 +564,7 @@ export function buildFakeLocalizationResponse(
                     "t": { "x": -3.0257560867308566, "y": -0.7564251042563817, "z": -0.3659372765833804 },
                     "q": { "x": 0.021376899162677647, "y": 0.9391319008002059, "z": 0.2440668305675748, "w": 0.2408436905926322 },
                 },
-                "frameRef": {
+                "frame_ref": {
                     "uuid": "136b8300-6f05-49cc-92cb-4fb622dda8f1",
                     "fqn": "openvps/hloc/136b8300-6f05-49cc-92cb-4fb622dda8f1/colmap_world",
                     "has_coord_convention": true, "coord_convention": "CV",
@@ -595,7 +595,7 @@ export const fakeContentWithFramedPoseScene: SCR = {
         title: 'Content at SCENE FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {
-            frameRef: SPARCL_WEBXR_SCENE_FRAME_REF,
+            frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
             pose: {
                 t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },
@@ -620,7 +620,7 @@ export const fakeContentWithFramedPoseHop2: SCR = {
         title: 'Content at HOP2 FrameRef origin',
         type: 'MODEL_3D',
         framedPose: {
-            frameRef: SPARCL_TEST_HOP2_FRAME_REF,
+            frame_ref: SPARCL_TEST_HOP2_FRAME_REF,
             pose: {
                 t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },

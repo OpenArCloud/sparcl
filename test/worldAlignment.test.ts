@@ -284,7 +284,7 @@ describe('worldAlignment', () => {
         setActiveGeoAlignmentFromCapture(localCapture, globalCapture);
         const beforeFramed = convertGeoPoseToLocalPose(objectGeo);
         setActiveAlignmentInFrame(localCapture, {
-            frameRef: { uuid: 'map', fqn: 'space:Map' },
+            frame_ref: { uuid: 'map', fqn: 'space:Map' },
             pose: {
                 t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },
@@ -325,7 +325,7 @@ describe('worldAlignment', () => {
     it('setActiveAlignmentInFrame: identity poses preserve axis offset in ref', () => {
         const local = { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } };
         const vps = {
-            frameRef: { uuid: 'r', fqn: 'r:f' },
+            frame_ref: { uuid: 'r', fqn: 'r:f' },
             pose: {
                 t: { x: 0, y: 0, z: 0 },
                 q: { x: 0, y: 0, z: 0, w: 1 },

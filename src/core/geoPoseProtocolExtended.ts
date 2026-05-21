@@ -63,8 +63,8 @@ export function isRawGeoPoseResponseExtended(data: Record<string, unknown>): boo
         return true;
     }
     const time = data.time;
-    if (time !== undefined && time !== null && isRecord(time)) {
-        return typeof time.sec === 'number' && typeof time.nanosec === 'number';
+    if (time !== undefined && time !== null && isRecord(time) && parseNsTime(time) !== undefined) {
+        return true;
     }
     return false;
 }

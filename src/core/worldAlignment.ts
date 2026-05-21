@@ -263,14 +263,14 @@ export function setActiveAlignmentInFrame(
     localCapture: WebXrRigidPose,
     cameraPoseInRef: FramedPose,
 ): ActiveWorldAlignmentMatrices {
-    const s = getMetricScaleFactorForFrameRef(cameraPoseInRef.frameRef);
+    const s = getMetricScaleFactorForFrameRef(cameraPoseInRef.frame_ref);
     const t = cameraPoseInRef.pose.t;
     const mRefFromCamWire = mat4FromRigidPose({
         position: { x: t.x * s, y: t.y * s, z: t.z * s }, // scale the translation to meters
         orientation: cameraPoseInRef.pose.q,
     });
     // bridge the camera pose between the VPS and the WebXR conventions
-    const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frameRef);
+    const wireFromGraphics = vpsCameraFrameBridgeFromFrameRef(cameraPoseInRef.frame_ref);
     const tRefFromCam = mat4.create();
     mat4.multiply(tRefFromCam, mRefFromCamWire, wireFromGraphics);
     // invert the transform to get the camera pose in the reference frame
@@ -296,12 +296,12 @@ export function setActiveAlignmentInFrame(
     }
 
     upsertFramedAlignment({
-        frameRef: cloneFrameRef(cameraPoseInRef.frameRef),
+        frameRef: cloneFrameRef(cameraPoseInRef.frame_ref),
         tSceneFromRef,
         tRefFromScene,
         sourceFramedPose: cameraPoseInRef,
     });
-    addFramedPoseAlignmentToTransformGraph(cameraPoseInRef.frameRef, tSceneFromRef);
+    addFramedPoseAlignmentToTransformGraph(cameraPoseInRef.frame_ref, tSceneFromRef);
 
     return {
         tSceneFromRef,
