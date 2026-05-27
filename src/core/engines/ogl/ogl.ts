@@ -52,7 +52,7 @@ import {
 } from '@core/engines/ogl/modelTemplates';
 
 import { checkGLError } from '@core/devTools';
-import { getExternalCameraPoseForExperience } from '@core/engines/externalCameraPose';
+import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
@@ -684,24 +684,13 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Calculates the camera pose to send to scenes loaded into the iframe.
+     * Builds {@link ExternalCameraParameters} (projection + camera pose) for iframe / external WebGL experiences.
      *
      * @param view  XRView      The current view
-     * @param experienceMatrix  Mat4        The matrix of the experience in WebR space
-     * @returns {{camerapose: Mat4, projection: Mat4}}
+     * @param experienceMatrix  Column-major 4×4 of the experience root in WebXR space
      */
-    getExternalCameraPose(view: XRView, experienceMatrix: Mat4) {
-        const em = new Float32Array(16);
-        for (let i = 0; i < 16; i++) {
-            em[i] = experienceMatrix[i]!;
-        }
-        const { projection, camerapose } = getExternalCameraPoseForExperience(view, em as ReadonlyMat4);
-        const cameraMatrix = new Mat4();
-        cameraMatrix.fromArray(Array.from(camerapose));
-        return {
-            projection,
-            camerapose: cameraMatrix,
-        };
+    getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters {
+        return getExternalCameraParametersForExperience(view, experienceMatrix);
     }
 
     /**

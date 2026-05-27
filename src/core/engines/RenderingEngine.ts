@@ -15,6 +15,8 @@
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { Mesh, Transform, Vec3, Quat, Mat4 } from 'ogl';
 
+import type { ExternalCameraParameters } from './externalCameraPose';
+
 import type { ObjectDescription, SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
@@ -121,7 +123,7 @@ export interface RenderingEngine {
     addClickEvent(model: Mesh, handler: () => void): void;
     getClickEvent(modelId: string): (() => void) | undefined;
 
-    getExternalCameraPose(view: XRView, experienceMatrix: Mat4): { projection: XRView['projectionMatrix']; camerapose: Mat4 };
+    getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters;
     getRootSceneUpdater(): (matrix: SceneRootMatrix) => Mat4;
 
     setWaiting(model: Mesh): void;

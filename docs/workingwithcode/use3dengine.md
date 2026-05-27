@@ -35,4 +35,4 @@ To give you an overview what can be used right now, we added a list with current
 
 [setWaiting(3dObject)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L306)
 
-[getExternalCameraPose(view, matrix)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L278)
+[getExternalCameraParameters(view, matrix)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L278) — returns **`ExternalCameraParameters`** (`projection` intrinsics + `camerapose` extrinsic column-major `mat4`).

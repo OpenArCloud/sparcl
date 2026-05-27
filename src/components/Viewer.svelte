@@ -56,7 +56,8 @@
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
     import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { WebXrRigidPose } from '@core/frameTransforms';
+    import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
+    import { mat4, type ReadonlyMat4 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
@@ -64,7 +65,7 @@
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '../core/engines/ogl/ogl';
-    import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
+    import { Vec3, type Mesh, Quat, type Transform } from 'ogl';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
 
@@ -131,7 +132,7 @@
     let unableToStartSession = false;
     let startLocalizing = false;
     let experienceLoaded = false;
-    let experienceMatrix: Mat4 | null = null;
+    let experienceMatrix: mat4 | null = null;
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
@@ -570,11 +571,7 @@
             position: { x: 0, y: 0, z: 0 },
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
-        tdEngine.addDebugAxesAtWorldMatrix(
-            tdEngine.transformFromRigidPose(origin),
-            [1, 1, 1, 0.5],
-            true,
-        );
+        tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
 
         const geoAlign = worldAlignment.getActiveGeoAlignment();
         const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
@@ -604,7 +601,7 @@
             if (experienceMatrix == null) {
                 throw new Error('experienceMatrix is null!');
             }
-            externalContentIFrame?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            externalContentIFrame?.contentWindow?.postMessage(tdEngine.getExternalCameraParameters(view, experienceMatrix), '*');
         }
     }
 
@@ -1070,7 +1067,7 @@
                 if (event.data.type === 'loaded') {
                     tdEngine.remove(placeholder);
                     experienceLoaded = true;
-                    experienceMatrix = placeholder.matrix;
+                    experienceMatrix = mat4.clone(placeholder.matrix as ReadonlyMat4);
 
                     externalContentCloseButton.addEventListener(
                         'click',
