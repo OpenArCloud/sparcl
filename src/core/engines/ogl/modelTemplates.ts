@@ -23,11 +23,15 @@ import type { ObjectDescription, ValueOf } from '../../../types/xr';
 export const PRIMITIVES = Object.freeze({
     box: 'box',
     sphere: 'sphere',
-    //plane: 'plane', // do not draw planes, they are invisible from one side
+    /** Supported by {@link createModel} but omitted from random placeholder shapes (often invisible edge-on). */
+    plane: 'plane',
     cylinder: 'cylinder',
     cone: 'cone',
     torus: 'torus',
 });
+
+/** One of the string literals in {@link PRIMITIVES} (used by engines without importing `PRIMITIVES` for types only). */
+export type PrimitiveShape = ValueOf<typeof PRIMITIVES>;
 
 export let createProgram = (gl: OGLRenderingContext, { vertex = defaultVertex, fragment = defaultFragment, uniforms = {} }: { vertex?: string; fragment?: string; uniforms?: Record<string, any> }) =>
     new Program(gl, {
@@ -178,9 +182,9 @@ export function getDefaultPlaceholder(gl: OGLRenderingContext) {
  */
 export function createRandomObjectDescription(): ObjectDescription {
     const getRandomScaleValue = () => randomInteger(1, 10) / 50.0;
-    const kNumPrimitives = Object.keys(PRIMITIVES).length;
+    const primitiveKeys = (Object.keys(PRIMITIVES) as Array<keyof typeof PRIMITIVES>).filter((k) => k !== 'plane');
+    const kNumPrimitives = primitiveKeys.length;
     let shape_idx = Math.floor(Math.random() * kNumPrimitives);
-    const primitiveKeys = Object.keys(PRIMITIVES) as Array<keyof typeof PRIMITIVES>;
     let shape = PRIMITIVES[primitiveKeys[shape_idx]];
     let color: [number, number, number, number] = [Math.random(), Math.random(), Math.random(), 1.0];
     //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)

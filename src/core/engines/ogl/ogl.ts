@@ -56,6 +56,7 @@ import { printOglTransform, checkGLError } from '@core/devTools';
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
+import type { RenderingEngine, GltfImportResult } from '@core/engines/RenderingEngine';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
 let gl: OGLRenderingContext;
@@ -83,16 +84,11 @@ let gltfCache: Record<string, GLTFDescription> = {};
 // whether to print verbose logs in the console
 const debugOgl = false;
 
-export interface ImportResult {
-    meshes: Promise<Mesh[]>;
-    transform: Transform;
-}
-
 /**
  * Implementation of the 3D features required by sparcl using ogl.
  * https://github.com/oframe/ogl
  */
-export default class ogl {
+export default class ogl implements RenderingEngine {
     /**
      * Initialize ogl for use with WebXR.
      */
@@ -238,9 +234,9 @@ export default class ogl {
      * @param position  Vec3      3D position of the model
      * @param orientation  Quat   Orientation of the model
      * @param url  String         URL to load the model from
-     * @returns {ImportResult}
+     * @returns {GltfImportResult}
      */
-    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0), callback?: (mesh: Mesh) => void, id?: string): ImportResult {
+    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0), callback?: (mesh: Mesh) => void, id?: string): GltfImportResult {
         if(debugOgl) console.log('OGL addModel: ' + url);
         const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
         gltfScene.position.copy(position);
