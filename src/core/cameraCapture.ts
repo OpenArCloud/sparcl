@@ -14,7 +14,6 @@
 // See more details here: https://source.chromium.org/chromium/chromium/src/+/master:third_party/webxr_test_pages/webxr-samples/proposals/camera-access-barebones.html;bpv=0
 
 import { checkGLError } from '@core/devTools';
-import type { OGLRenderingContext } from 'ogl';
 
 let shaderProgram: WebGLProgram | null = null;
 let vertexBuffer: WebGLBuffer | null = null;
@@ -160,7 +159,7 @@ export function getCameraIntrinsics(projectionMatrix: Float32Array, viewport: XR
     return cameraIntrinsics;
 }
 
-export function initCameraCaptureScene(gl: OGLRenderingContext) {
+export function initCameraCaptureScene(gl: WebGL2RenderingContext) {
     checkGLError(gl, 'initCameraCaptureScene() begin');
 
     const vertices = [-1.0, 1.0, 0.0];
@@ -212,7 +211,7 @@ void main(void) {
     checkGLError(gl, 'initCameraCaptureScene() end');
 }
 
-export function drawCameraCaptureScene(gl: OGLRenderingContext, cameraTexture: WebGLTexture) {
+export function drawCameraCaptureScene(gl: WebGL2RenderingContext, cameraTexture: WebGLTexture) {
     checkGLError(gl, 'drawCameraCaptureScene() begin');
     if (aCoordLoc == null) {
         throw new Error('aCoordLoc is null');
@@ -264,7 +263,7 @@ let readback_pixels: Uint8Array | null = null; // buffer that stores the last im
  * @param imageHeight    Height of the resulting image
  * @returns {string}     base64 encoded string of the image (will likely change)
  */
-export function createImageFromTexture(gl: OGLRenderingContext, texture: WebGLTexture, imageWidth: number, imageHeight: number): string {
+export function createImageFromTexture(gl: WebGL2RenderingContext, texture: WebGLTexture, imageWidth: number, imageHeight: number): string {
     checkGLError(gl, 'createImageFromTexture() begin');
 
     const prev_framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING); // save the screen framebuffer ID

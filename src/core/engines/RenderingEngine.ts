@@ -15,7 +15,7 @@
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { Mesh, Transform, Vec3, Quat, Mat4 } from 'ogl';
 
-import type { ObjectDescription } from '../../types/xr';
+import type { ObjectDescription, SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import type { ParticleShape, ParticleSystem } from '@core/engines/ogl/oglParticleHelper';
@@ -122,7 +122,7 @@ export interface RenderingEngine {
     getClickEvent(modelId: string): (() => void) | undefined;
 
     getExternalCameraPose(view: XRView, experienceMatrix: Mat4): { projection: XRView['projectionMatrix']; camerapose: Mat4 };
-    getRootSceneUpdater(): (matrix: number[]) => Mat4;
+    getRootSceneUpdater(): (matrix: SceneRootMatrix) => Mat4;
 
     setWaiting(model: Mesh): void;
     setExperimentTapHandler(callback: (e: { x: number; y: number }) => void): void;

@@ -9,7 +9,7 @@
 
 import { mat4, quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
-import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
+import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
@@ -120,7 +120,7 @@ export function logToConsole() {
  * @param {string} message
  * @returns {boolean} false if no error, true if there was an error
  */
-export function checkGLError(gl: OGLRenderingContext, message: string) {
+export function checkGLError(gl: { getError: () => number } | null, message: string) {
     if (gl == null) {
         console.warn('checkGLError called but there is no GL context');
         return true;

@@ -51,11 +51,12 @@ import {
     PRIMITIVES,
 } from '@core/engines/ogl/modelTemplates';
 
-import { printOglTransform, checkGLError } from '@core/devTools';
+import { checkGLError } from '@core/devTools';
+import { getExternalCameraPoseForExperience } from '@core/engines/externalCameraPose';
 
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
-import type { ObjectDescription, ValueOf } from '../../../types/xr';
+import type { ObjectDescription, ValueOf, SceneRootMatrix } from '../../../types/xr';
 import type { RenderingEngine, GltfImportResult } from '@core/engines/RenderingEngine';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
@@ -690,12 +691,15 @@ export default class ogl implements RenderingEngine {
      * @returns {{camerapose: Mat4, projection: Mat4}}
      */
     getExternalCameraPose(view: XRView, experienceMatrix: Mat4) {
+        const em = new Float32Array(16);
+        for (let i = 0; i < 16; i++) {
+            em[i] = experienceMatrix[i]!;
+        }
+        const { projection, camerapose } = getExternalCameraPoseForExperience(view, em as ReadonlyMat4);
         const cameraMatrix = new Mat4();
-        // TODO: make sure that fromArray understands matrix in correct order
-        cameraMatrix.copy(experienceMatrix).inverse().multiply(new Mat4().fromArray(view.transform.matrix));
-
+        cameraMatrix.fromArray(Array.from(camerapose));
         return {
-            projection: view.projectionMatrix,
+            projection,
             camerapose: cameraMatrix,
         };
     }
@@ -708,7 +712,7 @@ export default class ogl implements RenderingEngine {
      * @returns {function}
      */
     getRootSceneUpdater() {
-        return (matrix: number[]) => (scene.matrix = new Mat4().fromArray(matrix));
+        return (matrix: SceneRootMatrix) => (scene.matrix = new Mat4().fromArray(matrix));
     }
 
     /**

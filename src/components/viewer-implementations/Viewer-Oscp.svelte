@@ -17,7 +17,7 @@
     import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
     import type webxr from '@core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
+    import { Quat, type Transform, Vec3, Mesh } from 'ogl';
     import type { ObjectDescription, XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
     import { myAgentName, myAgentId, myAgentColor, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
@@ -27,7 +27,7 @@
 
     let parentInstance: Parent;
 
-    let myGl: OGLRenderingContext | null = null;
+    let myGl: WebGL2RenderingContext | null = null;
 
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource: XRHitTestSource | undefined;
@@ -65,7 +65,7 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr: webxr, session: XRSession, gl: OGLRenderingContext | null) => {
+            (xr: webxr, session: XRSession, gl: WebGL2RenderingContext | null) => {
                 if (!gl) {
                     throw new Error('gl is undefined');
                 }

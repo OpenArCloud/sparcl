@@ -7,10 +7,8 @@
   SPDX-License-Identifier: MIT
 */
 
-import type { Geopose } from '@oarc/scd-access';
 import type { PRIMITIVES } from '../core/engines/ogl/modelTemplates';
 import type webxr from '../core/engines/webxr';
-import type { OGLRenderingContext } from 'ogl';
 import type Ismar2021SignPostViewer from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
 import type Ismar2021MultiViewer from '../experiments/oarc/ismar2021multi/Viewer.svelte';
 import type Ismar2021PerformanceViewer from '../experiments/oarc/performance/Viewer.svelte';
@@ -20,7 +18,17 @@ export type ValueOf<T> = T[keyof T];
 export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) => void;
 export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, markerPose: XRPose, trackedImage: XRImageTrackingResult) => void;
 export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, frameDuration?: number, passedMaxSlow?: boolean) => void;
-export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: OGLRenderingContext | null) => void;
+
+/** WebGL2 context bound to the WebXR session canvas (`webgl2`, `xrCompatible`). */
+export type XrWebGL2Context = WebGL2RenderingContext;
+
+/**
+ * 4×4 column-major rigid transform from WebXR (e.g. `XRPose.transform.matrix`).
+ * Used when applying anchored scene-root updates; kept separate from any specific renderer.
+ */
+export type SceneRootMatrix = Float32Array | number[];
+
+export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: XrWebGL2Context | null) => void;
 export type XrFeature = string;
 export type ObjectDescription = {
     version: number;
