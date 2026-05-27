@@ -17,14 +17,14 @@
     import { wait } from '@core/common';
     import { debug_showLocalAxes } from '@src/stateStore';
     import type webxr from '../../core/engines/webxr';
-    import type ogl from '../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { Geopose } from '@oarc/scd-access';
     import type { WebXrRigidPose } from '@core/frameTransforms';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let firstPoseReceived = false;
     let showFooter = false;
@@ -33,7 +33,7 @@
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;

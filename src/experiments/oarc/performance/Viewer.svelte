@@ -12,11 +12,11 @@
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     import { Vec3, type Transform, Quat } from 'ogl';
     import type webxr from '../../../core/engines/webxr';
-    import type ogl from '../../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
     let hitTestSource: XRHitTestSource | undefined;
     let reticle: Transform | null = null; // TODO: Mesh instead of Transform
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
@@ -39,7 +39,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;

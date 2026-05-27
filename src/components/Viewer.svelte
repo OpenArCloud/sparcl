@@ -62,7 +62,8 @@
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
-    import ogl, { model3DFormatFromRef } from '../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import { model3DFormatFromRef } from '../core/engines/ogl/ogl';
     import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
@@ -89,7 +90,7 @@
 
     /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
     function applyModel3dDefinitionAnimations(
-        engine: ogl,
+        engine: RenderingEngine,
         root: Transform,
         definitions: Record<string, string>,
     ) {
@@ -125,7 +126,7 @@
     let externalContentIFrame: HTMLIFrameElement;
     let externalContentCloseButton: HTMLImageElement;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let unableToStartSession = false;
     let startLocalizing = false;
@@ -171,7 +172,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 

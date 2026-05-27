@@ -12,14 +12,14 @@
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
     import { peerIdStr } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
-    import type ogl from '../../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import * as worldAlignment from '@core/worldAlignment';
     import type { ObjectDescription } from '../../../types/xr';
     import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
     let hitTestSource: XRHitTestSource | undefined;
     let reticle: Transform | null = null; // TODO: Mesh instead of Transform
 
@@ -56,7 +56,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;

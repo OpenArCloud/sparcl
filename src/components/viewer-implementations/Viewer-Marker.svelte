@@ -20,14 +20,14 @@
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import { wait } from '@core/common';
     import type webxr from '../../core/engines/webxr';
-    import type ogl from '../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
 
     let canvas: HTMLCanvasElement;
     let overlay: HTMLElement;
     let externalContent: HTMLIFrameElement;
     let closeExperience: HTMLImageElement;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let showFooter = false;
     let experienceLoaded = false;
@@ -50,7 +50,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 

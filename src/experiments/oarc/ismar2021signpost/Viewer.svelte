@@ -4,10 +4,10 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import Parent from '@components/Viewer.svelte';
     import type webxr from '../../../core/engines/webxr';
-    import type ogl from '../../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
     let settings: Writable<Record<string, unknown>> = writable({});
 
     let parentState = writable();
@@ -20,7 +20,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;

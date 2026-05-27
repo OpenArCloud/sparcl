@@ -16,12 +16,12 @@
     import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
     import { CREATIONTYPES } from '@core/common';
     import type webxr from '@src/core/engines/webxr';
-    import type ogl from '@src/core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { Vec3, Mesh, Transform, Quat } from 'ogl';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let firstPoseReceived = false;
     let showFooter = false;
@@ -34,7 +34,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;

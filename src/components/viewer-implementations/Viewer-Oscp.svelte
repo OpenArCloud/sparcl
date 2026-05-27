@@ -16,7 +16,7 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
     import type webxr from '@core/engines/webxr';
-    import type ogl from '@core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
     import type { ObjectDescription, XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
@@ -41,7 +41,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         startSession();
     }
