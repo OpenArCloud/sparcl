@@ -17,6 +17,8 @@
     import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
     import type webxr from '@core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import type { RigidPose } from '@core/frameTransforms';
+    import { quat as glQuat } from 'gl-matrix';
     import { Quat, type Transform, Vec3, Mesh } from 'ogl';
     import type { ObjectDescription, XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
@@ -85,13 +87,23 @@
         );
     }
 
-    function drawReticle({ localTargetPose, targetAgentId, color }: { localTargetPose: Transform; targetAgentId: string; color: [number, number, number, number] }) {
+    function drawReticle({ localTargetPose, targetAgentId, color }: { localTargetPose: RigidPose; targetAgentId: string; color: [number, number, number, number] }) {
         const id = `${targetAgentId}_reticle`;
-        const mesh = parentInstance.getRenderer().getDynamicObjectMesh(id);
-        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(1, 0, 0), Math.PI / 2); // to make the torus flat on the surface
-        const torusQuaternion = new Quat().copy(localTargetPose.quaternion).multiply(xrQuatCorrection);
+        const renderer = parentInstance.getRenderer();
+        const mesh = renderer.getDynamicObjectMesh(id);
+        const base = glQuat.fromValues(
+            localTargetPose.orientation.x,
+            localTargetPose.orientation.y,
+            localTargetPose.orientation.z,
+            localTargetPose.orientation.w,
+        );
+        const correction = glQuat.setAxisAngle(glQuat.create(), [1, 0, 0], Math.PI / 2);
+        const torusQ = glQuat.multiply(glQuat.create(), base, correction);
+        const torusQuaternion = new Quat(torusQ[0], torusQ[1], torusQ[2], torusQ[3]);
+        const p = localTargetPose.position;
+        const pos = new Vec3(p.x, p.y, p.z);
         if (mesh) {
-            mesh.position.copy(localTargetPose.position);
+            mesh.position.copy(pos);
             mesh.quaternion.copy(torusQuaternion);
         } else {
             const description: ObjectDescription = {
@@ -102,7 +114,11 @@
                 transparent: false,
                 options: {},
             };
-            const node = parentInstance.getRenderer().addDynamicObject(id, localTargetPose.position, torusQuaternion, description);
+            const correctedPose: RigidPose = {
+                position: localTargetPose.position,
+                orientation: { x: torusQ[0], y: torusQ[1], z: torusQ[2], w: torusQ[3] },
+            };
+            renderer.addDynamicObjectWithRigidPose(id, correctedPose, description);
             agentReticles.push(id);
         }
     }
@@ -153,9 +169,7 @@
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;
             const targetAgentId = msg.agent_id;
             const globalTargetPose = msg.geopose;
-            const localTargetPose = parentInstance
-                .getRenderer()
-                .transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalTargetPose));
+            const localTargetPose = worldAlignment.convertGeoPoseToLocalPose(globalTargetPose);
             const color = msg.color;
             drawReticle({ localTargetPose, targetAgentId, color });
         }

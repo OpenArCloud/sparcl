@@ -5,7 +5,6 @@
     import Parent from '@components/Viewer.svelte';
     import type webxr from '../../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import { Vec3, Quat } from 'ogl';
     import type { Geopose } from '@oarc/scd-access';
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
@@ -118,17 +117,17 @@
             position: { lat: lat, lon: lon, h: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
         };
-        const localFeaturePose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(featureGeopose));
-        const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
+        const pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+        const nodeTransform = tdEngine.addModelWithRigidPose('/media/models/map_pin.glb', pinPose, [2, 2, 2], (pinModel) => {
             //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
             console.log('POI ' + featureName + ' added.');
         }).transform;
         tdEngine.setVerticallyRotating(nodeTransform);
 
-        let localTextPosition = localFeaturePose.position.clone();
-        localTextPosition.y += 3;
-        const textColor = new Vec3(0.063, 0.741, 1.0);
-        const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+        const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
+            textColor: [0.063, 0.741, 1.0],
+            positionOffset: [0, 3, 0],
+        });
         textMesh.then((node) => {
             tdEngine.setTowardsCameraRotating(node);
         });

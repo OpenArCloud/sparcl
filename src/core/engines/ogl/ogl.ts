@@ -85,6 +85,14 @@ let gltfCache: Record<string, GLTFDescription> = {};
 // whether to print verbose logs in the console
 const debugOgl = false;
 
+/** Maps a neutral {@link RigidPose} to OGL vec types (internal to this engine). */
+function oglTrsFromRigidPose(pose: RigidPose): { position: Vec3; quaternion: Quat } {
+    return {
+        position: new Vec3(pose.position.x, pose.position.y, pose.position.z),
+        quaternion: new Quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w),
+    };
+}
+
 /**
  * Implementation of the 3D features required by sparcl using ogl.
  * https://github.com/oframe/ogl
@@ -304,6 +312,17 @@ export default class ogl implements RenderingEngine {
         return { transform: gltfScene, meshes: meshPromise };
     }
 
+    addModelWithRigidPose(
+        url: string,
+        pose: RigidPose,
+        scale: [number, number, number] = [1, 1, 1],
+        callback?: (mesh: Mesh) => void,
+        id?: string,
+    ): GltfImportResult {
+        const { position, quaternion } = oglTrsFromRigidPose(pose);
+        return this.addModel(url, position, quaternion, new Vec3(scale[0], scale[1], scale[2]), callback, id);
+    }
+
     getModel(id: string): Transform {
         return gltf_objects_transforms[id];
     }
@@ -441,6 +460,11 @@ export default class ogl implements RenderingEngine {
         return mesh;
     }
 
+    addDynamicObjectWithRigidPose(object_id: string, pose: RigidPose, object_description: ObjectDescription | null = null) {
+        const { position, quaternion } = oglTrsFromRigidPose(pose);
+        return this.addDynamicObject(object_id, position, quaternion, object_description);
+    }
+
     /**
      * Update a dynamic object with given properties at the given pose
      *
@@ -488,6 +512,15 @@ export default class ogl implements RenderingEngine {
         }
         //console.log('OGL dynamic object has changed: ' + object_id);
         return true;
+    }
+
+    updateDynamicObjectWithRigidPose(
+        object_id: string,
+        pose: RigidPose,
+        object_description: ObjectDescription | null = null,
+    ) {
+        const { position, quaternion } = oglTrsFromRigidPose(pose);
+        return this.updateDynamicObject(object_id, position, quaternion, object_description);
     }
 
     /**
@@ -638,6 +671,22 @@ export default class ogl implements RenderingEngine {
         textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
         return textMesh;
+    }
+
+    async addTextObjectWithRigidPose(
+        pose: RigidPose,
+        string: string,
+        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+    ) {
+        const ox = options?.positionOffset?.[0] ?? 0;
+        const oy = options?.positionOffset?.[1] ?? 0;
+        const oz = options?.positionOffset?.[2] ?? 0;
+        const position = new Vec3(pose.position.x + ox, pose.position.y + oy, pose.position.z + oz);
+        const quaternion = new Quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
+        const tc = options?.textColor
+            ? new Vec3(options.textColor[0], options.textColor[1], options.textColor[2])
+            : new Vec3(1.0, 1.0, 1.0);
+        return this.addTextObject(position, quaternion, string, tc);
     }
 
     async addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string) {
@@ -916,9 +965,10 @@ export default class ogl implements RenderingEngine {
 
     /** Builds an OGL `Transform` from a plain rigid pose (e.g. `convertGeoPoseToLocalPose` in `@core/worldAlignment`). */
     transformFromRigidPose(rp: RigidPose): Transform {
+        const { position, quaternion } = oglTrsFromRigidPose(rp);
         const t = new Transform();
-        t.position.set(rp.position.x, rp.position.y, rp.position.z);
-        t.quaternion.set(rp.orientation.x, rp.orientation.y, rp.orientation.z, rp.orientation.w);
+        t.position.copy(position);
+        t.quaternion.copy(quaternion);
         t.updateMatrix();
         return t;
     }

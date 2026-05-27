@@ -52,6 +52,13 @@ export interface RenderingEngine {
         callback?: (mesh: Mesh) => void,
         id?: string,
     ): GltfImportResult;
+    addModelWithRigidPose(
+        url: string,
+        pose: RigidPose,
+        scale?: [number, number, number],
+        callback?: (mesh: Mesh) => void,
+        id?: string,
+    ): GltfImportResult;
     getModel(id: string): Transform;
     removeModel(id: string): void;
 
@@ -81,10 +88,16 @@ export interface RenderingEngine {
         orientation: Quat,
         object_description?: ObjectDescription | null,
     ): Mesh;
+    addDynamicObjectWithRigidPose(object_id: string, pose: RigidPose, object_description?: ObjectDescription | null): Mesh;
     updateDynamicObject(
         object_id: string,
         position?: Vec3 | null,
         orientation?: Quat | null,
+        object_description?: ObjectDescription | null,
+    ): boolean;
+    updateDynamicObjectWithRigidPose(
+        object_id: string,
+        pose: RigidPose,
         object_description?: ObjectDescription | null,
     ): boolean;
     getDynamicObjectDescription(object_id: string): ObjectDescription | null;
@@ -114,6 +127,11 @@ export interface RenderingEngine {
         quaternion: Quat,
         string: string,
         textColor?: Vec3,
+    ): Promise<Mesh>;
+    addTextObjectWithRigidPose(
+        pose: RigidPose,
+        string: string,
+        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
     ): Promise<Mesh>;
     addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string): Promise<void>;
 
