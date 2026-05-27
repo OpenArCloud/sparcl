@@ -7,7 +7,7 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/performance/ArExperimentOverlay.svelte';
 
-    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
+    import { PRIMITIVES } from '@core/contents/primitives';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
     import { Vec3, type Transform, Quat } from 'ogl';

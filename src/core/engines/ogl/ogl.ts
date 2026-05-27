@@ -33,7 +33,7 @@ import {
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
-import { pointCloudFormatFromRef } from '@core/engines/ogl/oglContentFormats';
+import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from './oglVideoHelper';
@@ -973,13 +973,3 @@ export default class ogl implements RenderingEngine {
         return t;
     }
 }
-
-export {
-    getUrlExtension,
-    pointCloudFormatFromRef,
-    model3DFormatFromRef,
-    isScrPointCloudContentType,
-    isScrModel3dContentType,
-    type PointCloudSourceFormat,
-    type Model3dSourceFormat,
-} from './oglContentFormats';

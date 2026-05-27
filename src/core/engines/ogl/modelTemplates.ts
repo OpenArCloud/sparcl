@@ -16,22 +16,9 @@ import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 import { randomInteger } from '@src/core/common';
 import type { ObjectDescription, ValueOf } from '../../../types/xr';
+import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
 
-/**
- * The supported WebGL primitives.
- */
-export const PRIMITIVES = Object.freeze({
-    box: 'box',
-    sphere: 'sphere',
-    /** Supported by {@link createModel} but omitted from random placeholder shapes (often invisible edge-on). */
-    plane: 'plane',
-    cylinder: 'cylinder',
-    cone: 'cone',
-    torus: 'torus',
-});
-
-/** One of the string literals in {@link PRIMITIVES} (used by engines without importing `PRIMITIVES` for types only). */
-export type PrimitiveShape = ValueOf<typeof PRIMITIVES>;
+export { PRIMITIVES, type PrimitiveShape };
 
 export let createProgram = (gl: OGLRenderingContext, { vertex = defaultVertex, fragment = defaultFragment, uniforms = {} }: { vertex?: string; fragment?: string; uniforms?: Record<string, any> }) =>
     new Program(gl, {

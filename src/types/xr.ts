@@ -7,7 +7,7 @@
   SPDX-License-Identifier: MIT
 */
 
-import type { PRIMITIVES } from '../core/engines/ogl/modelTemplates';
+import type { PrimitiveShape } from '../core/contents/primitives';
 import type webxr from '../core/engines/webxr';
 import type Ismar2021SignPostViewer from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
 import type Ismar2021MultiViewer from '../experiments/oarc/ismar2021multi/Viewer.svelte';
@@ -33,7 +33,7 @@ export type XrFeature = string;
 export type ObjectDescription = {
     version: number;
     color: [number, number, number, number];
-    shape: ValueOf<typeof PRIMITIVES>;
+    shape: PrimitiveShape;
     scale: [number, number, number];
     transparent: boolean;
     options: {};

@@ -21,7 +21,7 @@ import type { ObjectDescription, SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import type { ParticleShape, ParticleSystem } from '@core/engines/ogl/oglParticleHelper';
-import type { PrimitiveShape } from '@core/engines/ogl/modelTemplates';
+import type { PrimitiveShape } from '@core/contents/primitives';
 
 /** Result of loading a GLTF (or placeholder subtree) into the scene. */
 export interface GltfImportResult {

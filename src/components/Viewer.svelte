@@ -40,7 +40,7 @@
         enableCameraPoseSharing,
         showOtherCameras,
     } from '@src/stateStore';
-    import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import { PRIMITIVES } from '@core/contents/primitives';
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
     import {
@@ -64,7 +64,7 @@
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import { model3DFormatFromRef } from '../core/engines/ogl/ogl';
+    import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import { Vec3, type Mesh, Quat, type Transform } from 'ogl';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';

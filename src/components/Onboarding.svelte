@@ -217,9 +217,10 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        const values = await Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]);
+        const { createRenderingEngine } = await import('@core/engines/createRenderingEngine');
+        const values = await Promise.all([createRenderingEngine('ogl'), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
-        const tdEngine = new values[0].default();
+        const tdEngine = values[0];
         viewer = values[2]?.default;
         await tick();
         if ($allowMessageBroker && $selectedMessageBrokerService && $messageBrokerAuth) {

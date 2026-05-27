@@ -14,7 +14,7 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
-    import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
+    import { PRIMITIVES } from '@core/contents/primitives';
     import type webxr from '@core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { RigidPose } from '@core/frameTransforms';

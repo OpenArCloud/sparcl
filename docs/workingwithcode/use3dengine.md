@@ -9,9 +9,16 @@ nav_order: 50
 
 [OGL](https://github.com/oframe/ogl) was seleceted as the default 3D engine for sparcl, because it is very small and still manages to hide away the specifics of [WebGL](https://www.khronos.org/webgl/).
 
-The idea is, that the 3D engine can 'easily' be replaced by another one, but still being able to use the default `Viewer` and XR engine. For this, we will have some kind of API defined, but this is not yet accomplished, unfortunately.
+Viewers depend on the **`RenderingEngine`** interface (`src/core/engines/RenderingEngine.ts`), not on OGL types directly. The default implementation is OGL (`src/core/engines/ogl/ogl.ts`); instantiate it via **`createRenderingEngine('ogl')`** (`src/core/engines/createRenderingEngine.ts`).
 
-To give you an overview what can be used right now, we added a list with currently available functions. Please be aware that this list is likely to change in the future.
+Neutral helpers used by viewers and future engines:
+
+- **`PRIMITIVES` / `PrimitiveShape`** — `src/core/contents/primitives.ts` (SCR placeholder shapes)
+- **`model3DFormatFromRef` / `pointCloudFormatFromRef`** — `src/core/contents/contentFormats.ts`
+- **`getExternalCameraParameters`** — `src/core/engines/externalCameraPose.ts` (returns **`ExternalCameraParameters`**: projection intrinsics + `camerapose` extrinsic column-major `mat4`)
+- **`RigidPose` placement** — `addModelWithRigidPose`, `addDynamicObjectWithRigidPose`, `addTextObjectWithRigidPose`, etc.
+
+The list below still points at the OGL class for historical links; prefer the interface and neutral modules above when adding features.
 
 [init()](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L35)
 
