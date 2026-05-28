@@ -1,8 +1,9 @@
 import type { RenderingEngine } from '@core/engines/RenderingEngine';
-import { Quat, Vec3, type Mesh } from 'ogl';
+import { Quat, Vec3 } from 'ogl';
+import type { SceneNodeId } from '@core/engines/RenderingEngine';
 import { type ParticleSystem, ParticleShape, updateParticles } from '@src/core/engines/ogl/oglParticleHelper';
 
-export const sensorTexts: Record<string, Mesh> = {};
+export const sensorTexts: Record<string, SceneNodeId> = {};
 
 let particleList: Record<string, ParticleSystem> = {};
 
@@ -10,7 +11,12 @@ let textList: Record<string, TextSensor> = {};
 
 const debugSensors = false;
 
-export function createSensorVisualization(tdEngine: RenderingEngine, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
+export function createSensorVisualization(
+    tdEngine: RenderingEngine,
+    localPosition: Vec3,
+    localQuaternion: Quat,
+    content_definitions: Record<string, string>,
+) {
     switch (content_definitions.visualizationType) {
         case 'particle':
             return createParticleSensor(tdEngine, localPosition, localQuaternion, content_definitions);
@@ -21,7 +27,12 @@ export function createSensorVisualization(tdEngine: RenderingEngine, localPositi
     }
 }
 
-function createParticleSensor(tdEngine: RenderingEngine, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
+function createParticleSensor(
+    tdEngine: RenderingEngine,
+    localPosition: Vec3,
+    localQuaternion: Quat,
+    content_definitions: Record<string, string>,
+) {
     const sensor_id = content_definitions['sensor_id'];
     if (!sensor_id) {
         console.error('ERROR: Missing sensor_id field in content record!');
@@ -38,10 +49,25 @@ function createParticleSensor(tdEngine: RenderingEngine, localPosition: Vec3, lo
         shape = 'random';
     }
 
-    const particles = tdEngine.addParticleObject(localPosition, localQuaternion, shape as ParticleShape, baseColor, pointSize, intensity, systemSize, speed);
+    const particles = tdEngine.addParticleObject(
+        localPosition,
+        localQuaternion,
+        shape as ParticleShape,
+        baseColor,
+        pointSize,
+        intensity,
+        systemSize,
+        speed,
+    );
     particleList[sensor_id] = particles;
 
-    setSensorText(sensor_id, `0`, tdEngine, new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)), localQuaternion);
+    setSensorText(
+        sensor_id,
+        `0`,
+        tdEngine,
+        new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)),
+        localQuaternion
+    );
 
     if (content_definitions['createButton'] === 'true') {
         let object_id = sensor_id + '_button';
@@ -55,7 +81,14 @@ function createParticleSensor(tdEngine: RenderingEngine, localPosition: Vec3, lo
     return sensor_id;
 }
 
-function createTextSensor(tdEngine: RenderingEngine, localPosition: Vec3, localQuaternion: Quat, content_definitions: Record<string, string>) {
+function createTextSensor(
+    tdEngine: RenderingEngine,
+    localPosition: Vec3,
+    localQuaternion: Quat,
+    //localPosition: ReadonlyVec3,
+    //localQuaternion: ReadonlyQuat,
+    content_definitions: Record<string, string>,
+) {
     const sensor_id = content_definitions['sensor_id'];
     if (!sensor_id) {
         console.error('ERROR: Missing sensor_id field in content record!');
@@ -63,7 +96,13 @@ function createTextSensor(tdEngine: RenderingEngine, localPosition: Vec3, localQ
     }
     if (debugSensors) console.log('Adding sensor as text: ', sensor_id);
 
-    setSensorText(sensor_id, `0`, tdEngine, new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)), localQuaternion);
+    setSensorText(
+        sensor_id,
+        `0`,
+        tdEngine,
+        new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)),
+        localQuaternion
+    );
 
     textList[sensor_id] = {
         intensity: 0,
@@ -87,13 +126,24 @@ export function updateSensorVisualization() {
     }
 }
 
-export function setSensorText(id: string, value: string, tdEngine: RenderingEngine, position?: Vec3, quaternion?: Quat) {
+export function setSensorText(
+    id: string,
+    value: string,
+    tdEngine: RenderingEngine,
+    position?: Vec3,
+    quaternion?: Quat,
+) {
+    const savedPosition = new Vec3();
+    const savedQuaternion = new Quat();
     if (sensorTexts[id]) {
+        if (!position || !quaternion) {
+            tdEngine.getNodePose(sensorTexts[id], savedPosition, savedQuaternion);
+        }
         if (!position) {
-            position = sensorTexts[id].position;
+            position = savedPosition;
         }
         if (!quaternion) {
-            quaternion = sensorTexts[id].quaternion;
+            quaternion = savedQuaternion;
         }
         tdEngine.remove(sensorTexts[id]);
         delete sensorTexts[id];
@@ -104,8 +154,13 @@ export function setSensorText(id: string, value: string, tdEngine: RenderingEngi
         return;
     }
 
-    return tdEngine.addTextObject(position, quaternion, `${value}`, new Vec3(0.2, 0.6, 0.9)).then((textMesh: Mesh) => {
-        textMesh.scale.set(0.25);
+    return tdEngine.addTextObject(
+        position,
+        quaternion,
+        `${value}`,
+        new Vec3(0.2, 0.6, 0.9),
+    ).then((textMesh) => {
+        tdEngine.setNodeUniformScale(textMesh, 0.25);
         tdEngine.setTowardsCameraRotating(textMesh);
         sensorTexts[id] = textMesh;
         return textMesh;

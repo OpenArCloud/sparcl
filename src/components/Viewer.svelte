@@ -65,7 +65,8 @@
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
-    import { Vec3, type Mesh, Quat, type Transform } from 'ogl';
+    import { Vec3, Quat } from 'ogl';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
 
@@ -92,7 +93,7 @@
     /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
     function applyModel3dDefinitionAnimations(
         engine: RenderingEngine,
-        root: Transform,
+        nodeId: SceneNodeId,
         definitions: Record<string, string>,
     ) {
         const animation = definitions['animation'];
@@ -101,7 +102,7 @@
         }
         switch (animation) {
             case 'SPIN_UP':
-                engine.setVerticallyRotating(root);
+                engine.setVerticallyRotating(nodeId);
                 break;
             default:
                 break;
@@ -782,9 +783,9 @@
                     console.log(`Skipping SCR ${record.content.id} (${record.content.type}): ${poseResult.reason}`);
                     return;
                 }
-                const lp = tdEngine.transformFromRigidPose(poseResult.pose);
-                const localPosition = lp.position;
-                const localQuaternion = lp.quaternion;
+
+                const localPosition = new Vec3(poseResult.pose.position.x, poseResult.pose.position.y, poseResult.pose.position.z);
+                const localQuaternion = new Quat(poseResult.pose.orientation.x, poseResult.pose.orientation.y, poseResult.pose.orientation.z, poseResult.pose.orientation.w);                
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -824,8 +825,8 @@
 
                             switch (modelFormat) {
                                 case 'gltf': {
-                                    const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
-                                    applyModel3dDefinitionAnimations(tdEngine, nodeTransform, content_definitions);
+                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion);
+                                    applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                     break;
                                 }
                                 case 'ply': {
@@ -881,7 +882,7 @@
                             let object_id = record.content.id;
 
                             let object_description = (record.content as any).object_description;
-                            if (tdEngine.getDynamicObjectMesh(object_id) != null) {
+                            if (tdEngine.getDynamicObjectNodeId(object_id) != null) {
                                 tdEngine.updateDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             } else {
                                 tdEngine.addDynamicObject(object_id, localPosition, localQuaternion, object_description);
@@ -984,15 +985,15 @@
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
                                     const pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
-                                    const nodeTransform = tdEngine.addModelWithRigidPose(
+                                    const modelNodeId = tdEngine.addModelWithRigidPose(
                                         '/media/models/map_pin.glb',
                                         pinPose,
                                         [2, 2, 2],
-                                        (pinModel) => {
-                                        //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
+                                        (pinModelId) => {
                                         if (debugScrs) console.log('POI ' + featureName + ' added.');
-                                    }).transform;
-                                    tdEngine.setVerticallyRotating(nodeTransform);
+                                        //tdEngine.setVerticallyRotating(pinModelId.parent!); // TODO: why does this not work?
+                                    });
+                                    tdEngine.setVerticallyRotating(modelNodeId);
 
                                     const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
                                         textColor: [0.063, 0.741, 1.0],
@@ -1056,22 +1057,29 @@
     /**
      * Handler to load and unload external experiences.
      *
-     * @param placeholder  Model    The initial placeholder placed into the 3D scene
+     * @param placeholderNodeId  SceneNodeId    The initial placeholder placed into the 3D scene
      * @param position  Vec3        The position the experience should be placed
      * @param orientation  Quat     The orientation of the experience
      * @param url  String           The URL to load the experience from
      */
-    export function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
-        tdEngine.setWaiting(placeholder);
+    export function experienceLoadHandler(
+        placeholderNodeId: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+        url: string
+    ) {
+        tdEngine.setWaiting(placeholderNodeId);
 
         externalContentIFrame.src = url;
         window.addEventListener(
             'message',
             (event) => {
                 if (event.data.type === 'loaded') {
-                    tdEngine.remove(placeholder);
+                    tdEngine.remove(placeholderNodeId);
                     experienceLoaded = true;
-                    experienceMatrix = mat4.clone(placeholder.matrix as ReadonlyMat4);
+                    const world = mat4.create();
+                    tdEngine.getNodeWorldMatrix(placeholderNodeId, world);
+                    experienceMatrix = mat4.clone(world);
 
                     externalContentCloseButton.addEventListener(
                         'click',
