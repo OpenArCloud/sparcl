@@ -23,18 +23,36 @@ import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import type { ParticleShape, ParticleSystem } from '@core/engines/ogl/oglParticleHelper';
 import type { PrimitiveShape } from '@core/contents/primitives';
 
-/** Result of loading a GLTF (or placeholder subtree) into the scene. */
-export interface GltfImportResult {
-    meshes: Promise<Mesh[]>;
-    transform: Transform;
-}
+/**
+ * Opaque id for a node in a {@link RenderingEngine} scene graph.
+ * Viewers must not use OGL `Mesh` / `Transform` or THREE `Object3D` — only this id and engine methods.
+ */
+export type SceneNodeId = string;
+
+/**
+ * Application-defined name for a cached GLTF root ({@link addModel} optional `name`).
+ * Not the same as {@link SceneNodeId}: use this only to look up a model you registered with `name` at load time.
+ */
+export type ModelName = string;
 
 export interface RenderingEngine {
     init(): void;
     initScene(): void;
 
-    addPlaceholder(keywords: string | string[] | undefined, position: Vec3, orientation: Quat): Mesh;
-    addPolyline(points: Vec3[], hexColor: string): Mesh;
+    /** @returns {@link SceneNodeId} for the placeholder root */
+    addPlaceholder(
+        keywords: string | string[] | undefined,
+        position: Vec3,
+        orientation: Quat,
+    ): SceneNodeId;
+
+    /** @returns {@link SceneNodeId} for the polyline mesh */
+    addPolyline(
+        points: Vec3[],
+        hexColor: string
+    ): SceneNodeId;
+
+    /** @returns {@link SceneNodeId} for the configured primitive mesh */
     addPlaceholderWithOptions(
         shape: PrimitiveShape,
         position: Vec3,
@@ -42,34 +60,69 @@ export interface RenderingEngine {
         color: [number, number, number, number] | undefined,
         fragmentShader: string | undefined,
         options?: unknown,
-    ): Mesh;
+    ): SceneNodeId;
 
+    /**
+     * @param callback - Invoked per loaded GLTF mesh leaf with its {@link SceneNodeId}
+     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @returns {@link SceneNodeId} for the GLTF root transform
+     */
     addModel(
         url: string,
         position: Vec3,
         orientation: Quat,
         scale?: Vec3,
-        callback?: (mesh: Mesh) => void,
-        id?: string,
-    ): GltfImportResult;
+        callback?: (nodeId: SceneNodeId) => void,
+        name?: ModelName,
+    ): SceneNodeId;
+
+    /** @returns {@link SceneNodeId} for the GLTF root (pose converted to {@link ReadonlyVec3} / {@link ReadonlyQuat}) */
     addModelWithRigidPose(
         url: string,
         pose: RigidPose,
         scale?: [number, number, number],
-        callback?: (mesh: Mesh) => void,
-        id?: string,
-    ): GltfImportResult;
-    getModel(id: string): Transform;
-    removeModel(id: string): void;
+        callback?: (nodeId: SceneNodeId) => void,
+        name?: ModelName,
+    ): SceneNodeId;
+    /**
+     * Resolves a previously cached GLTF root. Prefer the return value of {@link addModel} when you can.
+     *
+     * @returns {@link SceneNodeId} of the GLTF root, or `null` if `name` was never registered
+     */
+    getModel(name: ModelName): SceneNodeId | null;
 
-    addExperiencePlaceholder(position: Vec3, orientation: Quat): Mesh;
-    addMarkerObject(): Mesh;
-    addReticle(): Transform;
-    isHorizontal(object: { quaternion: Quat }): boolean;
+    /** Removes a GLTF root registered with the same {@link ModelName} passed to {@link addModel}. */
+    removeModel(name: ModelName): void;
 
-    addRandomObject(position: Vec3, orientation: Quat): Mesh;
-    addObject(position: Vec3, orientation: Quat, object_description: ObjectDescription): Mesh;
+    /** @returns {@link SceneNodeId} for the experience placeholder */
+    addExperiencePlaceholder(
+        position: Vec3,
+        orientation: Quat,
+    ): SceneNodeId;
 
+    /** @returns {@link SceneNodeId} for the marker tracking object */
+    addMarkerObject(): SceneNodeId;
+
+    /** @returns {@link SceneNodeId} for the hit-test reticle root */
+    addReticle(): SceneNodeId;
+
+    /** Whether the given orientation is roughly horizontal (floor-aligned). */
+    isHorizontal(orientation: Quat): boolean;
+
+    /** @returns {@link SceneNodeId} for a random primitive */
+    addRandomObject(
+        position: Vec3,
+        orientation: Quat
+    ): SceneNodeId;
+
+    /** @returns {@link SceneNodeId} for the described primitive mesh */
+    addObject(
+        position: Vec3,
+        orientation: Quat,
+        object_description: ObjectDescription
+    ): SceneNodeId;
+
+    /** @returns Engine-specific {@link ParticleSystem} (not a {@link SceneNodeId}) */
     addParticleObject(
         position: Vec3,
         orientation: Quat,
@@ -80,87 +133,163 @@ export interface RenderingEngine {
         systemSize: number,
         speed: number,
     ): ParticleSystem;
+
+    /** @param particles - Engine-specific {@link ParticleSystem} (not a {@link SceneNodeId}) */
     setParticleIntensity(particles: ParticleSystem, calculate: (oldValue: number) => number): number;
 
+    /** @param object_id - Stable id for updates and {@link getDynamicObjectNodeId} */
     addDynamicObject(
         object_id: string,
         position: Vec3,
         orientation: Quat,
         object_description?: ObjectDescription | null,
-    ): Mesh;
-    addDynamicObjectWithRigidPose(object_id: string, pose: RigidPose, object_description?: ObjectDescription | null): Mesh;
+    ): SceneNodeId;
+
+    addDynamicObjectWithRigidPose(
+        object_id: string,
+        pose: RigidPose,
+        object_description?: ObjectDescription | null
+    ): SceneNodeId;
+
     updateDynamicObject(
         object_id: string,
         position?: Vec3 | null,
         orientation?: Quat | null,
         object_description?: ObjectDescription | null,
     ): boolean;
+
     updateDynamicObjectWithRigidPose(
         object_id: string,
         pose: RigidPose,
         object_description?: ObjectDescription | null,
     ): boolean;
+
     getDynamicObjectDescription(object_id: string): ObjectDescription | null;
-    getDynamicObjectMesh(object_id: string): Mesh | null;
+
+    /** @returns {@link SceneNodeId} for the dynamic mesh, or `null` */
+    getDynamicObjectNodeId(object_id: string): SceneNodeId | null;
+
     removeDynamicObject(object_id: string): void;
 
-    updateMarkerObjectPosition(object: Mesh, position: Vec3, orientation: Quat): void;
+    /** @param object - {@link SceneNodeId} from {@link addMarkerObject} */
+    updateMarkerObjectPosition(
+        object: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+    ): void;
+
+    /** @param reticle - {@link SceneNodeId} from {@link addReticle} */
     updateReticlePose(
-        reticle: Transform,
+        reticle: SceneNodeId,
         position: Vec3,
         orientation: Quat,
         scale?: Vec3,
     ): void;
 
-    addAxes(): Transform;
+    /** Writes world-space TRS of `node` into the provided out parameters. */
+    getNodePose(
+        nodeId: SceneNodeId,
+        outPosition: Vec3,
+        outOrientation: Quat,
+        outScale?: Vec3,
+    ): void;
 
-    addPlyObject(url: string, position: Vec3, quaternion: Quat, plyOptions?: PlyLoadOptions): Promise<Mesh | null>;
-    addPointCloudObject(
+    /** Sets the pose of a node in the scene graph. */
+    setNodePose(
+        nodeId: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+        scale?: Vec3
+    ): void;
+
+    translateNode(nodeId: SceneNodeId, dx: number, dy: number, dz: number): void;
+    setNodeUniformScale(nodeId: SceneNodeId, scale: number): void;
+
+    setNodeVisible(nodeId: SceneNodeId, visible: boolean): void;
+    isNodeVisible(nodeId: SceneNodeId): boolean;
+
+    /** Column-major world matrix of `node`. */
+    getNodeWorldMatrix(node: SceneNodeId, out: mat4): void;
+
+    /** @returns {@link SceneNodeId} for the dev axes helper */
+    addAxes(): SceneNodeId;
+
+    addPlyObject(
         url: string,
         position: Vec3,
         quaternion: Quat,
+        plyOptions?: PlyLoadOptions
+    ): Promise<SceneNodeId | null>;
+
+    addPointCloudObject(
+        url: string,
+        position: Vec3,
+        orientation: Quat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
-    ): Promise<Mesh | null>;
-    addLogoObject(url: string, position: Vec3, quaternion: Quat, width?: number, height?: number): Promise<void>;
+    ): Promise<SceneNodeId | null>;
+
+    addLogoObject(
+        url: string,
+        position: Vec3,
+        quaternion: Quat,
+        width?: number,
+        height?: number
+    ): Promise<void>;
+
     addTextObject(
         position: Vec3,
         quaternion: Quat,
         string: string,
         textColor?: Vec3,
-    ): Promise<Mesh>;
+    ): Promise<SceneNodeId>;
+
     addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
         options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
-    ): Promise<Mesh>;
-    addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string): Promise<void>;
+    ): Promise<SceneNodeId>;
 
-    setVerticallyRotating(node: Transform): void;
-    setTowardsCameraRotating(node: Transform): void;
+    addVideoObject(
+        position: Vec3,
+        quaternion: Quat,
+        videoUrl: string
+    ): Promise<void>;
 
-    addClickEvent(model: Mesh, handler: () => void): void;
+    setVerticallyRotating(node: SceneNodeId): void;
+    setTowardsCameraRotating(node: SceneNodeId): void;
+
+    /** @param modelId - {@link SceneNodeId} that should receive pointer/tap hits */
+    addClickEvent(modelId: SceneNodeId, handler: () => void): void;
+
     getClickEvent(modelId: string): (() => void) | undefined;
 
     getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters;
-    getRootSceneUpdater(): (matrix: SceneRootMatrix) => Mat4;
+    getRootSceneUpdater(): (matrix: SceneRootMatrix) => mat4;
 
-    setWaiting(model: Mesh): void;
+    /** @param modelId - {@link SceneNodeId} to show loading / waiting visuals */
+    setWaiting(modelId: SceneNodeId): void;
+
     setExperimentTapHandler(callback: (e: { x: number; y: number }) => void): void;
 
     resize(): void;
+
     reinitialize(): void;
+
     cleanup(): void;
-    remove(model: Mesh | Transform): void;
+
+    /** @param modelId - {@link SceneNodeId} to detach from the scene */
+    remove(modelId: SceneNodeId): void;
+
     stop(): void;
 
     updateMatrixWorld(): void;
     render(time: DOMHighResTimeStamp, view: XRView): void;
 
+    /** @returns {@link SceneNodeId} for debug axis geometry at `worldMatrix` */
     addDebugAxesAtWorldMatrix(
         worldMatrix: ReadonlyMat4,
         color: [number, number, number, number],
         showAxes?: boolean,
-    ): Transform;
+    ): SceneNodeId;
     updateSceneGraphTransforms(): void;
-    transformFromRigidPose(rp: RigidPose): Transform;
 }

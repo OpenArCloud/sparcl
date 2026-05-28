@@ -4,6 +4,7 @@
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { Vec3, Quat, type Transform } from 'ogl';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
 
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
@@ -21,7 +22,7 @@
     let xrEngine: webxr;
     let tdEngine: RenderingEngine;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
+    let reticleNodeId: SceneNodeId | null = null;
 
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
@@ -119,14 +120,18 @@
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
             $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
-            if (reticle === null) {
-                reticle = tdEngine.addReticle();
+            if (reticleNodeId === null) {
+                reticleNodeId = tdEngine.addReticle();
             }
             const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
             const position = reticlePose?.transform.position;
             const orientation = reticlePose?.transform.orientation;
             if (position && orientation) {
-                tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                tdEngine.updateReticlePose(
+                    reticleNodeId,
+                    new Vec3(position.x, position.y, position.z),
+                    new Quat(orientation.x, orientation.y, orientation.z, orientation.w)
+                );
             }
         }
 
@@ -163,7 +168,7 @@
 
     function relocalize() {
         parentInstance.relocalize();
-        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        reticleNodeId = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
     }
 
     /**
@@ -175,7 +180,7 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler() {
-        if (reticle == null) {
+        if (reticleNodeId == null) {
             return;
         }
         if ($parentState.hasLostTracking) {
@@ -191,7 +196,10 @@
         // create SCR from the object and share it with the others
         // when received, place the same way as a downloaded SCR.
         const object_description = createRandomObjectDescription();
-        shareObject(object_description, reticle.position, reticle.quaternion);
+        const reticlePosition = new Vec3(0, 0, 0);
+        const reticleOrientation = new Quat(0, 0, 0, 1);
+        tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
+        shareObject(object_description, reticlePosition, reticleOrientation);
         experimentOverlay?.objectSent();
     }
 
@@ -221,13 +229,20 @@
         console.log('Message sent: ' + message_body);
     }
 
-    function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
+    function shareObject(
+        object_description: ObjectDescription,
+        position: Vec3,
+        quaternion: Quat,
+    ) {
         if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
         // Now calculate the global pose of the object
-        const objectGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(position, quaternion);
+        const objectGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(
+            { x: position[0], y: position[1], z: position[2] },
+            { x: quaternion[0], y: quaternion[1], z: quaternion[2], w: quaternion[3] },
+        );
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid

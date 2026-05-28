@@ -18,6 +18,7 @@
     import type webxr from '@src/core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { Vec3, Mesh, Transform, Quat } from 'ogl';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -26,7 +27,7 @@
     let firstPoseReceived = false;
     let showFooter = false;
 
-    let creatorObject: Transform | Mesh | null = null;
+    let creatorObjectNodeId: SceneNodeId | null = null;
 
     /**
      * Initial setup.
@@ -70,17 +71,17 @@
             }
         }
 
-        if (!creatorObject) {
             const position = new Vec3(0, 0, -2);
             const orientation = new Quat(0, 0, 0, 1);
+        if (!creatorObjectNodeId) {
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
-                creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
+                creatorObjectNodeId = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation).transform;
+                creatorObjectNodeId = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
-                creatorObject = experiencePlaceholderObject;
+                creatorObjectNodeId = experiencePlaceholderObject;
                 tdEngine.addClickEvent(experiencePlaceholderObject, () => parentInstance.experienceLoadHandler(experiencePlaceholderObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');

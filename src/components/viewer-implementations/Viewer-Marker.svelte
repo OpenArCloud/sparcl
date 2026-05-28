@@ -19,6 +19,7 @@
 
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import { wait } from '@core/common';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import type webxr from '../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
 
@@ -36,7 +37,7 @@
     let hasLostTracking = false;
     let unableToStartSession = false;
 
-    let trackedImageObject: Mesh;
+    let trackedImageObjectNodeId: SceneNodeId | null = null;
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined;
 
     const message = (msg: string) => console.log(msg);
@@ -156,15 +157,15 @@
         showFooter = false;
         if (trackedImage && trackedImage.trackingState === 'tracked') {
             // TODO: use XRImageTrackingState.tracked
-            if (!trackedImageObject) {
-                trackedImageObject = tdEngine.addMarkerObject();
+            if (trackedImageObjectNodeId === null) {
+                trackedImageObjectNodeId = tdEngine.addMarkerObject();
             }
 
             const markerPos = xrMarkerPose.transform.position;
             const markerOri = xrMarkerPose.transform.orientation;
             const position = new Vec3(markerPos.x, markerPos.y, markerPos.z);
             const orientation = new Quat(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
-            tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
+            tdEngine.updateMarkerObjectPosition(trackedImageObjectNodeId, position, orientation);
             isLocalized = true;
         }
 

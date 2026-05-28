@@ -30,7 +30,7 @@ import {
     type GLTF,
     type GLTFDescription,
 } from 'ogl';
-
+import { mat4} from 'gl-matrix';
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
@@ -57,7 +57,7 @@ import { getExternalCameraParametersForExperience, type ExternalCameraParameters
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ObjectDescription, ValueOf, SceneRootMatrix } from '../../../types/xr';
-import type { RenderingEngine, GltfImportResult } from '@core/engines/RenderingEngine';
+import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 
 let gl: OGLRenderingContext;
@@ -75,7 +75,7 @@ let experimentTapHandler: null | ((e: { x: number; y: number }) => void) = null;
 let dynamic_objects_descriptions: Record<string, ObjectDescription> = {};
 let dynamic_objects_meshes: Record<string, Mesh> = {};
 
-let gltf_objects_transforms: Record<string, Transform> = {};
+let gltf_objects_transforms: Record<ModelName, Transform> = {};
 
 let towardsCameraRotatingNodes: Transform[] = [];
 let verticallyRotatingNodes: Transform[] = [];
@@ -98,6 +98,96 @@ function oglTrsFromRigidPose(pose: RigidPose): { position: Vec3; quaternion: Qua
  * https://github.com/oframe/ogl
  */
 export default class ogl implements RenderingEngine {
+
+    private readonly nodesById = new Map<SceneNodeId, Transform | Mesh>();
+
+    /** OGL {@link Transform} has no `.id`; only {@link Mesh} does — assign stable ids per native object. */
+    private readonly nativeToSceneNodeId = new WeakMap<Transform | Mesh, SceneNodeId>();
+    private nextTransformSceneNodeId = 0;
+
+    /** Returns the {@link SceneNodeId} for a native already registered via {@link addSceneNode}. */
+    private getSceneNodeId(native: Transform | Mesh): SceneNodeId | null {
+        return this.nativeToSceneNodeId.get(native) ?? null;
+    }
+
+    private addSceneNode(native: Transform | Mesh): SceneNodeId {
+        let id = this.getSceneNodeId(native);
+        if (!id) {
+            if (typeof native.id === 'number' && Number.isFinite(native.id)) {
+                id = String(native.id);
+            } else {
+                // transforms have no id, so we assign a stable id
+                // however, if a transform gets deleted, we do not decrement the id :(
+                id = `tn_${++this.nextTransformSceneNodeId}`;
+            }
+            this.nativeToSceneNodeId.set(native, id);
+        }
+        this.nodesById.set(id, native);
+        return id;
+    }
+
+    private getSceneNode(nodeId: SceneNodeId): Transform | Mesh {
+        const native = this.nodesById.get(nodeId);
+        if (!native) {
+            throw new Error(`OGL: unknown scene node id ${nodeId}`);
+        }
+        return native;
+    }
+
+    getNodePose(
+        nodeId: SceneNodeId,
+        outPosition: Vec3,
+        outOrientation: Quat,
+        outScale?: Vec3,
+    ): void {
+        const native = this.getSceneNode(nodeId);
+        outPosition.copy(native.position);
+        outOrientation.copy(native.quaternion);
+        if (outScale) {
+            outScale.copy(native.scale);
+        }
+    }
+
+    setNodePose(
+        nodeId: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+        scale?: Vec3,
+    ): void {
+        const native = this.getSceneNode(nodeId);
+        native.position.copy(position);
+        native.quaternion.copy(orientation);
+        if (scale) {
+            native.scale.copy(scale);
+        }
+    }
+
+    translateNode(nodeId: SceneNodeId, dx: number, dy: number, dz: number) {
+        const native = this.getSceneNode(nodeId);
+        native.position.x += dx;
+        native.position.y += dy;
+        native.position.z += dz;
+    }
+
+    setNodeUniformScale(nodeId: SceneNodeId, scale: number) {
+        const native = this.getSceneNode(nodeId);
+        native.scale.set(scale, scale, scale);
+    }
+
+    setNodeVisible(nodeId: SceneNodeId, visible: boolean) {
+        this.getSceneNode(nodeId).visible = visible;
+    }
+
+    isNodeVisible(nodeId: SceneNodeId) {
+        return this.getSceneNode(nodeId).visible;
+    }
+
+    getNodeWorldMatrix(nodeId: SceneNodeId, out: mat4) {
+        const native = this.getSceneNode(nodeId);
+        native.updateMatrixWorld(true);
+        mat4.copy(out, native.matrix as unknown as mat4);
+    }
+
     /**
      * Initialize ogl for use with WebXR.
      */
@@ -169,28 +259,36 @@ export default class ogl implements RenderingEngine {
     /**
      * Add a general placeholder to the scene.
      *
-     * @param keywords  string      Defines the kind of placeholder to create
      * @param position  Vec3        3D position of the placeholder
      * @param orientation  Quat     Orientation of the placeholder
-     * @returns {Transform}
+     * @param keywords - Defines the kind of placeholder to create
+     * @returns Opaque {@link SceneNodeId} for the placeholder root
      */
-    addPlaceholder(keywords: string | string[] | undefined, position: Vec3, orientation: Quat) {
-        if (debugOgl) console.log('OGL addPlaceholder: ' + position + ' ' + orientation);
+    addPlaceholder(
+        keywords: string | string[] | undefined,
+        position: Vec3,
+        orientation: Quat,
+    ) {
+        if (debugOgl) console.log('OGL addPlaceholder');
         const placeholder = getDefaultPlaceholder(gl);
         placeholder.position.copy(position);
         placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
-        return placeholder;
+        return this.addSceneNode(placeholder);
     }
 
     /**
      * Add a general 3D polyline to the scene.
      * @param points  Vec3[]   3D points of the polyline
-     * @returns {Mesh}
+     * @param hexColor - CSS-style hex color string
+     * @returns {@link SceneNodeId} for the polyline mesh
      */
-    addPolyline(points: Vec3[], hexColor: string) {
+    addPolyline(
+        points: Vec3[],
+        hexColor: string
+    ) {
         const polyline = new Polyline(gl, {
-            points,
+            points: points.map((p) => new Vec3(p.x, p.y, p.z)),
             uniforms: {
                 uColor: { value: new Color(hexColor) },
                 uThickness: { value: 5 },
@@ -198,17 +296,19 @@ export default class ogl implements RenderingEngine {
         });
         const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
         mesh.setParent(scene);
-        return mesh;
+        return this.addSceneNode(mesh);
     }
 
     /**
-     * Create random object for experiments.
+     * Create a primitive placeholder with custom shader/options (experiments).
      *
-     * @param shape  String           Defines the shape to create
      * @param position  Vec3          3D position of the placeholder
      * @param orientation  Quat       Orientation of the placeholder
-     * @param fragmentShader  String  Fragment-Shader to add to program
-     * @param options  Object         Defines additional options for the shape to add
+     * @param shape - Primitive shape id
+     * @param color - RGBA color or `undefined` for random
+     * @param fragmentShader - Optional fragment shader source
+     * @param options - Shape-specific constructor options
+     * @returns {@link SceneNodeId} for the placeholder mesh
      */
     addPlaceholderWithOptions(
         shape: ValueOf<typeof PRIMITIVES>,
@@ -234,27 +334,40 @@ export default class ogl implements RenderingEngine {
             });
             uniforms.time[placeholder.id] = placeholder;
         }
-        return placeholder;
+        return this.addSceneNode(placeholder);
     }
 
     /**
-     * Add 3D model of format gltf to the scene.
+     * Add a GLTF/GLB model to the scene.
      *
      * @param position  Vec3      3D position of the model
      * @param orientation  Quat   Orientation of the model
-     * @param url  String         URL to load the model from
-     * @returns {GltfImportResult}
+     * @param url - Model URL
+     * @param scale - Root uniform/non-uniform scale ({@link ReadonlyVec3})
+     * @param callback - Called once per loaded mesh leaf with its {@link SceneNodeId}
+     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @returns {@link SceneNodeId} for the GLTF root transform
      */
-    addModel(url: string, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(1.0, 1.0, 1.0), callback?: (mesh: Mesh) => void, id?: string): GltfImportResult {
-        if(debugOgl) console.log('OGL addModel: ' + url);
-        const gltfScene = new Transform(); // TODO: return a Mesh instead of a Transform
+    addModel(
+        url: string,
+        position: Vec3,
+        orientation: Quat,
+        scale: Vec3 = new Vec3(1, 1, 1),
+        callback?: (mesh: SceneNodeId) => void,
+        name?: ModelName,
+    ): SceneNodeId {
+        if (debugOgl) {
+            console.log('OGL addModel: ' + url);
+        }
+        const gltfScene = new Transform();
         gltfScene.position.copy(position);
         gltfScene.quaternion.copy(orientation);
         gltfScene.scale.copy(scale);
         gltfScene.setParent(scene);
 
+        const engine = this;
         function afterLoad(gltf: GLTF) {
-            const loadedMeshes: Mesh[] = [];
+            const loadedMeshes: SceneNodeId[] = [];
             const s = (gltf.scene || gltf.scenes[0]) as Transform[]; // WARNING: we handle a single scene per GLTF only
             s.forEach((root) => {
                 root.setParent(gltfScene);
@@ -263,29 +376,27 @@ export default class ogl implements RenderingEngine {
                         // TODO: cast node to Mesh
                         // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
                         (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
-                        loadedMeshes.push(node as Mesh);
+                        loadedMeshes.push(engine.addSceneNode(node as Mesh));
                     }
                 });
             });
             if (callback) {
-                for (let mesh of loadedMeshes) {
+                for (const mesh of loadedMeshes) {
                     callback(mesh);
                 }
             }
             scene.updateMatrixWorld();
-            return loadedMeshes;
         }
 
-        let meshPromise;
         if (Object.keys(gltfCache).includes(url)) {
             if(debugOgl) console.log('OGL loading from cache: ', url);
             const dir = url.split('/').slice(0, -1).join('/') + '/';
-            meshPromise = GLTFLoader.parse(gl, gltfCache[url], dir).then((gltf) => {
-                return afterLoad(gltf);
+            void GLTFLoader.parse(gl, gltfCache[url], dir).then((gltf) => {
+                afterLoad(gltf);
             });
         } else {
             if(debugOgl) console.log('OGL loading from Web: ' + url);
-            meshPromise = GLTFLoader.load(gl, url)
+            void GLTFLoader.load(gl, url)
                 .then((gltf) => {
                     if (url.match(/\.glb/)) {
                         // TODO also cache .gltf
@@ -293,7 +404,7 @@ export default class ogl implements RenderingEngine {
                             .then((res) => res.arrayBuffer())
                             .then((glb) => (gltfCache[url] = GLTFLoader.unpackGLB(glb)));
                     }
-                    return afterLoad(gltf);
+                    afterLoad(gltf);
                 })
                 .catch((error) => {
                     console.error('OGL ERROR: ' + error);
@@ -302,40 +413,59 @@ export default class ogl implements RenderingEngine {
                     let gltfPlaceholder = createAxesBoxPlaceholder(gl, [1.0, 0.0, 0.0, 0.5], false); // red
                     gltfScene.addChild(gltfPlaceholder);
                     scene.updateMatrixWorld();
-                    return [gltfPlaceholder];
                 });
         }
 
-        if (id) {
-            gltf_objects_transforms[id] = gltfScene;
+        if (name) {
+            gltf_objects_transforms[name] = gltfScene;
         }
-        return { transform: gltfScene, meshes: meshPromise };
+        return this.addSceneNode(gltfScene);
     }
 
+    /**
+     * @param pose - Content pose in scene space ({@link RigidPose})
+     * @returns {@link SceneNodeId} for the GLTF root (delegates to {@link addModel})
+     */
     addModelWithRigidPose(
         url: string,
         pose: RigidPose,
         scale: [number, number, number] = [1, 1, 1],
-        callback?: (mesh: Mesh) => void,
-        id?: string,
-    ): GltfImportResult {
+        callback?: (nodeId: SceneNodeId) => void,
+        name?: ModelName,
+    ): SceneNodeId {
         const { position, quaternion } = oglTrsFromRigidPose(pose);
-        return this.addModel(url, position, quaternion, new Vec3(scale[0], scale[1], scale[2]), callback, id);
-    }
-
-    getModel(id: string): Transform {
-        return gltf_objects_transforms[id];
+        const scaleVec3 = new Vec3().set(scale[0], scale[1], scale[2]);
+        return this.addModel(url, position, quaternion, scaleVec3, callback, name);
     }
 
     /**
-     * Removes the model with the given id
-     * @param id  string
+     * @param name - {@link ModelName} passed to {@link addModel}
+     * @returns {@link SceneNodeId} of the GLTF root, or `null` if not cached
      */
-    removeModel(id: string) {
-        if (gltf_objects_transforms[id]) {
-            this.remove(gltf_objects_transforms[id]); // remove the Mesh from the scene
-            delete gltf_objects_transforms[id];
+    getModel(name: ModelName): SceneNodeId | null {
+        const native = gltf_objects_transforms[name];
+        if (!native) {
+            return null;
         }
+        return this.getSceneNodeId(native);
+    }
+
+    /**
+     * Removes a cached GLTF root by {@link ModelName}.
+     *
+     * @param name - Key passed to {@link addModel}
+     */
+    removeModel(name: ModelName) {
+        const native = gltf_objects_transforms[name];
+        if (!native) {
+            return;
+        }
+        const nodeId = this.getSceneNodeId(native);
+        if (nodeId !== null) {
+            this.nodesById.set(nodeId, native);
+            this.remove(nodeId);
+        }
+        delete gltf_objects_transforms[name];
     }
 
     /**
@@ -345,14 +475,19 @@ export default class ogl implements RenderingEngine {
      *
      * @param position  Vec3        3D position of the placeholder
      * @param orientation  Quat     Orientation of the placeholder
+     * @returns {@link SceneNodeId} for the spinning placeholder
      */
-    addExperiencePlaceholder(position: Vec3, orientation: Quat): Mesh {
+    addExperiencePlaceholder(
+        position: Vec3,
+        orientation: Quat,
+    ): SceneNodeId {
         const placeholder = getExperiencePlaceholder(gl);
         placeholder.position.copy(position);
         placeholder.quaternion.copy(orientation);
         placeholder.setParent(scene);
-        updateHandlers[placeholder.id] = () => (placeholder.rotation.y += 0.01);
-        return placeholder;
+        const nodeId = this.addSceneNode(placeholder);
+        updateHandlers[nodeId] = () => (placeholder.rotation.y += 0.01);
+        return nodeId;
     }
 
     /**
@@ -361,64 +496,93 @@ export default class ogl implements RenderingEngine {
      * Used for some experiments before, not currently used.
      * How to properly handle markers is undecided.
      *
-     * @returns {Transform}
+     * @returns {@link SceneNodeId} for the marker object
      */
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
-        return object;
+        return this.addSceneNode(object);
     }
 
     /**
      * Add reticle to display successful hit test location.
      *
-     * @returns {Transform}
+     * @returns {@link SceneNodeId} for the reticle root (GLTF subtree)
      */
     addReticle() {
-        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1)).transform;
+        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1));
     }
 
-    isHorizontal(object: { quaternion: Quat }) {
-        const euler = new Euler().fromQuaternion(object.quaternion);
+    /** @param orientation - Scene orientation ({@link ReadonlyQuat}) */
+    isHorizontal(orientation: Quat) {
+    //isHorizontal(orientation: ReadonlyQuat) {
+        const euler = new Euler().fromQuaternion(orientation);
         return Math.abs(euler.x) < Number.EPSILON;
     }
 
     /**
-     * Create object with random shape, color, size and add it to the scene at the given pose
+     * Create object with random shape, color, size and add it to the scene at the given pose.
      *
      * @param position  Vec3      3D position of the object
      * @param orientation  Quat   Orientation of the object
-     * @returns {Mesh}
+     * @returns {@link SceneNodeId} for the created primitive mesh
      */
-    addRandomObject(position: Vec3, orientation: Quat) {
+    addRandomObject(
+        position: Vec3,
+        orientation: Quat,
+    ) {
         let object_description = createRandomObjectDescription();
         return this.addObject(position, orientation, object_description);
     }
 
     /**
-     * Create object with given properties at the given pose
+     * Create object with given properties at the given pose.
      *
      * @param position  Vec3      3D position of the object
      * @param orientation  Quat   Orientation of the object
-     * @param object_description  {*}
-     * @returns {Mesh}
+     * @param object_description - Primitive shape, color, scale, etc.
+     * @returns {@link SceneNodeId} for the created mesh
      */
-    addObject(position: Vec3, orientation: Quat, object_description: ObjectDescription) {
-        if(debugOgl) console.log('OGL addObject: ' + object_description);
+    addObject(
+        position: Vec3,
+        orientation: Quat,
+        object_description: ObjectDescription
+    ) {
+        if (debugOgl) {
+            console.log('OGL addObject: ' + object_description);
+        }
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
         mesh.position.copy(position);
         mesh.quaternion.copy(orientation);
         scene.addChild(mesh);
-        return mesh;
+        return this.addSceneNode(mesh);
     }
 
-    addParticleObject(position: Vec3, orientation: Quat, shape: ParticleShape, baseColor: string, pointSize: number, intensity: number, systemSize: number, speed: number) {
-        if(debugOgl) console.log('OGL addParticleObject');
+    /**
+     * Add a GPU particle system (engine-specific handle; not a {@link SceneNodeId}).
+     *
         const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
+     * @returns {@link ParticleSystem} for intensity updates and rendering
+     */
+    addParticleObject(
+        position: Vec3,
+        orientation: Quat,
+        shape: ParticleShape,
+        baseColor: string,
+        pointSize: number,
+        intensity: number,
+        systemSize: number,
+        speed: number,
+    ): ParticleSystem {
+        if (debugOgl) {
+            console.log('OGL addParticleObject');
+        }
+        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);        
         particles.mesh.position.copy(position);
         particles.mesh.quaternion.copy(orientation);
         scene.addChild(particles.mesh);
         return particles;
+        // TODO: return the SceneNodeId instead of ParticleSystem
     }
 
     setParticleIntensity(particles: ParticleSystem, calculate: (oldValue: number) => number) {
@@ -433,16 +597,21 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Create a dynamic object with given properties at the given pose
+     * Create a dynamic object with given properties at the given pose.
      *
-     * @param object_id  string     User-specified unique ID in the scene
      * @param position  Vec3        3D position of the object
      * @param orientation  Quat     Orientation of the object
-     * @param object_description {*}    Key-value pairs of object properties
-     * @returns {Mesh}  The newly created mesh
+     * @param object_id - User-specified unique id (also used with {@link getDynamicObjectNodeId})
+     * @param object_description - Primitive description, or `null` for default sphere
+     * @returns {@link SceneNodeId} for the dynamic object mesh
      */
-    addDynamicObject(object_id: string, position: Vec3, orientation: Quat, object_description: ObjectDescription | null = null) {
-        if(debugOgl) console.log('OGL addDynamicObject: ' + object_id);
+    addDynamicObject(
+        object_id: string,
+        position: Vec3,
+        orientation: Quat,
+        object_description: ObjectDescription | null = null
+    ) {
+        if (debugOgl) console.log('OGL addDynamicObject: ' + object_id);
         let description = object_description || {
             version: 2,
             color: [1.0, 1.0, 1.0, 0.5],
@@ -457,24 +626,34 @@ export default class ogl implements RenderingEngine {
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
-        return mesh;
+        return this.addSceneNode(mesh);
     }
 
-    addDynamicObjectWithRigidPose(object_id: string, pose: RigidPose, object_description: ObjectDescription | null = null) {
+    /** @returns {@link SceneNodeId} (delegates to {@link addDynamicObject}) */
+    addDynamicObjectWithRigidPose(
+        object_id: string,
+        pose: RigidPose,
+        object_description: ObjectDescription | null = null,
+    ) {
         const { position, quaternion } = oglTrsFromRigidPose(pose);
         return this.addDynamicObject(object_id, position, quaternion, object_description);
     }
 
     /**
-     * Update a dynamic object with given properties at the given pose
+     * Update a dynamic object with given properties at the given pose.
      *
-     * @param object_id  string    User-specified unique ID in the scene
      * @param position  Vec3       3D position of the object
      * @param orientation  Quat    Orientation of the object
-     * @param object_description   Key-value pairs of object properties
-     * @returns boolean     Whether the update succeeded
+     * @param object_id - User-specified unique id
+     * @param object_description - New description, or `null` to keep current
+     * @returns Whether the update succeeded
      */
-    updateDynamicObject(object_id: string, position: Vec3 | null = null, orientation: Quat | null = null, object_description: ObjectDescription | null = null) {
+    updateDynamicObject(
+        object_id: string,
+        position: Vec3 | null = null,
+        orientation: Quat | null = null,
+        object_description: ObjectDescription | null = null
+    ) {
         //console.log("OGL updateDynamicObject: " + object_id);
         if (!(object_id in dynamic_objects_descriptions)) {
             console.log('OGL WARNING: object_id ' + object_id + ' is is not in the scene, cannot update object');
@@ -514,6 +693,7 @@ export default class ogl implements RenderingEngine {
         return true;
     }
 
+    /** @returns Whether the update succeeded (delegates to {@link updateDynamicObject}) */
     updateDynamicObjectWithRigidPose(
         object_id: string,
         pose: RigidPose,
@@ -537,14 +717,14 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Query the mesh of a dynamic object
+     * Query the scene node of a dynamic object.
      *
-     * @param object_id  string     User-specified unique ID in the scene
-     * @returns {Mesh}
+     * @param object_id - User-specified unique id
+     * @returns {@link SceneNodeId} or `null` if not in the scene
      */
-    getDynamicObjectMesh(object_id: string) {
+    getDynamicObjectNodeId(object_id: string) {
         if (object_id in dynamic_objects_meshes) {
-            return dynamic_objects_meshes[object_id];
+            return this.getSceneNodeId(dynamic_objects_meshes[object_id]);
         }
         return null;
     }
@@ -554,48 +734,63 @@ export default class ogl implements RenderingEngine {
      *
      * Called when marker movement was detected, for example.
      *
-     * @param object  Mesh        The marker object
      * @param position  Vec3      3D position of the placeholder
      * @param orientation  Quat   Orientation of the placeholder
+     * @param object - {@link SceneNodeId} from {@link addMarkerObject}
      */
-    updateMarkerObjectPosition(object: Mesh, position: Vec3, orientation: Quat) {
-        object.position = position;
-        object.quaternion = orientation;
+    updateMarkerObjectPosition(
+        objectNodeId: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+    ) {
+        const native = this.getSceneNode(objectNodeId);
+        native.position.copy(position);
+        native.quaternion.copy(orientation);
     }
 
     /**
      * Update the position of the reticle to the provided position and orientation.
      *
-     * @param reticle  Transform   The reticle to display
      * @param position  Vec3       The position of the reticle
      * @param orientation  Quat    The orientation of the reticle
+     * @param reticle - {@link SceneNodeId} from {@link addReticle}
+     * @param scale - Optional root scale ({@link ReadonlyVec3})
      */
-    updateReticlePose(reticle: Transform, position: Vec3, orientation: Quat, scale: Vec3 = new Vec3(0.2, 0.2, 0.2)) {
-        reticle.position = position;
-        reticle.quaternion = orientation;
-        reticle.scale = scale;
+    updateReticlePose(
+        reticle: SceneNodeId,
+        position: Vec3,
+        orientation: Quat,
+        scale: Vec3 = new Vec3(0.2, 0.2, 0.2),
+    ) {
+        const native = this.getSceneNode(reticle);
+        native.position.copy(position);
+        native.quaternion.copy(orientation);
+        native.scale.copy(scale);
     }
 
     /**
      * Add x, y, z axes to visualize them during development.
+     *
+     * @returns {@link SceneNodeId} for the axes helper
      */
     addAxes() {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
-        return axes;
+        return this.addSceneNode(axes);
     }
 
     /**
      * Load a PLY (point cloud or indexed triangle mesh) and add it to the scene.
-     * @returns the created mesh, or `null` if loading or parsing failed.
+     *
+     * @returns {@link SceneNodeId} or `null` if loading or parsing failed
      */
     async addPlyObject(
         url: string,
         position: Vec3,
         quaternion: Quat,
-        plyOptions?: PlyLoadOptions,
-    ): Promise<Mesh | null> {
+        plyOptions?: PlyLoadOptions
+    ): Promise<SceneNodeId | null> {
         if (debugOgl) console.log('OGL addPlyObject ' + url);
         try {
             const loaded = await MyPLYLoader.loadDisplayGeometry(gl, url, plyOptions ?? {});
@@ -614,7 +809,7 @@ export default class ogl implements RenderingEngine {
             pclMesh.position.copy(position);
             pclMesh.quaternion.copy(quaternion);
             pclMesh.setParent(scene); // this is very slow
-            return pclMesh;
+            return this.addSceneNode(pclMesh);
         } catch (error) {
             console.error(`OGL: failed to load PLY from ${url}`, error);
             return null;
@@ -624,13 +819,14 @@ export default class ogl implements RenderingEngine {
     /**
      * Place spatial point-cloud content. Supported formats are resolved from URL path and MIME type
      * (today: PLY via {@link addPlyObject}); unknown combinations log a warning and return `null`.
+     * @returns {@link SceneNodeId} or `null` if unsupported or load failed
      */
     async addPointCloudObject(
         url: string,
         position: Vec3,
         quaternion: Quat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
-    ): Promise<Mesh | null> {
+    ): Promise<SceneNodeId | null> {
         const { contentType = '', scrContentType, ...plyOpts } = options ?? {};
         const fmt = pointCloudFormatFromRef(url, contentType, scrContentType);
         if (fmt === 'ply') {
@@ -643,7 +839,13 @@ export default class ogl implements RenderingEngine {
         return null;
     }
 
-    async addLogoObject(url: string, position: Vec3, quaternion: Quat, width = 1.0, height = 1.0) {
+    async addLogoObject(
+        url: string,
+        position: Vec3,
+        quaternion: Quat,
+        width = 1.0,
+        height = 1.0,
+    ) {
         if(debugOgl) console.log('OGL addLogoObject ' + url);
         loadLogoTexture(gl, url).then((texture) => {
             const logoProgram = createLogoProgram(gl, texture);
@@ -663,16 +865,30 @@ export default class ogl implements RenderingEngine {
         });
     }
 
-    async addTextObject(position: Vec3, quaternion: Quat, string: string, textColor: Vec3 = new Vec3(1.0, 1.0, 1.0)) {
-        if(debugOgl) console.log('OGL addTextOject: ' + string);
+    async addTextObject(
+        position: Vec3,
+        quaternion: Quat,
+        string: string,
+        textColor: Vec3 = new Vec3(1.0, 1.0, 1.0),
+    ) {
+        if (debugOgl) console.log('OGL addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
-        const textMesh: Mesh = await loadTextMesh(gl, fontName, string, textColor);
+        const textMesh: Mesh = await loadTextMesh(
+            gl,
+            fontName,
+            string,
+            textColor,
+        );
         textMesh.position.copy(position);
         textMesh.quaternion.copy(quaternion);
         textMesh.setParent(scene);
-        return textMesh;
+        return this.addSceneNode(textMesh);
     }
 
+    /**
+     * @param pose - Content pose ({@link RigidPose})
+     * @returns {@link SceneNodeId} for the text mesh
+     */
     async addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
@@ -689,32 +905,41 @@ export default class ogl implements RenderingEngine {
         return this.addTextObject(position, quaternion, string, tc);
     }
 
-    async addVideoObject(position: Vec3, quaternion: Quat, videoUrl: string) {
-        if(debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
+    async addVideoObject(
+        position: Vec3,
+        quaternion: Quat,
+        videoUrl: string,
+    ) {
+        if (debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
         const videoInfo = await videoHelper.loadVideo(videoUrl);
-        const videoBox = videoHelper.createVideoBox(gl, scene, position, quaternion, videoInfo.videoId);
-        this.addClickEvent(videoBox, () => {
+        const videoBox = videoHelper.createVideoBox(gl, scene,
+            position,
+            quaternion,
+            videoInfo.videoId
+        );
+        this.addClickEvent(this.addSceneNode(videoBox), () => {
             videoHelper.togglePlayback(videoInfo.videoId);
         });
     }
 
-    setVerticallyRotating(node: Transform) {
-        verticallyRotatingNodes.push(node);
+    setVerticallyRotating(node: SceneNodeId) {
+        verticallyRotatingNodes.push(this.getSceneNode(node));
     }
 
-    setTowardsCameraRotating(node: Transform) {
-        towardsCameraRotatingNodes.push(node);
+    setTowardsCameraRotating(node: SceneNodeId) {
+        towardsCameraRotatingNodes.push(this.getSceneNode(node));
     }
 
     /**
-     * Make the provided model clickable.
+     * Make the provided scene node clickable.
      *
-     * @param model  Mesh       The model to make interactive
-     * @param handler  function     The function to execute after interaction
+     * @param modelId - {@link SceneNodeId} to receive taps
+     * @param handler - Callback when the node is hit
      */
-    addClickEvent(model: Mesh, handler: () => void) {
-        eventHandlers[model.id] = {
-            model,
+    addClickEvent(modelId: SceneNodeId, handler: () => void) {
+        const native = this.getSceneNode(modelId) as Mesh;
+        eventHandlers[modelId] = {
+            model: native,
             handler,
         };
     }
@@ -725,9 +950,9 @@ export default class ogl implements RenderingEngine {
      * @param modelId  string       The model id
      */
     getClickEvent(modelId: string) {
-        const meshId = this.getDynamicObjectMesh(modelId)?.id;
-        if (meshId && eventHandlers[meshId]) {
-            return eventHandlers[meshId].handler;
+        const nodeId = this.getDynamicObjectNodeId(modelId);
+        if (nodeId && eventHandlers[nodeId]) {
+            return eventHandlers[nodeId].handler;
         }
         return undefined;
     }
@@ -750,19 +975,23 @@ export default class ogl implements RenderingEngine {
      * @returns {function}
      */
     getRootSceneUpdater() {
-        return (matrix: SceneRootMatrix) => (scene.matrix = new Mat4().fromArray(matrix));
+        const out = mat4.create();
+        return (matrix: SceneRootMatrix) => {
+            scene.matrix = new Mat4().fromArray(matrix);
+            mat4.copy(out, scene.matrix as unknown as mat4);
+            return out;
+        };
     }
 
     /**
-     * Adds a visual queue to the provided model to indicate its state.
+     * Adds a visual cue to the provided node to indicate its state (e.g. loading).
      *
-     * For example to indicate it is interactive.
-     *
-     * @param model     The model to change
+     * @param modelId - {@link SceneNodeId} to animate
      */
-    setWaiting(model: Mesh) {
-        model.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
-        uniforms.time[model.id] = model;
+    setWaiting(modelId: SceneNodeId) {
+        const native = this.getSceneNode(modelId) as Mesh;
+        native.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
+        uniforms.time[native.id] = native;
     }
 
     /**
@@ -791,7 +1020,11 @@ export default class ogl implements RenderingEngine {
             return;
         }
         const mesh = dynamic_objects_meshes[object_id];
-        this.remove(mesh);
+        const nodeId = this.getSceneNodeId(mesh);
+        if (nodeId !== null) {
+            this.nodesById.set(nodeId, mesh);
+            this.remove(nodeId);
+        }
         delete dynamic_objects_meshes[object_id];
         delete dynamic_objects_descriptions[object_id];
     }
@@ -841,18 +1074,18 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Removes the provided model from the scene and all the handlers it mit be registered with.
+     * Removes the provided node from the scene and clears its handlers.
      *
-     * @param model     The model to remove
+     * @param modelId - {@link SceneNodeId} to remove
      */
-    remove(model: Mesh | Transform) {
-        // TODO: this assumes that all objects are children of the root node!
-        // We should call something like model.parent.removeChild(model);
-        scene.removeChild(model);
+    remove(modelId: SceneNodeId) {
+        const native = this.getSceneNode(modelId);
+        scene.removeChild(native);
+        this.nodesById.delete(modelId);
 
-        if (model instanceof Mesh) {
-            delete updateHandlers[model.id];
-            delete eventHandlers[model.id];
+        if (native instanceof Mesh) {
+            delete updateHandlers[modelId];
+            delete eventHandlers[modelId];
         }
     }
 
@@ -931,7 +1164,7 @@ export default class ogl implements RenderingEngine {
 
         // if an OGL object is hit, execute its handler
         hits.forEach((hit) => {
-            eventHandlers[hit.id].handler();
+            eventHandlers[String(hit.id)].handler();
         });
 
         // if no OGL object is hit, forward the event to the base tap handler
@@ -942,18 +1175,19 @@ export default class ogl implements RenderingEngine {
 
     /**
      * Draws a small axis placeholder mesh with the given **world** column-major `mat4` (e.g. from `@core/worldAlignment` debug helpers).
+     *
+     * @returns {@link SceneNodeId} for the debug axes node
      */
-    addDebugAxesAtWorldMatrix(worldMatrix: ReadonlyMat4, color: [number, number, number, number], showAxes: boolean = false): Transform {
+    addDebugAxesAtWorldMatrix(worldMatrix: ReadonlyMat4, color: [number, number, number, number], showAxes: boolean = false): SceneNodeId {
         const node = createAxesBoxPlaceholder(gl, color, showAxes);
         scene.addChild(node);
-        // Keep the explicit gl-matrix 4×4; do not let updateMatrix() rebuild from TRS (non-uniform scale + decompose can drift).
         node.matrixAutoUpdate = false;
         for (let i = 0; i < 16; i++) {
             node.matrix[i] = worldMatrix[i]!;
         }
         node.decompose();
         node.updateMatrixWorld(true);
-        return node;
+        return this.addSceneNode(node);
     }
 
     /**
