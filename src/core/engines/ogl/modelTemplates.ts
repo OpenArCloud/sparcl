@@ -15,7 +15,7 @@ import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 import { randomInteger } from '@src/core/common';
-import type { ObjectDescription, ValueOf } from '../../../types/xr';
+import type { ObjectDescription, ValueOf } from '../../contents/objectDescription';
 import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
 
 export { PRIMITIVES, type PrimitiveShape };

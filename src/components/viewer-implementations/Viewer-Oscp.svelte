@@ -21,7 +21,8 @@
     import { quat as glQuat } from 'gl-matrix';
     import { Quat, type Transform, Vec3, Mesh } from 'ogl';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
-    import type { ObjectDescription, XrFeature } from '../../types/xr';
+    import type { ObjectDescription } from '../../core/contents/objectDescription';
+    import type { XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
     import { myAgentName, myAgentId, myAgentColor, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
     import { createEventDispatcher } from 'svelte';

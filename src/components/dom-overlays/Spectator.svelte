@@ -17,7 +17,7 @@
     import L from 'leaflet';
 
     import { createRandomObjectDescription } from '@core/engines/ogl/modelTemplates';
-    import { type ObjectDescription } from '../../types/xr';
+    import type { ObjectDescription } from '../../core/contents/objectDescription';
     import { createEventDispatcher } from 'svelte';
     import { connectWithReceiveCallback, testRmqConnection } from '../../core/rmqnetwork';
     import MessageBrokerSelector from './MessageBrokerSelector.svelte';

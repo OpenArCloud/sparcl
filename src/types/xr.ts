@@ -7,13 +7,10 @@
   SPDX-License-Identifier: MIT
 */
 
-import type { PrimitiveShape } from '../core/contents/primitives';
 import type webxr from '../core/engines/webxr';
 import type Ismar2021SignPostViewer from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
 import type Ismar2021MultiViewer from '../experiments/oarc/ismar2021multi/Viewer.svelte';
 import type Ismar2021PerformanceViewer from '../experiments/oarc/performance/Viewer.svelte';
-
-export type ValueOf<T> = T[keyof T];
 
 export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) => void;
 export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, markerPose: XRPose, trackedImage: XRImageTrackingResult) => void;
@@ -30,13 +27,5 @@ export type SceneRootMatrix = Float32Array | number[];
 
 export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: XrWebGL2Context | null) => void;
 export type XrFeature = string;
-export type ObjectDescription = {
-    version: number;
-    color: [number, number, number, number];
-    shape: PrimitiveShape;
-    scale: [number, number, number];
-    transparent: boolean;
-    options: {};
-};
 
 export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer;

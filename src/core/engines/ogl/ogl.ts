@@ -56,7 +56,8 @@ import { getExternalCameraParametersForExperience, type ExternalCameraParameters
 
 import type { ReadonlyMat4 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
-import type { ObjectDescription, ValueOf, SceneRootMatrix } from '../../../types/xr';
+import type { ObjectDescription, ValueOf } from '../../contents/objectDescription';
+import type { SceneRootMatrix } from '../../../types/xr';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
 

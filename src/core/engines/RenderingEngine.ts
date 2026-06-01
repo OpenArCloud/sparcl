@@ -16,8 +16,8 @@ import type { ReadonlyMat4 } from 'gl-matrix';
 import type { Mesh, Transform, Vec3, Quat, Mat4 } from 'ogl';
 
 import type { ExternalCameraParameters } from './externalCameraPose';
-
-import type { ObjectDescription, SceneRootMatrix } from '../../types/xr';
+import type { ObjectDescription } from '../contents/objectDescription';
+import type { SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import type { ParticleShape, ParticleSystem } from '@core/engines/ogl/oglParticleHelper';

@@ -15,7 +15,7 @@
     import type webxr from '../../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { ObjectDescription } from '../../../types/xr';
+    import type { ObjectDescription } from '../../../core/contents/objectDescription';
     import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
     let parentInstance: Parent;

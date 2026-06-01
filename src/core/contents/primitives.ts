@@ -8,7 +8,8 @@
 */
 
 /**
- * Neutral primitive shape ids shared by SCR {@link ObjectDescription} and all {@link RenderingEngine} implementations.
+ * Neutral primitive shape ids shared by SCR {@link import("./objectDescription").ObjectDescription}
+ * and all {@link RenderingEngine} implementations.
  */
 
 /** Supported procedural / placeholder primitive shapes (engine-agnostic string ids). */
