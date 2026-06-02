@@ -9,13 +9,12 @@
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
-    // TODO: this is specific to OGL engine, but we only need a generic object description structure
-    import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
+    // TODO: random description is engine-agnostic; placement uses RenderingEngine.
+    import { createRandomObjectDescription, type ObjectDescription } from '../../../core/contents/objectDescription';
     import { peerIdStr } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { ObjectDescription } from '../../../core/contents/objectDescription';
     import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
     let parentInstance: Parent;

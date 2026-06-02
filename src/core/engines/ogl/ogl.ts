@@ -42,25 +42,24 @@ import {
     createAxesBoxPlaceholder,
     createModel,
     createProgram,
-    createRandomObjectDescription,
     createWaitingProgram,
     getAxes,
     getDefaultMarkerObject,
     getDefaultPlaceholder,
     getExperiencePlaceholder,
-    PRIMITIVES,
-} from '@core/engines/ogl/modelTemplates';
+} from '@core/engines/ogl/oglPrimitives';
+import { createRandomObjectDescription, type ObjectDescription } from '../../contents/objectDescription';
+import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
+import type { SceneRootMatrix } from '../../../types/xr';
+import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
+import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
+import { OglSceneNodeRegistry } from './oglSceneNodeRegistry';
 
 import { checkGLError } from '@core/devTools';
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 
 import { mat4, vec3, quat, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
-import type { ObjectDescription, ValueOf } from '../../contents/objectDescription';
-import type { SceneRootMatrix } from '../../../types/xr';
-import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
-import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
-import { OglSceneNodeRegistry } from './oglSceneNodeRegistry';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -288,7 +287,7 @@ export default class ogl implements RenderingEngine {
      * @returns {@link SceneNodeId} for the placeholder mesh
      */
     addPlaceholderWithOptions(
-        shape: ValueOf<typeof PRIMITIVES>,
+        shape: PrimitiveShape,
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
         color: [number, number, number, number] | undefined,

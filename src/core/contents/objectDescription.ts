@@ -8,6 +8,8 @@
 */
 
 import type { PrimitiveShape } from './primitives';
+import { PRIMITIVES } from './primitives';
+import { randomInteger } from '@src/core/common';
 
 /** Union of an object type’s property value types (e.g. {@link PrimitiveShape} from `typeof PRIMITIVES`). */
 export type ValueOf<T> = T[keyof T];
@@ -24,3 +26,24 @@ export type ObjectDescription = {
     transparent: boolean;
     options: {};
 };
+
+/**
+ * Random {@link ObjectDescription} for demos (shape from {@link PRIMITIVES}, excluding `plane`).
+ */
+export function createRandomObjectDescription(): ObjectDescription {
+    const getRandomScaleValue = () => randomInteger(1, 10) / 50.0;
+    const primitiveKeys = (Object.keys(PRIMITIVES) as Array<keyof typeof PRIMITIVES>).filter((k) => k !== 'plane');
+    const kNumPrimitives = primitiveKeys.length;
+    const shape_idx = Math.floor(Math.random() * kNumPrimitives);
+    const shape = PRIMITIVES[primitiveKeys[shape_idx]];
+    const color: [number, number, number, number] = [Math.random(), Math.random(), Math.random(), 1.0];
+    const scale: [number, number, number] = [getRandomScaleValue(), getRandomScaleValue(), getRandomScaleValue()];
+    return {
+        version: 2,
+        color,
+        shape,
+        scale,
+        transparent: false,
+        options: {},
+    };
+}
