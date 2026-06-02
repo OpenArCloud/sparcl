@@ -1,9 +1,9 @@
 <script lang="ts">
-    import { onMount, setContext } from 'svelte';
+    import { setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
-    import { v4 as uuidv4 } from 'uuid';
-    import { Vec3, Quat, type Transform } from 'ogl';
+    import { v4 as uuidv4 } from 'uuid';    
+    import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
 
     import Parent from '@components/Viewer.svelte';
@@ -129,8 +129,8 @@
             if (position && orientation) {
                 tdEngine.updateReticlePose(
                     reticleNodeId,
-                    new Vec3(position.x, position.y, position.z),
-                    new Quat(orientation.x, orientation.y, orientation.z, orientation.w)
+                    vec3.fromValues(position.x, position.y, position.z),
+                    quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
                 );
             }
         }
@@ -196,8 +196,8 @@
         // create SCR from the object and share it with the others
         // when received, place the same way as a downloaded SCR.
         const object_description = createRandomObjectDescription();
-        const reticlePosition = new Vec3(0, 0, 0);
-        const reticleOrientation = new Quat(0, 0, 0, 1);
+        const reticlePosition = vec3.create();
+        const reticleOrientation = quat.create();
         tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
         shareObject(object_description, reticlePosition, reticleOrientation);
         experimentOverlay?.objectSent();
@@ -231,8 +231,8 @@
 
     function shareObject(
         object_description: ObjectDescription,
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
     ) {
         if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log('There was no successful localization yet, cannot share object');

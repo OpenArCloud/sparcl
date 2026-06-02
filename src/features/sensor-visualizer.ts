@@ -1,6 +1,6 @@
 import type { RenderingEngine } from '@core/engines/RenderingEngine';
-import { Quat, Vec3 } from 'ogl';
 import type { SceneNodeId } from '@core/engines/RenderingEngine';
+import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3, type vec3 as Vec3Out } from 'gl-matrix';
 import { type ParticleSystem, ParticleShape, updateParticles } from '@src/core/engines/ogl/oglParticleHelper';
 
 export const sensorTexts: Record<string, SceneNodeId> = {};
@@ -11,10 +11,16 @@ let textList: Record<string, TextSensor> = {};
 
 const debugSensors = false;
 
+function offsetPosition(localPosition: ReadonlyVec3, dy: number): Vec3Out {
+    const out = vec3.clone(localPosition);
+    out[1] += dy;
+    return out;
+}
+
 export function createSensorVisualization(
     tdEngine: RenderingEngine,
-    localPosition: Vec3,
-    localQuaternion: Quat,
+    localPosition: ReadonlyVec3,
+    localQuaternion: ReadonlyQuat,
     content_definitions: Record<string, string>,
 ) {
     switch (content_definitions.visualizationType) {
@@ -29,8 +35,8 @@ export function createSensorVisualization(
 
 function createParticleSensor(
     tdEngine: RenderingEngine,
-    localPosition: Vec3,
-    localQuaternion: Quat,
+    localPosition: ReadonlyVec3,
+    localQuaternion: ReadonlyQuat,
     content_definitions: Record<string, string>,
 ) {
     const sensor_id = content_definitions['sensor_id'];
@@ -65,7 +71,7 @@ function createParticleSensor(
         sensor_id,
         `0`,
         tdEngine,
-        new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)),
+        offsetPosition(localPosition, 0.5),
         localQuaternion
     );
 
@@ -83,10 +89,8 @@ function createParticleSensor(
 
 function createTextSensor(
     tdEngine: RenderingEngine,
-    localPosition: Vec3,
-    localQuaternion: Quat,
-    //localPosition: ReadonlyVec3,
-    //localQuaternion: ReadonlyQuat,
+    localPosition: ReadonlyVec3,
+    localQuaternion: ReadonlyQuat,
     content_definitions: Record<string, string>,
 ) {
     const sensor_id = content_definitions['sensor_id'];
@@ -100,7 +104,7 @@ function createTextSensor(
         sensor_id,
         `0`,
         tdEngine,
-        new Vec3().copy(localPosition).add(new Vec3(0, 0.5, 0)),
+        offsetPosition(localPosition, 0.5),
         localQuaternion
     );
 
@@ -130,11 +134,11 @@ export function setSensorText(
     id: string,
     value: string,
     tdEngine: RenderingEngine,
-    position?: Vec3,
-    quaternion?: Quat,
+    position?: ReadonlyVec3,
+    quaternion?: ReadonlyQuat
 ) {
-    const savedPosition = new Vec3();
-    const savedQuaternion = new Quat();
+    const savedPosition = vec3.create();
+    const savedQuaternion = quat.create();
     if (sensorTexts[id]) {
         if (!position || !quaternion) {
             tdEngine.getNodePose(sensorTexts[id], savedPosition, savedQuaternion);
@@ -158,7 +162,7 @@ export function setSensorText(
         position,
         quaternion,
         `${value}`,
-        new Vec3(0.2, 0.6, 0.9),
+        vec3.fromValues(0.2, 0.6, 0.9),
     ).then((textMesh) => {
         tdEngine.setNodeUniformScale(textMesh, 0.25);
         tdEngine.setTowardsCameraRotating(textMesh);

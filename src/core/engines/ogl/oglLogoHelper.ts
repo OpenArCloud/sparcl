@@ -7,7 +7,7 @@
   SPDX-License-Identifier: MIT
 */
 
-import { Program, Geometry, Transform, Plane, Texture, TextureLoader, type OGLRenderingContext } from 'ogl';
+import { Program, Texture, TextureLoader, type OGLRenderingContext } from 'ogl';
 
 export function createLogoProgram(gl: OGLRenderingContext, texture: Texture | undefined) {
     const vertex = /* glsl */ `

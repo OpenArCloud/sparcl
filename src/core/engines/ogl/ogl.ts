@@ -30,7 +30,7 @@ import {
     type GLTF,
     type GLTFDescription,
 } from 'ogl';
-import { mat4} from 'gl-matrix';
+
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
 import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
@@ -54,7 +54,7 @@ import {
 import { checkGLError } from '@core/devTools';
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 
-import type { ReadonlyMat4 } from 'gl-matrix';
+import { mat4, vec3, quat, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ObjectDescription, ValueOf } from '../../contents/objectDescription';
 import type { SceneRootMatrix } from '../../../types/xr';
@@ -92,6 +92,14 @@ function oglTrsFromRigidPose(pose: RigidPose): { position: Vec3; quaternion: Qua
         position: new Vec3(pose.position.x, pose.position.y, pose.position.z),
         quaternion: new Quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w),
     };
+}
+
+function oglVec3(v: ReadonlyVec3): Vec3 {
+    return new Vec3(v[0], v[1], v[2]);
+}
+
+function oglQuat(q: ReadonlyQuat): Quat {
+    return new Quat(q[0], q[1], q[2], q[3]);
 }
 
 /**
@@ -137,29 +145,29 @@ export default class ogl implements RenderingEngine {
 
     getNodePose(
         nodeId: SceneNodeId,
-        outPosition: Vec3,
-        outOrientation: Quat,
-        outScale?: Vec3,
+        outPosition: vec3,
+        outOrientation: quat,
+        outScale?: vec3
     ): void {
         const native = this.getSceneNode(nodeId);
-        outPosition.copy(native.position);
-        outOrientation.copy(native.quaternion);
+        vec3.set(outPosition, native.position[0], native.position[1], native.position[2]);
+        quat.set(outOrientation, native.quaternion[0], native.quaternion[1], native.quaternion[2], native.quaternion[3]);
         if (outScale) {
-            outScale.copy(native.scale);
+            vec3.set(outScale, native.scale[0], native.scale[1], native.scale[2]);
         }
     }
 
     setNodePose(
         nodeId: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
-        scale?: Vec3,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale?: ReadonlyVec3
     ): void {
         const native = this.getSceneNode(nodeId);
-        native.position.copy(position);
-        native.quaternion.copy(orientation);
+        native.position.copy(oglVec3(position));
+        native.quaternion.copy(oglQuat(orientation));
         if (scale) {
-            native.scale.copy(scale);
+            native.scale.copy(oglVec3(scale));
         }
     }
 
@@ -260,36 +268,37 @@ export default class ogl implements RenderingEngine {
     /**
      * Add a general placeholder to the scene.
      *
-     * @param position  Vec3        3D position of the placeholder
-     * @param orientation  Quat     Orientation of the placeholder
      * @param keywords - Defines the kind of placeholder to create
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @returns Opaque {@link SceneNodeId} for the placeholder root
      */
     addPlaceholder(
         keywords: string | string[] | undefined,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
     ) {
         if (debugOgl) console.log('OGL addPlaceholder');
         const placeholder = getDefaultPlaceholder(gl);
-        placeholder.position.copy(position);
-        placeholder.quaternion.copy(orientation);
+        placeholder.position.copy(oglVec3(position));
+        placeholder.quaternion.copy(oglQuat(orientation));
         placeholder.setParent(scene);
         return this.addSceneNode(placeholder);
     }
 
     /**
      * Add a general 3D polyline to the scene.
-     * @param points  Vec3[]   3D points of the polyline
+     *
+     * @param points - Polyline vertices ({@link ReadonlyVec3}[])
      * @param hexColor - CSS-style hex color string
      * @returns {@link SceneNodeId} for the polyline mesh
      */
     addPolyline(
-        points: Vec3[],
+        points: ReadonlyVec3[],
         hexColor: string
     ) {
         const polyline = new Polyline(gl, {
-            points: points.map((p) => new Vec3(p.x, p.y, p.z)),
+            points: points.map((p) => oglVec3(p)),
             uniforms: {
                 uColor: { value: new Color(hexColor) },
                 uThickness: { value: 5 },
@@ -303,9 +312,9 @@ export default class ogl implements RenderingEngine {
     /**
      * Create a primitive placeholder with custom shader/options (experiments).
      *
-     * @param position  Vec3          3D position of the placeholder
-     * @param orientation  Quat       Orientation of the placeholder
      * @param shape - Primitive shape id
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @param color - RGBA color or `undefined` for random
      * @param fragmentShader - Optional fragment shader source
      * @param options - Shape-specific constructor options
@@ -313,8 +322,8 @@ export default class ogl implements RenderingEngine {
      */
     addPlaceholderWithOptions(
         shape: ValueOf<typeof PRIMITIVES>,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         color: [number, number, number, number] | undefined,
         fragmentShader: string | undefined,
         options: any = {},
@@ -323,8 +332,8 @@ export default class ogl implements RenderingEngine {
             color = [Math.random(), Math.random(), Math.random(), 1];
         }
         const placeholder = createModel(gl, shape, color!, false, options);
-        placeholder.position.copy(position);
-        placeholder.quaternion.copy(orientation);
+        placeholder.position.copy(oglVec3(position));
+        placeholder.quaternion.copy(oglQuat(orientation));
         placeholder.setParent(scene);
         if (fragmentShader !== undefined) {
             placeholder.program = createProgram(gl, {
@@ -341,9 +350,9 @@ export default class ogl implements RenderingEngine {
     /**
      * Add a GLTF/GLB model to the scene.
      *
-     * @param position  Vec3      3D position of the model
-     * @param orientation  Quat   Orientation of the model
      * @param url - Model URL
+     * @param position - Root position ({@link ReadonlyVec3})
+     * @param orientation - Root orientation ({@link ReadonlyQuat})
      * @param scale - Root uniform/non-uniform scale ({@link ReadonlyVec3})
      * @param callback - Called once per loaded mesh leaf with its {@link SceneNodeId}
      * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
@@ -351,9 +360,9 @@ export default class ogl implements RenderingEngine {
      */
     addModel(
         url: string,
-        position: Vec3,
-        orientation: Quat,
-        scale: Vec3 = new Vec3(1, 1, 1),
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale: ReadonlyVec3 = [1.0, 1.0, 1.0],
         callback?: (mesh: SceneNodeId) => void,
         name?: ModelName,
     ): SceneNodeId {
@@ -361,9 +370,9 @@ export default class ogl implements RenderingEngine {
             console.log('OGL addModel: ' + url);
         }
         const gltfScene = new Transform();
-        gltfScene.position.copy(position);
-        gltfScene.quaternion.copy(orientation);
-        gltfScene.scale.copy(scale);
+        gltfScene.position.copy(oglVec3(position));
+        gltfScene.quaternion.copy(oglQuat(orientation));
+        gltfScene.scale.copy(oglVec3(scale));
         gltfScene.setParent(scene);
 
         const engine = this;
@@ -474,17 +483,17 @@ export default class ogl implements RenderingEngine {
      *
      * Indicates visually that the placeholder can load a scene.
      *
-     * @param position  Vec3        3D position of the placeholder
-     * @param orientation  Quat     Orientation of the placeholder
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @returns {@link SceneNodeId} for the spinning placeholder
      */
     addExperiencePlaceholder(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
     ): SceneNodeId {
         const placeholder = getExperiencePlaceholder(gl);
-        placeholder.position.copy(position);
-        placeholder.quaternion.copy(orientation);
+        placeholder.position.copy(oglVec3(position));
+        placeholder.quaternion.copy(oglQuat(orientation));
         placeholder.setParent(scene);
         const nodeId = this.addSceneNode(placeholder);
         updateHandlers[nodeId] = () => (placeholder.rotation.y += 0.01);
@@ -511,26 +520,25 @@ export default class ogl implements RenderingEngine {
      * @returns {@link SceneNodeId} for the reticle root (GLTF subtree)
      */
     addReticle() {
-        return this.addModel('/media/models/reticle.gltf', new Vec3(0, 0, 0), new Quat(0, 0, 0, 1));
+        return this.addModel('/media/models/reticle.gltf', vec3.fromValues(0, 0, 0), quat.fromValues(0, 0, 0, 1));
     }
 
     /** @param orientation - Scene orientation ({@link ReadonlyQuat}) */
-    isHorizontal(orientation: Quat) {
-    //isHorizontal(orientation: ReadonlyQuat) {
-        const euler = new Euler().fromQuaternion(orientation);
+    isHorizontal(orientation: ReadonlyQuat) {
+        const euler = new Euler().fromQuaternion(oglQuat(orientation));
         return Math.abs(euler.x) < Number.EPSILON;
     }
 
     /**
      * Create object with random shape, color, size and add it to the scene at the given pose.
      *
-     * @param position  Vec3      3D position of the object
-     * @param orientation  Quat   Orientation of the object
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @returns {@link SceneNodeId} for the created primitive mesh
      */
     addRandomObject(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat
     ) {
         let object_description = createRandomObjectDescription();
         return this.addObject(position, orientation, object_description);
@@ -539,22 +547,22 @@ export default class ogl implements RenderingEngine {
     /**
      * Create object with given properties at the given pose.
      *
-     * @param position  Vec3      3D position of the object
-     * @param orientation  Quat   Orientation of the object
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @param object_description - Primitive shape, color, scale, etc.
      * @returns {@link SceneNodeId} for the created mesh
      */
     addObject(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         object_description: ObjectDescription
     ) {
         if (debugOgl) {
             console.log('OGL addObject: ' + object_description);
         }
         const mesh = createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
-        mesh.position.copy(position);
-        mesh.quaternion.copy(orientation);
+        mesh.position.copy(oglVec3(position));
+        mesh.quaternion.copy(oglQuat(orientation));
         scene.addChild(mesh);
         return this.addSceneNode(mesh);
     }
@@ -562,12 +570,13 @@ export default class ogl implements RenderingEngine {
     /**
      * Add a GPU particle system (engine-specific handle; not a {@link SceneNodeId}).
      *
-        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @returns {@link ParticleSystem} for intensity updates and rendering
      */
     addParticleObject(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         shape: ParticleShape,
         baseColor: string,
         pointSize: number,
@@ -578,9 +587,9 @@ export default class ogl implements RenderingEngine {
         if (debugOgl) {
             console.log('OGL addParticleObject');
         }
-        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);        
-        particles.mesh.position.copy(position);
-        particles.mesh.quaternion.copy(orientation);
+        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
+        particles.mesh.position.copy(oglVec3(position));
+        particles.mesh.quaternion.copy(oglQuat(orientation));
         scene.addChild(particles.mesh);
         return particles;
         // TODO: return the SceneNodeId instead of ParticleSystem
@@ -600,16 +609,16 @@ export default class ogl implements RenderingEngine {
     /**
      * Create a dynamic object with given properties at the given pose.
      *
-     * @param position  Vec3        3D position of the object
-     * @param orientation  Quat     Orientation of the object
      * @param object_id - User-specified unique id (also used with {@link getDynamicObjectNodeId})
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @param object_description - Primitive description, or `null` for default sphere
      * @returns {@link SceneNodeId} for the dynamic object mesh
      */
     addDynamicObject(
         object_id: string,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         object_description: ObjectDescription | null = null
     ) {
         if (debugOgl) console.log('OGL addDynamicObject: ' + object_id);
@@ -622,8 +631,8 @@ export default class ogl implements RenderingEngine {
             options: {},
         };
         const mesh = createModel(gl, description.shape, description.color, description.transparent, description.options, description.scale);
-        mesh.position.copy(position);
-        mesh.quaternion.copy(orientation);
+        mesh.position.copy(oglVec3(position));
+        mesh.quaternion.copy(oglQuat(orientation));
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
@@ -643,16 +652,16 @@ export default class ogl implements RenderingEngine {
     /**
      * Update a dynamic object with given properties at the given pose.
      *
-     * @param position  Vec3       3D position of the object
-     * @param orientation  Quat    Orientation of the object
      * @param object_id - User-specified unique id
+     * @param position - New position ({@link ReadonlyVec3}) or `null` to keep current
+     * @param orientation - New orientation ({@link ReadonlyQuat}) or `null` to keep current
      * @param object_description - New description, or `null` to keep current
      * @returns Whether the update succeeded
      */
     updateDynamicObject(
         object_id: string,
-        position: Vec3 | null = null,
-        orientation: Quat | null = null,
+        position: ReadonlyVec3 | null = null,
+        orientation: ReadonlyQuat | null = null,
         object_description: ObjectDescription | null = null
     ) {
         //console.log("OGL updateDynamicObject: " + object_id);
@@ -661,16 +670,16 @@ export default class ogl implements RenderingEngine {
             return false;
         }
         const old_position = dynamic_objects_meshes[object_id].position;
-        let new_position = new Vec3(old_position[0], old_position[1], old_position[2]);
+        let new_position = oglVec3(old_position);
         if (position != null) {
-            new_position = new Vec3(position[0], position[1], position[2]);
+            new_position = oglVec3(position);
         }
         dynamic_objects_meshes[object_id].position = new_position;
 
         const old_orientation = dynamic_objects_meshes[object_id].quaternion;
-        let new_orientation = new Quat(old_orientation[0], old_orientation[1], old_orientation[2], old_orientation[3]);
+        let new_orientation = oglQuat(old_orientation);
         if (orientation != null) {
-            new_orientation = new Quat(orientation[0], orientation[1], orientation[2], orientation[3]);
+            new_orientation = oglQuat(orientation);
         }
         dynamic_objects_meshes[object_id].quaternion = new_orientation;
 
@@ -735,38 +744,38 @@ export default class ogl implements RenderingEngine {
      *
      * Called when marker movement was detected, for example.
      *
-     * @param position  Vec3      3D position of the placeholder
-     * @param orientation  Quat   Orientation of the placeholder
      * @param object - {@link SceneNodeId} from {@link addMarkerObject}
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      */
     updateMarkerObjectPosition(
         objectNodeId: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
     ) {
         const native = this.getSceneNode(objectNodeId);
-        native.position.copy(position);
-        native.quaternion.copy(orientation);
+        native.position.copy(oglVec3(position));
+        native.quaternion.copy(oglQuat(orientation));
     }
 
     /**
      * Update the position of the reticle to the provided position and orientation.
      *
-     * @param position  Vec3       The position of the reticle
-     * @param orientation  Quat    The orientation of the reticle
      * @param reticle - {@link SceneNodeId} from {@link addReticle}
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param orientation - Scene orientation ({@link ReadonlyQuat})
      * @param scale - Optional root scale ({@link ReadonlyVec3})
      */
     updateReticlePose(
         reticle: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
-        scale: Vec3 = new Vec3(0.2, 0.2, 0.2),
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale: ReadonlyVec3 = [0.2, 0.2, 0.2],
     ) {
         const native = this.getSceneNode(reticle);
-        native.position.copy(position);
-        native.quaternion.copy(orientation);
-        native.scale.copy(scale);
+        native.position.copy(oglVec3(position));
+        native.quaternion.copy(oglQuat(orientation));
+        native.scale.copy(oglVec3(scale));
     }
 
     /**
@@ -784,13 +793,15 @@ export default class ogl implements RenderingEngine {
     /**
      * Load a PLY (point cloud or indexed triangle mesh) and add it to the scene.
      *
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param quaternion - Scene orientation ({@link ReadonlyQuat})
      * @returns {@link SceneNodeId} or `null` if loading or parsing failed
      */
     async addPlyObject(
         url: string,
-        position: Vec3,
-        quaternion: Quat,
-        plyOptions?: PlyLoadOptions
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        plyOptions?: PlyLoadOptions,
     ): Promise<SceneNodeId | null> {
         if (debugOgl) console.log('OGL addPlyObject ' + url);
         try {
@@ -807,8 +818,8 @@ export default class ogl implements RenderingEngine {
                 program,
                 frustumCulled: loaded.primitive === 'triangles',
             });
-            pclMesh.position.copy(position);
-            pclMesh.quaternion.copy(quaternion);
+            pclMesh.position.copy(oglVec3(position));
+            pclMesh.quaternion.copy(oglQuat(quaternion));
             pclMesh.setParent(scene); // this is very slow
             return this.addSceneNode(pclMesh);
         } catch (error) {
@@ -820,12 +831,14 @@ export default class ogl implements RenderingEngine {
     /**
      * Place spatial point-cloud content. Supported formats are resolved from URL path and MIME type
      * (today: PLY via {@link addPlyObject}); unknown combinations log a warning and return `null`.
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param quaternion - Scene orientation ({@link ReadonlyQuat})
      * @returns {@link SceneNodeId} or `null` if unsupported or load failed
      */
     async addPointCloudObject(
         url: string,
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
     ): Promise<SceneNodeId | null> {
         const { contentType = '', scrContentType, ...plyOpts } = options ?? {};
@@ -840,10 +853,16 @@ export default class ogl implements RenderingEngine {
         return null;
     }
 
+    /**
+     * Add a logo image on a billboard plane (async texture load).
+     *
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     */
     async addLogoObject(
         url: string,
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         width = 1.0,
         height = 1.0,
     ) {
@@ -859,18 +878,26 @@ export default class ogl implements RenderingEngine {
                 program: logoProgram,
                 frustumCulled: false,
             });
-            plane.position.copy(position);
-            plane.quaternion.copy(quaternion);
+            plane.position.copy(oglVec3(position));
+            plane.quaternion.copy(oglQuat(quaternion));
             plane.setParent(scene);
             return plane;
         });
     }
 
+    /**
+     * Add 3D text at the given pose.
+     *
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     * @param textColor - RGB ({@link ReadonlyVec3})
+     * @returns {@link SceneNodeId} for the text mesh
+     */
     async addTextObject(
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         string: string,
-        textColor: Vec3 = new Vec3(1.0, 1.0, 1.0),
+        textColor: ReadonlyVec3 = [1.0, 1.0, 1.0],
     ) {
         if (debugOgl) console.log('OGL addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
@@ -878,10 +905,10 @@ export default class ogl implements RenderingEngine {
             gl,
             fontName,
             string,
-            textColor,
+            oglVec3(textColor)
         );
-        textMesh.position.copy(position);
-        textMesh.quaternion.copy(quaternion);
+        textMesh.position.copy(oglVec3(position));
+        textMesh.quaternion.copy(oglQuat(quaternion));
         textMesh.setParent(scene);
         return this.addSceneNode(textMesh);
     }
@@ -906,16 +933,22 @@ export default class ogl implements RenderingEngine {
         return this.addTextObject(position, quaternion, string, tc);
     }
 
+    /**
+     * Add a video billboard with click-to-toggle playback.
+     *
+     * @param position - Scene position ({@link ReadonlyVec3})
+     * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     */
     async addVideoObject(
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         videoUrl: string,
     ) {
         if (debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
         const videoInfo = await videoHelper.loadVideo(videoUrl);
         const videoBox = videoHelper.createVideoBox(gl, scene,
-            position,
-            quaternion,
+            oglVec3(position),
+            oglQuat(quaternion),
             videoInfo.videoId
         );
         this.addClickEvent(this.addSceneNode(videoBox), () => {
@@ -951,6 +984,9 @@ export default class ogl implements RenderingEngine {
      * @param modelId  string       The model id
      */
     getClickEvent(modelId: string) {
+        if (eventHandlers[modelId]) {
+            return eventHandlers[modelId].handler;
+        }
         const nodeId = this.getDynamicObjectNodeId(modelId);
         if (nodeId && eventHandlers[nodeId]) {
             return eventHandlers[nodeId].handler;
@@ -1198,13 +1234,4 @@ export default class ogl implements RenderingEngine {
         scene.updateMatrixWorld(true);
     }
 
-    /** Builds an OGL `Transform` from a plain rigid pose (e.g. `convertGeoPoseToLocalPose` in `@core/worldAlignment`). */
-    transformFromRigidPose(rp: RigidPose): Transform {
-        const { position, quaternion } = oglTrsFromRigidPose(rp);
-        const t = new Transform();
-        t.position.copy(position);
-        t.quaternion.copy(quaternion);
-        t.updateMatrix();
-        return t;
-    }
 }

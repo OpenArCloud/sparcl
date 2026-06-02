@@ -18,8 +18,7 @@
     import type webxr from '@core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { RigidPose } from '@core/frameTransforms';
-    import { quat as glQuat } from 'gl-matrix';
-    import { Quat, type Transform, Vec3, Mesh } from 'ogl';
+    import { quat, vec3 } from 'gl-matrix';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import type { ObjectDescription } from '../../core/contents/objectDescription';
     import type { XrFeature } from '../../types/xr';
@@ -93,14 +92,14 @@
         const id: string = `${targetAgentId}_reticle`;
         const renderer = parentInstance.getRenderer();
         const nodeId: SceneNodeId | null = renderer.getDynamicObjectNodeId(id);
-        const base = glQuat.fromValues(
+        const base = quat.fromValues(
             localTargetPose.orientation.x,
             localTargetPose.orientation.y,
             localTargetPose.orientation.z,
             localTargetPose.orientation.w,
         );
-        const correction = glQuat.setAxisAngle(glQuat.create(), [1, 0, 0], Math.PI / 2);
-        const torusQ = glQuat.multiply(glQuat.create(), base, correction);
+        const correction = quat.setAxisAngle(quat.create(), [1, 0, 0], Math.PI / 2);
+        const torusQ = quat.multiply(quat.create(), base, correction);
         const correctedPose: RigidPose = {
             position: localTargetPose.position,
             orientation: { x: torusQ[0], y: torusQ[1], z: torusQ[2], w: torusQ[3] },
@@ -190,8 +189,8 @@
                 timestamp: timestamp,
             };
         } else {
-            const reticlePosition = new Vec3();
-            const reticleOrientation = new Quat();
+            const reticlePosition = vec3.create();
+            const reticleOrientation = quat.create();
             tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
             const curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(
                 { x: reticlePosition[0], y: reticlePosition[1], z: reticlePosition[2] },
@@ -252,8 +251,8 @@
                     if (position && orientation) {
                         tdEngine.updateReticlePose(
                             reticleNodeId,
-                            new Vec3(position.x, position.y, position.z),
-                            new Quat(orientation.x, orientation.y, orientation.z, orientation.w)
+                            vec3.fromValues(position.x, position.y, position.z),
+                            quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
                         );
                         tdEngine.setNodeVisible(reticleNodeId, true);
                     }

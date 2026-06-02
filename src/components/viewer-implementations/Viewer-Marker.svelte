@@ -13,7 +13,7 @@
 <script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
-    import { Mesh, Quat, Vec3 } from 'ogl';
+    import { quat, vec3 } from 'gl-matrix';
 
     import { currentMarkerImage, currentMarkerImageWidth } from '@src/stateStore';
 
@@ -163,8 +163,8 @@
 
             const markerPos = xrMarkerPose.transform.position;
             const markerOri = xrMarkerPose.transform.orientation;
-            const position = new Vec3(markerPos.x, markerPos.y, markerPos.z);
-            const orientation = new Quat(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
+            const position = vec3.fromValues(markerPos.x, markerPos.y, markerPos.z);
+            const orientation = quat.fromValues(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
             tdEngine.updateMarkerObjectPosition(trackedImageObjectNodeId, position, orientation);
             isLocalized = true;
         }

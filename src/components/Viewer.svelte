@@ -57,7 +57,7 @@
     import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
-    import { mat4, type ReadonlyMat4 } from 'gl-matrix';
+    import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
@@ -65,7 +65,6 @@
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
-    import { Vec3, Quat } from 'ogl';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
@@ -784,8 +783,10 @@
                     return;
                 }
 
-                const localPosition = new Vec3(poseResult.pose.position.x, poseResult.pose.position.y, poseResult.pose.position.z);
-                const localQuaternion = new Quat(poseResult.pose.orientation.x, poseResult.pose.orientation.y, poseResult.pose.orientation.z, poseResult.pose.orientation.w);                
+                const p = poseResult.pose.position;
+                const o = poseResult.pose.orientation;
+                const localPosition = vec3.fromValues(p.x, p.y, p.z);
+                const localQuaternion = quat.fromValues(o.x, o.y, o.z, o.w);
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -1058,14 +1059,14 @@
      * Handler to load and unload external experiences.
      *
      * @param placeholderNodeId  SceneNodeId    The initial placeholder placed into the 3D scene
-     * @param position  Vec3        The position the experience should be placed
-     * @param orientation  Quat     The orientation of the experience
+     * @param position  ReadonlyVec3        The position the experience should be placed
+     * @param orientation  ReadonlyQuat     The orientation of the experience
      * @param url  String           The URL to load the experience from
      */
     export function experienceLoadHandler(
         placeholderNodeId: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         url: string
     ) {
         tdEngine.setWaiting(placeholderNodeId);
