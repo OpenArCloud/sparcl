@@ -9,11 +9,9 @@
 
 /**
  * Renderer-agnostic contract for the 3D engine used by sparcl viewers.
- * The OGL implementation is the reference; Three.js and others should implement this surface.
+ * Poses use gl-matrix ({@link ReadonlyVec3}, {@link ReadonlyQuat}, {@link mat4}); each engine converts internally.
  */
-
-import type { ReadonlyMat4 } from 'gl-matrix';
-import type { Mesh, Transform, Vec3, Quat, Mat4 } from 'ogl';
+import type { mat4, quat, ReadonlyMat4, ReadonlyQuat, ReadonlyVec3, vec3 } from 'gl-matrix';
 
 import type { ExternalCameraParameters } from './externalCameraPose';
 import type { ObjectDescription } from '../contents/objectDescription';
@@ -42,21 +40,21 @@ export interface RenderingEngine {
     /** @returns {@link SceneNodeId} for the placeholder root */
     addPlaceholder(
         keywords: string | string[] | undefined,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat
     ): SceneNodeId;
 
     /** @returns {@link SceneNodeId} for the polyline mesh */
     addPolyline(
-        points: Vec3[],
-        hexColor: string
+        points: ReadonlyVec3[],
+        hexColor: string,
     ): SceneNodeId;
 
     /** @returns {@link SceneNodeId} for the configured primitive mesh */
     addPlaceholderWithOptions(
         shape: PrimitiveShape,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         color: [number, number, number, number] | undefined,
         fragmentShader: string | undefined,
         options?: unknown,
@@ -69,9 +67,9 @@ export interface RenderingEngine {
      */
     addModel(
         url: string,
-        position: Vec3,
-        orientation: Quat,
-        scale?: Vec3,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale?: ReadonlyVec3,
         callback?: (nodeId: SceneNodeId) => void,
         name?: ModelName,
     ): SceneNodeId;
@@ -80,7 +78,7 @@ export interface RenderingEngine {
     addModelWithRigidPose(
         url: string,
         pose: RigidPose,
-        scale?: [number, number, number],
+        scale?: ReadonlyVec3,
         callback?: (nodeId: SceneNodeId) => void,
         name?: ModelName,
     ): SceneNodeId;
@@ -96,8 +94,8 @@ export interface RenderingEngine {
 
     /** @returns {@link SceneNodeId} for the experience placeholder */
     addExperiencePlaceholder(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat
     ): SceneNodeId;
 
     /** @returns {@link SceneNodeId} for the marker tracking object */
@@ -107,25 +105,25 @@ export interface RenderingEngine {
     addReticle(): SceneNodeId;
 
     /** Whether the given orientation is roughly horizontal (floor-aligned). */
-    isHorizontal(orientation: Quat): boolean;
+    isHorizontal(orientation: ReadonlyQuat): boolean;
 
     /** @returns {@link SceneNodeId} for a random primitive */
     addRandomObject(
-        position: Vec3,
-        orientation: Quat
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat
     ): SceneNodeId;
 
     /** @returns {@link SceneNodeId} for the described primitive mesh */
     addObject(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         object_description: ObjectDescription
     ): SceneNodeId;
 
     /** @returns Engine-specific {@link ParticleSystem} (not a {@link SceneNodeId}) */
     addParticleObject(
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         shape: ParticleShape,
         baseColor: string,
         pointSize: number,
@@ -140,8 +138,8 @@ export interface RenderingEngine {
     /** @param object_id - Stable id for updates and {@link getDynamicObjectNodeId} */
     addDynamicObject(
         object_id: string,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
         object_description?: ObjectDescription | null,
     ): SceneNodeId;
 
@@ -153,8 +151,8 @@ export interface RenderingEngine {
 
     updateDynamicObject(
         object_id: string,
-        position?: Vec3 | null,
-        orientation?: Quat | null,
+        position?: ReadonlyVec3 | null,
+        orientation?: ReadonlyQuat | null,
         object_description?: ObjectDescription | null,
     ): boolean;
 
@@ -174,32 +172,32 @@ export interface RenderingEngine {
     /** @param object - {@link SceneNodeId} from {@link addMarkerObject} */
     updateMarkerObjectPosition(
         object: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat
     ): void;
 
     /** @param reticle - {@link SceneNodeId} from {@link addReticle} */
     updateReticlePose(
         reticle: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
-        scale?: Vec3,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale?: ReadonlyVec3
     ): void;
 
     /** Writes world-space TRS of `node` into the provided out parameters. */
     getNodePose(
         nodeId: SceneNodeId,
-        outPosition: Vec3,
-        outOrientation: Quat,
-        outScale?: Vec3,
+        outPosition: vec3,
+        outOrientation: quat,
+        outScale?: vec3
     ): void;
 
     /** Sets the pose of a node in the scene graph. */
     setNodePose(
         nodeId: SceneNodeId,
-        position: Vec3,
-        orientation: Quat,
-        scale?: Vec3
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        scale?: ReadonlyVec3
     ): void;
 
     translateNode(nodeId: SceneNodeId, dx: number, dy: number, dz: number): void;
@@ -216,31 +214,31 @@ export interface RenderingEngine {
 
     addPlyObject(
         url: string,
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         plyOptions?: PlyLoadOptions
     ): Promise<SceneNodeId | null>;
 
     addPointCloudObject(
         url: string,
-        position: Vec3,
-        orientation: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
     ): Promise<SceneNodeId | null>;
 
     addLogoObject(
         url: string,
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         width?: number,
         height?: number
     ): Promise<void>;
 
     addTextObject(
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         string: string,
-        textColor?: Vec3,
+        textColor?: ReadonlyVec3,
     ): Promise<SceneNodeId>;
 
     addTextObjectWithRigidPose(
@@ -250,8 +248,8 @@ export interface RenderingEngine {
     ): Promise<SceneNodeId>;
 
     addVideoObject(
-        position: Vec3,
-        quaternion: Quat,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
         videoUrl: string
     ): Promise<void>;
 

@@ -9,7 +9,7 @@
 
 // code from OGL example https://github.com/oframe/ogl/blob/master/examples/load-gltf.html
 
-import { Mesh, Program, TextureLoader, Transform, Vec3 } from 'ogl';
+import { Mesh, Program, TextureLoader, Vec3 } from 'ogl';
 
 const complex_shader = {
     vertex: /* glsl */ `

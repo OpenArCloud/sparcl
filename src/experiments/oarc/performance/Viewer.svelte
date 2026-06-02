@@ -10,7 +10,7 @@
     import { PRIMITIVES } from '@core/contents/primitives';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    import { Vec3, Quat } from 'ogl';
+    import { quat, vec3 } from 'gl-matrix';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import type webxr from '../../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
@@ -92,8 +92,8 @@
             const shape = Object.values(PRIMITIVES)[index];
 
             const options: any = { attributes: {} };
-            const reticlePosition = new Vec3();
-            const reticleOrientation = new Quat();
+            const reticlePosition = vec3.create();
+            const reticleOrientation = quat.create();
             tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
             const isHorizontal = tdEngine.isHorizontal(reticleOrientation);
 
@@ -224,8 +224,8 @@
                 if (position && orientation) {
                     tdEngine.updateReticlePose(
                         reticleNodeId,
-                        new Vec3(position.x, position.y, position.z),
-                        new Quat(orientation.x, orientation.y, orientation.z, orientation.w)
+                        vec3.fromValues(position.x, position.y, position.z),
+                        quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
                     );
                 }
             }
