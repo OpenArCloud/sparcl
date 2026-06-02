@@ -15,7 +15,7 @@ import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
 import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
-import { createRandomObjectDescription } from '../../contents/objectDescription';
+import { createRandomObjectDescription } from '@core/contents/objectDescription';
 
 export let createProgram = (gl: OGLRenderingContext, { vertex = defaultVertex, fragment = defaultFragment, uniforms = {} }: { vertex?: string; fragment?: string; uniforms?: Record<string, any> }) =>
     new Program(gl, {

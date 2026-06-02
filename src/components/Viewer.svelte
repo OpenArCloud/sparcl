@@ -57,7 +57,7 @@
     import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
-    import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
+    import { mat4, quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
@@ -66,7 +66,13 @@
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
-    import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
+    import { 
+        clearSensorVisualizations,
+        createSensorVisualization, 
+        hasSensorVisualization, 
+        updateSensorFromMsg, 
+        updateSensorVisualization,
+    } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
 
     /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
@@ -350,7 +356,7 @@
                 }
             }
 
-            updateSensorVisualization();
+            updateSensorVisualization(tdEngine);
 
             // If we know the world alignment...
             if (worldAlignment.hasActiveWorldAlignment()) {
@@ -490,6 +496,9 @@
         worldAlignment.clearActiveGeoPoseAlignment();
         worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
+
+        // cleanup rendering
+        clearSensorVisualizations(tdEngine);
         tdEngine.cleanup();
 
         // broadcast event to parent
@@ -518,6 +527,9 @@
         worldAlignment.clearActiveGeoPoseAlignment();
         worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
+
+        // cleanup rendering
+        clearSensorVisualizations(tdEngine);
         tdEngine.reinitialize();
     }
 
@@ -893,14 +905,24 @@
                     }
 
                     case 'sensor_stream': {
-                        if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
-
-                        // handle general sensor stream objects
-                        const sensor_id = createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
+                        const sensor_id = content_definitions['sensor_id']
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
                             break;
                         }
+
+                        if (hasSensorVisualization(sensor_id)) {
+                            // ignore if the sensor visualization already exists
+                            break;
+                        }
+
+                        if (debugScrs) {
+                            console.log(`addSensorObject ${record.content.title}, sensor_id: ${sensor_id}`);
+                        }
+
+                        // handle general sensor stream objects
+                        createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
+                        
                         if (content_definitions.rmqTopic) {
                             subscribeToSensor(content_definitions.rmqTopic, (d) => {
                                 console.log(d.body);

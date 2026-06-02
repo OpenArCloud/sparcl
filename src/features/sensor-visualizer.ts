@@ -1,13 +1,17 @@
-import type { RenderingEngine } from '@core/engines/RenderingEngine';
-import type { SceneNodeId } from '@core/engines/RenderingEngine';
+import type { RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3, type vec3 as Vec3Out } from 'gl-matrix';
-import { type ParticleSystem, ParticleShape, updateParticles } from '@src/core/engines/ogl/oglParticleHelper';
+import { ParticleShape, type ParticleSystem } from '@core/contents/particleSystem';
 
-export const sensorTexts: Record<string, SceneNodeId> = {};
+export type SensorVisualizationType = 'particle' | 'text';
+export type SensorId = string;
 
-let particleList: Record<string, ParticleSystem> = {};
+export interface TextSensor {
+    intensity: number;
+}
 
-let textList: Record<string, TextSensor> = {};
+let sensorTexts: Record<SensorId, SceneNodeId> = {};
+let particleSensorVisualizations: Record<SensorId, SceneNodeId> = {};
+let textSensorVisualizations: Record<SensorId, TextSensor> = {};
 
 const debugSensors = false;
 
@@ -23,7 +27,8 @@ export function createSensorVisualization(
     localQuaternion: ReadonlyQuat,
     content_definitions: Record<string, string>,
 ) {
-    switch (content_definitions.visualizationType) {
+    const visualizationType = content_definitions.visualizationType as SensorVisualizationType;
+    switch (visualizationType) {
         case 'particle':
             return createParticleSensor(tdEngine, localPosition, localQuaternion, content_definitions);
         case 'text':
@@ -31,6 +36,23 @@ export function createSensorVisualization(
         default:
             console.error('Invalid sensor visualization type', content_definitions);
     }
+}
+
+/** Whether a particle- or text-based visualization was already created for this sensor id. */
+export function hasSensorVisualization(sensorId: SensorId): boolean {
+    return (
+        Object.hasOwn(particleSensorVisualizations, sensorId) ||
+        Object.hasOwn(textSensorVisualizations, sensorId)
+    );
+}
+
+function parseBaseColorRgb(raw: string | undefined) {
+    const s = raw ?? '0.5,0.5,0.5';
+    const parts = s.split(',').map((c) => parseFloat(c.trim()));
+    if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) {
+        return vec3.fromValues(0.5, 0.5, 0.5);
+    }
+    return vec3.fromValues(parts[0]!, parts[1]!, parts[2]!);
 }
 
 function createParticleSensor(
@@ -45,32 +67,31 @@ function createParticleSensor(
         return undefined;
     }
     if (debugSensors) console.log('Adding sensor as particle system: ', sensor_id);
-    const baseColor = content_definitions['baseColor'] ?? '0.5,0.5,0.5';
+
+    const baseColorRgb = parseBaseColorRgb(content_definitions['baseColor']);
     const pointSize = parseFloat(content_definitions['pointSize'] ?? '200.0');
     const intensity = parseInt(content_definitions['intensity'] ?? '100');
     const systemSize = parseFloat(content_definitions['systemSize'] ?? '1.0');
     const speed = parseFloat(content_definitions['speed'] ?? '0.4');
     let shape = content_definitions['shape'] ?? 'random';
-    if (!(<any>Object).values(ParticleShape).includes(shape)) {
+    if (!Object.values(ParticleShape).includes(shape as ParticleShape)) {
         shape = 'random';
     }
 
-    const particles = tdEngine.addParticleObject(
-        localPosition,
-        localQuaternion,
-        shape as ParticleShape,
-        baseColor,
+    const particle: ParticleSystem = {
+        shape: shape as ParticleShape,
+        baseColor: baseColorRgb,
         pointSize,
         intensity,
         systemSize,
         speed,
-    );
-    particleList[sensor_id] = particles;
-
+    };
+    const particleNodeId = tdEngine.addParticleSystem(localPosition, localQuaternion, particle);
+    particleSensorVisualizations[sensor_id] = particleNodeId;
     setSensorText(
+        tdEngine,
         sensor_id,
         `0`,
-        tdEngine,
         offsetPosition(localPosition, 0.5),
         localQuaternion
     );
@@ -79,8 +100,8 @@ function createParticleSensor(
         let object_id = sensor_id + '_button';
         const mesh = tdEngine.addDynamicObject(object_id, localPosition, localQuaternion);
         tdEngine.addClickEvent(mesh, () => {
-            const newIntensity = tdEngine.setParticleIntensity(particleList[sensor_id], (oldIntensity) => oldIntensity * 2);
-            setSensorText(sensor_id, `${newIntensity}`, tdEngine);
+            const newIntensity = tdEngine.updateParticleIntensity(particleSensorVisualizations[sensor_id], (oldIntensity) => oldIntensity * 2);
+            setSensorText(tdEngine, sensor_id, `${newIntensity}`);
         });
     }
 
@@ -101,22 +122,23 @@ function createTextSensor(
     if (debugSensors) console.log('Adding sensor as text: ', sensor_id);
 
     setSensorText(
+        tdEngine,
         sensor_id,
         `0`,
-        tdEngine,
         offsetPosition(localPosition, 0.5),
         localQuaternion
-    );
+    ); // Note: async function
 
-    textList[sensor_id] = {
+    textSensorVisualizations[sensor_id] = {
         intensity: 0,
     };
 
+    // Note: this is only for testing interaction with a sensor visualization
     if (content_definitions['createButton'] === 'true') {
         let object_id = sensor_id + '_button';
         const mesh = tdEngine.addDynamicObject(object_id, localPosition, localQuaternion);
         tdEngine.addClickEvent(mesh, () => {
-            const newIntensity = (textList[sensor_id].intensity + 10) % 30;
+            const newIntensity = (textSensorVisualizations[sensor_id].intensity + 10) % 30;
             updateSensorFromMsg(JSON.stringify({ sensor_id, value: newIntensity }), tdEngine);
         });
     }
@@ -124,24 +146,26 @@ function createTextSensor(
     return sensor_id;
 }
 
-export function updateSensorVisualization() {
-    for (let particles of Object.values(particleList)) {
-        updateParticles(particles);
+export function updateSensorVisualization(
+    tdEngine: RenderingEngine
+) {
+    for (const sceneNodeId of Object.values(particleSensorVisualizations) as SceneNodeId[]) {
+        tdEngine.updateParticleSystem(sceneNodeId);
     }
 }
 
 export function setSensorText(
-    id: string,
-    value: string,
     tdEngine: RenderingEngine,
+    sensorId: SensorId,
+    value: string,
     position?: ReadonlyVec3,
     quaternion?: ReadonlyQuat
 ) {
     const savedPosition = vec3.create();
     const savedQuaternion = quat.create();
-    if (sensorTexts[id]) {
+    if (sensorTexts[sensorId]) {
         if (!position || !quaternion) {
-            tdEngine.getNodePose(sensorTexts[id], savedPosition, savedQuaternion);
+            tdEngine.getNodePose(sensorTexts[sensorId], savedPosition, savedQuaternion);
         }
         if (!position) {
             position = savedPosition;
@@ -149,8 +173,15 @@ export function setSensorText(
         if (!quaternion) {
             quaternion = savedQuaternion;
         }
-        tdEngine.remove(sensorTexts[id]);
-        delete sensorTexts[id];
+        try {
+            tdEngine.remove(sensorTexts[sensorId]);
+        } catch {
+            // Stale id after engine reinit / partial teardown (already removed)
+        }
+
+        delete sensorTexts[sensorId];
+        // Note: we must delete the reference to the old text node
+        // The label will be recreated after the addTextObject call finishes
     }
 
     if (!position || !quaternion) {
@@ -166,7 +197,7 @@ export function setSensorText(
     ).then((textMesh) => {
         tdEngine.setNodeUniformScale(textMesh, 0.25);
         tdEngine.setTowardsCameraRotating(textMesh);
-        sensorTexts[id] = textMesh;
+        sensorTexts[sensorId] = textMesh;
         return textMesh;
     });
 }
@@ -174,7 +205,7 @@ export function setSensorText(
 export function updateSensorFromMsg(body: string, tdEngine: RenderingEngine) {
     const msg = JSON.parse(body);
     const { sensor_id: sensorId, value } = msg;
-    if (particleList[sensorId]) {
+    if (particleSensorVisualizations[sensorId]) {
         let intensity;
         if (value < 0) {
             // mapping to a positive value
@@ -190,21 +221,43 @@ export function updateSensorFromMsg(body: string, tdEngine: RenderingEngine) {
                 intensity = value;
             }
         }
-        tdEngine.setParticleIntensity(particleList[sensorId], () => intensity);
-    } else if (textList[sensorId]) {
+        tdEngine.updateParticleIntensity(particleSensorVisualizations[sensorId], () => intensity);
+    } else if (textSensorVisualizations[sensorId]) {
         const intensity = value;
-        textList[sensorId].intensity = intensity;
+        textSensorVisualizations[sensorId].intensity = intensity;
     }
 
-    setSensorText(sensorId, `${value}`, tdEngine);
+    setSensorText(tdEngine, sensorId, `${value}`);
 }
 
-export function clearSensorTexts() {
-    for (const id of Object.keys(sensorTexts)) {
-        delete sensorTexts[id];
+/**
+ * Tear down all sensor visualization scene nodes and clear in-module tracking.
+ * Call before {@link RenderingEngine.cleanup} / {@link RenderingEngine.reinitialize} so node ids stay valid.
+ */
+export function clearSensorVisualizations(tdEngine: RenderingEngine): void {
+    // clear particle sensor visualizations
+    for (const sceneNodeId of new Set(Object.values(particleSensorVisualizations))) {
+        try {
+            tdEngine.remove(sceneNodeId);
+        } catch {
+            // Already removed or unknown id — still clear module maps below.
+        }
     }
-}
+    particleSensorVisualizations = {};
 
-export interface TextSensor {
-    intensity: number;
+    // clear text sensor visualizations    
+    textSensorVisualizations = {};
+
+    // clear text sensor text labels
+    for (const sensorId of Object.keys(sensorTexts) as SensorId[]) {
+        const textNodeId = sensorTexts[sensorId];
+        if (textNodeId) {
+            try {
+                tdEngine.remove(textNodeId);
+            } catch {
+                // Already removed or unknown id.
+            }
+        }
+    }
+    sensorTexts = {};
 }

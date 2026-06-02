@@ -14,11 +14,11 @@
 import type { mat4, quat, ReadonlyMat4, ReadonlyQuat, ReadonlyVec3, vec3 } from 'gl-matrix';
 
 import type { ExternalCameraParameters } from './externalCameraPose';
-import type { ObjectDescription } from '../contents/objectDescription';
+import type { ObjectDescription } from '@core/contents/objectDescription';
 import type { SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
-import type { ParticleShape, ParticleSystem } from '@core/engines/ogl/oglParticleHelper';
+import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
 
 /**
@@ -120,20 +120,24 @@ export interface RenderingEngine {
         object_description: ObjectDescription
     ): SceneNodeId;
 
-    /** @returns Engine-specific {@link ParticleSystem} (not a {@link SceneNodeId}) */
-    addParticleObject(
+    /**
+     * @param particleSystem - Particle appearance and simulation parameters ({@link ParticleSystem})
+     * @returns {@link SceneNodeId} for the particle point mesh
+     */
+    addParticleSystem(
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
-        shape: ParticleShape,
-        baseColor: string,
-        pointSize: number,
-        intensity: number,
-        systemSize: number,
-        speed: number,
-    ): ParticleSystem;
+        particleSystem: ParticleSystem,
+    ): SceneNodeId;
 
-    /** @param particles - Engine-specific {@link ParticleSystem} (not a {@link SceneNodeId}) */
-    setParticleIntensity(particles: ParticleSystem, calculate: (oldValue: number) => number): number;
+    /** @param sceneNodeId - {@link SceneNodeId} from {@link addParticleSystem} */
+    updateParticleIntensity(sceneNodeId: SceneNodeId, calculate: (oldValue: number) => number): number;
+
+    /**
+     * Advance simulation / uniforms for a particle system node (e.g. per frame).
+     * @param sceneNodeId - {@link SceneNodeId} from {@link addParticleSystem}
+     */
+    updateParticleSystem(sceneNodeId: SceneNodeId): void;
 
     /** @param object_id - Stable id for updates and {@link getDynamicObjectNodeId} */
     addDynamicObject(

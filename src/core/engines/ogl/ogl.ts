@@ -36,7 +36,7 @@ import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOption
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
-import * as videoHelper from './oglVideoHelper';
+import * as videoHelper from '@core/engines/ogl/oglVideoHelper';
 
 import {
     createAxesBoxPlaceholder,
@@ -48,12 +48,22 @@ import {
     getDefaultPlaceholder,
     getExperiencePlaceholder,
 } from '@core/engines/ogl/oglPrimitives';
-import { createRandomObjectDescription, type ObjectDescription } from '../../contents/objectDescription';
+import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
 import type { SceneRootMatrix } from '../../../types/xr';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
-import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
-import { OglSceneNodeRegistry } from './oglSceneNodeRegistry';
+import type { ParticleSystem } from '@core/contents/particleSystem';
+import {
+    clearRegisteredParticleSystems,
+    createParticleSystem,
+    getParticleIntensity,
+    isRegisteredParticleSystem,
+    registerParticleSystem,
+    setParticleIntensity,
+    unregisterParticleSystem,
+    updateParticles,
+} from '@core/engines/ogl/oglParticleHelper';
+import { OglSceneNodeRegistry } from '@core/engines/ogl/oglSceneNodeRegistry';
 
 import { checkGLError } from '@core/devTools';
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
@@ -534,42 +544,44 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Add a GPU particle system (engine-specific handle; not a {@link SceneNodeId}).
+     * Add a GPU particle system.
      *
      * @param position - Scene position ({@link ReadonlyVec3})
      * @param orientation - Scene orientation ({@link ReadonlyQuat})
-     * @returns {@link ParticleSystem} for intensity updates and rendering
+     * @param particleSystem - Shape, color, point size, counts, and motion (see {@link ParticleSystem})
+     * @returns {@link SceneNodeId} for the particle point mesh
      */
-    addParticleObject(
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        shape: ParticleShape,
-        baseColor: string,
-        pointSize: number,
-        intensity: number,
-        systemSize: number,
-        speed: number,
-    ): ParticleSystem {
+    addParticleSystem(position: ReadonlyVec3, orientation: ReadonlyQuat, particleSystem: ParticleSystem): SceneNodeId {
         if (debugOgl) {
-            console.log('OGL addParticleObject');
+            console.log('OGL addParticleSystem');
         }
-        const particles = createParticles(gl, shape, baseColor, pointSize, intensity, systemSize, speed);
-        particles.mesh.position.copy(oglVec3(position));
-        particles.mesh.quaternion.copy(oglQuat(orientation));
-        scene.addChild(particles.mesh);
-        return particles;
-        // TODO: return the SceneNodeId instead of ParticleSystem
+        const psMesh = createParticleSystem(gl, particleSystem);
+        psMesh.position.copy(oglVec3(position));
+        psMesh.quaternion.copy(oglQuat(orientation));
+        scene.addChild(psMesh);
+        const sceneNodeId = this.sceneNodes.add(psMesh);
+        registerParticleSystem(sceneNodeId, {
+            mesh: psMesh,
+            shape: particleSystem.shape,
+            systemSize: particleSystem.systemSize,
+            speed: particleSystem.speed,
+        });
+        return sceneNodeId;
     }
 
-    setParticleIntensity(particles: ParticleSystem, calculate: (oldValue: number) => number) {
-        if (particles) {
-            const newIntensity = calculate(particles.intensity);
-            setIntensity(particles, newIntensity);
-            return newIntensity;
-        } else {
+    updateParticleIntensity(sceneNodeId: SceneNodeId, calculate: (oldValue: number) => number) {
+        const oldIntensity = getParticleIntensity(sceneNodeId);
+        if (oldIntensity <= 0) {
             console.error('OGL Tried to modify missing particle system!');
             return -1;
         }
+        const newIntensity = calculate(oldIntensity);
+        setParticleIntensity(sceneNodeId, newIntensity);
+        return newIntensity;
+    }
+
+    updateParticleSystem(sceneNodeId: SceneNodeId): void {
+        updateParticles(sceneNodeId);
     }
 
     /**
@@ -1075,15 +1087,20 @@ export default class ogl implements RenderingEngine {
             child = null;
         }
 
+        clearRegisteredParticleSystems();
         this.sceneNodes.clear();
     }
 
     /**
-     * Removes the provided node from the scene and clears its handlers.
+     * Removes the node by the given ID from the scene and clears its handlers.
      *
      * @param modelId - {@link SceneNodeId} to remove
      */
     remove(modelId: SceneNodeId) {
+        if (isRegisteredParticleSystem(modelId)) {
+            unregisterParticleSystem(modelId);
+        }
+
         const native = this.sceneNodes.get(modelId);
         scene.removeChild(native);
         this.sceneNodes.delete(modelId);

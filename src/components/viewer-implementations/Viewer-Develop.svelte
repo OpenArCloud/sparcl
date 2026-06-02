@@ -98,7 +98,7 @@
         xrEngine.handleAnchors(frame);
         xrEngine.setViewportForView(xrViewerPose.views[0]);
         parentInstance.handleExternalExperience(xrViewerPose.views[0]);
-        updateSensorVisualization();
+        updateSensorVisualization(tdEngine);
         tdEngine.render(time, xrViewerPose.views[0]);
     }
 </script>
