@@ -60,6 +60,7 @@ import type { ObjectDescription, ValueOf } from '../../contents/objectDescriptio
 import type { SceneRootMatrix } from '../../../types/xr';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import { createParticles, setIntensity, type ParticleShape, type ParticleSystem } from './oglParticleHelper';
+import { OglSceneNodeRegistry } from './oglSceneNodeRegistry';
 
 let gl: OGLRenderingContext;
 let renderer: Renderer;
@@ -107,41 +108,7 @@ function oglQuat(q: ReadonlyQuat): Quat {
  * https://github.com/oframe/ogl
  */
 export default class ogl implements RenderingEngine {
-
-    private readonly nodesById = new Map<SceneNodeId, Transform | Mesh>();
-
-    /** OGL {@link Transform} has no `.id`; only {@link Mesh} does — assign stable ids per native object. */
-    private readonly nativeToSceneNodeId = new WeakMap<Transform | Mesh, SceneNodeId>();
-    private nextTransformSceneNodeId = 0;
-
-    /** Returns the {@link SceneNodeId} for a native already registered via {@link addSceneNode}. */
-    private getSceneNodeId(native: Transform | Mesh): SceneNodeId | null {
-        return this.nativeToSceneNodeId.get(native) ?? null;
-    }
-
-    private addSceneNode(native: Transform | Mesh): SceneNodeId {
-        let id = this.getSceneNodeId(native);
-        if (!id) {
-            if (typeof native.id === 'number' && Number.isFinite(native.id)) {
-                id = String(native.id);
-            } else {
-                // transforms have no id, so we assign a stable id
-                // however, if a transform gets deleted, we do not decrement the id :(
-                id = `tn_${++this.nextTransformSceneNodeId}`;
-            }
-            this.nativeToSceneNodeId.set(native, id);
-        }
-        this.nodesById.set(id, native);
-        return id;
-    }
-
-    private getSceneNode(nodeId: SceneNodeId): Transform | Mesh {
-        const native = this.nodesById.get(nodeId);
-        if (!native) {
-            throw new Error(`OGL: unknown scene node id ${nodeId}`);
-        }
-        return native;
-    }
+    private readonly sceneNodes = new OglSceneNodeRegistry();
 
     getNodePose(
         nodeId: SceneNodeId,
@@ -149,7 +116,7 @@ export default class ogl implements RenderingEngine {
         outOrientation: quat,
         outScale?: vec3
     ): void {
-        const native = this.getSceneNode(nodeId);
+        const native = this.sceneNodes.get(nodeId);
         vec3.set(outPosition, native.position[0], native.position[1], native.position[2]);
         quat.set(outOrientation, native.quaternion[0], native.quaternion[1], native.quaternion[2], native.quaternion[3]);
         if (outScale) {
@@ -163,7 +130,7 @@ export default class ogl implements RenderingEngine {
         orientation: ReadonlyQuat,
         scale?: ReadonlyVec3
     ): void {
-        const native = this.getSceneNode(nodeId);
+        const native = this.sceneNodes.get(nodeId);
         native.position.copy(oglVec3(position));
         native.quaternion.copy(oglQuat(orientation));
         if (scale) {
@@ -172,27 +139,27 @@ export default class ogl implements RenderingEngine {
     }
 
     translateNode(nodeId: SceneNodeId, dx: number, dy: number, dz: number) {
-        const native = this.getSceneNode(nodeId);
+        const native = this.sceneNodes.get(nodeId);
         native.position.x += dx;
         native.position.y += dy;
         native.position.z += dz;
     }
 
     setNodeUniformScale(nodeId: SceneNodeId, scale: number) {
-        const native = this.getSceneNode(nodeId);
+        const native = this.sceneNodes.get(nodeId);
         native.scale.set(scale, scale, scale);
     }
 
     setNodeVisible(nodeId: SceneNodeId, visible: boolean) {
-        this.getSceneNode(nodeId).visible = visible;
+        this.sceneNodes.get(nodeId).visible = visible;
     }
 
     isNodeVisible(nodeId: SceneNodeId) {
-        return this.getSceneNode(nodeId).visible;
+        return this.sceneNodes.get(nodeId).visible;
     }
 
     getNodeWorldMatrix(nodeId: SceneNodeId, out: mat4) {
-        const native = this.getSceneNode(nodeId);
+        const native = this.sceneNodes.get(nodeId);
         native.updateMatrixWorld(true);
         mat4.copy(out, native.matrix as unknown as mat4);
     }
@@ -283,7 +250,7 @@ export default class ogl implements RenderingEngine {
         placeholder.position.copy(oglVec3(position));
         placeholder.quaternion.copy(oglQuat(orientation));
         placeholder.setParent(scene);
-        return this.addSceneNode(placeholder);
+        return this.sceneNodes.add(placeholder);
     }
 
     /**
@@ -306,7 +273,7 @@ export default class ogl implements RenderingEngine {
         });
         const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
         mesh.setParent(scene);
-        return this.addSceneNode(mesh);
+        return this.sceneNodes.add(mesh);
     }
 
     /**
@@ -344,7 +311,7 @@ export default class ogl implements RenderingEngine {
             });
             uniforms.time[placeholder.id] = placeholder;
         }
-        return this.addSceneNode(placeholder);
+        return this.sceneNodes.add(placeholder);
     }
 
     /**
@@ -386,7 +353,7 @@ export default class ogl implements RenderingEngine {
                         // TODO: cast node to Mesh
                         // HACK: the types suggest that program cannot exist on node. If this is true this if block should be removed altogether. If it's not true, PR needs to be created to update the ogl types.
                         (node as Mesh).program = createSimpleGltfProgram(node as Mesh);
-                        loadedMeshes.push(engine.addSceneNode(node as Mesh));
+                        loadedMeshes.push(engine.sceneNodes.add(node as Mesh));
                     }
                 });
             });
@@ -429,7 +396,7 @@ export default class ogl implements RenderingEngine {
         if (name) {
             gltf_objects_transforms[name] = gltfScene;
         }
-        return this.addSceneNode(gltfScene);
+        return this.sceneNodes.add(gltfScene);
     }
 
     /**
@@ -457,7 +424,7 @@ export default class ogl implements RenderingEngine {
         if (!native) {
             return null;
         }
-        return this.getSceneNodeId(native);
+        return this.sceneNodes.getId(native);
     }
 
     /**
@@ -470,9 +437,9 @@ export default class ogl implements RenderingEngine {
         if (!native) {
             return;
         }
-        const nodeId = this.getSceneNodeId(native);
+        const nodeId = this.sceneNodes.getId(native);
         if (nodeId !== null) {
-            this.nodesById.set(nodeId, native);
+            this.sceneNodes.setNative(nodeId, native);
             this.remove(nodeId);
         }
         delete gltf_objects_transforms[name];
@@ -495,7 +462,7 @@ export default class ogl implements RenderingEngine {
         placeholder.position.copy(oglVec3(position));
         placeholder.quaternion.copy(oglQuat(orientation));
         placeholder.setParent(scene);
-        const nodeId = this.addSceneNode(placeholder);
+        const nodeId = this.sceneNodes.add(placeholder);
         updateHandlers[nodeId] = () => (placeholder.rotation.y += 0.01);
         return nodeId;
     }
@@ -511,7 +478,7 @@ export default class ogl implements RenderingEngine {
     addMarkerObject() {
         const object = getDefaultMarkerObject(gl);
         object.setParent(scene);
-        return this.addSceneNode(object);
+        return this.sceneNodes.add(object);
     }
 
     /**
@@ -564,7 +531,7 @@ export default class ogl implements RenderingEngine {
         mesh.position.copy(oglVec3(position));
         mesh.quaternion.copy(oglQuat(orientation));
         scene.addChild(mesh);
-        return this.addSceneNode(mesh);
+        return this.sceneNodes.add(mesh);
     }
 
     /**
@@ -636,7 +603,7 @@ export default class ogl implements RenderingEngine {
         scene.addChild(mesh);
         dynamic_objects_descriptions[object_id] = description;
         dynamic_objects_meshes[object_id] = mesh;
-        return this.addSceneNode(mesh);
+        return this.sceneNodes.add(mesh);
     }
 
     /** @returns {@link SceneNodeId} (delegates to {@link addDynamicObject}) */
@@ -734,7 +701,7 @@ export default class ogl implements RenderingEngine {
      */
     getDynamicObjectNodeId(object_id: string) {
         if (object_id in dynamic_objects_meshes) {
-            return this.getSceneNodeId(dynamic_objects_meshes[object_id]);
+            return this.sceneNodes.getId(dynamic_objects_meshes[object_id]);
         }
         return null;
     }
@@ -753,7 +720,7 @@ export default class ogl implements RenderingEngine {
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
     ) {
-        const native = this.getSceneNode(objectNodeId);
+        const native = this.sceneNodes.get(objectNodeId);
         native.position.copy(oglVec3(position));
         native.quaternion.copy(oglQuat(orientation));
     }
@@ -772,7 +739,7 @@ export default class ogl implements RenderingEngine {
         orientation: ReadonlyQuat,
         scale: ReadonlyVec3 = [0.2, 0.2, 0.2],
     ) {
-        const native = this.getSceneNode(reticle);
+        const native = this.sceneNodes.get(reticle);
         native.position.copy(oglVec3(position));
         native.quaternion.copy(oglQuat(orientation));
         native.scale.copy(oglVec3(scale));
@@ -787,7 +754,7 @@ export default class ogl implements RenderingEngine {
         const axes = getAxes(gl);
         axes.position.set(0, 0, 0);
         axes.setParent(scene);
-        return this.addSceneNode(axes);
+        return this.sceneNodes.add(axes);
     }
 
     /**
@@ -821,7 +788,7 @@ export default class ogl implements RenderingEngine {
             pclMesh.position.copy(oglVec3(position));
             pclMesh.quaternion.copy(oglQuat(quaternion));
             pclMesh.setParent(scene); // this is very slow
-            return this.addSceneNode(pclMesh);
+            return this.sceneNodes.add(pclMesh);
         } catch (error) {
             console.error(`OGL: failed to load PLY from ${url}`, error);
             return null;
@@ -910,7 +877,7 @@ export default class ogl implements RenderingEngine {
         textMesh.position.copy(oglVec3(position));
         textMesh.quaternion.copy(oglQuat(quaternion));
         textMesh.setParent(scene);
-        return this.addSceneNode(textMesh);
+        return this.sceneNodes.add(textMesh);
     }
 
     /**
@@ -951,17 +918,17 @@ export default class ogl implements RenderingEngine {
             oglQuat(quaternion),
             videoInfo.videoId
         );
-        this.addClickEvent(this.addSceneNode(videoBox), () => {
+        this.addClickEvent(this.sceneNodes.add(videoBox), () => {
             videoHelper.togglePlayback(videoInfo.videoId);
         });
     }
 
     setVerticallyRotating(node: SceneNodeId) {
-        verticallyRotatingNodes.push(this.getSceneNode(node));
+        verticallyRotatingNodes.push(this.sceneNodes.get(node));
     }
 
     setTowardsCameraRotating(node: SceneNodeId) {
-        towardsCameraRotatingNodes.push(this.getSceneNode(node));
+        towardsCameraRotatingNodes.push(this.sceneNodes.get(node));
     }
 
     /**
@@ -971,7 +938,7 @@ export default class ogl implements RenderingEngine {
      * @param handler - Callback when the node is hit
      */
     addClickEvent(modelId: SceneNodeId, handler: () => void) {
-        const native = this.getSceneNode(modelId) as Mesh;
+        const native = this.sceneNodes.get(modelId) as Mesh;
         eventHandlers[modelId] = {
             model: native,
             handler,
@@ -1026,7 +993,7 @@ export default class ogl implements RenderingEngine {
      * @param modelId - {@link SceneNodeId} to animate
      */
     setWaiting(modelId: SceneNodeId) {
-        const native = this.getSceneNode(modelId) as Mesh;
+        const native = this.sceneNodes.get(modelId) as Mesh;
         native.program = createWaitingProgram(gl, [1, 1, 0], [0, 1, 0]);
         uniforms.time[native.id] = native;
     }
@@ -1057,9 +1024,9 @@ export default class ogl implements RenderingEngine {
             return;
         }
         const mesh = dynamic_objects_meshes[object_id];
-        const nodeId = this.getSceneNodeId(mesh);
+        const nodeId = this.sceneNodes.getId(mesh);
         if (nodeId !== null) {
-            this.nodesById.set(nodeId, mesh);
+            this.sceneNodes.setNative(nodeId, mesh);
             this.remove(nodeId);
         }
         delete dynamic_objects_meshes[object_id];
@@ -1108,6 +1075,8 @@ export default class ogl implements RenderingEngine {
             scene.removeChild(child);
             child = null;
         }
+
+        this.sceneNodes.clear();
     }
 
     /**
@@ -1116,9 +1085,9 @@ export default class ogl implements RenderingEngine {
      * @param modelId - {@link SceneNodeId} to remove
      */
     remove(modelId: SceneNodeId) {
-        const native = this.getSceneNode(modelId);
+        const native = this.sceneNodes.get(modelId);
         scene.removeChild(native);
-        this.nodesById.delete(modelId);
+        this.sceneNodes.delete(modelId);
 
         if (native instanceof Mesh) {
             delete updateHandlers[modelId];
@@ -1224,7 +1193,7 @@ export default class ogl implements RenderingEngine {
         }
         node.decompose();
         node.updateMatrixWorld(true);
-        return this.addSceneNode(node);
+        return this.sceneNodes.add(node);
     }
 
     /**
