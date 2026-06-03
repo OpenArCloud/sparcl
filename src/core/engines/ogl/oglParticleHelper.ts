@@ -174,6 +174,7 @@ function generateVelocity(shape: ParticleShape, position: Vec3, speed: number): 
 /** Time variable for particle animations. */
 let particleAnimationTime = 0;
 
+// TODO: pass the clock delta time instead of a fixed 1/60
 export function updateParticles(sceneNodeId: SceneNodeId) {
     particleAnimationTime += 1 / 60;
     getParticleSystemState(sceneNodeId).mesh.program.uniforms.uTime.value = particleAnimationTime;

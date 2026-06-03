@@ -66,14 +66,7 @@
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
-    import { 
-        clearSensorVisualizations,
-        createSensorVisualization, 
-        hasSensorVisualization, 
-        updateSensorFromMsg, 
-        updateSensorVisualization,
-    } from '@src/features/sensor-visualizer';
-    import { subscribeToSensor } from '@src/core/rmqnetwork';
+    import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
     /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
     function plyLoadOptions(def: Record<string, string>): PlyLoadOptions | undefined {
@@ -134,6 +127,7 @@
     let externalContentCloseButton: HTMLImageElement;
     let xrEngine: webxr;
     let tdEngine: RenderingEngine;
+    let sensorVisualizer: SensorVisualizer | undefined;
 
     let unableToStartSession = false;
     let startLocalizing = false;
@@ -182,6 +176,7 @@
     export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
+        sensorVisualizer = new SensorVisualizer(tdEngine);
 
         // give the component some time to set up itself
         wait(1000).then(() => {
@@ -356,7 +351,8 @@
                 }
             }
 
-            updateSensorVisualization(tdEngine);
+            // Particle / label animation step for sensor visualizations. 
+            sensorVisualizer?.updateAnimation();
 
             // If we know the world alignment...
             if (worldAlignment.hasActiveWorldAlignment()) {
@@ -498,7 +494,7 @@
         dispatch('worldAlignmentCleared');
 
         // cleanup rendering
-        clearSensorVisualizations(tdEngine);
+        sensorVisualizer?.clearAllSensors();
         tdEngine.cleanup();
 
         // broadcast event to parent
@@ -529,7 +525,7 @@
         dispatch('worldAlignmentCleared');
 
         // cleanup rendering
-        clearSensorVisualizations(tdEngine);
+        sensorVisualizer?.clearAllSensors();
         tdEngine.reinitialize();
     }
 
@@ -893,7 +889,6 @@
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
                             let object_id = record.content.id;
-
                             let object_description = (record.content as any).object_description;
                             if (tdEngine.getDynamicObjectNodeId(object_id) != null) {
                                 tdEngine.updateDynamicObject(object_id, localPosition, localQuaternion, object_description);
@@ -906,32 +901,22 @@
 
                     case 'sensor_stream': {
                         const sensor_id = content_definitions['sensor_id']
-                        if (sensor_id == undefined) {
-                            console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
+                        if (sensor_id === undefined) {
+                            console.error('ERROR: Unable to parse sensor_id from sensor content record: ' + JSON.stringify(record.content));
                             break;
                         }
-
-                        if (hasSensorVisualization(sensor_id)) {
+                        if (!sensorVisualizer) {
+                            console.error('ERROR: Sensor stream SCR received but sensor visualizer is not initialized');
+                            break;
+                        }
+                        if (sensorVisualizer.hasSensor(sensor_id)) {
                             // ignore if the sensor visualization already exists
                             break;
                         }
-
                         if (debugScrs) {
-                            console.log(`addSensorObject ${record.content.title}, sensor_id: ${sensor_id}`);
+                            console.log(`Sensor stream visualization created for ${record.content.title}, sensor_id: ${sensor_id}`);
                         }
-
-                        // handle general sensor stream objects
-                        createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
-                        
-                        if (content_definitions.rmqTopic) {
-                            subscribeToSensor(content_definitions.rmqTopic, (d) => {
-                                console.log(d.body);
-                                updateSensorFromMsg(d.body, tdEngine);
-                            });
-                        } else {
-                            console.error('Missing rmqTopic field for sensor');
-                        }
-
+                        sensorVisualizer.createSensor(localPosition, localQuaternion, content_definitions);
                         break;
                     }
 

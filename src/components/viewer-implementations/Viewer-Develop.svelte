@@ -20,7 +20,6 @@
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { Geopose } from '@oarc/scd-access';
     import type { WebXrRigidPose } from '@core/frameTransforms';
-    import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -98,7 +97,6 @@
         xrEngine.handleAnchors(frame);
         xrEngine.setViewportForView(xrViewerPose.views[0]);
         parentInstance.handleExternalExperience(xrViewerPose.views[0]);
-        updateSensorVisualization(tdEngine);
         tdEngine.render(time, xrViewerPose.views[0]);
     }
 </script>
