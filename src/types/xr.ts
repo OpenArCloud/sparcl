@@ -7,10 +7,10 @@
   SPDX-License-Identifier: MIT
 */
 
-import type webxr from '../core/engines/webxr';
-import type Ismar2021SignPostViewer from '../experiments/oarc/ismar2021signpost/Viewer.svelte';
-import type Ismar2021MultiViewer from '../experiments/oarc/ismar2021multi/Viewer.svelte';
-import type Ismar2021PerformanceViewer from '../experiments/oarc/performance/Viewer.svelte';
+import type webxr from '@core/engines/webxr';
+import type Ismar2021SignPostViewer from '@experiments/oarc/ismar2021signpost/Viewer.svelte';
+import type Ismar2021MultiViewer from '@experiments/oarc/ismar2021multi/Viewer.svelte';
+import type Ismar2021PerformanceViewer from '@experiments/oarc/performance/Viewer.svelte';
 
 export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) => void;
 export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, markerPose: XRPose, trackedImage: XRImageTrackingResult) => void;

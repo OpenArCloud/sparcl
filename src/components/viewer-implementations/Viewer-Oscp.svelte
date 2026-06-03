@@ -231,14 +231,12 @@
      * @param xrReferenceSpace
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) {
-        if (useReticle && myGl) {
+        if (useReticle && reticleNodeId === null) {
             const tdEngine = parentInstance.getRenderer();
-            checkGLError(myGl, 'before creating reticle');
-            if (reticleNodeId === null) {
-                reticleNodeId = tdEngine.addReticle();
-            }
-            checkGLError(myGl, 'after creating reticle');
-
+            reticleNodeId = tdEngine.addReticle();
+        }
+        if (useReticle && myGl && reticleNodeId !== null) {
+            const tdEngine = parentInstance.getRenderer();
             if (hitTestSource === undefined) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
                 tdEngine.setNodeVisible(reticleNodeId, false);

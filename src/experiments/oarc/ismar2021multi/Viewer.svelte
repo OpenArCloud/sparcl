@@ -119,18 +119,20 @@
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
             $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
-            if (reticleNodeId === null) {
-                reticleNodeId = tdEngine.addReticle();
-            }
             const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
             const position = reticlePose?.transform.position;
             const orientation = reticlePose?.transform.orientation;
             if (position && orientation) {
-                tdEngine.updateReticlePose(
-                    reticleNodeId,
-                    vec3.fromValues(position.x, position.y, position.z),
-                    quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
-                );
+                if (reticleNodeId === null) {
+                    reticleNodeId = tdEngine.addReticle();
+                }
+                if (reticleNodeId !== null) {
+                    tdEngine.updateReticlePose(
+                        reticleNodeId,
+                        vec3.fromValues(position.x, position.y, position.z),
+                        quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w),
+                    );
+                }
             }
         }
 
