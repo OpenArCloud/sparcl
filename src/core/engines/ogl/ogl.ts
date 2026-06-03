@@ -32,7 +32,8 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
-import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader, type PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
+import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
+import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';

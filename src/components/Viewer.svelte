@@ -54,7 +54,7 @@
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
-    import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
+    import { parseScrPlyLoadOptions } from '@core/contents/pointcloud';
     import * as worldAlignment from '@core/worldAlignment';
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
     import { mat4, quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
@@ -67,26 +67,6 @@
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
-
-    /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
-    function plyLoadOptions(def: Record<string, string>): PlyLoadOptions | undefined {
-        const out: PlyLoadOptions = {};
-        const mode = def['plyColorMode'];
-        if (mode === 'auto' || mode === 'vertex' || mode === 'uniform') {
-            out.colorMode = mode;
-        }
-        const ucs = def['plyUniformColor'];
-        if (ucs) {
-            const parts = ucs
-                .split(/[,\s]+/)
-                .map((s) => parseFloat(s.trim()))
-                .filter((n) => !Number.isNaN(n));
-            if (parts.length >= 3) {
-                out.uniformColor = [parts[0], parts[1], parts[2]];
-            }
-        }
-        return Object.keys(out).length > 0 ? out : undefined;
-    }
 
     /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
     function applyModel3dDefinitionAnimations(
@@ -840,7 +820,7 @@
                                 }
                                 case 'ply': {
                                     void tdEngine
-                                        .addPlyObject(url, localPosition, localQuaternion, plyLoadOptions(content_definitions))
+                                        .addPlyObject(url, localPosition, localQuaternion, parseScrPlyLoadOptions(content_definitions))
                                         .then((mesh) => {
                                             if (mesh == null) {
                                                 const placeholder = tdEngine.addPlaceholder(
@@ -931,7 +911,7 @@
                             }
                             const refContentType = record.content.refs?.[0]?.contentType ?? '';
                             tdEngine.addPointCloudObject(url, localPosition, localQuaternion, {
-                                ...(plyLoadOptions(content_definitions) ?? {}),
+                                ...(parseScrPlyLoadOptions(content_definitions) ?? {}),
                                 contentType: refContentType,
                                 scrContentType: record.content.type,
                             });

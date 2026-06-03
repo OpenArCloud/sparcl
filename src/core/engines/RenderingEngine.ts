@@ -17,7 +17,7 @@ import type { ExternalCameraParameters } from './externalCameraPose';
 import type { ObjectDescription } from '@core/contents/objectDescription';
 import type { SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
-import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
+import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
 
