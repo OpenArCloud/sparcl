@@ -9,11 +9,17 @@ nav_order: 50
 
 [OGL](https://github.com/oframe/ogl) was seleceted as the default 3D engine for sparcl, because it is very small and still manages to hide away the specifics of [WebGL](https://www.khronos.org/webgl/).
 
-Viewers depend on the **`RenderingEngine`** interface (`src/core/engines/RenderingEngine.ts`), not on OGL types directly. The default implementation is OGL (`src/core/engines/ogl/ogl.ts`); instantiate it via **`createRenderingEngine('ogl')`** (`src/core/engines/createRenderingEngine.ts`).
+Viewers depend on the **`RenderingEngine`** interface (`src/core/engines/RenderingEngine.ts`), not on OGL types directly.
+
+- **OGL** (default): `src/core/engines/ogl/ogl.ts`
+- **Three.js** (experimental): `src/core/engines/three/threeEngine.ts`
+
+Instantiate via **`createRenderingEngine()`** (`src/core/engines/createRenderingEngine.ts`). Select the backend with URL **`?engine=ogl`** or **`?engine=three`**, or persist with **`localStorage`** key **`sparcl.renderingEngine`** (helpers **`setPersistedRenderingEngineId`**, **`getPersistedRenderingEngineId`**, constant **`RENDERING_ENGINE_STORAGE_KEY`** in that module). In the app dashboard, **Debug settings** includes a **Rendering engine** control that writes the same key (restart AR to apply; URL still overrides for a single load).
 
 Neutral helpers used by viewers and future engines:
 
 - **`PRIMITIVES` / `PrimitiveShape`** — `src/core/contents/primitives.ts` (SCR placeholder shapes)
+- **OGL procedural meshes** — `src/core/engines/ogl/oglPrimitives.ts` (`createModel`, programs, placeholders); **`createRandomObjectDescription`** — `src/core/contents/objectDescription.ts`
 - **`model3DFormatFromRef` / `pointCloudFormatFromRef`** — `src/core/contents/contentFormats.ts`
 - **`getExternalCameraParameters`** — `src/core/engines/externalCameraPose.ts` (returns **`ExternalCameraParameters`**: projection intrinsics + `camerapose` extrinsic column-major `mat4`)
 - **`RigidPose` placement** — `addModelWithRigidPose`, `addDynamicObjectWithRigidPose`, `addTextObjectWithRigidPose`, etc.
