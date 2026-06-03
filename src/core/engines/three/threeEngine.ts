@@ -7,57 +7,137 @@
   SPDX-License-Identifier: MIT
 */
 
-import type { mat4, quat, ReadonlyMat4, ReadonlyQuat, ReadonlyVec3, vec3 } from 'gl-matrix';
+/**
+ * Minimal Three.js {@link RenderingEngine}: WebGL2 context, scene, XR camera sync, resize/cleanup/stop,
+ * scene-graph helpers, and dev helpers ({@link addAxes}, {@link addDebugAxesAtWorldMatrix}).
+ * SCR-backed placement (models, PLY, particles, text, …) is intentionally not implemented yet.
+ */
 
-import type { ExternalCameraParameters } from '@core/engines/externalCameraPose';
+import * as THREE from 'three';
+import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
+
+import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 import type { ObjectDescription } from '@core/contents/objectDescription';
-import type { SceneRootMatrix } from '../../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
+import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
+import type { SceneRootMatrix } from '../../../types/xr';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
-import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
+import { PRIMITIVES } from '@core/contents/primitives';
+
+import { ThreeSceneNodeRegistry, type ThreeSceneObject } from './threeSceneNodeRegistry';
+import { createPrimitiveNode } from './threePrimitives';
 
 function notImplemented(feature: string): never {
-    throw new Error(`ThreeEngine stub: ${feature} is not implemented`);
+    throw new Error(`ThreeEngine (minimal): ${feature} is not implemented yet`);
 }
 
-/** Temporary stub: same public surface and method order as `threeEngine_NEW.ts`. */
 export default class ThreeEngine implements RenderingEngine {
+    private renderer: THREE.WebGLRenderer | null = null;
+    private scene = new THREE.Scene();
+    private camera = new THREE.PerspectiveCamera(75, 1, 0.01, 1000);
+
+    private readonly sceneNodes = new ThreeSceneNodeRegistry();
+    private readonly rootEntry = this.sceneNodes.register(this.scene);
+    private readonly objectsById = new Map<SceneNodeId, ThreeSceneObject>();
+
+    private experimentTapHandler: ((tap: { x: number; y: number }) => void) | null = null;
+    private readonly eventHandlers: Record<string, { handler: () => void }> = {};
+
+    private listenersAttached = false;
+    private readonly boundResize = () => this.resize();
+    private readonly boundClick = (event: MouseEvent) => this.handleClick(event);
+
+    private track(entry: ThreeSceneObject): SceneNodeId {
+        const nodeId = this.sceneNodes.sceneNodeRef(entry);
+        this.objectsById.set(nodeId, entry);
+        return nodeId;
+    }
+
+    private resolve(nodeId: SceneNodeId): ThreeSceneObject {
+        const entry = this.objectsById.get(nodeId);
+        if (!entry) {
+            throw new Error(`ThreeEngine: unknown scene node id ${nodeId}`);
+        }
+        return entry;
+    }
+
     getNodePose(nodeId: SceneNodeId, outPosition: vec3, outOrientation: quat, outScale?: vec3): void {
-        notImplemented('getNodePose');
+        const entry = this.resolve(nodeId);
+        const p = entry.three.position;
+        const q = entry.three.quaternion;
+        vec3.set(outPosition, p.x, p.y, p.z);
+        quat.set(outOrientation, q.x, q.y, q.z, q.w);
+        if (outScale) {
+            const s = entry.three.scale;
+            vec3.set(outScale, s.x, s.y, s.z);
+        }
     }
 
     setNodePose(nodeId: SceneNodeId, position: ReadonlyVec3, orientation: ReadonlyQuat, scale?: ReadonlyVec3): void {
-        notImplemented('setNodePose');
+        this.sceneNodes.applyTrs(this.resolve(nodeId), position, orientation, scale);
     }
 
     translateNode(nodeId: SceneNodeId, dx: number, dy: number, dz: number): void {
-        notImplemented('translateNode');
+        const entry = this.resolve(nodeId);
+        entry.three.position.x += dx;
+        entry.three.position.y += dy;
+        entry.three.position.z += dz;
     }
 
     setNodeUniformScale(nodeId: SceneNodeId, scale: number): void {
-        notImplemented('setNodeUniformScale');
+        this.resolve(nodeId).three.scale.setScalar(scale);
     }
 
     setNodeVisible(nodeId: SceneNodeId, visible: boolean): void {
-        notImplemented('setNodeVisible');
+        this.resolve(nodeId).three.visible = visible;
     }
 
     isNodeVisible(nodeId: SceneNodeId): boolean {
-        notImplemented('isNodeVisible');
+        return this.resolve(nodeId).three.visible;
     }
 
-    getNodeWorldMatrix(node: SceneNodeId, out: mat4): void {
-        notImplemented('getNodeWorldMatrix');
+    getNodeWorldMatrix(nodeId: SceneNodeId, out: mat4): void {
+        const entry = this.resolve(nodeId);
+        entry.three.updateMatrixWorld(true);
+        mat4.copy(out, entry.three.matrixWorld.elements as ReadonlyMat4);
     }
 
     init(): void {
-        notImplemented('init');
+        const canvas = document.querySelector('#application') as HTMLCanvasElement;
+        const gl = canvas.getContext('webgl2') as WebGL2RenderingContext | null;
+        if (!gl) {
+            throw new Error('ThreeEngine: webgl2 context not available on #application canvas');
+        }
+
+        if (!this.renderer) {
+            this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, alpha: true, antialias: true });
+            this.renderer.autoClear = true;
+            this.renderer.setClearColor(0x000000, 0);
+        }
+
+        this.initScene();
+
+        if (!this.listenersAttached) {
+            window.addEventListener('resize', this.boundResize, false);
+            document.addEventListener('click', this.boundClick);
+            this.listenersAttached = true;
+        }
+        this.resize();
     }
 
     initScene(): void {
-        notImplemented('initScene');
+        while (this.scene.children.length > 0) {
+            this.scene.remove(this.scene.children[0]);
+        }
+        this.scene.matrix.identity();
+        this.scene.matrixAutoUpdate = true;
+
+        this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
+        const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+        dir.position.set(1, 2, 1);
+        this.scene.add(dir);
     }
 
     addPlaceholder(
@@ -105,11 +185,11 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     getModel(name: ModelName): SceneNodeId | null {
-        notImplemented('getModel');
+        return null;
     }
 
     removeModel(name: ModelName): void {
-        notImplemented('removeModel');
+        /* no-op — no named models in minimal engine */
     }
 
     addExperiencePlaceholder(position: ReadonlyVec3, orientation: ReadonlyQuat): SceneNodeId {
@@ -124,19 +204,20 @@ export default class ThreeEngine implements RenderingEngine {
         notImplemented('addReticle');
     }
 
+    /** Matches OGL `isHorizontal`: pitch (Euler x) ≈ 0 for floor alignment. */
     isHorizontal(orientation: ReadonlyQuat): boolean {
-        notImplemented('isHorizontal');
+        const e = new THREE.Euler().setFromQuaternion(
+            new THREE.Quaternion(orientation[0], orientation[1], orientation[2], orientation[3]),
+            'XYZ',
+        );
+        return Math.abs(e.x) < Number.EPSILON;
     }
 
     addRandomObject(position: ReadonlyVec3, orientation: ReadonlyQuat): SceneNodeId {
         notImplemented('addRandomObject');
     }
 
-    addObject(
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        objectDescription: ObjectDescription,
-    ): SceneNodeId {
+    addObject(position: ReadonlyVec3, orientation: ReadonlyQuat, objectDescription: ObjectDescription): SceneNodeId {
         notImplemented('addObject');
     }
 
@@ -191,15 +272,15 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     getDynamicObjectDescription(objectId: string): ObjectDescription | null {
-        notImplemented('getDynamicObjectDescription');
+        return null;
     }
 
     getDynamicObjectNodeId(objectId: string): SceneNodeId | null {
-        notImplemented('getDynamicObjectNodeId');
+        return null;
     }
 
     removeDynamicObject(objectId: string): void {
-        notImplemented('removeDynamicObject');
+        /* no-op */
     }
 
     updateMarkerObjectPosition(object: SceneNodeId, position: ReadonlyVec3, orientation: ReadonlyQuat): void {
@@ -216,7 +297,10 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addAxes(): SceneNodeId {
-        notImplemented('addAxes');
+        const axes = new THREE.AxesHelper(1);
+        const entry = this.sceneNodes.register(axes);
+        this.rootEntry.three.add(axes);
+        return this.track(entry);
     }
 
     async addPlyObject(
@@ -225,7 +309,8 @@ export default class ThreeEngine implements RenderingEngine {
         quaternion: ReadonlyQuat,
         plyOptions?: PlyLoadOptions,
     ): Promise<SceneNodeId | null> {
-        notImplemented('addPlyObject');
+        console.warn('ThreeEngine (minimal): addPlyObject not implemented');
+        return null;
     }
 
     async addPointCloudObject(
@@ -234,7 +319,8 @@ export default class ThreeEngine implements RenderingEngine {
         quaternion: ReadonlyQuat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
     ): Promise<SceneNodeId | null> {
-        notImplemented('addPointCloudObject');
+        console.warn('ThreeEngine (minimal): addPointCloudObject not implemented');
+        return null;
     }
 
     async addLogoObject(
@@ -244,7 +330,7 @@ export default class ThreeEngine implements RenderingEngine {
         width?: number,
         height?: number,
     ): Promise<void> {
-        notImplemented('addLogoObject');
+        console.warn('ThreeEngine (minimal): addLogoObject not implemented');
     }
 
     async addTextObject(
@@ -265,7 +351,7 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     async addVideoObject(position: ReadonlyVec3, quaternion: ReadonlyQuat, videoUrl: string): Promise<void> {
-        notImplemented('addVideoObject');
+        console.warn('ThreeEngine (minimal): addVideoObject not implemented');
     }
 
     setVerticallyRotating(node: SceneNodeId): void {
@@ -277,66 +363,160 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addClickEvent(modelId: SceneNodeId, handler: () => void): void {
-        notImplemented('addClickEvent');
+        this.eventHandlers[modelId] = { handler };
     }
 
     getClickEvent(modelId: string): (() => void) | undefined {
-        notImplemented('getClickEvent');
+        return this.eventHandlers[modelId]?.handler;
     }
 
     getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters {
-        notImplemented('getExternalCameraParameters');
+        return getExternalCameraParametersForExperience(view, experienceMatrix);
     }
 
     getRootSceneUpdater(): (matrix: SceneRootMatrix) => mat4 {
-        return (matrix: SceneRootMatrix) => notImplemented('getRootSceneUpdater() callback');
+        const out = mat4.create();
+        return (matrix: SceneRootMatrix) => {
+            this.scene.matrix.fromArray(matrix as number[]);
+            this.scene.matrixAutoUpdate = false;
+            this.scene.updateMatrixWorld(true);
+            mat4.copy(out, this.scene.matrixWorld.elements as mat4);
+            return out;
+        };
     }
 
     setWaiting(modelId: SceneNodeId): void {
         notImplemented('setWaiting');
     }
 
-    setExperimentTapHandler(callback: (e: { x: number; y: number }) => void): void {
-        notImplemented('setExperimentTapHandler');
+    setExperimentTapHandler(callback: (tap: { x: number; y: number }) => void): void {
+        this.experimentTapHandler = callback;
     }
 
     resize(): void {
-        notImplemented('resize');
+        if (!this.renderer) {
+            return;
+        }
+        this.renderer.setSize(window.innerWidth, window.innerHeight, false);
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
     }
 
     reinitialize(): void {
-        notImplemented('reinitialize');
+        this.cleanup();
+        this.initScene();
     }
 
     cleanup(): void {
-        notImplemented('cleanup');
+        while (this.scene.children.length > 0) {
+            const child = this.scene.children[0];
+            this.scene.remove(child);
+            child.traverse((threeObject: THREE.Object3D) => {
+                const mesh = threeObject as THREE.Mesh;
+                if (mesh.isMesh) {
+                    mesh.geometry?.dispose();
+                    if (Array.isArray(mesh.material)) {
+                        mesh.material.forEach((material: THREE.Material) => material.dispose());
+                    } else {
+                        mesh.material?.dispose();
+                    }
+                }
+            });
+        }
+        this.objectsById.clear();
+        for (const key of Object.keys(this.eventHandlers)) {
+            delete this.eventHandlers[key];
+        }
     }
 
     remove(modelId: SceneNodeId): void {
-        notImplemented('remove');
+        const entry = this.resolve(modelId);
+        entry.three.removeFromParent();
+        this.objectsById.delete(modelId);
+        delete this.eventHandlers[modelId];
     }
 
     stop(): void {
-        notImplemented('stop');
+        if (this.listenersAttached) {
+            window.removeEventListener('resize', this.boundResize, false);
+            document.removeEventListener('click', this.boundClick);
+            this.listenersAttached = false;
+        }
+        this.experimentTapHandler = null;
     }
 
     updateMatrixWorld(): void {
-        notImplemented('updateMatrixWorld');
+        this.scene.updateMatrixWorld(true);
     }
 
     render(time: DOMHighResTimeStamp, view: XRView): void {
-        notImplemented('render');
+        void time;
+        if (!this.renderer) {
+            return;
+        }
+
+        const t = view.transform;
+        this.camera.projectionMatrix.fromArray(view.projectionMatrix as unknown as number[]);
+        this.camera.projectionMatrixInverse.copy(this.camera.projectionMatrix).invert();
+        this.camera.position.set(t.position.x, t.position.y, t.position.z);
+        this.camera.quaternion.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
+        this.camera.updateMatrixWorld();
+
+        this.renderer.render(this.scene, this.camera);
     }
 
     addDebugAxesAtWorldMatrix(
         worldMatrix: ReadonlyMat4,
         color: [number, number, number, number],
-        showAxes?: boolean,
+        showAxes = false,
     ): SceneNodeId {
-        notImplemented('addDebugAxesAtWorldMatrix');
+        const group = new THREE.Group();
+        const box = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, color, color[3] < 1, [0.05, 0.05, 0.05]);
+        group.add(box.three);
+        if (showAxes) {
+            group.add(new THREE.AxesHelper(0.2));
+        }
+        const entry = this.sceneNodes.register(group);
+        group.matrix.fromArray(worldMatrix as unknown as number[]);
+        group.matrixAutoUpdate = false;
+        group.updateMatrixWorld(true);
+        this.rootEntry.three.add(group);
+        return this.track(entry);
     }
 
     updateSceneGraphTransforms(): void {
-        notImplemented('updateSceneGraphTransforms');
+        this.scene.updateMatrixWorld(true);
+    }
+
+    private handleClick(event: MouseEvent): void {
+        if (!this.renderer) {
+            return;
+        }
+        const rect = this.renderer.domElement.getBoundingClientRect();
+        const ndc = new THREE.Vector2(
+            (2 * (event.clientX - rect.left)) / rect.width - 1,
+            1 - (2 * (event.clientY - rect.top)) / rect.height,
+        );
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(ndc, this.camera);
+        const roots = Object.keys(this.eventHandlers).map((nodeId) => this.resolve(nodeId).three);
+        const hits = raycaster.intersectObjects(roots, true);
+        if (hits.length > 0) {
+            let threeObject: THREE.Object3D | null = hits[0].object;
+            while (threeObject) {
+                const hitEntry = threeObject.userData.threeSceneObject as ThreeSceneObject | undefined;
+                if (hitEntry) {
+                    const nodeId = this.sceneNodes.sceneNodeRef(hitEntry);
+                    if (this.eventHandlers[nodeId]) {
+                        this.eventHandlers[nodeId].handler();
+                        return;
+                    }
+                }
+                threeObject = threeObject.parent;
+            }
+        }
+        if (this.experimentTapHandler) {
+            this.experimentTapHandler({ x: event.clientX, y: event.clientY });
+        }
     }
 }
