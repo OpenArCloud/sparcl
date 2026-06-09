@@ -28,6 +28,16 @@ import { PRIMITIVES } from '@core/contents/primitives';
 
 import { ThreeSceneNodeRegistry, type ThreeSceneObject } from './threeSceneNodeRegistry';
 import { createObjectDescriptionNode, createPrimitiveNode } from './threePrimitives';
+import {
+    clearRegisteredThreeParticleSystems,
+    createThreeParticlePoints,
+    getThreeParticleIntensity,
+    isRegisteredThreeParticleSystem,
+    registerThreeParticleSystem,
+    setThreeParticleIntensity,
+    unregisterThreeParticleSystem,
+    updateThreeParticles,
+} from './threeParticleHelper';
 import { loadThreePlyFromUrl } from './threePlyHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
@@ -356,15 +366,37 @@ export default class ThreeEngine implements RenderingEngine {
         orientation: ReadonlyQuat,
         particleSystem: ParticleSystem,
     ): SceneNodeId {
-        notImplemented('addParticleSystem');
+        const points = createThreeParticlePoints(particleSystem);
+        points.position.set(position[0], position[1], position[2]);
+        points.quaternion.set(orientation[0], orientation[1], orientation[2], orientation[3]);
+        this.rootEntry.three.add(points);
+        const entry = this.sceneNodes.register(points);
+        const nodeId = this.track(entry);
+        registerThreeParticleSystem(nodeId, {
+            points,
+            shape: particleSystem.shape,
+            systemSize: particleSystem.systemSize,
+            speed: particleSystem.speed,
+        });
+        return nodeId;
     }
 
     updateParticleIntensity(sceneNodeId: SceneNodeId, calculate: (oldValue: number) => number): number {
-        notImplemented('updateParticleIntensity');
+        const oldIntensity = getThreeParticleIntensity(sceneNodeId);
+        if (oldIntensity <= 0) {
+            console.error('ThreeEngine: tried to modify missing particle system');
+            return -1;
+        }
+        const newIntensity = Math.max(1, Math.round(calculate(oldIntensity)));
+        setThreeParticleIntensity(sceneNodeId, newIntensity);
+        return newIntensity;
     }
 
     updateParticleSystem(sceneNodeId: SceneNodeId): void {
-        notImplemented('updateParticleSystem');
+        if (!isRegisteredThreeParticleSystem(sceneNodeId)) {
+            return;
+        }
+        updateThreeParticles(sceneNodeId);
     }
 
     addDynamicObject(
@@ -685,6 +717,7 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     cleanup(): void {
+        clearRegisteredThreeParticleSystems();
         for (const key of Object.keys(this.updateHandlers)) {
             delete this.updateHandlers[key];
         }
@@ -708,6 +741,9 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     remove(modelId: SceneNodeId): void {
+        if (isRegisteredThreeParticleSystem(modelId)) {
+            unregisterThreeParticleSystem(modelId);
+        }
         const entry = this.resolve(modelId);
         disposeThreeSubtree(entry.three);
         entry.three.removeFromParent();
