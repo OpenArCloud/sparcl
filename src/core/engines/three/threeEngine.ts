@@ -603,10 +603,22 @@ export default class ThreeEngine implements RenderingEngine {
         url: string,
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
-        width?: number,
-        height?: number,
+        width = 1.0,
+        height = 1.0,
     ): Promise<void> {
-        console.warn('ThreeEngine (minimal): addLogoObject not implemented');
+        const textureLoader = new THREE.TextureLoader();
+        try {
+            const texture = await textureLoader.loadAsync(url);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            const geometry = new THREE.PlaneGeometry(width, height);
+            const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
+            const plane = new THREE.Mesh(geometry, material);
+            plane.position.set(position[0], position[1], position[2]);
+            plane.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+            this.rootEntry.three.add(plane);
+        } catch (error) {
+            console.error('ThreeEngine: addLogoObject failed', error);
+        }
     }
 
     async addTextObject(
@@ -615,7 +627,14 @@ export default class ThreeEngine implements RenderingEngine {
         text: string,
         textColor?: ReadonlyVec3,
     ): Promise<SceneNodeId> {
-        notImplemented('addTextObject');
+        void text;
+        const rgb: [number, number, number, number] = textColor
+            ? [textColor[0], textColor[1], textColor[2], 0.3]
+            : [1, 1, 1, 0.3];
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, rgb, true, [0.2, 0.05, 0.05]);
+        this.sceneNodes.applyTrs(entry, position, quaternion);
+        this.rootEntry.three.add(entry.three);
+        return this.track(entry);
     }
 
     async addTextObjectWithRigidPose(
@@ -623,7 +642,20 @@ export default class ThreeEngine implements RenderingEngine {
         text: string,
         options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
     ): Promise<SceneNodeId> {
-        notImplemented('addTextObjectWithRigidPose');
+        const ox = options?.positionOffset?.[0] ?? 0;
+        const oy = options?.positionOffset?.[1] ?? 0;
+        const oz = options?.positionOffset?.[2] ?? 0;
+        const position = vec3.fromValues(pose.position.x + ox, pose.position.y + oy, pose.position.z + oz);
+        const orientation = quat.fromValues(
+            pose.orientation.x,
+            pose.orientation.y,
+            pose.orientation.z,
+            pose.orientation.w,
+        );
+        const textColor = options?.textColor
+            ? vec3.fromValues(options.textColor[0], options.textColor[1], options.textColor[2])
+            : vec3.fromValues(1, 1, 1);
+        return this.addTextObject(position, orientation, text, textColor);
     }
 
     async addVideoObject(position: ReadonlyVec3, quaternion: ReadonlyQuat, videoUrl: string): Promise<void> {
