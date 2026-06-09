@@ -50,21 +50,78 @@ function disposeMaterial(material: THREE.Material | undefined): void {
     material.dispose();
 }
 
-function notImplemented(feature: string): never {
-    throw new Error(`ThreeEngine (minimal): ${feature} is not implemented yet`);
-}
-
-function disposeThreeSubtree(root: THREE.Object3D): void {
+function bumpGeometryCount(root: THREE.Object3D, counts: Map<string, number>): void {
     root.traverse((node: THREE.Object3D) => {
-        const drawable = node as THREE.Mesh & THREE.Points & THREE.Line;
-        if (!drawable.geometry) {
+        const geometry = (node as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+        if (!geometry?.isBufferGeometry) {
             return;
         }
-        drawable.geometry.dispose();
-        if (Array.isArray(drawable.material)) {
-            drawable.material.forEach((material: THREE.Material) => disposeMaterial(material));
-        } else {
-            disposeMaterial(drawable.material as THREE.Material);
+        counts.set(geometry.uuid, (counts.get(geometry.uuid) ?? 0) + 1);
+    });
+}
+
+function bumpMaterialCount(root: THREE.Object3D, counts: Map<string, number>): void {
+    root.traverse((node: THREE.Object3D) => {
+        const material = (node as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (material === undefined) {
+            return;
+        }
+        const list = Array.isArray(material) ? material : [material];
+        for (const m of list) {
+            if (!m) continue;
+            counts.set(m.uuid, (counts.get(m.uuid) ?? 0) + 1);
+        }
+    });
+}
+
+/**
+ * Dispose GPU resources under `root` only when each {@link THREE.BufferGeometry} / {@link THREE.Material}
+ * is used solely by that subtree compared to `sceneRoot` (mirrors OGL shared-asset disposal).
+ */
+function disposeThreeSubtree(root: THREE.Object3D, sceneRoot: THREE.Object3D): void {
+    const sceneGeoCounts = new Map<string, number>();
+    const subGeoCounts = new Map<string, number>();
+    const sceneMatCounts = new Map<string, number>();
+    const subMatCounts = new Map<string, number>();
+    bumpGeometryCount(sceneRoot, sceneGeoCounts);
+    bumpGeometryCount(root, subGeoCounts);
+    bumpMaterialCount(sceneRoot, sceneMatCounts);
+    bumpMaterialCount(root, subMatCounts);
+
+    const disposedGeo = new Set<string>();
+    const disposedMat = new Set<string>();
+
+    root.traverse((node: THREE.Object3D) => {
+        const geometry = (node as THREE.Mesh).geometry as THREE.BufferGeometry | undefined;
+        if (geometry?.isBufferGeometry) {
+            const id = geometry.uuid;
+            if (!disposedGeo.has(id)) {
+                const inScene = sceneGeoCounts.get(id) ?? 0;
+                const inSub = subGeoCounts.get(id) ?? 0;
+                if (inScene === inSub) {
+                    disposedGeo.add(id);
+                    geometry.dispose();
+                }
+            }
+        }
+
+        const material = (node as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (material === undefined) {
+            return;
+        }
+        const list = Array.isArray(material) ? material : [material];
+        for (const m of list) {
+            if (!m) continue;
+            const id = m.uuid;
+            if (disposedMat.has(id)) {
+                continue;
+            }
+            const inScene = sceneMatCounts.get(id) ?? 0;
+            const inSub = subMatCounts.get(id) ?? 0;
+            if (inScene === inSub) {
+                disposedMat.add(id);
+                disposeMaterial(m);
+            }
         }
     });
 }
@@ -799,8 +856,8 @@ export default class ThreeEngine implements RenderingEngine {
                     video.src = '';
                 }
             });
+            disposeThreeSubtree(child, this.scene);
             this.scene.remove(child);
-            disposeThreeSubtree(child);
         }
         this.verticallyRotatingNodes.length = 0;
         this.towardsCameraRotatingNodes.length = 0;
@@ -815,7 +872,7 @@ export default class ThreeEngine implements RenderingEngine {
             unregisterThreeParticleSystem(modelId);
         }
         const entry = this.resolve(modelId);
-        disposeThreeSubtree(entry.three);
+        disposeThreeSubtree(entry.three, this.scene);
         entry.three.removeFromParent();
         this.objectsById.delete(modelId);
         delete this.updateHandlers[modelId];
