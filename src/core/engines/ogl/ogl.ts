@@ -94,6 +94,9 @@ let verticallyRotatingNodes: Transform[] = [];
 
 let gltfCache: Record<string, GLTFDescription> = {};
 
+/** True after {@link ogl.init} registers window/document listeners; cleared in {@link ogl.stop}. */
+let listenersAttached = false;
+
 // whether to print verbose logs in the console
 const debugOgl = false;
 
@@ -119,6 +122,10 @@ function oglQuat(q: ReadonlyQuat): Quat {
  */
 export default class ogl implements RenderingEngine {
     private readonly sceneNodes = new OglSceneNodeRegistry();
+
+    private readonly boundResize = () => this.resize();
+    private readonly boundClick = (event: MouseEvent) =>
+        this._handleEvent({ x: event.clientX, y: event.clientY });
 
     getNodePose(
         nodeId: SceneNodeId,
@@ -178,15 +185,17 @@ export default class ogl implements RenderingEngine {
      * Initialize ogl for use with WebXR.
      */
     init() {
-        renderer = new Renderer({
-            alpha: true,
-            canvas: document.querySelector('#application') as HTMLCanvasElement,
-            dpr: window.devicePixelRatio,
-            webgl: 2,
-        });
+        if (!renderer) {
+            renderer = new Renderer({
+                alpha: true,
+                canvas: document.querySelector('#application') as HTMLCanvasElement,
+                dpr: window.devicePixelRatio,
+                webgl: 2,
+            });
 
-        gl = renderer.gl;
-        gl.clearColor(0, 0, 0, 0);
+            gl = renderer.gl;
+            gl.clearColor(0, 0, 0, 0);
+        }
 
         scene = new Transform();
 
@@ -196,10 +205,12 @@ export default class ogl implements RenderingEngine {
 
         this.initScene();
 
-        window.addEventListener('resize', () => this.resize(), false);
+        if (!listenersAttached) {
+            window.addEventListener('resize', this.boundResize, false);
+            document.addEventListener('click', this.boundClick);
+            listenersAttached = true;
+        }
         this.resize();
-
-        document.addEventListener('click', this._handleEvent);
 
         checkGLError(gl, 'OGL init end');
     }
@@ -1123,7 +1134,11 @@ export default class ogl implements RenderingEngine {
      * 3D engine isn't needed anymore.
      */
     stop() {
-        window.removeEventListener('resize', this.resize, false);
+        if (listenersAttached) {
+            window.removeEventListener('resize', this.boundResize, false);
+            document.removeEventListener('click', this.boundClick);
+            listenersAttached = false;
+        }
         experimentTapHandler = null;
     }
 
