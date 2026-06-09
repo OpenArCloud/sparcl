@@ -80,6 +80,10 @@ export default class ThreeEngine implements RenderingEngine {
     private experimentTapHandler: ((tap: { x: number; y: number }) => void) | null = null;
     private readonly eventHandlers: Record<string, { handler: () => void }> = {};
     private readonly updateHandlers: Record<string, () => number> = {};
+    private readonly verticallyRotatingNodes: ThreeSceneObject[] = [];
+    private readonly towardsCameraRotatingNodes: ThreeSceneObject[] = [];
+    private readonly dynamicDescriptions: Record<string, ObjectDescription> = {};
+    private readonly dynamicMeshes: Record<string, ThreeSceneObject> = {};
     private readonly gltfRoots: Record<ModelName, ThreeSceneObject> = {};
 
     private listenersAttached = false;
@@ -364,59 +368,132 @@ export default class ThreeEngine implements RenderingEngine {
         objectId: string,
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
-        objectDescription?: ObjectDescription | null,
+        objectDescription: ObjectDescription | null = null,
     ): SceneNodeId {
-        notImplemented('addDynamicObject');
+        const description =
+            objectDescription ??
+            ({
+                version: 2,
+                color: [1, 1, 1, 0.5],
+                shape: PRIMITIVES.sphere,
+                scale: [0.25, 0.25, 0.25],
+                transparent: true,
+                options: {},
+            } satisfies ObjectDescription);
+        const entry = createObjectDescriptionNode(this.sceneNodes, description);
+        this.sceneNodes.applyTrs(entry, position, orientation);
+        this.rootEntry.three.add(entry.three);
+        this.dynamicDescriptions[objectId] = description;
+        this.dynamicMeshes[objectId] = entry;
+        return this.track(entry);
     }
 
     addDynamicObjectWithRigidPose(
         objectId: string,
         pose: RigidPose,
-        objectDescription?: ObjectDescription | null,
+        objectDescription: ObjectDescription | null = null,
     ): SceneNodeId {
-        notImplemented('addDynamicObjectWithRigidPose');
+        return this.addDynamicObject(
+            objectId,
+            vec3.fromValues(pose.position.x, pose.position.y, pose.position.z),
+            quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w),
+            objectDescription,
+        );
     }
 
     updateDynamicObject(
         objectId: string,
-        position?: ReadonlyVec3 | null,
-        orientation?: ReadonlyQuat | null,
-        objectDescription?: ObjectDescription | null,
+        position: ReadonlyVec3 | null = null,
+        orientation: ReadonlyQuat | null = null,
+        objectDescription: ObjectDescription | null = null,
     ): boolean {
-        notImplemented('updateDynamicObject');
+        const entry = this.dynamicMeshes[objectId];
+        if (!entry) {
+            return false;
+        }
+        if (position && orientation) {
+            this.sceneNodes.applyTrs(entry, position, orientation);
+        } else if (position) {
+            this.sceneNodes.applyTrs(entry, position, [
+                entry.three.quaternion.x,
+                entry.three.quaternion.y,
+                entry.three.quaternion.z,
+                entry.three.quaternion.w,
+            ]);
+        } else if (orientation) {
+            this.sceneNodes.applyTrs(
+                entry,
+                [entry.three.position.x, entry.three.position.y, entry.three.position.z],
+                orientation,
+            );
+        }
+
+        const oldDesc = this.dynamicDescriptions[objectId];
+        if (objectDescription && JSON.stringify(oldDesc) !== JSON.stringify(objectDescription)) {
+            const handler = this.getClickEvent(objectId);
+            const savedPosition =
+                position ??
+                vec3.fromValues(entry.three.position.x, entry.three.position.y, entry.three.position.z);
+            const savedOrientation =
+                orientation ??
+                quat.fromValues(
+                    entry.three.quaternion.x,
+                    entry.three.quaternion.y,
+                    entry.three.quaternion.z,
+                    entry.three.quaternion.w,
+                );
+            this.removeDynamicObject(objectId);
+            const created = this.addDynamicObject(objectId, savedPosition, savedOrientation, objectDescription);
+            if (handler) {
+                this.addClickEvent(created, handler);
+            }
+        }
+        return true;
     }
 
     updateDynamicObjectWithRigidPose(
         objectId: string,
         pose: RigidPose,
-        objectDescription?: ObjectDescription | null,
+        objectDescription: ObjectDescription | null = null,
     ): boolean {
-        notImplemented('updateDynamicObjectWithRigidPose');
+        return this.updateDynamicObject(
+            objectId,
+            vec3.fromValues(pose.position.x, pose.position.y, pose.position.z),
+            quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w),
+            objectDescription,
+        );
     }
 
     getDynamicObjectDescription(objectId: string): ObjectDescription | null {
-        return null;
+        return this.dynamicDescriptions[objectId] ?? null;
     }
 
     getDynamicObjectNodeId(objectId: string): SceneNodeId | null {
-        return null;
+        const entry = this.dynamicMeshes[objectId];
+        return entry ? this.sceneNodes.sceneNodeRef(entry) : null;
     }
 
     removeDynamicObject(objectId: string): void {
-        /* no-op */
+        const entry = this.dynamicMeshes[objectId];
+        if (!entry) {
+            return;
+        }
+        this.remove(this.sceneNodes.sceneNodeRef(entry));
+        delete this.dynamicMeshes[objectId];
+        delete this.dynamicDescriptions[objectId];
     }
 
     updateMarkerObjectPosition(object: SceneNodeId, position: ReadonlyVec3, orientation: ReadonlyQuat): void {
-        notImplemented('updateMarkerObjectPosition');
+        this.sceneNodes.applyTrs(this.resolve(object), position, orientation);
     }
 
     updateReticlePose(
         reticle: SceneNodeId,
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
-        scale?: ReadonlyVec3,
+        scale: ReadonlyVec3 = defaultReticleScale,
     ): void {
-        notImplemented('updateReticlePose');
+        this.sceneNodes.applyTrs(this.resolve(reticle), position, orientation, scale);
     }
 
     addAxes(): SceneNodeId {
@@ -478,11 +555,11 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     setVerticallyRotating(node: SceneNodeId): void {
-        notImplemented('setVerticallyRotating');
+        this.verticallyRotatingNodes.push(this.resolve(node));
     }
 
     setTowardsCameraRotating(node: SceneNodeId): void {
-        notImplemented('setTowardsCameraRotating');
+        this.towardsCameraRotatingNodes.push(this.resolve(node));
     }
 
     addClickEvent(modelId: SceneNodeId, handler: () => void): void {
@@ -564,6 +641,12 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     cleanup(): void {
+        for (const key of Object.keys(this.updateHandlers)) {
+            delete this.updateHandlers[key];
+        }
+        for (const id of Object.keys(this.dynamicMeshes)) {
+            this.removeDynamicObject(id);
+        }
         for (const id of Object.keys(this.gltfRoots)) {
             this.removeModel(id);
         }
@@ -571,6 +654,9 @@ export default class ThreeEngine implements RenderingEngine {
             const child = this.scene.children[0];
             this.scene.remove(child);
             disposeThreeSubtree(child);
+        }
+        this.verticallyRotatingNodes.length = 0;
+        this.towardsCameraRotatingNodes.length = 0;
         this.objectsById.clear();
         for (const key of Object.keys(this.eventHandlers)) {
             delete this.eventHandlers[key];
@@ -613,6 +699,14 @@ export default class ThreeEngine implements RenderingEngine {
         this.camera.updateMatrixWorld();
 
         Object.values(this.updateHandlers).forEach((handler) => handler());
+
+        for (const entry of this.verticallyRotatingNodes) {
+            entry.three.rotation.y += 0.01;
+        }
+
+        for (const entry of this.towardsCameraRotatingNodes) {
+            entry.three.lookAt(this.camera.position);
+        }
 
         this.renderer.render(this.scene, this.camera);
     }
