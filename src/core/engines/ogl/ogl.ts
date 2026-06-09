@@ -854,6 +854,7 @@ export default class ogl implements RenderingEngine {
      *
      * @param position - Scene position ({@link ReadonlyVec3})
      * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     * @returns {@link SceneNodeId} for the plane, or `null` if the texture failed to load
      */
     async addLogoObject(
         url: string,
@@ -861,9 +862,13 @@ export default class ogl implements RenderingEngine {
         quaternion: ReadonlyQuat,
         width = 1.0,
         height = 1.0,
-    ) {
-        if(debugOgl) console.log('OGL addLogoObject ' + url);
-        loadLogoTexture(gl, url).then((texture) => {
+    ): Promise<SceneNodeId | null> {
+        if (debugOgl) console.log('OGL addLogoObject ' + url);
+        try {
+            const texture = await loadLogoTexture(gl, url);
+            if (!texture) {
+                return null;
+            }
             const logoProgram = createLogoProgram(gl, texture);
             const planeGeometry = new Plane(gl, {
                 width: width,
@@ -877,8 +882,11 @@ export default class ogl implements RenderingEngine {
             plane.position.copy(oglVec3(position));
             plane.quaternion.copy(oglQuat(quaternion));
             plane.setParent(scene);
-            return plane;
-        });
+            return this.sceneNodes.add(plane);
+        } catch (error) {
+            console.error('OGL addLogoObject failed', error);
+            return null;
+        }
     }
 
     /**

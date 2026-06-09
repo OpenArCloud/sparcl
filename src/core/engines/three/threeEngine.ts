@@ -605,7 +605,7 @@ export default class ThreeEngine implements RenderingEngine {
         quaternion: ReadonlyQuat,
         width = 1.0,
         height = 1.0,
-    ): Promise<void> {
+    ): Promise<SceneNodeId | null> {
         const textureLoader = new THREE.TextureLoader();
         try {
             const texture = await textureLoader.loadAsync(url);
@@ -616,8 +616,10 @@ export default class ThreeEngine implements RenderingEngine {
             plane.position.set(position[0], position[1], position[2]);
             plane.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
             this.rootEntry.three.add(plane);
+            return this.track(this.sceneNodes.register(plane));
         } catch (error) {
             console.error('ThreeEngine: addLogoObject failed', error);
+            return null;
         }
     }
 

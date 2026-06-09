@@ -235,8 +235,8 @@ export interface RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         width?: number,
-        height?: number
-    ): Promise<void>;
+        height?: number,
+    ): Promise<SceneNodeId | null>;
 
     addTextObject(
         position: ReadonlyVec3,
