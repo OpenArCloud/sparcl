@@ -48,6 +48,15 @@ const programCache = new WeakMap<
     }
 >();
 
+/**
+ * After {@link disposeOglGpuResourcesUnder} / {@link disposeOglGpuResourcesForDetachedSubtree}, shared PLY
+ * {@link Program} instances may already have {@link Program.remove} called. Drop cache entries so the next
+ * {@link getPlyMeshProgram} / {@link getPlyPointsProgram} allocate fresh programs.
+ */
+export function clearPlyProgramCache(gl: OGLRenderingContext): void {
+    programCache.delete(gl);
+}
+
 export function getPlyPointsProgram(gl: OGLRenderingContext): Program {
     let forGl = programCache.get(gl);
     if (!forGl) {

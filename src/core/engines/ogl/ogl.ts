@@ -25,6 +25,7 @@ import {
     Vec3,
     Polyline,
     Color,
+    TextureLoader,
     type OGLRenderingContext,
     Mat3,
     type GLTF,
@@ -32,12 +33,13 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
-import { getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
+import { clearPlyProgramCache, getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from '@core/engines/ogl/oglVideoHelper';
+import { disposeOglGpuResourcesForDetachedSubtree, disposeOglGpuResourcesUnder } from '@core/engines/ogl/oglDisposeHelper';
 
 import {
     createAxesBoxPlaceholder,
@@ -1092,13 +1094,25 @@ export default class ogl implements RenderingEngine {
             this.removeModel(object_id);
         }
 
-        // Note: no need to clean gltfCache
-
         // clean animations
         towardsCameraRotatingNodes = [];
         verticallyRotatingNodes = [];
 
         videoHelper.disposeAllVideoResources();
+
+        disposeOglGpuResourcesUnder(scene);
+
+        clearPlyProgramCache(gl);
+
+        // GLTF unpack in gltfCache holds texture/buffer views tied to this GL context; GPU dispose deletes
+        // those textures, so a cached parse would reference invalid GL objects on the next load.
+        for (const url of Object.keys(gltfCache)) {
+            delete gltfCache[url];
+        }
+
+        // OGL TextureLoader keeps module-level Texture instances; dispose deletes their WebGL textures
+        // and clears uniform.value.texture, leaving stale cache hits on the next loadLogoTexture.
+        TextureLoader.clearCache();
 
         // normal models
         while (scene.children.length > 0) {
@@ -1121,6 +1135,7 @@ export default class ogl implements RenderingEngine {
         }
 
         const native = this.sceneNodes.get(modelId);
+        disposeOglGpuResourcesForDetachedSubtree(native, scene);
         scene.removeChild(native);
         this.sceneNodes.delete(modelId);
 
