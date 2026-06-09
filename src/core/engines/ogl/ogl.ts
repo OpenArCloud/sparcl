@@ -215,6 +215,10 @@ export default class ogl implements RenderingEngine {
             return;
         }
 
+        while (scene.children.length > 0) {
+            scene.removeChild(scene.children[0]);
+        }
+
         // Visualize axes
         axesHelper = new AxesHelper(gl, { size: 1, symmetric: false });
         axesHelper.setParent(scene);
@@ -1060,6 +1064,8 @@ export default class ogl implements RenderingEngine {
     cleanup() {
         if(debugOgl) console.log('OGL cleanup');
 
+        clearRegisteredParticleSystems();
+
         // remove event handlers
         updateHandlers = {};
         eventHandlers = {};
@@ -1081,6 +1087,8 @@ export default class ogl implements RenderingEngine {
         towardsCameraRotatingNodes = [];
         verticallyRotatingNodes = [];
 
+        videoHelper.disposeAllVideoResources();
+
         // normal models
         while (scene.children.length > 0) {
             let child: Transform | null = scene.children[0];
@@ -1088,7 +1096,6 @@ export default class ogl implements RenderingEngine {
             child = null;
         }
 
-        clearRegisteredParticleSystems();
         this.sceneNodes.clear();
     }
 
