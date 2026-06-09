@@ -12,6 +12,7 @@
  */
 
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
@@ -70,6 +71,7 @@ export default class ThreeEngine implements RenderingEngine {
     private renderer: THREE.WebGLRenderer | null = null;
     private scene = new THREE.Scene();
     private camera = new THREE.PerspectiveCamera(75, 1, 0.01, 1000);
+    private readonly gltfLoader = new GLTFLoader();
 
     private readonly sceneNodes = new ThreeSceneNodeRegistry();
     private readonly rootEntry = this.sceneNodes.register(this.scene);
@@ -77,6 +79,8 @@ export default class ThreeEngine implements RenderingEngine {
 
     private experimentTapHandler: ((tap: { x: number; y: number }) => void) | null = null;
     private readonly eventHandlers: Record<string, { handler: () => void }> = {};
+    private readonly updateHandlers: Record<string, () => number> = {};
+    private readonly gltfRoots: Record<ModelName, ThreeSceneObject> = {};
 
     private listenersAttached = false;
     private readonly boundResize = () => this.resize();
@@ -228,29 +232,74 @@ export default class ThreeEngine implements RenderingEngine {
         url: string,
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
-        scale?: ReadonlyVec3,
+        scale: ReadonlyVec3 = unitScale,
         callback?: (nodeId: SceneNodeId) => void,
         name?: ModelName,
     ): SceneNodeId {
-        notImplemented('addModel');
+        const root = this.sceneNodes.register(new THREE.Group());
+        this.sceneNodes.applyTrs(root, position, orientation, scale);
+        this.rootEntry.three.add(root.three);
+
+        void this.gltfLoader.loadAsync(url).then(
+            (gltf) => {
+                const loaded: SceneNodeId[] = [];
+                gltf.scene.traverse((childObject: THREE.Object3D) => {
+                    if ((childObject as THREE.Mesh).isMesh) {
+                        loaded.push(this.track(this.sceneNodes.register(childObject)));
+                    }
+                });
+                root.three.add(gltf.scene);
+                root.three.updateMatrixWorld(true);
+                if (callback) {
+                    for (const nodeId of loaded) {
+                        callback(nodeId);
+                    }
+                }
+            },
+            (error: unknown) => {
+                console.error('ThreeEngine: GLTF load failed', error);
+                const fallback = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [1, 0, 0, 0.5], true);
+                root.three.add(fallback.three);
+            },
+        );
+
+        if (name) {
+            this.gltfRoots[name] = root;
+        }
+        return this.track(root);
     }
 
     addModelWithRigidPose(
         url: string,
         pose: RigidPose,
-        scale?: ReadonlyVec3,
+        scale: ReadonlyVec3 = unitScale,
         callback?: (nodeId: SceneNodeId) => void,
         name?: ModelName,
     ): SceneNodeId {
-        notImplemented('addModelWithRigidPose');
+        return this.addModel(
+            url,
+            vec3.fromValues(pose.position.x, pose.position.y, pose.position.z),
+            quat.fromValues(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w),
+            scale,
+            callback,
+            name,
+        );
     }
 
     getModel(name: ModelName): SceneNodeId | null {
-        return null;
+        const root = this.gltfRoots[name];
+        if (!root) {
+            return null;
+        }
+        return this.sceneNodes.sceneNodeRef(root);
     }
 
     removeModel(name: ModelName): void {
-        /* no-op — no named models in minimal engine */
+        const root = this.gltfRoots[name];
+        if (root) {
+            this.remove(this.sceneNodes.sceneNodeRef(root));
+            delete this.gltfRoots[name];
+        }
     }
 
     addExperiencePlaceholder(position: ReadonlyVec3, orientation: ReadonlyQuat): SceneNodeId {
@@ -441,7 +490,14 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     getClickEvent(modelId: string): (() => void) | undefined {
-        return this.eventHandlers[modelId]?.handler;
+        if (this.eventHandlers[modelId]) {
+            return this.eventHandlers[modelId].handler;
+        }
+        const nodeId = this.getDynamicObjectNodeId(modelId);
+        if (nodeId && this.eventHandlers[nodeId]) {
+            return this.eventHandlers[nodeId].handler;
+        }
+        return undefined;
     }
 
     getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters {
@@ -460,7 +516,33 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     setWaiting(modelId: SceneNodeId): void {
-        notImplemented('setWaiting');
+        const entry = this.resolve(modelId);
+        const root = entry.three;
+        root.traverse((child: THREE.Object3D) => {
+            const mesh = child as THREE.Mesh;
+            if (!mesh.isMesh) {
+                return;
+            }
+            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+            for (const material of materials) {
+                if (!material) continue;
+                if ('emissive' in material && (material as THREE.MeshStandardMaterial).emissive) {
+                    (material as THREE.MeshStandardMaterial).emissive.set(1, 1, 0);
+                    if ('emissiveIntensity' in material) {
+                        (material as THREE.MeshStandardMaterial).emissiveIntensity = Math.max(
+                            (material as THREE.MeshStandardMaterial).emissiveIntensity ?? 1,
+                            0.6,
+                        );
+                    }
+                } else if ('color' in material && (material as THREE.MeshBasicMaterial).color) {
+                    (material as THREE.MeshBasicMaterial).color.set(1, 1, 0);
+                }
+            }
+        });
+        this.updateHandlers[modelId] = () => {
+            root.rotation.y += 0.02;
+            return root.rotation.y;
+        };
     }
 
     setExperimentTapHandler(callback: (tap: { x: number; y: number }) => void): void {
@@ -482,21 +564,13 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     cleanup(): void {
+        for (const id of Object.keys(this.gltfRoots)) {
+            this.removeModel(id);
+        }
         while (this.scene.children.length > 0) {
             const child = this.scene.children[0];
             this.scene.remove(child);
-            child.traverse((threeObject: THREE.Object3D) => {
-                const mesh = threeObject as THREE.Mesh;
-                if (mesh.isMesh) {
-                    mesh.geometry?.dispose();
-                    if (Array.isArray(mesh.material)) {
-                        mesh.material.forEach((material: THREE.Material) => material.dispose());
-                    } else {
-                        mesh.material?.dispose();
-                    }
-                }
-            });
-        }
+            disposeThreeSubtree(child);
         this.objectsById.clear();
         for (const key of Object.keys(this.eventHandlers)) {
             delete this.eventHandlers[key];
@@ -505,8 +579,10 @@ export default class ThreeEngine implements RenderingEngine {
 
     remove(modelId: SceneNodeId): void {
         const entry = this.resolve(modelId);
+        disposeThreeSubtree(entry.three);
         entry.three.removeFromParent();
         this.objectsById.delete(modelId);
+        delete this.updateHandlers[modelId];
         delete this.eventHandlers[modelId];
     }
 
@@ -535,6 +611,8 @@ export default class ThreeEngine implements RenderingEngine {
         this.camera.position.set(t.position.x, t.position.y, t.position.z);
         this.camera.quaternion.set(t.orientation.x, t.orientation.y, t.orientation.z, t.orientation.w);
         this.camera.updateMatrixWorld();
+
+        Object.values(this.updateHandlers).forEach((handler) => handler());
 
         this.renderer.render(this.scene, this.camera);
     }
