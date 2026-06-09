@@ -942,22 +942,32 @@ export default class ogl implements RenderingEngine {
      *
      * @param position - Scene position ({@link ReadonlyVec3})
      * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     * @returns {@link SceneNodeId} for the video mesh, or `null` if setup failed
      */
     async addVideoObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         videoUrl: string,
-    ) {
+    ): Promise<SceneNodeId | null> {
         if (debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
-        const videoInfo = await videoHelper.loadVideo(videoUrl);
-        const videoBox = videoHelper.createVideoBox(gl, scene,
-            oglVec3(position),
-            oglQuat(quaternion),
-            videoInfo.videoId
-        );
-        this.addClickEvent(this.sceneNodes.add(videoBox), () => {
-            videoHelper.togglePlayback(videoInfo.videoId);
-        });
+        try {
+            const videoInfo = await videoHelper.loadVideo(videoUrl);
+            const videoBox = videoHelper.createVideoBox(
+                gl,
+                scene,
+                oglVec3(position),
+                oglQuat(quaternion),
+                videoInfo.videoId,
+            );
+            const nodeId = this.sceneNodes.add(videoBox);
+            this.addClickEvent(nodeId, () => {
+                videoHelper.togglePlayback(videoInfo.videoId);
+            });
+            return nodeId;
+        } catch (error) {
+            console.error('OGL addVideoObject failed', error);
+            return null;
+        }
     }
 
     setVerticallyRotating(node: SceneNodeId) {

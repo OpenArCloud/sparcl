@@ -254,8 +254,8 @@ export interface RenderingEngine {
     addVideoObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
-        videoUrl: string
-    ): Promise<void>;
+        videoUrl: string,
+    ): Promise<SceneNodeId | null>;
 
     setVerticallyRotating(node: SceneNodeId): void;
     setTowardsCameraRotating(node: SceneNodeId): void;

@@ -660,27 +660,37 @@ export default class ThreeEngine implements RenderingEngine {
         return this.addTextObject(position, orientation, text, textColor);
     }
 
-    async addVideoObject(position: ReadonlyVec3, quaternion: ReadonlyQuat, videoUrl: string): Promise<void> {
-        const video = document.createElement('video');
-        video.src = videoUrl;
-        video.crossOrigin = 'anonymous';
-        video.loop = true;
-        video.muted = true;
-        video.playsInline = true;
+    async addVideoObject(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        videoUrl: string,
+    ): Promise<SceneNodeId | null> {
         try {
-            await video.play();
-        } catch {
-            /* autoplay may require gesture; texture still updates when playing */
+            const video = document.createElement('video');
+            video.src = videoUrl;
+            video.crossOrigin = 'anonymous';
+            video.loop = true;
+            video.muted = true;
+            video.playsInline = true;
+            try {
+                await video.play();
+            } catch {
+                /* autoplay may require gesture; texture still updates when playing */
+            }
+            const videoTexture = new THREE.VideoTexture(video);
+            videoTexture.colorSpace = THREE.SRGBColorSpace;
+            const geometry = new THREE.PlaneGeometry(1.6, 0.9);
+            const material = new THREE.MeshBasicMaterial({ map: videoTexture, transparent: true, side: THREE.DoubleSide });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(position[0], position[1], position[2]);
+            mesh.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+            mesh.userData.threeVideoElement = video;
+            this.rootEntry.three.add(mesh);
+            return this.track(this.sceneNodes.register(mesh));
+        } catch (error) {
+            console.error('ThreeEngine: addVideoObject failed', error);
+            return null;
         }
-        const videoTexture = new THREE.VideoTexture(video);
-        videoTexture.colorSpace = THREE.SRGBColorSpace;
-        const geometry = new THREE.PlaneGeometry(1.6, 0.9);
-        const material = new THREE.MeshBasicMaterial({ map: videoTexture, transparent: true, side: THREE.DoubleSide });
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(position[0], position[1], position[2]);
-        mesh.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
-        mesh.userData.threeVideoElement = video;
-        this.rootEntry.three.add(mesh);
     }
 
     setVerticallyRotating(node: SceneNodeId): void {
