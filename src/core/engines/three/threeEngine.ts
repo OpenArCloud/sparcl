@@ -8,16 +8,14 @@
 */
 
 /**
- * Minimal Three.js {@link RenderingEngine}: WebGL2 context, scene, XR camera sync, resize/cleanup/stop,
- * scene-graph helpers, and dev helpers ({@link addAxes}, {@link addDebugAxesAtWorldMatrix}).
- * SCR-backed placement (models, PLY, particles, text, …) is intentionally not implemented yet.
+ * Three.js {@link RenderingEngine}: WebGL2 context, scene graph, SCR placement, PLY, GPU particles, and XR rendering.
  */
 
 import * as THREE from 'three';
 import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
-import type { ObjectDescription } from '@core/contents/objectDescription';
+import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import type { SceneRootMatrix } from '../../../types/xr';
@@ -27,10 +25,45 @@ import type { PrimitiveShape } from '@core/contents/primitives';
 import { PRIMITIVES } from '@core/contents/primitives';
 
 import { ThreeSceneNodeRegistry, type ThreeSceneObject } from './threeSceneNodeRegistry';
-import { createPrimitiveNode } from './threePrimitives';
+import { createObjectDescriptionNode, createPrimitiveNode } from './threePrimitives';
+const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
+const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
+
+function disposeMaterial(material: THREE.Material | undefined): void {
+    if (!material) return;
+    const withMap = material as THREE.MeshBasicMaterial & { map?: THREE.Texture | null };
+    withMap.map?.dispose();
+    material.dispose();
+}
 
 function notImplemented(feature: string): never {
     throw new Error(`ThreeEngine (minimal): ${feature} is not implemented yet`);
+}
+
+function disposeThreeSubtree(root: THREE.Object3D): void {
+    root.traverse((node: THREE.Object3D) => {
+        const drawable = node as THREE.Mesh & THREE.Points & THREE.Line;
+        if (!drawable.geometry) {
+            return;
+        }
+        drawable.geometry.dispose();
+        if (Array.isArray(drawable.material)) {
+            drawable.material.forEach((material: THREE.Material) => disposeMaterial(material));
+        } else {
+            disposeMaterial(drawable.material as THREE.Material);
+        }
+    });
+}
+
+function parseHexColor(hexColor: string): [number, number, number] {
+    const hex = hexColor.replace(/^#/, '');
+    if (hex.length === 6) {
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        return [r, g, b];
+    }
+    return [1, 1, 1];
 }
 
 export default class ThreeEngine implements RenderingEngine {
@@ -135,9 +168,9 @@ export default class ThreeEngine implements RenderingEngine {
         this.scene.matrixAutoUpdate = true;
 
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
-        const dir = new THREE.DirectionalLight(0xffffff, 0.6);
-        dir.position.set(1, 2, 1);
-        this.scene.add(dir);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(1, 2, 1);
+        this.scene.add(directionalLight);
     }
 
     addPlaceholder(
@@ -145,11 +178,33 @@ export default class ThreeEngine implements RenderingEngine {
         position: ReadonlyVec3,
         orientation: ReadonlyQuat,
     ): SceneNodeId {
-        notImplemented('addPlaceholder');
+        void keywords;
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.5, 0.5, 0.5, 0.8], true);
+        this.sceneNodes.applyTrs(entry, position, orientation);
+        this.rootEntry.three.add(entry.three);
+        return this.track(entry);
     }
 
     addPolyline(points: ReadonlyVec3[], hexColor: string): SceneNodeId {
-        notImplemented('addPolyline');
+        if (points.length < 2) {
+            const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [1, 1, 1, 1], false, [0.01, 0.01, 0.01]);
+            this.rootEntry.three.add(entry.three);
+            return this.track(entry);
+        }
+        const flat = new Float32Array(points.length * 3);
+        for (let i = 0; i < points.length; i++) {
+            flat[i * 3] = points[i][0];
+            flat[i * 3 + 1] = points[i][1];
+            flat[i * 3 + 2] = points[i][2];
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(flat, 3));
+        const [r, g, b] = parseHexColor(hexColor);
+        const material = new THREE.LineBasicMaterial({ color: new THREE.Color(r, g, b) });
+        const line = new THREE.Line(geometry, material);
+        const entry = this.sceneNodes.register(line);
+        this.rootEntry.three.add(line);
+        return this.track(entry);
     }
 
     addPlaceholderWithOptions(
@@ -160,7 +215,13 @@ export default class ThreeEngine implements RenderingEngine {
         fragmentShader: string | undefined,
         options?: unknown,
     ): SceneNodeId {
-        notImplemented('addPlaceholderWithOptions');
+        void fragmentShader;
+        void options;
+        const rgba = color ?? [Math.random(), Math.random(), Math.random(), 1];
+        const entry = createPrimitiveNode(this.sceneNodes, shape, rgba, rgba[3] < 1);
+        this.sceneNodes.applyTrs(entry, position, orientation);
+        this.rootEntry.three.add(entry.three);
+        return this.track(entry);
     }
 
     addModel(
@@ -193,32 +254,45 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addExperiencePlaceholder(position: ReadonlyVec3, orientation: ReadonlyQuat): SceneNodeId {
-        notImplemented('addExperiencePlaceholder');
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.sphere, [0, 1, 1, 0.9], true, [0.2, 0.2, 0.2]);
+        this.sceneNodes.applyTrs(entry, position, orientation);
+        this.rootEntry.three.add(entry.three);
+        const nodeId = this.track(entry);
+        this.updateHandlers[nodeId] = () => {
+            entry.three.rotation.y += 0.01;
+            return entry.three.rotation.y;
+        };
+        return nodeId;
     }
 
     addMarkerObject(): SceneNodeId {
-        notImplemented('addMarkerObject');
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.75, 0, 0, 1], false);
+        this.rootEntry.three.add(entry.three);
+        return this.track(entry);
     }
 
     addReticle(): SceneNodeId {
-        notImplemented('addReticle');
+        return this.addModel('/media/models/reticle.gltf', [0, 0, 0], [0, 0, 0, 1]);
     }
 
     /** Matches OGL `isHorizontal`: pitch (Euler x) ≈ 0 for floor alignment. */
     isHorizontal(orientation: ReadonlyQuat): boolean {
-        const e = new THREE.Euler().setFromQuaternion(
+        const euler = new THREE.Euler().setFromQuaternion(
             new THREE.Quaternion(orientation[0], orientation[1], orientation[2], orientation[3]),
             'XYZ',
         );
-        return Math.abs(e.x) < Number.EPSILON;
+        return Math.abs(euler.x) < Number.EPSILON;
     }
 
     addRandomObject(position: ReadonlyVec3, orientation: ReadonlyQuat): SceneNodeId {
-        notImplemented('addRandomObject');
+        return this.addObject(position, orientation, createRandomObjectDescription());
     }
 
     addObject(position: ReadonlyVec3, orientation: ReadonlyQuat, objectDescription: ObjectDescription): SceneNodeId {
-        notImplemented('addObject');
+        const entry = createObjectDescriptionNode(this.sceneNodes, objectDescription);
+        this.sceneNodes.applyTrs(entry, position, orientation);
+        this.rootEntry.three.add(entry.three);
+        return this.track(entry);
     }
 
     addParticleSystem(
