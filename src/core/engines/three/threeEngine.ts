@@ -16,6 +16,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
+import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
@@ -27,6 +28,8 @@ import { PRIMITIVES } from '@core/contents/primitives';
 
 import { ThreeSceneNodeRegistry, type ThreeSceneObject } from './threeSceneNodeRegistry';
 import { createObjectDescriptionNode, createPrimitiveNode } from './threePrimitives';
+import { loadThreePlyFromUrl } from './threePlyHelper';
+
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
 const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
 
@@ -509,8 +512,37 @@ export default class ThreeEngine implements RenderingEngine {
         quaternion: ReadonlyQuat,
         plyOptions?: PlyLoadOptions,
     ): Promise<SceneNodeId | null> {
-        console.warn('ThreeEngine (minimal): addPlyObject not implemented');
-        return null;
+        try {
+            const loaded = await loadThreePlyFromUrl(url, plyOptions ?? {});
+            if (!loaded) {
+                console.error(`ThreeEngine: failed to load PLY from ${url}`);
+                return null;
+            }
+            let meshLike: THREE.Object3D;
+            if (loaded.primitive === 'triangles') {
+                const material = new THREE.MeshStandardMaterial({
+                    vertexColors: true,
+                    metalness: 0.2,
+                    roughness: 0.8,
+                });
+                meshLike = new THREE.Mesh(loaded.geometry, material);
+            } else {
+                const material = new THREE.PointsMaterial({
+                    size: 0.02,
+                    vertexColors: true,
+                    sizeAttenuation: true,
+                });
+                meshLike = new THREE.Points(loaded.geometry, material);
+            }
+            meshLike.position.set(position[0], position[1], position[2]);
+            meshLike.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+            this.rootEntry.three.add(meshLike);
+            const entry = this.sceneNodes.register(meshLike);
+            return this.track(entry);
+        } catch (error) {
+            console.error(`ThreeEngine: PLY load error for ${url}`, error);
+            return null;
+        }
     }
 
     async addPointCloudObject(
@@ -519,7 +551,19 @@ export default class ThreeEngine implements RenderingEngine {
         quaternion: ReadonlyQuat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
     ): Promise<SceneNodeId | null> {
-        console.warn('ThreeEngine (minimal): addPointCloudObject not implemented');
+        const { contentType = '', scrContentType, ...plyOpts } = options ?? {};
+        const format = pointCloudFormatFromRef(url, contentType, scrContentType);
+        if (format === 'ply') {
+            return this.addPlyObject(
+                url,
+                position,
+                quaternion,
+                Object.keys(plyOpts).length > 0 ? (plyOpts as PlyLoadOptions) : undefined,
+            );
+        }
+        console.warn(
+            `ThreeEngine addPointCloudObject: unsupported format for ${url} (MIME: ${contentType || 'none'}, SCR: ${scrContentType ?? 'unspecified'})`,
+        );
         return null;
     }
 
