@@ -113,6 +113,8 @@ export function disposeOglGpuResourcesForDetachedSubtree(detachedRoot: Transform
     const sceneProgramCounts = countProgramUsage(sceneMeshes);
     const detachedProgramCounts = countProgramUsage(detachedMeshes);
 
+    // Disposal counts geometry and program usage over the whole scene vs the subtree being removed. 
+    // A GPU resource is only removed when inScene === inDetached, so shared GLTF assets used by other nodes stay valid.
     const geometryDisposed = new Set<number>();
     for (const mesh of detachedMeshes) {
         const geometry = mesh.geometry as GeometryWithId | undefined;

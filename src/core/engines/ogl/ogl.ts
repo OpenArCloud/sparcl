@@ -33,7 +33,7 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
-import { clearPlyProgramCache, getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
+import { createPlyMeshProgram, createPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
@@ -807,7 +807,7 @@ export default class ogl implements RenderingEngine {
                 return null;
             }
             const program =
-                loaded.primitive === 'triangles' ? getPlyMeshProgram(gl) : getPlyPointsProgram(gl);
+                loaded.primitive === 'triangles' ? createPlyMeshProgram(gl) : createPlyPointsProgram(gl);
             const pclMesh = new Mesh(gl, {
                 mode: loaded.mode,
                 geometry: loaded.geometry,
@@ -1119,8 +1119,6 @@ export default class ogl implements RenderingEngine {
         videoHelper.disposeAllVideoResources();
 
         disposeOglGpuResourcesUnder(scene);
-
-        clearPlyProgramCache(gl);
 
         // GLTF unpack in gltfCache holds texture/buffer views tied to this GL context; GPU dispose deletes
         // those textures, so a cached parse would reference invalid GL objects on the next load.

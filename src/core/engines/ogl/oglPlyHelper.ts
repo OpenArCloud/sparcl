@@ -40,61 +40,30 @@ type PlyMeshData = {
     topology?: string;
 };
 
-const programCache = new WeakMap<
-    OGLRenderingContext,
-    {
-        points?: Program;
-        mesh?: Program;
-    }
->();
-
-/**
- * After {@link disposeOglGpuResourcesUnder} / {@link disposeOglGpuResourcesForDetachedSubtree}, shared PLY
- * {@link Program} instances may already have {@link Program.remove} called. Drop cache entries so the next
- * {@link getPlyMeshProgram} / {@link getPlyPointsProgram} allocate fresh programs.
- */
-export function clearPlyProgramCache(gl: OGLRenderingContext): void {
-    programCache.delete(gl);
+/** One {@link Program} per PLY point-cloud mesh (no global cache; each mesh owns disposal). */
+export function createPlyPointsProgram(gl: OGLRenderingContext): Program {
+    return new Program(gl, {
+        vertex: plyPointsVs,
+        fragment: plyPointsFs,
+        uniforms: {},
+        transparent: false,
+        cullFace: gl.NONE,
+        depthTest: true, //false,
+        depthWrite: true, //false,
+    });
 }
 
-export function getPlyPointsProgram(gl: OGLRenderingContext): Program {
-    let forGl = programCache.get(gl);
-    if (!forGl) {
-        forGl = {};
-        programCache.set(gl, forGl);
-    }
-    if (!forGl.points) {
-        forGl.points = new Program(gl, {
-            vertex: plyPointsVs,
-            fragment: plyPointsFs,
-            uniforms: {},
-            transparent: false,
-            cullFace: gl.NONE,
-            depthTest: true, //false,
-            depthWrite: true, //false,
-        });
-    }
-    return forGl.points;
-}
-
-export function getPlyMeshProgram(gl: OGLRenderingContext): Program {
-    let forGl = programCache.get(gl);
-    if (!forGl) {
-        forGl = {};
-        programCache.set(gl, forGl);
-    }
-    if (!forGl.mesh) {
-        forGl.mesh = new Program(gl, {
-            vertex: plyMeshVs,
-            fragment: plyMeshFs,
-            uniforms: {},
-            transparent: false,
-            cullFace: gl.BACK,
-            depthTest: true,
-            depthWrite: true,
-        });
-    }
-    return forGl.mesh;
+/** One {@link Program} per PLY triangle mesh (no global cache; each mesh owns disposal). */
+export function createPlyMeshProgram(gl: OGLRenderingContext): Program {
+    return new Program(gl, {
+        vertex: plyMeshVs,
+        fragment: plyMeshFs,
+        uniforms: {},
+        transparent: false,
+        cullFace: gl.BACK,
+        depthTest: true,
+        depthWrite: true,
+    });
 }
 
 function hasUsableVertexColors(attr: PlyAttribute | undefined, vertexCount: number): boolean {
