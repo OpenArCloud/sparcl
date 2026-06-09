@@ -659,7 +659,26 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     async addVideoObject(position: ReadonlyVec3, quaternion: ReadonlyQuat, videoUrl: string): Promise<void> {
-        console.warn('ThreeEngine (minimal): addVideoObject not implemented');
+        const video = document.createElement('video');
+        video.src = videoUrl;
+        video.crossOrigin = 'anonymous';
+        video.loop = true;
+        video.muted = true;
+        video.playsInline = true;
+        try {
+            await video.play();
+        } catch {
+            /* autoplay may require gesture; texture still updates when playing */
+        }
+        const videoTexture = new THREE.VideoTexture(video);
+        videoTexture.colorSpace = THREE.SRGBColorSpace;
+        const geometry = new THREE.PlaneGeometry(1.6, 0.9);
+        const material = new THREE.MeshBasicMaterial({ map: videoTexture, transparent: true, side: THREE.DoubleSide });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(position[0], position[1], position[2]);
+        mesh.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+        mesh.userData.threeVideoElement = video;
+        this.rootEntry.three.add(mesh);
     }
 
     setVerticallyRotating(node: SceneNodeId): void {
@@ -761,6 +780,13 @@ export default class ThreeEngine implements RenderingEngine {
         }
         while (this.scene.children.length > 0) {
             const child = this.scene.children[0];
+            child.traverse((node: THREE.Object3D) => {
+                const video = node.userData?.threeVideoElement as HTMLVideoElement | undefined;
+                if (video) {
+                    video.pause();
+                    video.src = '';
+                }
+            });
             this.scene.remove(child);
             disposeThreeSubtree(child);
         }
