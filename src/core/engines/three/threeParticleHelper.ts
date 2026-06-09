@@ -27,11 +27,8 @@ const particleSystemStateBySceneNodeId = new Map<SceneNodeId, ThreeParticleSyste
 
 let particleAnimationTime = 0;
 
-const particleVertexShader = `
-attribute vec3 position;
+const particleVertexShader = /* glsl */ `
 attribute vec3 velocity;
-uniform mat4 modelViewMatrix;
-uniform mat4 projectionMatrix;
 uniform float uTime;
 uniform float uPointSize;
 
@@ -86,7 +83,8 @@ function generateVelocity(shape: ParticleShape, position: THREE.Vector3, speed: 
 }
 
 export function createThreeParticlePoints(particleSystem: ParticleSystem): THREE.Points {
-    const { shape, baseColor, pointSize, intensity, systemSize, speed } = particleSystem;
+    const { shape, baseColor, pointSize, systemSize, speed } = particleSystem;
+    const intensity = Math.max(1, Math.floor(Number(particleSystem.intensity)) || 1);
     const positions = new Float32Array(intensity * 3);
     const velocities = new Float32Array(intensity * 3);
 
@@ -162,12 +160,13 @@ export function setThreeParticleIntensity(sceneNodeId: SceneNodeId, newIntensity
     const velocityAttribute = points.geometry.getAttribute('velocity') as THREE.BufferAttribute;
     const previousIntensity = positionAttribute.count;
 
-    const newPositions = new Float32Array(newIntensity * 3);
-    const newVelocities = new Float32Array(newIntensity * 3);
+    const n = Math.max(1, Math.floor(Number(newIntensity)) || 1);
+    const newPositions = new Float32Array(n * 3);
+    const newVelocities = new Float32Array(n * 3);
     const oldPositions = positionAttribute.array as Float32Array;
     const oldVelocities = velocityAttribute.array as Float32Array;
 
-    for (let i = 0; i < newIntensity; i++) {
+    for (let i = 0; i < n; i++) {
         const base = i * 3;
         if (i < previousIntensity) {
             newPositions[base] = oldPositions[base];
