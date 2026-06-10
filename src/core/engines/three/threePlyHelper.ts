@@ -204,8 +204,10 @@ export async function loadThreePlyFromUrl(url: string, options: PlyLoadOptions =
         geometry.setAttribute('color', new THREE.BufferAttribute(vertexColors, 3));
 
         if (isMesh) {
-            const indexAttr = toUint32IndexArray(idx!);
-            geometry.setIndex(indexAttr);
+            const indexArray = toUint32IndexArray(idx!);
+            // Three r184 may store a bare TypedArray on `geometry.index` when using `setIndex(typedArray)`,
+            // which has no `.array`; some WebGL paths expect a BufferAttribute. Wrap explicitly.
+            geometry.setIndex(new THREE.BufferAttribute(indexArray, 1));
             const normals = copyNormalsFromFile(data, vertexCount);
             geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
             return { geometry, primitive: 'triangles' };
