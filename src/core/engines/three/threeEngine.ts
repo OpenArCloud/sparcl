@@ -16,6 +16,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
+import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
@@ -140,7 +141,7 @@ function parseHexColor(hexColor: string): [number, number, number] {
 export default class ThreeEngine implements RenderingEngine {
     private renderer: THREE.WebGLRenderer | null = null;
     private scene = new THREE.Scene();
-    private camera = new THREE.PerspectiveCamera(75, 1, 0.01, 1000);
+    private camera = new THREE.PerspectiveCamera(75, 1, XR_DEPTH_NEAR, XR_DEPTH_FAR);
     private readonly gltfLoader = new GLTFLoader();
 
     private readonly sceneNodes = new ThreeSceneNodeRegistry();

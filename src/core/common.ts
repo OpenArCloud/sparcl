@@ -139,6 +139,13 @@ export const PLACEHOLDERSHAPES = {
 };
 
 /**
+ * WebXR {@link XRSession.updateRenderState} depth range and matching defaults for CPU-side cameras (meters).
+ * Keep in sync across {@link webxr.ts}, OGL, and Three so clipping behavior aligns with the immersive session.
+ */
+export const XR_DEPTH_NEAR = 0.05;
+export const XR_DEPTH_FAR = 10000;
+
+/**
  * Utility function used to delay the execution of the next expression delay milliseconds.
  *
  * @param delay

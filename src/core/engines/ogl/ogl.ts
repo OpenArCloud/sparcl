@@ -33,6 +33,7 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
+import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { createPlyMeshProgram, createPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
@@ -1061,7 +1062,7 @@ export default class ogl implements RenderingEngine {
      */
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000 });
+        camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: XR_DEPTH_NEAR, far: XR_DEPTH_FAR });
     }
 
     removeDynamicObject(object_id: string) {
