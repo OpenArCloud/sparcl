@@ -685,13 +685,14 @@ export default class ThreeEngine implements RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         text: string,
-        textColor?: ReadonlyVec3,
+        textColor: ReadonlyVec3,
+        scale: ReadonlyVec3,
     ): Promise<SceneNodeId> {
         void text;
         const rgb: [number, number, number, number] = textColor
             ? [textColor[0], textColor[1], textColor[2], 0.3]
             : [1, 1, 1, 0.3];
-        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, rgb, true, [0.2, 0.05, 0.05]);
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, rgb, true, scale as [number, number, number]);
         this.sceneNodes.applyTrs(entry, position, quaternion);
         this.rootEntry.three.add(entry.three);
         return this.track(entry);
@@ -700,7 +701,11 @@ export default class ThreeEngine implements RenderingEngine {
     async addTextObjectWithRigidPose(
         pose: RigidPose,
         text: string,
-        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+        options?: {
+            textColor?: [number, number, number],
+            positionOffset?: [number, number, number],
+            scale?: [number, number, number],
+        },
     ): Promise<SceneNodeId> {
         const ox = options?.positionOffset?.[0] ?? 0;
         const oy = options?.positionOffset?.[1] ?? 0;
@@ -715,7 +720,7 @@ export default class ThreeEngine implements RenderingEngine {
         const textColor = options?.textColor
             ? vec3.fromValues(options.textColor[0], options.textColor[1], options.textColor[2])
             : vec3.fromValues(1, 1, 1);
-        return this.addTextObject(position, orientation, text, textColor);
+        return this.addTextObject(position, orientation, text, textColor, options?.scale ?? [1.0, 1.0, 1.0]);
     }
 
     async addVideoObject(

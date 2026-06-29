@@ -903,6 +903,7 @@ export default class ogl implements RenderingEngine {
         quaternion: ReadonlyQuat,
         string: string,
         textColor: ReadonlyVec3 = [1.0, 1.0, 1.0],
+        scale: ReadonlyVec3 = [1.0, 1.0, 1.0],
     ) {
         if (debugOgl) console.log('OGL addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
@@ -914,6 +915,7 @@ export default class ogl implements RenderingEngine {
         );
         textMesh.position.copy(oglVec3(position));
         textMesh.quaternion.copy(oglQuat(quaternion));
+        textMesh.scale.set(scale[0], scale[1], scale[2]);
         textMesh.setParent(scene);
         return this.sceneNodes.add(textMesh);
     }
@@ -925,7 +927,11 @@ export default class ogl implements RenderingEngine {
     async addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
-        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+        options?: {
+            textColor?: [number, number, number],
+            positionOffset?: [number, number, number],
+            scale?: [number, number, number],
+        },
     ) {
         const ox = options?.positionOffset?.[0] ?? 0;
         const oy = options?.positionOffset?.[1] ?? 0;
@@ -935,7 +941,7 @@ export default class ogl implements RenderingEngine {
         const tc = options?.textColor
             ? new Vec3(options.textColor[0], options.textColor[1], options.textColor[2])
             : new Vec3(1.0, 1.0, 1.0);
-        return this.addTextObject(position, quaternion, string, tc);
+        return this.addTextObject(position, quaternion, string, tc, options?.scale ?? [1.0, 1.0, 1.0]);
     }
 
     /**

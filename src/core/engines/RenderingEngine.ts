@@ -242,13 +242,18 @@ export interface RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         string: string,
-        textColor?: ReadonlyVec3,
+        textColor: ReadonlyVec3,
+        scale: ReadonlyVec3,
     ): Promise<SceneNodeId>;
 
     addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
-        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+        options?: {
+            textColor?: [number, number, number],
+            positionOffset?: [number, number, number],
+            scale?: [number, number, number],
+        },
     ): Promise<SceneNodeId>;
 
     addVideoObject(
