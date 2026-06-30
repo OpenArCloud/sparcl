@@ -938,10 +938,11 @@ export default class ogl implements RenderingEngine {
         const oz = options?.positionOffset?.[2] ?? 0;
         const position = new Vec3(pose.position.x + ox, pose.position.y + oy, pose.position.z + oz);
         const quaternion = new Quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
-        const tc = options?.textColor
+        const color = options?.textColor
             ? new Vec3(options.textColor[0], options.textColor[1], options.textColor[2])
             : new Vec3(1.0, 1.0, 1.0);
-        return this.addTextObject(position, quaternion, string, tc, options?.scale ?? [1.0, 1.0, 1.0]);
+        const scale = options?.scale ?? [1.0, 1.0, 1.0];
+        return this.addTextObject(position, quaternion, string, color, scale);
     }
 
     /**
