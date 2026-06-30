@@ -40,12 +40,19 @@ import {
     updateThreeParticles,
 } from './threeParticleHelper';
 import { loadThreePlyFromUrl } from './threePlyHelper';
+import { createThreeTextMesh } from './threeTextHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
 const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
 
 function disposeMaterial(material: THREE.Material | undefined): void {
     if (!material) return;
+    if (material instanceof THREE.ShaderMaterial) {
+        const tMap = material.uniforms.tMap?.value as THREE.Texture | undefined;
+        if (tMap && !tMap.userData.sharedThreeFontAtlas) {
+            tMap.dispose();
+        }
+    }
     const withMap = material as THREE.MeshBasicMaterial & { map?: THREE.Texture | null };
     withMap.map?.dispose();
     material.dispose();
@@ -685,14 +692,12 @@ export default class ThreeEngine implements RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         text: string,
-        textColor: ReadonlyVec3,
-        scale: ReadonlyVec3,
+        textColor: ReadonlyVec3 = [1, 1, 1],
+        scale: ReadonlyVec3 = [1, 1, 1],
     ): Promise<SceneNodeId> {
-        void text;
-        const rgb: [number, number, number, number] = textColor
-            ? [textColor[0], textColor[1], textColor[2], 0.3]
-            : [1, 1, 1, 0.3];
-        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, rgb, true, scale as [number, number, number]);
+        const mesh = await createThreeTextMesh(text, textColor);
+        mesh.scale.set(scale[0], scale[1], scale[2]);
+        const entry = this.sceneNodes.register(mesh);
         this.sceneNodes.applyTrs(entry, position, quaternion);
         this.rootEntry.three.add(entry.three);
         return this.track(entry);
@@ -720,7 +725,8 @@ export default class ThreeEngine implements RenderingEngine {
         const textColor = options?.textColor
             ? vec3.fromValues(options.textColor[0], options.textColor[1], options.textColor[2])
             : vec3.fromValues(1, 1, 1);
-        return this.addTextObject(position, orientation, text, textColor, options?.scale ?? [1.0, 1.0, 1.0]);
+        const scale = options?.scale ?? [1.0, 1.0, 1.0];
+        return this.addTextObject(position, orientation, text, textColor, scale);
     }
 
     async addVideoObject(

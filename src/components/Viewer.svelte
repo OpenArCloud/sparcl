@@ -1027,16 +1027,20 @@
                                     const modelNodeId = tdEngine.addModelWithRigidPose(
                                         '/media/models/map_pin.glb',
                                         pinPose,
-                                        [2, 2, 2],
+                                        [2.0, 2.0, 2.0], // scale
                                         (pinModelId) => {
-                                        if (debugScrs) console.log('POI ' + featureName + ' added.');
+                                            if (debugScrs) {
+                                                console.log('POI ' + featureName + ' added.');
+                                            }
                                         //tdEngine.setVerticallyRotating(pinModelId.parent!); // TODO: why does this not work?
-                                    });
+                                        }
+                                    );
                                     tdEngine.setVerticallyRotating(modelNodeId);
 
                                     const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
                                         textColor: [0.063, 0.741, 1.0],
                                         positionOffset: [0, 3, 0],
+                                        scale: [1.0, 1.0, 1.0],
                                     });
                                     textMesh.then((node) => {
                                         tdEngine.setTowardsCameraRotating(node);
@@ -1066,7 +1070,7 @@
                                 }
                             })
                             .then((textdata) => {
-                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
+                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!, [1, 1, 1], [1, 1, 1]);
                             })
                             .catch((error) => {
                                 console.error('Error while processing TEXT: ' + error);
