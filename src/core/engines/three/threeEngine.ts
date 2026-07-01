@@ -42,6 +42,8 @@ import {
 import { loadThreePlyFromUrl } from './threePlyHelper';
 import { createThreeTextMesh } from './threeTextHelper';
 import { createPlaceholderMesh } from './threePlaceholderHelper';
+import { createPolyline } from './threePolylineHelper';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
 const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
@@ -138,6 +140,7 @@ function disposeThreeSubtree(root: THREE.Object3D, sceneRoot: THREE.Object3D): v
 function unregisterTrackedEngineMaterials(
     root: THREE.Object3D,
     timedShaderMaterials: Set<THREE.ShaderMaterial>,
+    lineMaterials: Set<LineMaterial>,
 ): void {
     root.traverse((node: THREE.Object3D) => {
         const material = (node as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
@@ -148,7 +151,10 @@ function unregisterTrackedEngineMaterials(
         for (const m of list) {
             if (m instanceof THREE.ShaderMaterial && m.userData.threeTimedShader) {
                 timedShaderMaterials.delete(m);
-    }
+            }
+            if (m instanceof LineMaterial) {
+                lineMaterials.delete(m);
+            }
         }
     });
 }
@@ -172,6 +178,7 @@ export default class ThreeEngine implements RenderingEngine {
     private readonly dynamicMeshes: Record<string, ThreeSceneObject> = {};
     private readonly gltfRoots: Record<ModelName, ThreeSceneObject> = {};
     private readonly timedShaderMaterials = new Set<THREE.ShaderMaterial>();
+    private readonly lineMaterials = new Set<LineMaterial>();
 
     private listenersAttached = false;
     private readonly boundResize = () => this.resize();
@@ -280,23 +287,21 @@ export default class ThreeEngine implements RenderingEngine {
         return this.track(entry);
     }
 
-    addPolyline(points: ReadonlyVec3[], hexColor: string): SceneNodeId {
+    addPolyline(points: ReadonlyVec3[], hexColor: string, linewidthPixels: number): SceneNodeId | null {
         if (points.length < 2) {
-            const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [1, 1, 1, 1], false, [0.01, 0.01, 0.01]);
-            this.rootEntry.three.add(entry.three);
-            return this.track(entry);
+            console.warn(`ThreeEngine addPolyline: need at least 2 points (got ${points.length})`);
+            return null;
         }
-        const flat = new Float32Array(points.length * 3);
-        for (let i = 0; i < points.length; i++) {
-            flat[i * 3] = points[i][0];
-            flat[i * 3 + 1] = points[i][1];
-            flat[i * 3 + 2] = points[i][2];
+        const resolution = new THREE.Vector2(
+            this.renderer?.domElement.width ?? window.innerWidth,
+            this.renderer?.domElement.height ?? window.innerHeight,
+        );
+        const line = createPolyline(points, hexColor, linewidthPixels, resolution);
+        if (!line) {
+            console.warn('ThreeEngine addPolyline: failed to create line geometry');
+            return null;
         }
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.BufferAttribute(flat, 3));
-        const [r, g, b] = parseHexColor(hexColor);
-        const material = new THREE.LineBasicMaterial({ color: new THREE.Color(r, g, b) });
-        const line = new THREE.Line(geometry, material);
+        this.lineMaterials.add(line.material as LineMaterial);
         const entry = this.sceneNodes.register(line);
         this.rootEntry.three.add(line);
         return this.track(entry);
@@ -854,6 +859,10 @@ export default class ThreeEngine implements RenderingEngine {
         this.renderer.setSize(window.innerWidth, window.innerHeight, false);
         this.camera.aspect = window.innerWidth / window.innerHeight;
         this.camera.updateProjectionMatrix();
+        const resolution = new THREE.Vector2(window.innerWidth, window.innerHeight);
+        for (const material of this.lineMaterials) {
+            material.resolution.copy(resolution);
+        }
     }
 
     reinitialize(): void {
@@ -887,6 +896,7 @@ export default class ThreeEngine implements RenderingEngine {
         this.verticallyRotatingNodes.length = 0;
         this.towardsCameraRotatingNodes.length = 0;
         this.timedShaderMaterials.clear();
+        this.lineMaterials.clear();
         this.objectsById.clear();
         for (const key of Object.keys(this.eventHandlers)) {
             delete this.eventHandlers[key];
@@ -898,7 +908,7 @@ export default class ThreeEngine implements RenderingEngine {
             unregisterThreeParticleSystem(modelId);
         }
         const entry = this.resolve(modelId);
-        unregisterTrackedEngineMaterials(entry.three, this.timedShaderMaterials);
+        unregisterTrackedEngineMaterials(entry.three, this.timedShaderMaterials, this.lineMaterials);
         disposeThreeSubtree(entry.three, this.scene);
         entry.three.removeFromParent();
         this.objectsById.delete(modelId);

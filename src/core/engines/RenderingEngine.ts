@@ -44,12 +44,6 @@ export interface RenderingEngine {
         orientation: ReadonlyQuat
     ): SceneNodeId;
 
-    /** @returns {@link SceneNodeId} for the polyline mesh */
-    addPolyline(
-        points: ReadonlyVec3[],
-        hexColor: string,
-    ): SceneNodeId;
-
     /** @returns {@link SceneNodeId} for the configured primitive mesh */
     addPlaceholderWithOptions(
         shape: PrimitiveShape,
@@ -59,6 +53,16 @@ export interface RenderingEngine {
         fragmentShader: string | undefined,
         options?: unknown,
     ): SceneNodeId;
+
+    /**
+     * @param linewidthPixels - Screen-space line thickness in pixels (OGL `uThickness`; Three `LineMaterial` with `worldUnits: false`)
+     * @returns {@link SceneNodeId} for the polyline mesh, or `null` if the line could not be created
+     */
+    addPolyline(
+        points: ReadonlyVec3[],
+        hexColor: string,
+        linewidthPixels: number,
+    ): SceneNodeId | null;
 
     /**
      * @param callback - Invoked per loaded GLTF mesh leaf with its {@link SceneNodeId}

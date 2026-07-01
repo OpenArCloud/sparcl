@@ -286,17 +286,19 @@ export default class ogl implements RenderingEngine {
      *
      * @param points - Polyline vertices ({@link ReadonlyVec3}[])
      * @param hexColor - CSS-style hex color string
+     * @param linewidthPixels - Screen-space thickness in pixels (OGL {@link Polyline} `uThickness`)
      * @returns {@link SceneNodeId} for the polyline mesh
      */
     addPolyline(
         points: ReadonlyVec3[],
-        hexColor: string
+        hexColor: string,
+        linewidthPixels: number,
     ) {
         const polyline = new Polyline(gl, {
             points: points.map((p) => oglVec3(p)),
             uniforms: {
                 uColor: { value: new Color(hexColor) },
-                uThickness: { value: 5 },
+                uThickness: { value: linewidthPixels },
             },
         });
         const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
