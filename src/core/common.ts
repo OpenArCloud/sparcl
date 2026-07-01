@@ -208,6 +208,18 @@ export function rgbToHex(rgbObj: { r?: number; g?: number; b?: number }) {
     return '#000000';
 }
 
+/** CSS-style `#rrggbb` (or `rrggbb`) → linear RGB components in 0–1. */
+export function parseHexColor(hexColor: string): [number, number, number] {
+    const hex = hexColor.replace(/^#/, '');
+    if (hex.length === 6) {
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        return [r, g, b];
+    }
+    return [1, 1, 1];
+}
+
 export function normalizeColor(color: number | null) {
     if (color == null) {
         return 1.0;

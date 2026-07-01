@@ -28,7 +28,7 @@ import type { PrimitiveShape } from '@core/contents/primitives';
 import { PRIMITIVES } from '@core/contents/primitives';
 
 import { ThreeSceneNodeRegistry, type ThreeSceneObject } from './threeSceneNodeRegistry';
-import { createObjectDescriptionNode, createPrimitiveNode } from './threePrimitives';
+import { createObjectDescriptionNode, createPrimitiveNode, type PrimitiveGeometryOptions } from './threePrimitives';
 import {
     clearRegisteredThreeParticleSystems,
     createThreeParticlePoints,
@@ -41,6 +41,7 @@ import {
 } from './threeParticleHelper';
 import { loadThreePlyFromUrl } from './threePlyHelper';
 import { createThreeTextMesh } from './threeTextHelper';
+import { createPlaceholderMesh } from './threePlaceholderHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
 const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
@@ -134,15 +135,22 @@ function disposeThreeSubtree(root: THREE.Object3D, sceneRoot: THREE.Object3D): v
     });
 }
 
-function parseHexColor(hexColor: string): [number, number, number] {
-    const hex = hexColor.replace(/^#/, '');
-    if (hex.length === 6) {
-        const r = parseInt(hex.slice(0, 2), 16) / 255;
-        const g = parseInt(hex.slice(2, 4), 16) / 255;
-        const b = parseInt(hex.slice(4, 6), 16) / 255;
-        return [r, g, b];
+function unregisterTrackedEngineMaterials(
+    root: THREE.Object3D,
+    timedShaderMaterials: Set<THREE.ShaderMaterial>,
+): void {
+    root.traverse((node: THREE.Object3D) => {
+        const material = (node as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+        if (material === undefined) {
+            return;
+        }
+        const list = Array.isArray(material) ? material : [material];
+        for (const m of list) {
+            if (m instanceof THREE.ShaderMaterial && m.userData.threeTimedShader) {
+                timedShaderMaterials.delete(m);
     }
-    return [1, 1, 1];
+        }
+    });
 }
 
 export default class ThreeEngine implements RenderingEngine {
@@ -163,6 +171,7 @@ export default class ThreeEngine implements RenderingEngine {
     private readonly dynamicDescriptions: Record<string, ObjectDescription> = {};
     private readonly dynamicMeshes: Record<string, ThreeSceneObject> = {};
     private readonly gltfRoots: Record<ModelName, ThreeSceneObject> = {};
+    private readonly timedShaderMaterials = new Set<THREE.ShaderMaterial>();
 
     private listenersAttached = false;
     private readonly boundResize = () => this.resize();
@@ -301,10 +310,14 @@ export default class ThreeEngine implements RenderingEngine {
         fragmentShader: string | undefined,
         options?: unknown,
     ): SceneNodeId {
-        void fragmentShader;
-        void options;
         const rgba = color ?? [Math.random(), Math.random(), Math.random(), 1];
-        const entry = createPrimitiveNode(this.sceneNodes, shape, rgba, rgba[3] < 1);
+        const geometryOptions: PrimitiveGeometryOptions =
+            options && typeof options === 'object' ? (options as PrimitiveGeometryOptions) : {};
+        const { mesh, timedMaterial } = createPlaceholderMesh(shape, rgba, fragmentShader, geometryOptions);
+        if (timedMaterial) {
+            this.timedShaderMaterials.add(timedMaterial);
+        }
+        const entry = this.sceneNodes.register(mesh);
         this.sceneNodes.applyTrs(entry, position, orientation);
         this.rootEntry.three.add(entry.three);
         return this.track(entry);
@@ -873,6 +886,7 @@ export default class ThreeEngine implements RenderingEngine {
         }
         this.verticallyRotatingNodes.length = 0;
         this.towardsCameraRotatingNodes.length = 0;
+        this.timedShaderMaterials.clear();
         this.objectsById.clear();
         for (const key of Object.keys(this.eventHandlers)) {
             delete this.eventHandlers[key];
@@ -884,6 +898,7 @@ export default class ThreeEngine implements RenderingEngine {
             unregisterThreeParticleSystem(modelId);
         }
         const entry = this.resolve(modelId);
+        unregisterTrackedEngineMaterials(entry.three, this.timedShaderMaterials);
         disposeThreeSubtree(entry.three, this.scene);
         entry.three.removeFromParent();
         this.objectsById.delete(modelId);
@@ -905,9 +920,15 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     render(time: DOMHighResTimeStamp, view: XRView): void {
-        void time;
         if (!this.renderer) {
             return;
+        }
+
+        const tSec = time * 0.001;
+        for (const material of this.timedShaderMaterials) {
+            if (material.uniforms.uTime) {
+                material.uniforms.uTime.value = tSec;
+            }
         }
 
         const t = view.transform;
