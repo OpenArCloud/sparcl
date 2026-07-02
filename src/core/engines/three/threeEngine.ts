@@ -44,6 +44,15 @@ import { createThreeTextMesh } from './threeTextHelper';
 import { createPlaceholderMesh } from './threePlaceholderHelper';
 import { createPolyline } from './threePolylineHelper';
 import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import {
+    createVideoMesh,
+    disposeAllVideoResources,
+    disposeVideo,
+    getVideoIdFromObject,
+    loadVideo,
+    onPreRender as onThreeVideoPreRender,
+    togglePlayback,
+} from './threeVideoHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
 const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
@@ -753,27 +762,14 @@ export default class ThreeEngine implements RenderingEngine {
         videoUrl: string,
     ): Promise<SceneNodeId | null> {
         try {
-            const video = document.createElement('video');
-            video.src = videoUrl;
-            video.crossOrigin = 'anonymous';
-            video.loop = true;
-            video.muted = true;
-            video.playsInline = true;
-            try {
-                await video.play();
-            } catch {
-                /* autoplay may require gesture; texture still updates when playing */
-            }
-            const videoTexture = new THREE.VideoTexture(video);
-            videoTexture.colorSpace = THREE.SRGBColorSpace;
-            const geometry = new THREE.PlaneGeometry(1.6, 0.9);
-            const material = new THREE.MeshBasicMaterial({ map: videoTexture, transparent: true, side: THREE.DoubleSide });
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(position[0], position[1], position[2]);
-            mesh.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
-            mesh.userData.threeVideoElement = video;
+            const videoInfo = loadVideo(videoUrl);
+            const mesh = createVideoMesh(videoInfo, position, quaternion);
             this.rootEntry.three.add(mesh);
-            return this.track(this.sceneNodes.register(mesh));
+            const nodeId = this.track(this.sceneNodes.register(mesh));
+            this.addClickEvent(nodeId, () => {
+                togglePlayback(videoInfo.videoId);
+            });
+            return nodeId;
         } catch (error) {
             console.error('ThreeEngine: addVideoObject failed', error);
             return null;
@@ -872,6 +868,7 @@ export default class ThreeEngine implements RenderingEngine {
 
     cleanup(): void {
         clearRegisteredThreeParticleSystems();
+        disposeAllVideoResources();
         for (const key of Object.keys(this.updateHandlers)) {
             delete this.updateHandlers[key];
         }
@@ -883,13 +880,6 @@ export default class ThreeEngine implements RenderingEngine {
         }
         while (this.scene.children.length > 0) {
             const child = this.scene.children[0];
-            child.traverse((node: THREE.Object3D) => {
-                const video = node.userData?.threeVideoElement as HTMLVideoElement | undefined;
-                if (video) {
-                    video.pause();
-                    video.src = '';
-                }
-            });
             disposeThreeSubtree(child, this.scene);
             this.scene.remove(child);
         }
@@ -908,6 +898,10 @@ export default class ThreeEngine implements RenderingEngine {
             unregisterThreeParticleSystem(modelId);
         }
         const entry = this.resolve(modelId);
+        const videoId = getVideoIdFromObject(entry.three);
+        if (videoId !== undefined) {
+            disposeVideo(videoId);
+        }
         unregisterTrackedEngineMaterials(entry.three, this.timedShaderMaterials, this.lineMaterials);
         disposeThreeSubtree(entry.three, this.scene);
         entry.three.removeFromParent();
@@ -957,6 +951,8 @@ export default class ThreeEngine implements RenderingEngine {
         for (const entry of this.towardsCameraRotatingNodes) {
             entry.three.lookAt(this.camera.position);
         }
+
+        onThreeVideoPreRender();
 
         this.renderer.render(this.scene, this.camera);
     }
