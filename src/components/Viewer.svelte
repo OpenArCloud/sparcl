@@ -392,11 +392,11 @@
         }
 
         // TEMP: fill FrameTransformGraph with test transforms
-        seedSparclTestFrameGraph();
+        //seedSparclTestFrameGraph();
         // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_WEBXR_SCENE_FRAME_REF (trivial)
-        placeContent([[fakeContentWithFramedPoseScene]]);
+        //placeContent([[fakeContentWithFramedPoseScene]]);
         // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_TEST_HOP2_FRAME_REF (requies FrameTransformGraph)
-        placeContent([[fakeContentWithFramedPoseHop2]]);
+        //placeContent([[fakeContentWithFramedPoseHop2]]);
         // (remove these when SCD serves framed content end-to-end).
 
         // now get the contents from the SCD(s)
@@ -570,12 +570,12 @@
 
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true);
 
-        // add axes at origin
-        const origin: WebXrRigidPose = {
-            position: { x: 0, y: 0, z: 0 },
-            orientation: { x: 0, y: 0, z: 0, w: 1 },
-        };
-        tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
+        // DEBUG: add axes at origin
+        //const origin: WebXrRigidPose = {
+        //    position: { x: 0, y: 0, z: 0 },
+        //    orientation: { x: 0, y: 0, z: 0, w: 1 },
+        //};
+        //tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
 
         const geoAlign = worldAlignment.getActiveGeoAlignment();
         const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
