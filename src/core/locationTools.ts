@@ -12,7 +12,7 @@
 */
 
 import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
-import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
+import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import * as h3 from 'h3-js';
 
 import { supportedCountries } from '@oarc/ssd-access';
@@ -353,7 +353,7 @@ export function getEuler(out: vec3, quat: ReadonlyQuat) {
  * @param {*} geoVec3 vec3
  * @returns vec3
  */
-export function convertGeo2WebVec3(geoVec3: vec3) {
+export function convertGeo2WebVec3(geoVec3: ReadonlyVec3) {
     // X_WebXR =  X_ENU
     // Y_WebXR =  Z_ENU
     // Z_WebXR = -Y_ENU
@@ -365,7 +365,7 @@ export function convertGeo2WebVec3(geoVec3: vec3) {
  * @param {*} webVec3 vecc3
  * @returns vec3
  */
-export function convertWeb2GeoVec3(webVec3: vec3) {
+export function convertWeb2GeoVec3(webVec3: ReadonlyVec3) {
     // X_ENU =  X_WebXR
     // Y_ENU = -Z_WebXR
     // Z_ENU =  Y_WebXR
@@ -403,7 +403,7 @@ export function convertWeb2GeoQuat(webQuat: ReadonlyQuat) {
  * @param {*} acVec3 vec3
  * @returns vec3
  */
-export function convertAugmentedCityCam2WebVec3(acVec3: vec3) {
+export function convertAugmentedCityCam2WebVec3(acVec3: ReadonlyVec3) {
     // flip the axes from ENU to WebXR
     // X_WebXR = -Y_AC
     // Y_WebXR =  Z_AC
@@ -713,41 +713,4 @@ export function convertEnuToGeodetic(xEast: number, yNorth: number, zUp: number,
     const enu = convertEnuToEcef(xEast, yNorth, zUp, lat0, lon0, h0);
     const geodetic = convertEcefToGeodetic(enu.x, enu.y, enu.z);
     return geodetic;
-}
-
-export function convertLocalPoseToEnu(localPose: any, T_local_to_enu: any) {
-    // TODO: change any to actual type (Mat4)
-    const enuPose = localPose.clone().multiplyLeft(T_local_to_enu);
-    return enuPose;
-}
-
-export function convertLocalPoseToGeoPose(localPose: any, T_local_to_enu: any, refGeoPose: any): Geopose {
-    // TODO: change any to actual type (Mat4 and Geopose)
-    const enuPose = convertLocalPoseToEnu(localPose, T_local_to_enu);
-    const enuPosition = enuPose.getTranslation();
-    const enuRotMat = enuPose.getRotationMatrix3();
-    const enuQuaternion = new Quat().fromMatrix3(enuRotMat);
-
-    const dE = enuPosition[0];
-    const dN = enuPosition[1];
-    const dU = enuPosition[2];
-    const lat_ref = refGeoPose.position.lat;
-    const lon_ref = refGeoPose.position.lon;
-    const h_ref = refGeoPose.position.h;
-    const geodetic = convertEnuToGeodetic(dE, dN, dU, lat_ref, lon_ref, h_ref);
-
-    const geoPose = {
-        position: {
-            lat: geodetic.lat,
-            lon: geodetic.lon,
-            h: geodetic.h,
-        },
-        quaternion: {
-            x: enuQuaternion.x,
-            y: enuQuaternion.y,
-            z: enuQuaternion.z,
-            w: enuQuaternion.w,
-        },
-    };
-    return geoPose;
 }

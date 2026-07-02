@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount, setContext } from 'svelte';
     import { createEventDispatcher } from 'svelte';
-    import { get, writable, type Writable } from 'svelte/store';
+    import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { Vec3, Quat, type Transform } from 'ogl';
 
@@ -10,9 +10,10 @@
     import ArExperimentOverlay from '@experiments/oarc/ismar2021multi/ArExperimentOverlay.svelte';
     // TODO: this is specific to OGL engine, but we only need a generic object description structure
     import { createRandomObjectDescription } from '../../../core/engines/ogl/modelTemplates';
-    import { peerIdStr, recentLocalisation } from '../../../stateStore';
+    import { peerIdStr } from '../../../stateStore';
     import type webxr from '../../../core/engines/webxr';
     import type ogl from '../../../core/engines/ogl/ogl';
+    import * as worldAlignment from '@core/worldAlignment';
     import type { ObjectDescription } from '../../../types/xr';
     import { getAutomergeDocumentData } from '../../../core/p2pnetwork';
 
@@ -30,16 +31,21 @@
     let parentState = writable<{ hasLostTracking: boolean; isLocalized: boolean; localisation: boolean; isLocalisationDone: boolean; showFooter: boolean }>();
     setContext('state', parentState);
 
-    $: {
-        if ($recentLocalisation?.geopose.position != null) {
-            const assets = getAutomergeDocumentData();
-            if (assets) {
-                for (const asset of assets) {
-                    onNetworkEvent({ object_created: asset });
-                }
+    /**
+     * Re-place ephemeral objects already in the Automerge doc (catch-up before localization, or new anchor after relocalize).
+     */
+    function replaySharedObjectsFromAutomerge() {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
+            return;
+        }
+        const assets = getAutomergeDocumentData();
+        if (assets) {
+            for (const asset of assets) {
+                onNetworkEvent({ object_created: asset });
             }
         }
     }
+
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value: any; routing_key?: string } }>();
 
@@ -93,27 +99,27 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
-     * @param floorSpaceReference
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
+     * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
         parentInstance.handlePoseHeartbeat();
 
         if (!hitTestSource) {
-            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             return;
         }
 
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
             if ($settings.localizationRequired && !$parentState.isLocalized) {
-                parentInstance.onXrFrameUpdate(time, frame, floorPose);
+                parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             } else {
                 $parentState.showFooter = ($settings.showstats || ($settings.localizationRequired && !$parentState.isLocalisationDone)) as boolean;
                 if (reticle === null) {
                     reticle = tdEngine.addReticle();
                 }
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
@@ -122,8 +128,8 @@
             }
         }
 
-        xrEngine.setViewportForView(floorPose.views[0]);
-        tdEngine.render(time, floorPose.views[0]);
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -147,10 +153,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 
     function relocalize() {
@@ -214,14 +220,12 @@
     }
 
     function shareObject(object_description: ObjectDescription, position: Vec3, quaternion: Quat) {
-        const latestGlobalPose = $recentLocalisation.geopose;
-        const latestLocalPose = $recentLocalisation.floorpose;
-        if (latestGlobalPose === undefined || latestLocalPose === undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log('There was no successful localization yet, cannot share object');
             return;
         }
         // Now calculate the global pose of the reticle
-        const objectGeoPose = tdEngine.convertLocalPoseToGeoPose(position, quaternion);
+        const objectGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(position, quaternion);
 
         // We create a new spatial content record just for sharing over the P2P network, not registering in the platform
         const object_id = $peerIdStr + '_' + uuidv4(); // TODO: only a proposal: the object id is the creator id plus a new uuid
@@ -268,7 +272,7 @@
             return parentInstance.onNetworkEvent(events);
         }
 
-        if (get(recentLocalisation)?.geopose?.position == undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             // we need to localize at least once to be able to do anything
             console.log('Network event received but we are not localized yet!');
             console.log(events);
@@ -302,7 +306,7 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded>
+<Parent bind:this={parentInstance} on:arSessionEnded on:worldAlignmentEstablished={replaySharedObjectsFromAutomerge}>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
         {#if $settings.localizationRequired && !isLocalisationDone}
             <p>{receivedContentTitles.join()}</p>

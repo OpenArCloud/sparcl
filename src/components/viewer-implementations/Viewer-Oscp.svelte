@@ -12,7 +12,6 @@
 -->
 
 <script lang="ts">
-    import { get } from 'svelte/store';
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
@@ -21,9 +20,10 @@
     import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
     import type { ObjectDescription, XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
-    import { myAgentName, myAgentId, myAgentColor, recentLocalisation, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
+    import { myAgentName, myAgentId, myAgentColor, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
     import { createEventDispatcher } from 'svelte';
     import type { Geopose } from '@oarc/scd-access';
+    import * as worldAlignment from '@core/worldAlignment';
 
     let parentInstance: Parent;
 
@@ -128,7 +128,7 @@
             return parentInstance.onNetworkEvent(events);
         }
 
-        if (get(recentLocalisation)?.geopose?.position == undefined) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
             // we need to localize at least once to be able to do anything
             //console.log('Network event received but we are not localized yet!');
             //console.log(events);
@@ -152,7 +152,9 @@
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;
             const targetAgentId = msg.agent_id;
             const globalTargetPose = msg.geopose;
-            const localTargetPose = parentInstance.getRenderer().convertGeoPoseToLocalPose(globalTargetPose);
+            const localTargetPose = parentInstance
+                .getRenderer()
+                .transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalTargetPose));
             const color = msg.color;
             drawReticle({ localTargetPose, targetAgentId, color });
         }
@@ -164,7 +166,7 @@
         if (reticle && reticle.visible) {
             let curReticleLocalPose: { position: Vec3; quaternion: Quat };
             curReticleLocalPose = { position: reticle.position, quaternion: reticle.quaternion };
-            curReticleGeoPose = parentInstance.getRenderer().convertLocalPoseToGeoPose(curReticleLocalPose.position, curReticleLocalPose.quaternion);
+            curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(curReticleLocalPose.position, curReticleLocalPose.quaternion);
         } else {
             // If the reticle did not find a hitpoint, do not share anything
             return;
@@ -209,10 +211,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
-     * @param floorSpaceReference
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
+     * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) {
         if (useReticle && myGl) {
             checkGLError(myGl, 'before creating reticle');
             if (reticle == undefined || reticle == null) {
@@ -226,7 +228,7 @@
             } else {
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 if (hitTestResults.length > 0) {
-                    const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                    const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
@@ -239,7 +241,7 @@
             }
 
             // hide if there was no localization yet
-            if ($recentLocalisation.geopose?.position === undefined) {
+            if (!worldAlignment.hasActiveWorldAlignment()) {
                 reticle.visible = false;
             }
 
@@ -249,7 +251,7 @@
         } // useReticle
 
         // Call parent Viewer's onXrFrameUpdate which performs localization and rendering
-        parentInstance.onXrFrameUpdate(time, frame, floorPose); // this renders scene and captures the camera image for localization
+        parentInstance.onXrFrameUpdate(time, frame, xrViewerPose); // this renders scene and captures the camera image for localization
     }
 
     /**
@@ -258,10 +260,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 
     /**
@@ -310,7 +312,13 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast>
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded
+    on:broadcast
+    on:worldAlignmentEstablished
+    on:worldAlignmentCleared
+>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived let:receivedContentTitles>
         <ArCloudOverlay
             hasPose={firstPoseReceived}

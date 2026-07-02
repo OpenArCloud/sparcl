@@ -19,7 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
-    import { Quat, Vec3 } from 'ogl';
+    import type { WebXrRigidPose } from '@core/worldAlignment';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
@@ -47,17 +47,12 @@
         await parentInstance.startSession(onXrFrameUpdate, parentInstance.onXrSessionEnded, parentInstance.onXrNoPose, () => {}, ['dom-overlay', 'anchors', 'local-floor'], []);
     }
 
-    /*
-     * @param localPose XRPose      The pose of the camera when localisation was started in local reference space
-     * @param globalPose  GeoPose       The global camera GeoPose as returned from the GeoPose service
+    /**
+     * @param localImagePose Camera image pose in local WebXR coordinates at the time of capture (from {@link XRView.transform}).
+     * @param globalImagePose GeoPose of the image from the Visual Positioning Service
      */
-    export function onLocalizationSuccess(localPose: XRPose, globalPose: Geopose) {
-        let localImagePose = {
-            position: new Vec3(localPose.transform.position.x, localPose.transform.position.y, localPose.transform.position.z),
-            orientation: new Quat(localPose.transform.orientation.x, localPose.transform.orientation.y, localPose.transform.orientation.z, localPose.transform.orientation.w),
-        };
-        let globalImagePose = globalPose;
-        tdEngine.updateGeoAlignment(localImagePose, globalImagePose);
+    export function onLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+        parentInstance.onLocalizationSuccess(localImagePose, globalImagePose);
     }
 
     /**
@@ -66,9 +61,9 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose     The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
 
@@ -79,10 +74,18 @@
                 tdEngine.addAxes();
             }
 
-            for (let view of floorPose.views) {
+            // Use the primary view (views[0]) for localImagePose and this is assumed to match the fake GeoPose
+            // Using the same GeoPose for each view.transform would mis-align other eyes in rig mode.
+            const imageView = xrViewerPose.views[0];
+            if (imageView) {
                 console.log('fake localisation');
                 const geoPose = fakeLocationResult.geopose.geopose;
-                onLocalizationSuccess(floorPose, geoPose);
+                const t = imageView.transform;
+                const localImagePose: WebXrRigidPose = {
+                    position: { x: t.position.x, y: t.position.y, z: t.position.z },
+                    orientation: { x: t.orientation.x, y: t.orientation.y, z: t.orientation.z, w: t.orientation.w },
+                };
+                onLocalizationSuccess(localImagePose, geoPose);
                 isLocalized = true;
 
                 wait(1000).then(() => (showFooter = false));
@@ -93,11 +96,17 @@
         }
 
         xrEngine.handleAnchors(frame);
-        xrEngine.setViewportForView(floorPose.views[0]);
-        parentInstance.handleExternalExperience(floorPose.views[0]);
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        parentInstance.handleExternalExperience(xrViewerPose.views[0]);
         updateSensorVisualization();
-        tdEngine.render(time, floorPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded on:broadcast />
+<Parent
+    bind:this={parentInstance}
+    on:arSessionEnded
+    on:broadcast
+    on:worldAlignmentEstablished
+    on:worldAlignmentCleared
+/>

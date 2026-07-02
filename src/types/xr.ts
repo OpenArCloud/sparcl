@@ -17,9 +17,9 @@ import type Ismar2021PerformanceViewer from '../experiments/oarc/performance/Vie
 
 export type ValueOf<T> = T[keyof T];
 
-export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRReferenceSpace | XRBoundedReferenceSpace) => void;
-export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) => void;
-export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, frameDuration?: number, passedMaxSlow?: boolean) => void;
+export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) => void;
+export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, markerPose: XRPose, trackedImage: XRImageTrackingResult) => void;
+export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, frameDuration?: number, passedMaxSlow?: boolean) => void;
 export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: OGLRenderingContext | null) => void;
 export type XrFeature = string;
 export type ObjectDescription = {

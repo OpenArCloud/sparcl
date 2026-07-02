@@ -133,11 +133,11 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         hasLostTracking = true;
-        tdEngine.render(time, floorPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -146,11 +146,11 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose  The pose relative to the floor
-     * @param localPose The pose relative to the center of the marker
+     * @param xrViewerPose  The pose relative to the WebXR session origin
+     * @param xrMarkerPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function onXrMarkerFrameUpdateCallback(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, localPose: XRPose, trackedImage: XRImageTrackingResult) {
+    function onXrMarkerFrameUpdateCallback(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrMarkerPose: XRPose, trackedImage: XRImageTrackingResult) {
         handlePoseHeartbeat();
 
         showFooter = false;
@@ -160,16 +160,16 @@
                 trackedImageObject = tdEngine.addMarkerObject();
             }
 
-            const localPos = localPose.transform.position;
-            const localOri = localPose.transform.orientation;
-            const position = new Vec3(localPos.x, localPos.y, localPos.z);
-            const orientation = new Quat(localOri.x, localOri.y, localOri.z, localOri.w);
+            const markerPos = xrMarkerPose.transform.position;
+            const markerOri = xrMarkerPose.transform.orientation;
+            const position = new Vec3(markerPos.x, markerPos.y, markerPos.z);
+            const orientation = new Quat(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
             tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
             isLocalized = true;
         }
 
-        xrEngine.setViewportForView(floorPose.views[0]);
-        tdEngine.render(time, floorPose.views[0]);
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**

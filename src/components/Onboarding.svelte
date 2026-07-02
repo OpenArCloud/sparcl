@@ -29,7 +29,6 @@
         selectedMessageBrokerService,
         messageBrokerAuth,
         p2pNetworkState,
-        recentLocalisation,
     } from '../stateStore';
 
     import { ARMODES } from '../core/common';
@@ -106,10 +105,8 @@
                     }
                     if (viewerInstance) {
                         p2p!.connectFromStateStore((data: any) => {
-                            if ($recentLocalisation?.geopose?.position != undefined) {
-                                // getter is important in this callback, because the viewerInstance can get destroyed and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
-                                getViewerInstance()?.onNetworkEvent?.(data);
-                            }
+                            // getter is important in this callback, because the viewerInstance can get destroyed and recreated, but the reference in the callback will stay the same. Therefore we need to have a getter that always gets the most recent viewerInstance
+                            getViewerInstance()?.onNetworkEvent?.(data);
                         });
                     }
                 }

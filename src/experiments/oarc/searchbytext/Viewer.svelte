@@ -9,7 +9,8 @@
     import type { Geopose } from '@oarc/scd-access';
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
-    import { initialLocation, recentLocalisation } from '@src/stateStore';
+    import * as worldAlignment from '@core/worldAlignment';
+    import { initialLocation } from '@src/stateStore';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -70,17 +71,22 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrFrameUpdate(time, frame, floorPose);
-        if ($recentLocalisation.geopose !== undefined) {
-            currentGeopose = parentInstance.getCameraGeoposeFromXRViewerPose(floorPose);
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
+
+        if (worldAlignment.hasActiveWorldAlignment()) {
+            // store the viewer geopose for later use
+            currentGeopose = worldAlignment.convertCameraWebXrPoseToGeoposeFromActive(
+                xrViewerPose.transform.position, xrViewerPose.transform.orientation
+            );
         } else {
             currentGeopose = undefined;
         }
-        xrEngine.setViewportForView(floorPose.views[0]);
-        tdEngine.render(time, floorPose.views[0]);
+
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -96,10 +102,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 
     function placePOI(name: string, lat: number, lon: number) {
@@ -112,7 +118,7 @@
             position: { lat: lat, lon: lon, h: 0 },
             quaternion: { x: 0, y: 0, z: 0, w: 1 },
         };
-        const localFeaturePose = tdEngine.convertGeoPoseToLocalPose(featureGeopose);
+        const localFeaturePose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(featureGeopose));
         const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
             //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
             console.log('POI ' + featureName + ' added.');
@@ -135,6 +141,7 @@
     async function getPlaces(query: String) {
         if (searchEnabled) {
             // reset 3D engine to remove old POI markers
+            worldAlignment.clearActiveGeoAlignment();
             tdEngine.reinitialize();
 
             // use initial location as fallback
@@ -193,7 +200,7 @@
 </script>
 
 <!-- <div style="position:fixed; top:0; left: 0; width:50%; height:50%; background:black; color: white;">Test</div> -->
-<Parent bind:this={parentInstance} on:arSessionEnded>
+<Parent bind:this={parentInstance} on:arSessionEnded on:worldAlignmentEstablished on:worldAlignmentCleared>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />

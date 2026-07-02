@@ -316,14 +316,6 @@ export const availableMessageBrokerServices = derived<typeof ssr, (Service & { g
 export const isRabbitmqConnectionTestSuccessful = writable(null);
 
 /**
- * Used to store the values of the most up to date localisation.
- */
-export const recentLocalisation = writable<{ geopose: Partial<Geopose>; floorpose: Partial<XRViewerPose> }>({
-    geopose: {},
-    floorpose: {},
-});
-
-/**
  * The ones of the received content services to be used to request content around the current location from.
  */
 export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopic: string }>>({});

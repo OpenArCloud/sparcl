@@ -179,14 +179,14 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame     The XRFrame provided to the update loop
-     * @param floorPose The pose of the device as reported by the XRFrame
-     * @param floorSpaceReference
+     * @param xrViewerPose The pose of the device as reported by the XRFrame
+     * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose, floorSpaceReference: XRSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
         parentInstance.handlePoseHeartbeat();
 
         if (!hitTestSource) {
-            parentInstance.onXrFrameUpdate(time, frame, floorPose);
+            parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             return;
         }
 
@@ -201,13 +201,13 @@
         const hitTestResults = frame.getHitTestResults(hitTestSource);
         if (hitTestResults.length > 0) {
             if ($settings.localisation && !$parentState.isLocalized) {
-                parentInstance.onXrFrameUpdate(time, frame, floorPose);
+                parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             } else {
                 $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
                 if (reticle === null) {
                     reticle = tdEngine.addReticle();
                 }
-                const reticlePose = hitTestResults[0].getPose(floorSpaceReference);
+                const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
@@ -218,8 +218,8 @@
 
         experimentOverlay?.setPerformanceValues(roundedElapsed, slowCount >= maxSlow);
 
-        xrEngine.setViewportForView(floorPose.views[0]);
-        tdEngine.render(time, floorPose.views[0]);
+        xrEngine.setViewportForView(xrViewerPose.views[0]);
+        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -228,10 +228,10 @@
      * @param time  DOMHighResTimeStamp     time offset at which the updated
      *      viewer state was received from the WebXR device.
      * @param frame  XRFrame        The XRFrame provided to the update loop
-     * @param floorPose  XRPose     The pose of the device as reported by the XRFrame
+     * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, floorPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, floorPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        parentInstance.onXrNoPose(time, frame, xrViewerPose);
     }
 
     /**
@@ -252,7 +252,7 @@
     }
 </script>
 
-<Parent bind:this={parentInstance} on:arSessionEnded>
+<Parent bind:this={parentInstance} on:arSessionEnded on:worldAlignmentEstablished on:worldAlignmentCleared>
     <svelte:fragment slot="overlay" let:isLocalizing let:isLocalized let:isLocalisationDone let:receivedContentTitles let:firstPoseReceived>
         {#if $settings.localisation && !isLocalisationDone}
             <p>{receivedContentTitles.join()}</p>

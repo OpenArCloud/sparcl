@@ -178,13 +178,13 @@ When doing so, the lifecycle functions of the component and their minimal implem
 
 - Animation loop
 
-          function onXrFrameUpdate(time, frame, floorPose) {
+          function onXrFrameUpdate(time, frame, xrViewerPose) {
               // Update your 3D models according the pose provided in the frame
           }
 
 - No pose available handling
 
-          function onXrNoPose(time, frame, floorPose) {
+          function onXrNoPose(time, frame, xrViewerPose) {
               // Use to inform user that the XR implementation couldn't determin a pose
           }
 
