@@ -16,7 +16,22 @@ New APIs and payloads should identify a coordinate reference frame with a **`Fra
 - **`uuid`** — Unique identifier for this frame **instance** (stable across services and sessions when issued by a registry or VPS).
 - **`fqn`** — Fully qualified name / namespace for the frame **kind** (e.g. `OSCP:WGS84-ENU`, an EPSG URN, or a vendor-defined logical type).
 
-TypeScript type: **`FrameRef`** in [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) (`@core/frameTransforms`). Reserved global GeoPose / ENU: **`OSCP_WGS84_ENU_FRAME_REF`** (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists).
+TypeScript type: **`FrameRef`** and reserved global GeoPose / ENU constant **`OSCP_WGS84_ENU_FRAME_REF`** live in [`src/core/spatial.ts`](../../src/core/spatial.ts) (`uuid` and `fqn` both `OSCP:WGS84-ENU` today; implementations may tighten `uuid` when a central registry exists). [`src/core/frameTransforms.ts`](../../src/core/frameTransforms.ts) re-exports SpatialDDS pose-related **types** for convenience alongside matrix helpers.
+
+## Session alignment: geopose vs FramedPose (`worldAlignment`)
+
+The session stores **two** kinds of alignment: **`geoPoseAlignment`** (optional) and **`framedPoseAlignments`**. Clear them with `clearActiveGeoPoseAlignment` and `clearActiveFramedPoseAlignment` (call the latter with no args or an empty list to clear all framed entries; pass specific `FrameRef`s to drop only those). Typical session teardown calls **both**.
+
+- **`geoPoseAlignment`** (optional): from `setActiveGeoAlignmentFromCapture` or `setActiveWorldAlignmentFromMatrices` with **OSCP:WGS84-ENU** and a non-null **anchor** `Geopose`. Drives WGS84 content placement, H3 queries, and helpers like `convertGeoPoseToLocalPose` / `*FromActive` for geopose.
+- **`framedPoseAlignments`** (array): from `setActiveAlignmentInFrame` (VPS **poses**), or from `setActiveWorldAlignmentFromMatrices` for non-ENU / local **FrameRef**s. Each entry is **T_scene_from_ref** for that **frameRef**. Use `convertFramedPoseToLocalPose(frameRef, …)` for metric poses in that frame.
+
+If a VPS response includes **both** `geopose` and `poses`, both are applied: geopose does **not** get overwritten by the map **FrameRef**. Cross-frame composition (e.g. object in map frame vs ENU) will use a future transform graph; see `FrameGraphMat4Resolver` in `frameTransforms.ts` and the transform graph section below.
+
+## SCR content (Spatial Content Discovery)
+
+Each SCR **`content`** object must include **`geopose`** and/or **`framedPose`**. The latter follows SpatialDDS **`FramedPose`** JSON: canonical **`frame_ref`** (`uuid`, `fqn`); parsers also accept legacy camelCase **`frameRef`**. **`pose`** uses **`t`** / **`q`** (Vec3 + quaternion); **`pose.translation`** / **`pose.orientation`** and optional **`cov`** / **`covMatrix`** / **`covariance`** aliases are accepted on the wire. Zod schemas are defined in **`@oarc/scd-access`** (`contentSchema`, `framedPoseSchema`).
+
+Runtime placement resolves a WebXR rigid pose via **`sceneRigidPoseFromScrContent`** in [`src/core/scrPlacement.ts`](../../src/core/scrPlacement.ts): if **`framedPose`** is set **and** [`findFramedPoseAlignment`](../../src/core/worldAlignment.ts) succeeds for that pose’s **`frame_ref`**, that framed path is used; otherwise **`geopose`** is converted with **`convertGeoPoseToLocalPose`** when geopose alignment exists. If **both** fields are present, **framed** takes precedence when the framed alignment is available; otherwise the implementation falls back to **geopose**. UI that plots SCRs on a **lat/lon** map still needs **`geopose`** (or a separate georeferencing strategy).
 
 **Legacy / backwards compatibility**
 
@@ -34,6 +49,7 @@ Implementations may add more reserved **`FrameRef`** values later; document them
 
 - **Storage layout** in JavaScript must match **`gl-matrix` `mat4`** (and WebGL): **column-major** 16-element array, so the translation components occupy indices `12, 13, 14`.
 - **Composition**: if \(\mathbf{p}_C = T_{C \leftarrow B}\, \mathbf{p}_B\) and \(\mathbf{p}_B = T_{B \leftarrow A}\, \mathbf{p}_A\), then \(\mathbf{p}_C = T_{C \leftarrow B}\, T_{B \leftarrow A}\, \mathbf{p}_A\) (multiply in that order for column vectors).
+- **Rigid vs similarity**: helpers **`isSimilarityTransformMat4`** (uniform scale × rotation, valid bottom row) and **`isRigidTransformMat4`** (unit scale, proper rotation `det = +1`) live in [`frameTransforms.ts`](../../src/core/frameTransforms.ts); **`mat4ToRigidPose(m, true)`** throws when the matrix is not rigid.
 
 ## Quaternions
 
@@ -54,7 +70,7 @@ For a **local tangent** frame at a geodetic point whose **body axes** align with
 ## WebXR and OGL scene graph
 
 - The **WebXR / OGL scene** uses a **Y-up, right-handed** frame as already assumed in [`ogl.ts`](../../src/core/engines/ogl/ogl.ts) (e.g. `addDebugAxesAtWorldMatrix` for debug meshes) and `convertGeo2Web*` in [`locationTools.ts`](../../src/core/locationTools.ts).
-- **Global GeoPose localization**: [`Viewer.svelte`](../../src/components/Viewer.svelte) calls `setActiveGeoAlignmentFromCapture` in [`worldAlignment.ts`](../../src/core/worldAlignment.ts) (anchor + **T_scene_from_ref** / **T_ref_from_scene**). Optional debug axis placeholders use precomputed world **`mat4`** values (`mat4LocalizationDebug*` helpers) and `ogl.addDebugAxesAtWorldMatrix`. Pose conversions that depend on that session use the `*FromActive` helpers in the same module.
+- **Global GeoPose localization**: [`Viewer.svelte`](../../src/components/Viewer.svelte) may call `setActiveGeoAlignmentFromCapture` and/or `setActiveAlignmentInFrame` (see *Session alignment* above). Optional debug axis placeholders use precomputed world **`mat4`** values (`mat4LocalizationDebug*` helpers) and `ogl.addDebugAxesAtWorldMatrix`. Geopose pose conversions use the `*FromActive` helpers, which read **only** the **`geoPoseAlignment`** bucket (`worldAlignment`).
 - **`worldAlignmentEstablished`** / **`worldAlignmentCleared`** — Custom events dispatched from **`Viewer.svelte`** when session alignment is applied or cleared (e.g. after localization, relocalize, or session end). Experiments or parents should listen if they need to **replay** or **tear down** content that depends on alignment (same event on **re**-localization: treat as “placement session is (re)valid”).
 - Any pose matrix from **VPS** or other **OSCP service** that targets this scene graph must either be supplied in that convention or converted **at one boundary** (not scattered across call sites).
 
@@ -91,4 +107,4 @@ Work is intentionally split so global GeoPose stays stable while local frames an
 - **2026-04-20** — Initial contract.
 - **2026-04-22** — **FrameRef** (`uuid` + `fqn`) as the canonical frame handle; transform graph and VPS sections updated; phased roadmap; **`Viewer`** alignment events; placement-helper note for **`placeContent`**.
 - **2026-04-28** — **ENU frame identity** quaternion and **`convertGeo2WebQuat`** on white debug; 
-- **2026-04-29** - **`onLocalizationSuccess`** uses for **`localImagePose`** the **`RigidPose`** of the primary camera (from XRView.transform) instead of the pose of the whole rig (XRViewerPose). This matters only if there are multiple cameras on the device.
+- **2026-04-29** - **`onGeoPoseLocalizationSuccess`** uses for **`localImagePose`** the **`RigidPose`** of the primary camera (from XRView.transform) instead of the pose of the whole rig (XRViewerPose). This matters only if there are multiple cameras on the device.

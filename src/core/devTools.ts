@@ -7,12 +7,16 @@
   SPDX-License-Identifier: MIT
 */
 
-import { quat, vec3, type ReadonlyQuat } from 'gl-matrix';
+import { mat4, quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform, type OGLRenderingContext } from 'ogl';
 import { Buffer } from 'buffer';
-import type { SCR } from '@oarc/scd-access';
-import type { GeoPoseResponse } from '@oarc/gpp-access';
+import type { Geopose, SCR } from '@oarc/scd-access';
+import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
+import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
+import { frameTransformGraph } from '@core/frameTransforms';
+import { SPARCL_WEBXR_SCENE_FRAME_REF, type FrameRef } from '@core/spatial';
+import type { RigidPose } from '@core/frameTransforms';
 
 // Here a good source of test quaternions:
 // https://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/steps/index.htm
@@ -467,6 +471,166 @@ export const fakeLocationResult = {
             type: 'scr',
         },
     ],
+};
+
+/** Re-export canonical WebXR scene {@link FrameRef} from `@core/spatial` for dev SCRs and override localization. */
+export { SPARCL_WEBXR_SCENE_FRAME_REF };
+
+/** Debug content frame: one transform hop from {@link SPARCL_WEBXR_SCENE_FRAME_REF} (see {@link seedSparclTestFrameGraph}). */
+export const SPARCL_TEST_HOP1_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-test-frame-hop1',
+    fqn: 'sparcl:TestFrameHop1',
+};
+
+/** Debug content frame: two hops from {@link SPARCL_WEBXR_SCENE_FRAME_REF} (see {@link seedSparclTestFrameGraph}). */
+export const SPARCL_TEST_HOP2_FRAME_REF: FrameRef = {
+    uuid: 'sparcl-test-frame-hop2',
+    fqn: 'sparcl:TestFrameHop2',
+};
+
+/** **T_Hop1_from_scene** — arbitrary rigid edge for the debug transform chain (column-major `mat4`). */
+const SPARCL_DEBUG_T_HOP1_FROM_SCENE: mat4 = (() => {
+    const m = mat4.create();
+    const q = quat.identity(quat.create());
+    const t = vec3.fromValues(3, 0, 0);
+    mat4.fromRotationTranslation(m, q, t);
+    return m;
+})();
+
+/** **T_Hop2_from_hop1** — arbitrary rigid edge for the debug transform chain (column-major `mat4`). */
+const SPARCL_DEBUG_T_HOP2_FROM_HOP1: mat4 = (() => {
+    const m = mat4.create();
+    const q = quat.create();
+    quat.setAxisAngle(q, vec3.fromValues(0, 1, 0), Math.PI);
+    const t = vec3.fromValues(0, 0, 0);
+    mat4.fromRotationTranslation(m, q, t);
+    return m;
+})();
+
+/**
+ * Registers the debug two-hop chain on {@link frameTransformGraph}: scene → hop1 → hop2 (**T_to_from** per edge).
+ * Safe to call more than once (replaces the same edges). Does not touch {@link worldAlignment}.
+ */
+export function seedSparclTestFrameGraph(): void {
+    const sceneUuid = SPARCL_WEBXR_SCENE_FRAME_REF.uuid;
+    frameTransformGraph.registerEdge(sceneUuid, SPARCL_TEST_HOP1_FRAME_REF.uuid, SPARCL_DEBUG_T_HOP1_FROM_SCENE);
+    frameTransformGraph.registerEdge(SPARCL_TEST_HOP1_FRAME_REF.uuid, SPARCL_TEST_HOP2_FRAME_REF.uuid, SPARCL_DEBUG_T_HOP2_FROM_HOP1);
+}
+
+/**
+ * Builds a full {@link GeoPoseResponseExtended} for the **Override geopose** dev path.
+ * fakeVpsGeoPose can be for example the dashboard override `geopose` value.
+ * fakeVpsFramedPose is optional, it can be for example the camera's current pose in the XR scene
+ * as FrameRef, the {@link SPARCL_WEBXR_SCENE_FRAME_REF} (the WebXR scene coordinate frame) is used,
+ * so {@link setActiveAlignmentInFrame} aligns **T_scene_from_ref** with the XR session itself.
+ * The temp SCR `fakeContentWithFramedPoseScene` uses the same {@link SPARCL_WEBXR_SCENE_FRAME_REF},
+ * so if you change its coordinates, it will appear at the same coordinates within the WebXR scene.
+ */
+export function buildFakeLocalizationResponse(
+    fakeVpsGeoPose: Geopose,
+    fakeVpsFramedPose?: RigidPose,
+): GeoPoseResponseExtended {
+    const now = Date.now();
+    const out: GeoPoseResponseExtended = {
+        type: 'geopose',
+        id: 'debug-override-localization',
+        timestamp: now,
+        accuracy: GEO_POSE_ACCURACY_UNSPECIFIED,
+        geopose: fakeVpsGeoPose as unknown as GeoPose,
+    };
+    if (fakeVpsFramedPose !== undefined) {
+        out.poses = [
+            /*
+            {
+                frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
+                pose: {
+                    t: {
+                        x: fakeVpsFramedPose.position.x,
+                        y: fakeVpsFramedPose.position.y,
+                        z: fakeVpsFramedPose.position.z,
+                    },
+                    q: {
+                        x: fakeVpsFramedPose.orientation.x,
+                        y: fakeVpsFramedPose.orientation.y,
+                        z: fakeVpsFramedPose.orientation.z,
+                        w: fakeVpsFramedPose.orientation.w,
+                    },
+                },
+            },
+            */
+            { 
+                // inside the robot demo room, facing the IROS22 poster
+                "pose": { 
+                    "t": { "x": -3.0257560867308566, "y": -0.7564251042563817, "z": -0.3659372765833804 },
+                    "q": { "x": 0.021376899162677647, "y": 0.9391319008002059, "z": 0.2440668305675748, "w": 0.2408436905926322 },
+                },
+                "frame_ref": {
+                    "uuid": "136b8300-6f05-49cc-92cb-4fb622dda8f1",
+                    "fqn": "openvps/hloc/136b8300-6f05-49cc-92cb-4fb622dda8f1/colmap_world",
+                    "has_coord_convention": true, "coord_convention": "CV",
+                    "has_coord_scale": true, "coord_scale": { "target_unit": "SI_METER", "scale_factor": 0.20833299999999996 },
+                },
+                "cov": { "covariance_type": "COV_NONE" },
+                "stamp": { "sec": 1779260958, "nanosec": 747000000 },
+            },
+        ];
+
+        out.geoposes = [
+            {
+                "position": { "lat": 47.46781515517768, "lon": 19.025021538851384, "h": 3.572303542867303 },
+                "quaternion": { "x": 0.0849880638742312, "y": -0.059007554428777365, "z": -0.7164606153601714, "w": -0.689912548195037 },
+            },
+        ];
+    }
+    return out;
+}
+
+/** Dev-only SCR using **framedPose** in {@link SPARCL_WEBXR_SCENE_FRAME_REF} (requires framed alignment for that frame, e.g. override localization). */
+export const fakeContentWithFramedPoseScene: SCR = {
+    content: {
+        description: '',
+        id: 'framed-demo-1',
+        keywords: ['framed'],
+        refs: [{ url: '/media/models/cube.ply', contentType: 'model/ply' }],
+        title: 'Content at SCENE FrameRef origin',
+        type: 'MODEL_3D',
+        framedPose: {
+            frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
+            pose: {
+                t: { x: 0, y: 0, z: 0 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        },
+    },
+    id: 'framed-demo-scr-1',
+    tenant: 'public',
+    timestamp: 1726751197000,
+    type: 'scr',
+};
+
+/**
+ * Dev-only SCR: **framedPose** in {@link SPARCL_TEST_HOP2_FRAME_REF} (needs {@link seedSparclTestFrameGraph} + graph path hop2→scene; no VPS framed alignment for hop2).
+ */
+export const fakeContentWithFramedPoseHop2: SCR = {
+    content: {
+        description: '',
+        id: 'framed-demo-hop2',
+        keywords: ['framed', 'hop2'],
+        refs: [{ url: '/media/models/Duck.glb', contentType: 'model/gltf-binary' }],
+        title: 'Content at HOP2 FrameRef origin',
+        type: 'MODEL_3D',
+        framedPose: {
+            frame_ref: SPARCL_TEST_HOP2_FRAME_REF,
+            pose: {
+                t: { x: 0, y: 0, z: 0 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        },
+    },
+    id: 'framed-demo-scr-hop2',
+    tenant: 'public',
+    timestamp: 1726751198000,
+    type: 'scr',
 };
 
 export const fakeLocationResult2: { geopose: GeoPoseResponse; scrs: SCR[] } = {

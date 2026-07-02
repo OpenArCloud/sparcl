@@ -17,7 +17,6 @@ import * as h3 from 'h3-js';
 
 import { supportedCountries } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
-import { Quat, type Vec3 } from 'ogl';
 import { availableGeoPoseServices, debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, selectedGeoPoseService, ssr } from '../stateStore';
 import { get } from 'svelte/store';
 
@@ -83,7 +82,7 @@ let lastTimeCurrentLocationQuery = 0;
  */
 export const setInitialLocationAndServices = async () => {
     console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
-    if (get(isLocationAccessAllowed)) {
+    if (get(isLocationAccessAllowed) || get(debug_useOverrideGeopose)) {
         // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
         try {
             const currentLocation = await getCurrentLocation();

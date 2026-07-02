@@ -1,7 +1,7 @@
 import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
-import { throttle } from 'es-toolkit';
 import { Client as StompClient, StompConfig, type IFrame, type messageCallbackType } from '@stomp/stompjs';
+import { throttle } from 'es-toolkit';
 
 const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.#'; // subscribe to all subtopics
 const rmq_topic_reticle_update = import.meta.env.VITE_RMQ_TOPIC_RETICLE_UPDATE + '.#'; // subscribe to all subtopics
@@ -169,7 +169,13 @@ export const rmqDisconnect = () => {
     rmqClient?.deactivate();
 };
 
+const notConnectedErrorMessage = throttle(() => console.error('RMQ not connected, cannot send messages'), 3000);
+
 export function send(routing_key: string, headers: Record<string, any>, data: any) {
+    if (!isConnected()) {
+        notConnectedErrorMessage();
+        return;
+    }
     // Note: Stomp SEND to a destination of the form /exchange/<name>[/<routing-key>] sends to exchange <name> with the routing key <routing-key>.
     rmqClient?.publish({ destination: routing_key, headers, body: JSON.stringify(data) });
 }

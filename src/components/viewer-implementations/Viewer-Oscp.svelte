@@ -147,6 +147,7 @@
 
             if (events.reticle_update.active === false) {
                 removeReticle(events.reticle_update.agent_id);
+                return;
             }
 
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;
@@ -161,19 +162,22 @@
     }
 
     function shareReticlePose() {
-        const timestamp = Date.now();
-        let curReticleGeoPose: Geopose;
-        if (reticle && reticle.visible) {
-            let curReticleLocalPose: { position: Vec3; quaternion: Quat };
-            curReticleLocalPose = { position: reticle.position, quaternion: reticle.quaternion };
-            curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(curReticleLocalPose.position, curReticleLocalPose.quaternion);
-        } else {
-            // If the reticle did not find a hitpoint, do not share anything
+        if (!$enableReticlePoseSharing || !worldAlignment.hasActiveWorldAlignment()) {
             return;
         }
 
         let message_body;
-        if ($enableReticlePoseSharing) {
+        const timestamp = Date.now();
+        if (!reticle || !reticle.visible) {
+            // If the reticle did not find a hitpoint, send a remove message
+            // TODO: send 1 remove message, but not at every frame!
+            message_body = {
+                agent_id: $myAgentId,
+                active: false,
+                timestamp: timestamp,
+            };
+        } else {
+            const curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(reticle.position, reticle.quaternion);
             message_body = {
                 agent_id: $myAgentId,
                 avatar: {
@@ -183,12 +187,6 @@
                 active: true,
                 geopose: curReticleGeoPose,
                 timestamp: timestamp,
-            };
-        } else {
-            // TODO send only a single remove message
-            message_body = {
-                agent_id: $myAgentId,
-                active: false,
             };
         }
 

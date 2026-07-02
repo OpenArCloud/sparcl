@@ -11,11 +11,11 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
-    import { createEventDispatcher, getContext, onDestroy } from 'svelte';
+    import { createEventDispatcher, getContext, onDestroy, onMount } from 'svelte';
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
-    import { sendRequest, validateRequest, GeoPoseRequest, type GeoposeResponseType, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
+    import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
     import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
@@ -43,17 +43,68 @@
     import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
-    import { loadImageBase64, saveImageBase64, saveText } from '@core/devTools';
+    import {
+        buildFakeLocalizationResponse,
+        fakeContentWithFramedPoseScene,
+        fakeContentWithFramedPoseHop2,
+        loadImageBase64,
+        saveImageBase64,
+        saveText,
+        seedSparclTestFrameGraph,
+    } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
+    import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
+    import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { WebXrRigidPose } from '@core/worldAlignment';
+    import type { WebXrRigidPose } from '@core/frameTransforms';
+    import type { FramedPose } from '@core/spatial';
+    import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
-    import ogl from '../core/engines/ogl/ogl';
-    import { Vec3, type Mat4, type Mesh, Quat } from 'ogl';
+    import ogl, { model3DFormatFromRef } from '../core/engines/ogl/ogl';
+    import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
     import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
     import { subscribeToSensor } from '@src/core/rmqnetwork';
+
+    /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
+    function plyLoadOptions(def: Record<string, string>): PlyLoadOptions | undefined {
+        const out: PlyLoadOptions = {};
+        const mode = def['plyColorMode'];
+        if (mode === 'auto' || mode === 'vertex' || mode === 'uniform') {
+            out.colorMode = mode;
+        }
+        const ucs = def['plyUniformColor'];
+        if (ucs) {
+            const parts = ucs
+                .split(/[,\s]+/)
+                .map((s) => parseFloat(s.trim()))
+                .filter((n) => !Number.isNaN(n));
+            if (parts.length >= 3) {
+                out.uniformColor = [parts[0], parts[1], parts[2]];
+            }
+        }
+        return Object.keys(out).length > 0 ? out : undefined;
+    }
+
+    /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
+    function applyModel3dDefinitionAnimations(
+        engine: ogl,
+        root: Transform,
+        definitions: Record<string, string>,
+    ) {
+        const animation = definitions['animation'];
+        if (animation == undefined) {
+            return;
+        }
+        switch (animation) {
+            case 'SPIN_UP':
+                engine.setVerticallyRotating(root);
+                break;
+            default:
+                break;
+        }
+    }
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{
@@ -243,10 +294,16 @@
                             $context.showFooter = true;
                             $context.isLocalisationDone = true;
                         });
-                        return { cameraGeoPose: $debug_overrideGeopose };
+
+                        // Pass the overrideGeopose defined by the user on the Dashboard as the fake VPS GeoPose response.
+                        const fakeVpsGeoPose = $debug_overrideGeopose;
+                        // Pass the current pose of the camera within the XR scene as the fake VPS FramedPose response,
+                        // because the debug contents are defined in the FrameRef of the XR scene for simplicity
+                        const fakeVpsFramedPose = localImagePose;
+                        return buildFakeLocalizationResponse(fakeVpsGeoPose, fakeVpsFramedPose);
                     };
 
-                    doLocalization({ localImagePose, getGeopose });
+                    doLocalization({ localImagePose, gppLocalizationMethod: getGeopose });
                 } else {
                     //const imageWidth = viewport.width; // old Chrome 91
                     //const imageHeight = viewport.height; // old Chrome 91
@@ -287,7 +344,7 @@
                         return localize(img, imageWidth, imageHeight, cameraIntrinsics!);
                     };
 
-                    doLocalization({ localImagePose, getGeopose });
+                    doLocalization({ localImagePose, gppLocalizationMethod: getGeopose });
                 }
             }
 
@@ -319,16 +376,40 @@
 
     async function doLocalization({
         localImagePose,
-        getGeopose,
+        gppLocalizationMethod,
     }: {
         localImagePose: WebXrRigidPose;
-        getGeopose: () => Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs?: SCR[] }>;
+        gppLocalizationMethod: () => Promise<GeoPoseResponseExtended>;
     }) {
         if (debugScrs) console.log('doLocalization');
 
-        // wait for the localization result, whichever method it comes from
-        const { cameraGeoPose } = await getGeopose();
-        onLocalizationSuccess(localImagePose, cameraGeoPose);
+        const gppResponseExtended = await gppLocalizationMethod();
+        if (!gppResponseExtended.geopose && !gppResponseExtended.geoposes && !gppResponseExtended.poses){
+            throw new Error('Localization result missing geopose and poses');
+        }
+
+        // set geo-alignment, if available
+        if (gppResponseExtended.geopose) { // TODO: also check for geoposes if the VPS may return multiple solutions
+            onGeoPoseLocalizationSuccess(localImagePose, gppResponseExtended.geopose);
+        } 
+
+        // set world alignment, if available
+        if (gppResponseExtended.poses !== undefined && gppResponseExtended.poses!.length > 0) {
+            onFramedPoseLocalizationSuccess(localImagePose, gppResponseExtended.poses[0], gppResponseExtended.geopose);
+        }
+        
+        // place optional SCRs (if any in the response)
+        if (gppResponseExtended.scrs !== undefined && gppResponseExtended.scrs!.length > 0) {
+            placeContent([gppResponseExtended.scrs]);
+        }
+
+        // TEMP: fill FrameTransformGraph with test transforms
+        seedSparclTestFrameGraph();
+        // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_WEBXR_SCENE_FRAME_REF (trivial)
+        placeContent([[fakeContentWithFramedPoseScene]]);
+        // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_TEST_HOP2_FRAME_REF (requies FrameTransformGraph)
+        placeContent([[fakeContentWithFramedPoseHop2]]);
+        // (remove these when SCD serves framed content end-to-end).
 
         // now get the contents from the SCD(s)
         //await retrieveAndPlaceContents(currentGeoPose);
@@ -361,6 +442,7 @@
             const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
             placeContent(scrs);
         }
+
     }
 
     /**
@@ -403,7 +485,8 @@
         loadedH3Indices = [];
 
         // clear rendering context
-        worldAlignment.clearActiveGeoAlignment();
+        worldAlignment.clearActiveGeoPoseAlignment();
+        worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
         tdEngine.cleanup();
 
@@ -430,7 +513,8 @@
         loadedH3Indices = [];
 
         // clear rendering context
-        worldAlignment.clearActiveGeoAlignment();
+        worldAlignment.clearActiveGeoPoseAlignment();
+        worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
         tdEngine.reinitialize();
     }
@@ -455,7 +539,7 @@
      *        the image / render pass (`view.transform`). Not the viewer rig (`XRViewerPose`), which can differ in stereo setups.
      * @param globalImagePose GeoPose from the GeoPose service for that capture.
      */
-    export function onLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+    export function onGeoPoseLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
 
         // This represents the camera in the WebXR coordinate system at the time of localization
@@ -467,6 +551,45 @@
 
         // This represents ENU axes at the place where the image was captured
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugEnuAxes(globalImagePose, mats.tSceneFromRef), [1, 1, 1, 0.5], true); // white
+        dispatch('worldAlignmentEstablished');
+    }
+
+    /** When localization returns metric poses (caller uses `poses[0]` or another index), optionally with coarse geopose for H3 / debug. */
+    function onFramedPoseLocalizationSuccess(
+        localImagePose: WebXrRigidPose,
+        framed: FramedPose,
+        coarseGeopose: Geopose | undefined,
+    ) {
+        const mats = worldAlignment.setActiveAlignmentInFrame(localImagePose, framed);
+
+        tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true);
+
+        // add axes at origin
+        const origin: WebXrRigidPose = {
+            position: { x: 0, y: 0, z: 0 },
+            orientation: { x: 0, y: 0, z: 0, w: 1 },
+        };
+        tdEngine.addDebugAxesAtWorldMatrix(
+            tdEngine.transformFromRigidPose(origin),
+            [1, 1, 1, 0.5],
+            true,
+        );
+
+        const geoAlign = worldAlignment.getActiveGeoAlignment();
+        const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
+        const tSceneFromGeo = geoAlign?.tSceneFromRef;
+        if (anchorForEnuDebug !== undefined && tSceneFromGeo !== undefined) {
+            tdEngine.addDebugAxesAtWorldMatrix(
+                worldAlignment.mat4LocalizationDebugGeoCamera(anchorForEnuDebug, tSceneFromGeo),
+                [0, 1, 1, 0.5],
+                false,
+            );
+            tdEngine.addDebugAxesAtWorldMatrix(
+                worldAlignment.mat4LocalizationDebugEnuAxes(anchorForEnuDebug, tSceneFromGeo),
+                [1, 1, 1, 0.5],
+                true,
+            );
+        }
         dispatch('worldAlignmentEstablished');
     }
 
@@ -496,7 +619,7 @@
      * @param cameraIntrinsics JSON     Camera intrinsics: fx, fy, cx, cy, s
      */
     export function localize(image: string, width: number, height: number, cameraIntrinsics: { fx: number; fy: number; cx: number; cy: number; s: number }) {
-        return new Promise<{ cameraGeoPose: GeoposeResponseType['geopose']; optionalScrs: SCR[] }>((resolve, reject) => {
+        return new Promise<GeoPoseResponseExtended>((resolve, reject) => {
             if ($selectedGeoPoseService === undefined || $selectedGeoPoseService === null) {
                 console.warn('There is no available GeoPose service. Trying to use the on-board sensors instead.');
             }
@@ -512,7 +635,7 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({ cameraGeoPose: selfEstimatedGeoPose, optionalScrs: [] });
+                    resolve({ geopose: selfEstimatedGeoPose});
                 });
                 return;
             }
@@ -539,7 +662,7 @@
 
             if ($selectedGeoPoseService?.url) {
                 sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
-                    .then((data) => {
+                    .then((gppResponse) => {
                         $context.isLocalizing = false;
                         $context.isLocalized = true;
                         // allow relocalization after a few seconds
@@ -549,30 +672,15 @@
                         });
 
                         console.log('GPP response:');
-                        console.log(JSON.stringify(data));
+                        console.log(JSON.stringify(gppResponse));
 
-                        // GeoPoseResp
-                        // https://github.com/OpenArCloud/oscp-geopose-protocol
-                        let cameraGeoPose = null;
-                        // NOTE: AugmentedCity can also return neighboring objects in the GPP response
-                        let optionalScrs: SCR[] = [];
-                        if (data.geopose != undefined && (data as any).scrs != undefined && (data.geopose as any).geopose != undefined) {
-                            // data is AugmentedCity format which contains other entries too
-                            // (for example AC /geopose_objs endpoint)
-                            cameraGeoPose = (data.geopose as any).geopose;
-                            optionalScrs = (data as any).scrs;
-                            console.log('GPP response also contains ' + optionalScrs.length + ' SCRs.');
-                        } else if (data.geopose != undefined) {
-                            // data is GeoPoseResp
-                            // (for example AC /geopose endpoint)
-                            cameraGeoPose = data.geopose;
-                        } else {
-                            const errorMessage = 'GPP response has no geopose field';
-                            console.log(errorMessage);
-                            throw errorMessage;
+                        try {
+                            const parsed = parseGppResponse(gppResponse);
+                            resolve(parsed);
+                        } catch (parseErr) {
+                            console.error(parseErr);
+                            reject(parseErr);
                         }
-
-                        resolve({ cameraGeoPose, optionalScrs });
                     })
                     .catch((error) => {
                         // TODO: Inform user
@@ -605,6 +713,11 @@
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
     export async function placeContent(scrs: SCR[][]) {
+        if (!worldAlignment.hasActiveWorldAlignment()) {
+            console.log(`There is no world alignment!`);
+            return;
+        }
+
         scrs.forEach((response) => {
             //console.log('Number of content items received: ', response.length);
 
@@ -628,7 +741,12 @@
                         console.log(' -type: ' + record.content.type);
                         console.log(' -title: ' + record.content.title);
                         console.log(' -keywords: ' + record.content.keywords);
-                        console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                        if (record.content.geopose !== undefined) {
+                            console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
+                        }
+                        if (record.content.framedPose !== undefined) {
+                            console.log(' -framedPose: ' + JSON.stringify(record.content.framedPose));
+                        }
                     }
                 }
 
@@ -639,13 +757,16 @@
                     record.content.type === 'MODEL_3D' ||
                     record.content.type === 'ICON' ||
                     record.content.type === 'VIDEO' ||
-                    record.content.type === 'POINT_CLOUD'
+                    record.content.type === 'POINT_CLOUD' ||
+                    record.content.type === 'POINTCLOUD'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
 
                 // HACK: we fix up the geopose entries of records that still use the old GeoPose standard.
-                record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+                if (record.content.geopose !== undefined) {
+                    record.content.geopose = upgradeGeoPoseStandard(record.content.geopose);
+                }
 
                 const content_definitions: Record<string, string> = {};
                 if (record.content.definitions != undefined) {
@@ -658,11 +779,14 @@
                     }
                 }
 
-                const globalObjectPose = record.content.geopose;
-                const localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
-                const localPosition = localObjectPose.position;
-                const localQuaternion = localObjectPose.quaternion;
-
+                const poseResult = sceneRigidPoseFromScrContent(record.content);
+                if (!poseResult.ok) {
+                    console.log(`Skipping SCR ${record.content.id} (${record.content.type}): ${poseResult.reason}`);
+                    return;
+                }
+                const lp = tdEngine.transformFromRigidPose(poseResult.pose);
+                const localPosition = lp.position;
+                const localQuaternion = lp.quaternion;
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -696,24 +820,42 @@
                         if (record.content.refs != undefined && record.content.refs.length > 0) {
                             // OSCP-compliant 3D content structure
                             // TODO: load all, not only first reference
-                            const contentType = record.content.refs[0].contentType;
+                            const contentType = record.content.refs[0].contentType || '';
                             const url = record.content.refs[0].url;
-                            if (contentType.includes('gltf')) {
-                                const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
-                                if (content_definitions['animation'] != undefined) {
-                                    switch (content_definitions['animation']) {
-                                        case 'SPIN_UP':
-                                            tdEngine.setVerticallyRotating(nodeTransform);
-                                            break;
-                                        default:
-                                            break;
-                                    }
+                            const modelFormat = model3DFormatFromRef(url, contentType, record.content.type);
+
+                            switch (modelFormat) {
+                                case 'gltf': {
+                                    const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
+                                    applyModel3dDefinitionAnimations(tdEngine, nodeTransform, content_definitions);
+                                    break;
                                 }
-                            } else {
-                                // we cannot load anything else but GLTF
-                                // so draw a placeholder instead
-                                const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
-                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                case 'ply': {
+                                    void tdEngine
+                                        .addPlyObject(url, localPosition, localQuaternion, plyLoadOptions(content_definitions))
+                                        .then((mesh) => {
+                                            if (mesh == null) {
+                                                const placeholder = tdEngine.addPlaceholder(
+                                                    record.content.keywords,
+                                                    localPosition,
+                                                    localQuaternion,
+                                                );
+                                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                            } else {
+                                                applyModel3dDefinitionAnimations(tdEngine, mesh, content_definitions);
+                                            }
+                                        });
+                                    break;
+                                }
+                                default: {
+                                    // Unsupported MODEL_3D format for now — extend model3DFormatFromRef + this branch when adding loaders
+                                    const placeholder = tdEngine.addPlaceholder(
+                                        record.content.keywords,
+                                        localPosition,
+                                        localQuaternion,
+                                    );
+                                    handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                }
                             }
                         } else {
                             // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
@@ -738,15 +880,13 @@
                     case 'geopose_stream': {
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
-                            let globalObjectPose = record.content.geopose;
-                            let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
                             let object_id = record.content.id;
 
                             let object_description = (record.content as any).object_description;
                             if (tdEngine.getDynamicObjectMesh(object_id) != null) {
-                                tdEngine.updateDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                                tdEngine.updateDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             } else {
-                                tdEngine.addDynamicObject(object_id, localObjectPose.position, localObjectPose.quaternion, object_description);
+                                tdEngine.addDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             }
                         }
                         break;
@@ -756,9 +896,7 @@
                         if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
 
                         // handle general sensor stream objects
-                        let globalObjectPose = record.content.geopose;
-                        let localObjectPose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalObjectPose));
-                        const sensor_id = createSensorVisualization(tdEngine, localObjectPose.position, localObjectPose.quaternion, content_definitions);
+                        const sensor_id = createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
                         if (sensor_id == undefined) {
                             console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
                             break;
@@ -775,6 +913,7 @@
                         break;
                     }
 
+                    case 'POINT_CLOUD':
                     case 'POINTCLOUD': {
                         if ($debug_enablePointCloudContents) {
                             let url = '';
@@ -783,9 +922,14 @@
                             } else {
                                 url = record.content.refs ? record.content.refs[0].url : '';
                             }
-                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion);
+                            const refContentType = record.content.refs?.[0]?.contentType ?? '';
+                            tdEngine.addPointCloudObject(url, localPosition, localQuaternion, {
+                                ...(plyLoadOptions(content_definitions) ?? {}),
+                                contentType: refContentType,
+                                scrContentType: record.content.type,
+                            });
                         } else {
-                            console.log(`A POINTCLOUD content ${record.content.title} was received but this type is disabled`);
+                            console.log(`A point cloud content ${record.content.title} was received but this type is disabled`);
                         }
                         break;
                     }

@@ -19,7 +19,7 @@
     import type webxr from '../../core/engines/webxr';
     import type ogl from '../../core/engines/ogl/ogl';
     import type { Geopose } from '@oarc/scd-access';
-    import type { WebXrRigidPose } from '@core/worldAlignment';
+    import type { WebXrRigidPose } from '@core/frameTransforms';
     import { updateSensorVisualization } from '@src/features/sensor-visualizer';
 
     let parentInstance: Parent;
@@ -51,8 +51,8 @@
      * @param localImagePose Camera image pose in local WebXR coordinates at the time of capture (from {@link XRView.transform}).
      * @param globalImagePose GeoPose of the image from the Visual Positioning Service
      */
-    export function onLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
-        parentInstance.onLocalizationSuccess(localImagePose, globalImagePose);
+    export function onGeoPoseLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+        parentInstance.onGeoPoseLocalizationSuccess(localImagePose, globalImagePose);
     }
 
     /**
@@ -79,13 +79,13 @@
             const imageView = xrViewerPose.views[0];
             if (imageView) {
                 console.log('fake localisation');
-                const geoPose = fakeLocationResult.geopose.geopose;
+                const fakeGeoPose = fakeLocationResult.geopose.geopose;
                 const t = imageView.transform;
                 const localImagePose: WebXrRigidPose = {
                     position: { x: t.position.x, y: t.position.y, z: t.position.z },
                     orientation: { x: t.orientation.x, y: t.orientation.y, z: t.orientation.z, w: t.orientation.w },
                 };
-                onLocalizationSuccess(localImagePose, geoPose);
+                onGeoPoseLocalizationSuccess(localImagePose, fakeGeoPose);
                 isLocalized = true;
 
                 wait(1000).then(() => (showFooter = false));
