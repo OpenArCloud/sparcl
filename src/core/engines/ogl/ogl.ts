@@ -33,7 +33,8 @@ import {
 } from 'ogl';
 
 import { createSimpleGltfProgram } from '@core/engines/ogl/oglGltfHelper';
-import { clearPlyProgramCache, getPlyMeshProgram, getPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
+import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
+import { createPlyMeshProgram, createPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
@@ -285,17 +286,19 @@ export default class ogl implements RenderingEngine {
      *
      * @param points - Polyline vertices ({@link ReadonlyVec3}[])
      * @param hexColor - CSS-style hex color string
+     * @param linewidthPixels - Screen-space thickness in pixels (OGL {@link Polyline} `uThickness`)
      * @returns {@link SceneNodeId} for the polyline mesh
      */
     addPolyline(
         points: ReadonlyVec3[],
-        hexColor: string
+        hexColor: string,
+        linewidthPixels: number,
     ) {
         const polyline = new Polyline(gl, {
             points: points.map((p) => oglVec3(p)),
             uniforms: {
                 uColor: { value: new Color(hexColor) },
-                uThickness: { value: 5 },
+                uThickness: { value: linewidthPixels },
             },
         });
         const mesh = new Mesh(gl, { geometry: polyline.geometry, program: polyline.program });
@@ -807,7 +810,7 @@ export default class ogl implements RenderingEngine {
                 return null;
             }
             const program =
-                loaded.primitive === 'triangles' ? getPlyMeshProgram(gl) : getPlyPointsProgram(gl);
+                loaded.primitive === 'triangles' ? createPlyMeshProgram(gl) : createPlyPointsProgram(gl);
             const pclMesh = new Mesh(gl, {
                 mode: loaded.mode,
                 geometry: loaded.geometry,
@@ -854,6 +857,7 @@ export default class ogl implements RenderingEngine {
      *
      * @param position - Scene position ({@link ReadonlyVec3})
      * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     * @returns {@link SceneNodeId} for the plane, or `null` if the texture failed to load
      */
     async addLogoObject(
         url: string,
@@ -861,9 +865,13 @@ export default class ogl implements RenderingEngine {
         quaternion: ReadonlyQuat,
         width = 1.0,
         height = 1.0,
-    ) {
-        if(debugOgl) console.log('OGL addLogoObject ' + url);
-        loadLogoTexture(gl, url).then((texture) => {
+    ): Promise<SceneNodeId | null> {
+        if (debugOgl) console.log('OGL addLogoObject ' + url);
+        try {
+            const texture = await loadLogoTexture(gl, url);
+            if (!texture) {
+                return null;
+            }
             const logoProgram = createLogoProgram(gl, texture);
             const planeGeometry = new Plane(gl, {
                 width: width,
@@ -877,8 +885,11 @@ export default class ogl implements RenderingEngine {
             plane.position.copy(oglVec3(position));
             plane.quaternion.copy(oglQuat(quaternion));
             plane.setParent(scene);
-            return plane;
-        });
+            return this.sceneNodes.add(plane);
+        } catch (error) {
+            console.error('OGL addLogoObject failed', error);
+            return null;
+        }
     }
 
     /**
@@ -894,6 +905,7 @@ export default class ogl implements RenderingEngine {
         quaternion: ReadonlyQuat,
         string: string,
         textColor: ReadonlyVec3 = [1.0, 1.0, 1.0],
+        scale: ReadonlyVec3 = [1.0, 1.0, 1.0],
     ) {
         if (debugOgl) console.log('OGL addTextOject: ' + string);
         const fontName = 'MgOpenModernaRegular';
@@ -905,6 +917,7 @@ export default class ogl implements RenderingEngine {
         );
         textMesh.position.copy(oglVec3(position));
         textMesh.quaternion.copy(oglQuat(quaternion));
+        textMesh.scale.set(scale[0], scale[1], scale[2]);
         textMesh.setParent(scene);
         return this.sceneNodes.add(textMesh);
     }
@@ -916,17 +929,22 @@ export default class ogl implements RenderingEngine {
     async addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
-        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+        options?: {
+            textColor?: [number, number, number],
+            positionOffset?: [number, number, number],
+            scale?: [number, number, number],
+        },
     ) {
         const ox = options?.positionOffset?.[0] ?? 0;
         const oy = options?.positionOffset?.[1] ?? 0;
         const oz = options?.positionOffset?.[2] ?? 0;
         const position = new Vec3(pose.position.x + ox, pose.position.y + oy, pose.position.z + oz);
         const quaternion = new Quat(pose.orientation.x, pose.orientation.y, pose.orientation.z, pose.orientation.w);
-        const tc = options?.textColor
+        const color = options?.textColor
             ? new Vec3(options.textColor[0], options.textColor[1], options.textColor[2])
             : new Vec3(1.0, 1.0, 1.0);
-        return this.addTextObject(position, quaternion, string, tc);
+        const scale = options?.scale ?? [1.0, 1.0, 1.0];
+        return this.addTextObject(position, quaternion, string, color, scale);
     }
 
     /**
@@ -934,22 +952,32 @@ export default class ogl implements RenderingEngine {
      *
      * @param position - Scene position ({@link ReadonlyVec3})
      * @param quaternion - Scene orientation ({@link ReadonlyQuat})
+     * @returns {@link SceneNodeId} for the video mesh, or `null` if setup failed
      */
     async addVideoObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         videoUrl: string,
-    ) {
+    ): Promise<SceneNodeId | null> {
         if (debugOgl) console.log('OGL addVideoObject: ' + videoUrl);
-        const videoInfo = await videoHelper.loadVideo(videoUrl);
-        const videoBox = videoHelper.createVideoBox(gl, scene,
-            oglVec3(position),
-            oglQuat(quaternion),
-            videoInfo.videoId
-        );
-        this.addClickEvent(this.sceneNodes.add(videoBox), () => {
-            videoHelper.togglePlayback(videoInfo.videoId);
-        });
+        try {
+            const videoInfo = await videoHelper.loadVideo(videoUrl);
+            const videoBox = videoHelper.createVideoBox(
+                gl,
+                scene,
+                oglVec3(position),
+                oglQuat(quaternion),
+                videoInfo.videoId,
+            );
+            const nodeId = this.sceneNodes.add(videoBox);
+            this.addClickEvent(nodeId, () => {
+                videoHelper.togglePlayback(videoInfo.videoId);
+            });
+            return nodeId;
+        } catch (error) {
+            console.error('OGL addVideoObject failed', error);
+            return null;
+        }
     }
 
     setVerticallyRotating(node: SceneNodeId) {
@@ -1043,7 +1071,7 @@ export default class ogl implements RenderingEngine {
      */
     resize() {
         renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: 0.01, far: 1000 });
+        camera.perspective({ aspect: gl.canvas.width / gl.canvas.height, near: XR_DEPTH_NEAR, far: XR_DEPTH_FAR });
     }
 
     removeDynamicObject(object_id: string) {
@@ -1101,8 +1129,6 @@ export default class ogl implements RenderingEngine {
         videoHelper.disposeAllVideoResources();
 
         disposeOglGpuResourcesUnder(scene);
-
-        clearPlyProgramCache(gl);
 
         // GLTF unpack in gltfCache holds texture/buffer views tied to this GL context; GPU dispose deletes
         // those textures, so a cached parse would reference invalid GL objects on the next load.

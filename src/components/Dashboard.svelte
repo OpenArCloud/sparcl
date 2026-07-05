@@ -64,6 +64,12 @@
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
     import { setInitialLocationAndServices } from '../core/locationTools';
     import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
+    import {
+        getPersistedRenderingEngineId,
+        setPersistedRenderingEngineId,
+        RENDERING_ENGINE_STORAGE_KEY,
+        type RenderingEngineId,
+    } from '@core/engines/createRenderingEngine';
 
     import Navbar from './Navbar.svelte';
 
@@ -76,6 +82,9 @@
     const serviceUrlFontSizePx = 9;
 
     let rmqTestPromise: Promise<void>;
+    /** Default 3D backend for the next AR session (URL `?engine=` overrides for one load). */
+    let persistedRenderingEngine: RenderingEngineId = 'ogl';
+
     onMount(() => {
         if ($allowMessageBroker && $selectedMessageBrokerService?.url && $messageBrokerAuth?.[$selectedMessageBrokerService?.guid]?.username != null) {
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
@@ -96,6 +105,7 @@
 
     // Retrieve user details from logged in state
     onMount(() => {
+        persistedRenderingEngine = getPersistedRenderingEngineId();
         const userDetailsString = $currentLoggedInUser;
 
         try {
@@ -367,6 +377,21 @@
     <details class="dashboard" bind:open={$dashboardDetail.debug}>
         <summary>Debug settings</summary>
         <div>
+            <label for="renderingengineselect">Rendering engine (next AR session; URL <code>?engine=</code> overrides once)</label>
+            <select
+                id="renderingengineselect"
+                bind:value={persistedRenderingEngine}
+                on:change={() => setPersistedRenderingEngineId(persistedRenderingEngine)}
+            >
+                <option value="ogl">OGL (default)</option>
+                <option value="three">Three.js (experimental)</option>
+            </select>
+            <p class="rendering-engine-hint">
+                Stored under <code>{RENDERING_ENGINE_STORAGE_KEY}</code>. Reload or restart AR after changing.
+            </p>
+        </div>
+
+        <div>
             <input id="showlocalaxes" type="checkbox" bind:checked={$debug_showLocalAxes} />
             <label for="showlocalaxes">Show local coordinate axes</label>
         </div>
@@ -430,6 +455,12 @@
 {@html supportedCountries}
 
 <style>
+    .rendering-engine-hint {
+        margin: 0.35rem 0 0;
+        font-size: 0.85em;
+        color: var(--theme-muted, #888);
+    }
+
     h2,
     summary {
         margin-top: 60px;

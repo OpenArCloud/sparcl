@@ -8,6 +8,7 @@
 */
 
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
+import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { checkGLError } from '@core/devTools';
 import type { SetupFunction, XrFrameUpdateCallbackType, XrMarkerFrameUpdateCallbackType, XrNoPoseCallbackType, SceneRootMatrix } from '../../types/xr';
 
@@ -276,7 +277,12 @@ export default class webxr {
         }
 
         this.session.addEventListener('end', this._onXrSessionEnded);
-        this.session.updateRenderState({ baseLayer: new XRWebGLLayer(this.session, gl) });
+        // Widen depth clip vs tight UA defaults so near/far clipping is less aggressive while moving (meters).
+        this.session.updateRenderState({
+            baseLayer: new XRWebGLLayer(this.session, gl),
+            depthNear: XR_DEPTH_NEAR,
+            depthFar: XR_DEPTH_FAR,
+        });
 
         // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-spaces
         // Note: reference spaces viewer, local, and local-floor are always available, but others may not

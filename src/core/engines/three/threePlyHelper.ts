@@ -1,32 +1,23 @@
 /*
-  (c) 2021 Open AR Cloud
+  (c) 2026 Open AR Cloud
   This code is licensed under MIT license (see LICENSE.md for details)
 
-  (c) 2024 Nokia
+  (c) 2026 Nokia
   Licensed under the MIT License
   SPDX-License-Identifier: MIT
 */
 
-import { Program, Geometry, type OGLRenderingContext } from 'ogl';
+/**
+ * PLY → {@link THREE.BufferGeometry} for the Three engine.
+ */
 
+import * as THREE from 'three';
 import { PLYLoader } from '@loaders.gl/ply';
 import { parse } from '@loaders.gl/core';
 
-import plyPointsVs from '@shaders/plyPoints.vert.glsl';
-import plyPointsFs from '@shaders/plyPoints.frag.glsl';
-import plyMeshVs from '@shaders/plyMesh.vert.glsl';
-import plyMeshFs from '@shaders/plyMesh.frag.glsl';
-
 import type { PlyColorMode, PlyLoadOptions } from '@core/contents/pointcloud';
 
-export type LoadedPlyDisplay = {
-    geometry: Geometry;
-    /** `gl.POINTS` for point clouds, `gl.TRIANGLES` for indexed triangle meshes */
-    mode: number;
-    primitive: 'points' | 'triangles';
-};
-
-const DEFAULT_UNIFORM_COLOR: Readonly<[number, number, number]> = [0.9, 0.9, 0.0];
+const defaultUniformColor: Readonly<[number, number, number]> = [0.9, 0.9, 0.0];
 
 type PlyAttribute = {
     value: ArrayLike<number>;
@@ -39,32 +30,6 @@ type PlyMeshData = {
     indices?: { value: ArrayLike<number>; size: number };
     topology?: string;
 };
-
-/** One {@link Program} per PLY point-cloud mesh (no global cache; each mesh owns disposal). */
-export function createPlyPointsProgram(gl: OGLRenderingContext): Program {
-    return new Program(gl, {
-        vertex: plyPointsVs,
-        fragment: plyPointsFs,
-        uniforms: {},
-        transparent: false,
-        cullFace: gl.NONE,
-        depthTest: true, //false,
-        depthWrite: true, //false,
-    });
-}
-
-/** One {@link Program} per PLY triangle mesh (no global cache; each mesh owns disposal). */
-export function createPlyMeshProgram(gl: OGLRenderingContext): Program {
-    return new Program(gl, {
-        vertex: plyMeshVs,
-        fragment: plyMeshFs,
-        uniforms: {},
-        transparent: false,
-        cullFace: gl.BACK,
-        depthTest: true,
-        depthWrite: true,
-    });
-}
 
 function hasUsableVertexColors(attr: PlyAttribute | undefined, vertexCount: number): boolean {
     if (!attr?.value) return false;
@@ -80,9 +45,6 @@ function readColorComponent(src: ArrayLike<number>, idx: number): number {
     return raw;
 }
 
-/**
- * One RGB triplet per vertex as Float32 (shader uses non-normalized float attributes).
- */
 function buildPerVertexColors(
     data: PlyMeshData,
     vertexCount: number,
@@ -90,13 +52,13 @@ function buildPerVertexColors(
     uniformColor: Readonly<[number, number, number]>,
 ): Float32Array {
     const out = new Float32Array(vertexCount * 3);
-    const c0 = data.attributes.COLOR_0;
-    const fileOk = hasUsableVertexColors(c0, vertexCount);
+    const color0 = data.attributes.COLOR_0;
+    const fileOk = hasUsableVertexColors(color0, vertexCount);
     const wantFile = fileOk && (colorMode === 'vertex' || colorMode === 'auto');
 
-    if (wantFile && c0) {
-        const src = c0.value;
-        const stride = c0.size >= 3 ? c0.size : 3;
+    if (wantFile && color0) {
+        const src = color0.value;
+        const stride = color0.size >= 3 ? color0.size : 3;
         for (let i = 0; i < vertexCount; i++) {
             const base = i * stride;
             out[i * 3] = readColorComponent(src, base);
@@ -125,13 +87,13 @@ function buildDefaultNormals(vertexCount: number): Float32Array {
 }
 
 function copyNormalsFromFile(data: PlyMeshData, vertexCount: number): Float32Array {
-    const n = data.attributes.NORMAL;
+    const normalAttr = data.attributes.NORMAL;
     const out = buildDefaultNormals(vertexCount);
-    if (!hasUsableVertexColors(n, vertexCount)) {
+    if (!hasUsableVertexColors(normalAttr, vertexCount)) {
         return out;
     }
-    const src = n!.value;
-    const stride = n!.size >= 3 ? n!.size : 3;
+    const src = normalAttr!.value;
+    const stride = normalAttr!.size >= 3 ? normalAttr!.size : 3;
     for (let i = 0; i < vertexCount; i++) {
         const base = i * stride;
         out[i * 3] = Number(src[base]);
@@ -159,18 +121,17 @@ function stripLeadingUtf8Bom(ab: ArrayBuffer): ArrayBuffer {
     return ab;
 }
 
-/** True if buffer begins (after optional UTF-8 BOM) with ASCII "ply". */
 function isPlyMagic(ab: ArrayBuffer): boolean {
     const u8 = new Uint8Array(ab);
-    let o = 0;
+    let offset = 0;
     if (u8.byteLength >= 3 && u8[0] === 0xef && u8[1] === 0xbb && u8[2] === 0xbf) {
-        o = 3;
+        offset = 3;
     }
     return (
-        u8.byteLength - o >= 3 &&
-        u8[o] === 0x70 &&
-        u8[o + 1] === 0x6c &&
-        u8[o + 2] === 0x79
+        u8.byteLength - offset >= 3 &&
+        u8[offset] === 0x70 &&
+        u8[offset + 1] === 0x6c &&
+        u8[offset + 2] === 0x79
     );
 }
 
@@ -181,16 +142,16 @@ function firstBytesHex(ab: ArrayBuffer, n: number): string {
         .join(' ');
 }
 
-export class MyPLYLoader {
-    /**
-     * Load a PLY file into OGL geometry suitable for point or triangle rendering.
-     * Point clouds use `gl.POINTS`; triangle meshes use indexed `gl.TRIANGLES` when the PLY defines faces.
-     */
-    static async loadDisplayGeometry(
-        gl: OGLRenderingContext,
-        url: string,
-        options: PlyLoadOptions = {},
-    ): Promise<LoadedPlyDisplay | null> {
+export type LoadedThreePly = {
+    geometry: THREE.BufferGeometry;
+    primitive: 'points' | 'triangles';
+};
+
+/**
+ * Fetch and parse PLY into a Three {@link THREE.BufferGeometry} (points or indexed mesh).
+ */
+export async function loadThreePlyFromUrl(url: string, options: PlyLoadOptions = {}): Promise<LoadedThreePly | null> {
+    try {
         const res = await fetch(url);
         if (!res.ok) {
             console.error(`PLY load: HTTP ${res.status} for ${url}`);
@@ -204,12 +165,11 @@ export class MyPLYLoader {
         }
         if (!isPlyMagic(ab)) {
             console.error(
-                `PLY load: ${url} is not PLY data (expected header "ply"). Often means a missing static file (HTML fallback) or wrong URL. First bytes (hex): ${firstBytesHex(ab, 24)}`,
+                `PLY load: ${url} is not PLY data (expected header "ply"). First bytes (hex): ${firstBytesHex(ab, 24)}`,
             );
             return null;
         }
         const data = (await parse(ab, PLYLoader, { worker: false })) as PlyMeshData;
-
         if (data == null) {
             return null;
         }
@@ -226,7 +186,7 @@ export class MyPLYLoader {
         const colorMode: PlyColorMode = options.colorMode ?? 'auto';
         const uniformColor: Readonly<[number, number, number]> = options.uniformColor
             ? ([options.uniformColor[0], options.uniformColor[1], options.uniformColor[2]] as const)
-            : DEFAULT_UNIFORM_COLOR;
+            : defaultUniformColor;
 
         const positionData =
             posAttr.value instanceof Float32Array
@@ -239,26 +199,23 @@ export class MyPLYLoader {
         const indexCount = idx?.value ? idx.value.length / Math.max(idx.size || 1, 1) : 0;
         const isMesh = indexCount > 0;
 
-        try {
-            if (isMesh) {
-                const indexAttr = toUint32IndexArray(idx!);
-                const normals = copyNormalsFromFile(data, vertexCount);
-                const geometry = new Geometry(gl, {
-                    position: { size: 3, data: positionData },
-                    vertexColor: { size: 3, data: vertexColors },
-                    normal: { size: 3, data: normals },
-                    index: { data: indexAttr },
-                });
-                return { geometry, mode: gl.TRIANGLES, primitive: 'triangles' };
-            }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positionData, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(vertexColors, 3));
 
-            const geometry = new Geometry(gl, {
-                position: { size: 3, data: positionData },
-                vertexColor: { size: 3, data: vertexColors },
-            });
-            return { geometry, mode: gl.POINTS, primitive: 'points' };
-        } catch {
-            return null;
+        if (isMesh) {
+            const indexArray = toUint32IndexArray(idx!);
+            // Three r184 may store a bare TypedArray on `geometry.index` when using `setIndex(typedArray)`,
+            // which has no `.array`; some WebGL paths expect a BufferAttribute. Wrap explicitly.
+            geometry.setIndex(new THREE.BufferAttribute(indexArray, 1));
+            const normals = copyNormalsFromFile(data, vertexCount);
+            geometry.setAttribute('normal', new THREE.BufferAttribute(normals, 3));
+            return { geometry, primitive: 'triangles' };
         }
+
+        return { geometry, primitive: 'points' };
+    } catch (error) {
+        console.error(`PLY load: failed for ${url}`, error);
+        return null;
     }
 }

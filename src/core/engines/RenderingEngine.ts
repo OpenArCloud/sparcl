@@ -44,12 +44,6 @@ export interface RenderingEngine {
         orientation: ReadonlyQuat
     ): SceneNodeId;
 
-    /** @returns {@link SceneNodeId} for the polyline mesh */
-    addPolyline(
-        points: ReadonlyVec3[],
-        hexColor: string,
-    ): SceneNodeId;
-
     /** @returns {@link SceneNodeId} for the configured primitive mesh */
     addPlaceholderWithOptions(
         shape: PrimitiveShape,
@@ -59,6 +53,16 @@ export interface RenderingEngine {
         fragmentShader: string | undefined,
         options?: unknown,
     ): SceneNodeId;
+
+    /**
+     * @param linewidthPixels - Screen-space line thickness in pixels (OGL `uThickness`; Three `LineMaterial` with `worldUnits: false`)
+     * @returns {@link SceneNodeId} for the polyline mesh, or `null` if the line could not be created
+     */
+    addPolyline(
+        points: ReadonlyVec3[],
+        hexColor: string,
+        linewidthPixels: number,
+    ): SceneNodeId | null;
 
     /**
      * @param callback - Invoked per loaded GLTF mesh leaf with its {@link SceneNodeId}
@@ -235,27 +239,32 @@ export interface RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         width?: number,
-        height?: number
-    ): Promise<void>;
+        height?: number,
+    ): Promise<SceneNodeId | null>;
 
     addTextObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         string: string,
-        textColor?: ReadonlyVec3,
+        textColor: ReadonlyVec3,
+        scale: ReadonlyVec3,
     ): Promise<SceneNodeId>;
 
     addTextObjectWithRigidPose(
         pose: RigidPose,
         string: string,
-        options?: { textColor?: [number, number, number]; positionOffset?: [number, number, number] },
+        options?: {
+            textColor?: [number, number, number],
+            positionOffset?: [number, number, number],
+            scale?: [number, number, number],
+        },
     ): Promise<SceneNodeId>;
 
     addVideoObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
-        videoUrl: string
-    ): Promise<void>;
+        videoUrl: string,
+    ): Promise<SceneNodeId | null>;
 
     setVerticallyRotating(node: SceneNodeId): void;
     setTowardsCameraRotating(node: SceneNodeId): void;

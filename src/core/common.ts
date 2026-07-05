@@ -139,6 +139,13 @@ export const PLACEHOLDERSHAPES = {
 };
 
 /**
+ * WebXR {@link XRSession.updateRenderState} depth range and matching defaults for CPU-side cameras (meters).
+ * Keep in sync across {@link webxr.ts}, OGL, and Three so clipping behavior aligns with the immersive session.
+ */
+export const XR_DEPTH_NEAR = 0.05;
+export const XR_DEPTH_FAR = 10000;
+
+/**
  * Utility function used to delay the execution of the next expression delay milliseconds.
  *
  * @param delay
@@ -199,6 +206,18 @@ export function rgbToHex(rgbObj: { r?: number; g?: number; b?: number }) {
         return '#' + componentToHex(rgbObj.r) + componentToHex(rgbObj.g) + componentToHex(rgbObj.b);
     }
     return '#000000';
+}
+
+/** CSS-style `#rrggbb` (or `rrggbb`) → linear RGB components in 0–1. */
+export function parseHexColor(hexColor: string): [number, number, number] {
+    const hex = hexColor.replace(/^#/, '');
+    if (hex.length === 6) {
+        const r = parseInt(hex.slice(0, 2), 16) / 255;
+        const g = parseInt(hex.slice(2, 4), 16) / 255;
+        const b = parseInt(hex.slice(4, 6), 16) / 255;
+        return [r, g, b];
+    }
+    return [1, 1, 1];
 }
 
 export function normalizeColor(color: number | null) {

@@ -119,6 +119,10 @@
     let currentGeoPose: Geopose | undefined;
     let contentQueryInterval: NodeJS.Timeout | undefined = undefined;
     let loadedH3Indices: string[] = [];
+    let isContentRetrievalInFlight = false;
+
+    // Fail fast on unreachable content services so one bad endpoint does not stall the whole query cycle.
+    const kContentRequestTimeoutMs = 1500;
 
     // spatial contents are organized into topics.
     const kDefaultOscpScdTopic = 'history';
@@ -388,11 +392,11 @@
         }
 
         // TEMP: fill FrameTransformGraph with test transforms
-        seedSparclTestFrameGraph();
+        //seedSparclTestFrameGraph();
         // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_WEBXR_SCENE_FRAME_REF (trivial)
-        placeContent([[fakeContentWithFramedPoseScene]]);
+        //placeContent([[fakeContentWithFramedPoseScene]]);
         // TEMP: inject dev SCR with FramedPose in FrameRef SPARCL_TEST_HOP2_FRAME_REF (requies FrameTransformGraph)
-        placeContent([[fakeContentWithFramedPoseHop2]]);
+        //placeContent([[fakeContentWithFramedPoseHop2]]);
         // (remove these when SCD serves framed content end-to-end).
 
         // now get the contents from the SCD(s)
@@ -413,6 +417,16 @@
             console.warn('No geopose available yet, cannot query contents');
             return;
         }
+        if (isContentRetrievalInFlight) {
+            if (debugScrs) {
+                console.log('Skipping content query while previous query is still running');
+            }
+            return;
+        }
+
+        isContentRetrievalInFlight = true;
+
+        try {
         const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
         for (const h3Index of h3Indices) {
             // skip already loaded h3 indices
@@ -420,13 +434,15 @@
             if (loadedH3Indices.includes(h3Index)) {
                 continue;
             } else {
+                console.log('New h3 index', h3Index);
                 loadedH3Indices.push(h3Index);
             }
-            console.log('New h3 index', h3Index);
             const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
             placeContent(scrs);
         }
-
+        } finally {
+            isContentRetrievalInFlight = false;
+        }
     }
 
     /**
@@ -554,12 +570,12 @@
 
         tdEngine.addDebugAxesAtWorldMatrix(worldAlignment.mat4LocalizationDebugArCamera(localImagePose), [1, 1, 0, 0.5], true);
 
-        // add axes at origin
-        const origin: WebXrRigidPose = {
-            position: { x: 0, y: 0, z: 0 },
-            orientation: { x: 0, y: 0, z: 0, w: 1 },
-        };
-        tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
+        // DEBUG: add axes at origin
+        //const origin: WebXrRigidPose = {
+        //    position: { x: 0, y: 0, z: 0 },
+        //    orientation: { x: 0, y: 0, z: 0, w: 1 },
+        //};
+        //tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
 
         const geoAlign = worldAlignment.getActiveGeoAlignment();
         const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
@@ -681,17 +697,52 @@
     /**
      * Request content from SCD available around the current location.
      */
-    export function getContentsInH3Cell(h3Index = $initialLocation.h3Index, topic = kDefaultOscpScdTopic) {
-        const allScrPromises = $availableContentServices.reduce<Promise<SCR[]>[]>((result, service) => {
+    function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                reject(new Error(timeoutMessage));
+            }, timeoutMs);
+
+            promise
+                .then((value) => {
+                    clearTimeout(timeoutId);
+                    resolve(value);
+                })
+                .catch((error) => {
+                    clearTimeout(timeoutId);
+                    reject(error);
+                });
+        });
+    }
+
+    export async function getContentsInH3Cell(h3Index = $initialLocation.h3Index, topic = kDefaultOscpScdTopic): Promise<SCR[][]> {
+        const serviceRequests = $availableContentServices.reduce<{ serviceId: string; serviceUrl: string; promise: Promise<SCR[]> }[]>((result, service) => {
             if ($selectedContentServices[service.id]?.isSelected) {
+                if (debugScrs) {
                 console.log(`Retrieving SCRs from ${service.url} for H3 cell ${h3Index} and topic ${topic} ...`);
-                let scrPromises = getContentsAtLocation(service.url, topic, h3Index); // returns Promise<SCR[]>
-                result.push(scrPromises);
+                }
+
+                const timeoutMessage = `Timed out retrieving SCRs from ${service.url} after ${kContentRequestTimeoutMs}ms`;
+                const scrPromise = withTimeout(getContentsAtLocation(service.url, topic, h3Index), kContentRequestTimeoutMs, timeoutMessage);
+                result.push({ serviceId: service.id, serviceUrl: service.url, promise: scrPromise });
             }
             return result;
         }, []);
 
-        return Promise.all(allScrPromises);
+        const settledResults = await Promise.allSettled(serviceRequests.map((request) => request.promise));
+        const successfulResults: SCR[][] = [];
+
+        settledResults.forEach((result, index) => {
+            if (result.status === 'fulfilled') {
+                successfulResults.push(result.value);
+                return;
+            }
+
+            const service = serviceRequests[index];
+            console.warn(`Failed to retrieve SCRs from service ${service.serviceId} (${service.serviceUrl}):`, result.reason);
+        });
+
+        return successfulResults;
     }
 
     /**
@@ -976,16 +1027,20 @@
                                     const modelNodeId = tdEngine.addModelWithRigidPose(
                                         '/media/models/map_pin.glb',
                                         pinPose,
-                                        [2, 2, 2],
+                                        [2.0, 2.0, 2.0], // scale
                                         (pinModelId) => {
-                                        if (debugScrs) console.log('POI ' + featureName + ' added.');
+                                            if (debugScrs) {
+                                                console.log('POI ' + featureName + ' added.');
+                                            }
                                         //tdEngine.setVerticallyRotating(pinModelId.parent!); // TODO: why does this not work?
-                                    });
+                                        }
+                                    );
                                     tdEngine.setVerticallyRotating(modelNodeId);
 
                                     const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
                                         textColor: [0.063, 0.741, 1.0],
                                         positionOffset: [0, 3, 0],
+                                        scale: [1.0, 1.0, 1.0],
                                     });
                                     textMesh.then((node) => {
                                         tdEngine.setTowardsCameraRotating(node);
@@ -1015,7 +1070,7 @@
                                 }
                             })
                             .then((textdata) => {
-                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!);
+                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!, [1, 1, 1], [1, 1, 1]);
                             })
                             .catch((error) => {
                                 console.error('Error while processing TEXT: ' + error);

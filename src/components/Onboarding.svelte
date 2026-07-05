@@ -217,8 +217,8 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        const { createRenderingEngine } = await import('@core/engines/createRenderingEngine');
-        const values = await Promise.all([createRenderingEngine('ogl'), import('@core/engines/webxr'), viewerImplementation]);
+        const { createRenderingEngine, resolveRenderingEngineId } = await import('@core/engines/createRenderingEngine');
+        const values = await Promise.all([createRenderingEngine(resolveRenderingEngineId()), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
         const tdEngine = values[0];
         viewer = values[2]?.default;

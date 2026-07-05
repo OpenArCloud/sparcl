@@ -311,6 +311,7 @@ function setSensorText(
         quaternion,
         `${value}`,
         vec3.fromValues(0.2, 0.6, 0.9),
+        vec3.fromValues(1.0, 1.0, 1.0)
     ).then((textMesh) => {
         tdEngine.setNodeUniformScale(textMesh, 0.25);
         tdEngine.setTowardsCameraRotating(textMesh);
