@@ -7,18 +7,20 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import ArExperimentOverlay from '@experiments/oarc/performance/ArExperimentOverlay.svelte';
 
-    import { PRIMITIVES } from '@core/engines/ogl/modelTemplates';
+    import { PRIMITIVES } from '@core/contents/primitives';
 
     import colorfulFragment from '@shaders/colorfulfragment.glsl';
-    import { Vec3, type Transform, Quat } from 'ogl';
+    import { quat, vec3 } from 'gl-matrix';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import type webxr from '../../../core/engines/webxr';
-    import type ogl from '../../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | null = null; // TODO: Mesh instead of Transform
+    let reticleNodeId: SceneNodeId | null = null;
+
     let experimentIntervalId: ReturnType<typeof setInterval> | undefined;
     let doExperimentAutoPlacement = false;
     let experimentOverlay: ArExperimentOverlay;
@@ -39,7 +41,7 @@
      * @param this3dEngine  class instance      Handler class for 3D processing
      * @param options  { settings }       Options provided by the app. Currently contains the settings from the Dashboard
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl, options?: { settings?: Writable<Record<string, unknown>> }) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine, options?: { settings?: Writable<Record<string, unknown>> }) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
@@ -85,12 +87,15 @@
      * @param auto  boolean     true when called from automatic placement interval
      */
     function experimentTapHandler(auto = false) {
-        if ($parentState.hasLostTracking == false && reticle != null && ($settings.add === 'manually' || auto)) {
+        if ($parentState.hasLostTracking == false && reticleNodeId != null && ($settings.add === 'manually' || auto)) {
             const index = Math.floor(Math.random() * 5);
             const shape = Object.values(PRIMITIVES)[index];
 
             const options: any = { attributes: {} };
-            const isHorizontal = tdEngine.isHorizontal(reticle);
+            const reticlePosition = vec3.create();
+            const reticleOrientation = quat.create();
+            tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
+            const isHorizontal = tdEngine.isHorizontal(reticleOrientation);
 
             let offsetY = 0,
                 offsetZ = 0;
@@ -149,13 +154,19 @@
 
             const scale = 1;
             const color = undefined;
-            const placeholder = tdEngine.addPlaceholderWithOptions(shape, reticle.position, reticle.quaternion, color, fragmentShader, options);
+            const placeholder = tdEngine.addPlaceholderWithOptions(
+                shape,
+                reticlePosition,
+                reticleOrientation,
+                color,
+                fragmentShader,
+                options,
+            );
             // TODO: pass the whole program, not only the fragment shader code
             // because we only know here what kind of uniforms will be needed at render time
             // Accordingly, the render code will need to come back here and ask for updates
-            placeholder.scale.set(scale);
-            placeholder.position.y += offsetY * scale;
-            placeholder.position.z += offsetZ * scale;
+            tdEngine.setNodeUniformScale(placeholder, scale);
+            tdEngine.translateNode(placeholder, 0, offsetY * scale, offsetZ * scale);
             experimentOverlay?.objectPlaced();
         }
     }
@@ -204,14 +215,20 @@
                 parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);
             } else {
                 $parentState.showFooter = ($settings.showstats || ($settings.localisation && !$parentState.isLocalisationDone)) as boolean;
-                if (reticle === null) {
-                    reticle = tdEngine.addReticle();
-                }
                 const reticlePose = hitTestResults[0].getPose(xrReferenceSpace);
                 const position = reticlePose?.transform.position;
                 const orientation = reticlePose?.transform.orientation;
                 if (position && orientation) {
-                    tdEngine.updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
+                    if (reticleNodeId === null) {
+                        reticleNodeId = tdEngine.addReticle();
+                    }
+                    if (reticleNodeId !== null) {
+                        tdEngine.updateReticlePose(
+                            reticleNodeId,
+                            vec3.fromValues(position.x, position.y, position.z),
+                            quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w),
+                        );
+                    }
                 }
             }
         }

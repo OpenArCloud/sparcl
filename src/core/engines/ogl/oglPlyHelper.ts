@@ -17,14 +17,7 @@ import plyPointsFs from '@shaders/plyPoints.frag.glsl';
 import plyMeshVs from '@shaders/plyMesh.vert.glsl';
 import plyMeshFs from '@shaders/plyMesh.frag.glsl';
 
-/** How per-vertex colors are chosen when building the draw buffers. */
-export type PlyColorMode = 'auto' | 'vertex' | 'uniform';
-
-export type PlyLoadOptions = {
-    colorMode?: PlyColorMode;
-    /** RGB in 0..1; used for `uniform` / `auto` without file colors, and as fallback for `vertex` when the file has no colors. */
-    uniformColor?: readonly [number, number, number];
-};
+import type { PlyColorMode, PlyLoadOptions } from '@core/contents/pointcloud';
 
 export type LoadedPlyDisplay = {
     geometry: Geometry;
@@ -54,6 +47,15 @@ const programCache = new WeakMap<
         mesh?: Program;
     }
 >();
+
+/**
+ * After {@link disposeOglGpuResourcesUnder} / {@link disposeOglGpuResourcesForDetachedSubtree}, shared PLY
+ * {@link Program} instances may already have {@link Program.remove} called. Drop cache entries so the next
+ * {@link getPlyMeshProgram} / {@link getPlyPointsProgram} allocate fresh programs.
+ */
+export function clearPlyProgramCache(gl: OGLRenderingContext): void {
+    programCache.delete(gl);
+}
 
 export function getPlyPointsProgram(gl: OGLRenderingContext): Program {
     let forGl = programCache.get(gl);

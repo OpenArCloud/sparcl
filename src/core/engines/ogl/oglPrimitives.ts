@@ -7,27 +7,15 @@
   SPDX-License-Identifier: MIT
 */
 
-/* Provides models for generic content, provided by the content discovery */
+/** OGL mesh primitives, shader programs, and scene placeholders built from {@link PRIMITIVES}. */
 
 import { Box, Cylinder, Mesh, Plane, Program, Sphere, Torus, Transform, Vec4, type OGLRenderingContext } from 'ogl';
 
 import defaultFragment from '@shaders/defaultfragment.glsl';
 import defaultVertex from '@shaders/defaultvertex.glsl';
 import waitingFragment from '@shaders/waitingfragment.glsl';
-import { randomInteger } from '@src/core/common';
-import type { ObjectDescription, ValueOf } from '../../../types/xr';
-
-/**
- * The supported WebGL primitives.
- */
-export const PRIMITIVES = Object.freeze({
-    box: 'box',
-    sphere: 'sphere',
-    //plane: 'plane', // do not draw planes, they are invisible from one side
-    cylinder: 'cylinder',
-    cone: 'cone',
-    torus: 'torus',
-});
+import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
+import { createRandomObjectDescription } from '@core/contents/objectDescription';
 
 export let createProgram = (gl: OGLRenderingContext, { vertex = defaultVertex, fragment = defaultFragment, uniforms = {} }: { vertex?: string; fragment?: string; uniforms?: Record<string, any> }) =>
     new Program(gl, {
@@ -86,7 +74,7 @@ export let createWaitingProgram = (gl: OGLRenderingContext, color: number[], alt
  */
 export function createModel(
     gl: OGLRenderingContext,
-    type: ValueOf<typeof PRIMITIVES> = PRIMITIVES.box,
+    type: PrimitiveShape = PRIMITIVES.box,
     color: [number, number, number, number] = [0.2, 0.8, 1.0, 1.0],
     translucent = false,
     options: any = {},
@@ -143,17 +131,14 @@ export function createAxesBoxPlaceholder(gl: OGLRenderingContext, color: [number
     }
     const xAxis = createModel(gl, PRIMITIVES.cone, [1.0, 0.0, 0.0, 0.7], true);
     xAxis.position.set(1.0, 0.0, 0.0);
-    //xAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
     xAxis.quaternion.set(0.0, 0.0, -0.7071, 0.7071);
     placeholder.addChild(xAxis);
     const yAxis = createModel(gl, PRIMITIVES.cone, [0.0, 1.0, 0.0, 0.7], true);
     yAxis.position.set(0.0, 1.0, 0.0);
-    //yAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
     yAxis.quaternion.set(0.0, 0.0, 0.0, 1.0);
     placeholder.addChild(yAxis);
     const zAxis = createModel(gl, PRIMITIVES.cone, [0.0, 0.0, 1.0, 0.7], true);
     zAxis.position.set(0.0, 0.0, 1.0);
-    //zAxis.scale.set(0.1, 0.1/2.0, 0.1/3.0);
     zAxis.quaternion.set(0.7071, 0.0, 0.0, 0.7071);
     placeholder.addChild(zAxis);
     return placeholder;
@@ -173,35 +158,9 @@ export function getDefaultPlaceholder(gl: OGLRenderingContext) {
     return placeholder;
 }
 
-/**
- * Creates properties struct with random shape (out of predefined shapes), color, scale.
- */
-export function createRandomObjectDescription(): ObjectDescription {
-    const getRandomScaleValue = () => randomInteger(1, 10) / 50.0;
-    const kNumPrimitives = Object.keys(PRIMITIVES).length;
-    let shape_idx = Math.floor(Math.random() * kNumPrimitives);
-    const primitiveKeys = Object.keys(PRIMITIVES) as Array<keyof typeof PRIMITIVES>;
-    let shape = PRIMITIVES[primitiveKeys[shape_idx]];
-    let color: [number, number, number, number] = [Math.random(), Math.random(), Math.random(), 1.0];
-    //let scale = randomInteger(1,10)/10.0; // random scale out of 10 different values betwwen 0.1 and 1.0 (for outdoor)
-    let scale: [number, number, number] = [getRandomScaleValue(), getRandomScaleValue(), getRandomScaleValue()]; // random scale out of 10 different values betwwen 0.02 and 0.2 (small for desktop debugging)
-    let object_description: ObjectDescription = {
-        version: 2,
-        color,
-        shape,
-        scale,
-        transparent: false,
-        options: {},
-    };
-    return object_description;
-}
-
-/** Creates a Mesh with random shape (out of predefined shapes) and random color and size
- * @param gl  WebGLRenderingContextContext      Context of the WebXR canvas
- * @returns {Mesh}
- */
+/** Creates a Mesh with random shape (out of predefined shapes) and random color and size */
 export function createRandomObject(gl: OGLRenderingContext) {
-    let object_description = createRandomObjectDescription();
+    const object_description = createRandomObjectDescription();
     return createModel(gl, object_description.shape, object_description.color, object_description.transparent, object_description.options, object_description.scale);
 }
 
@@ -238,7 +197,6 @@ export function getDefaultMarkerObject(gl: OGLRenderingContext) {
 export function getAxes(gl: OGLRenderingContext) {
     const container = new Transform();
 
-    // add something small at the positive X, Y, Z:
     const xAxis = createModel(gl, PRIMITIVES.box, [1, 0, 0, 1]);
     xAxis.position.set(1, 0.05, 0);
     xAxis.scale.set(0.1);

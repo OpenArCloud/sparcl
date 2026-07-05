@@ -1,14 +1,23 @@
 import { get } from 'svelte/store';
 import { myAgentId } from '@src/stateStore';
-import { Client as StompClient, StompConfig, type IFrame, type messageCallbackType } from '@stomp/stompjs';
+import {
+    Client as StompClient,
+    StompConfig,
+    type IFrame,
+} from '@stomp/stompjs';
 import { throttle } from 'es-toolkit';
 
 const rmq_topic_geopose_update = import.meta.env.VITE_RMQ_TOPIC_GEOPOSE_UPDATE + '.#'; // subscribe to all subtopics
 const rmq_topic_reticle_update = import.meta.env.VITE_RMQ_TOPIC_RETICLE_UPDATE + '.#'; // subscribe to all subtopics
 const rmq_topic_object_created = import.meta.env.VITE_RMQ_TOPIC_OBJECT_CREATED;
-const rmq_topic_sensor_update = import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE;
+const rmq_topic_sensor_update = import.meta.env.VITE_RMQ_TOPIC_SENSOR_UPDATE; // add .# to subscribe to all subtopics for debugging
 
 let rmqClient: StompClient | null = null;
+
+/** Active STOMP client after {@link connectWithReceiveCallback}, or `null` when disconnected. */
+export function getRmqClient(): StompClient | null {
+    return rmqClient;
+}
 
 export async function testRmqConnection({ url, username, password }: { url: string; username: string; password: string }) {
     return await new Promise<void>((resolve, reject) => {
@@ -160,13 +169,9 @@ export function connectWithReceiveCallback({ updateFunction, url, username, pass
     rmqClient.activate();
 }
 
-export function subscribeToSensor(topic: string, callback: messageCallbackType) {
-    console.log('Subscribing to ', topic);
-    rmqClient?.subscribe(topic, callback);
-}
-
 export const rmqDisconnect = () => {
     rmqClient?.deactivate();
+    rmqClient = null;
 };
 
 const notConnectedErrorMessage = throttle(() => console.error('RMQ not connected, cannot send messages'), 3000);

@@ -16,17 +16,18 @@
     import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
     import { CREATIONTYPES } from '@core/common';
     import type webxr from '@src/core/engines/webxr';
-    import type ogl from '@src/core/engines/ogl/ogl';
-    import { Vec3, Mesh, Transform, Quat } from 'ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
+    import { quat, vec3 } from 'gl-matrix';
 
     let parentInstance: Parent;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let firstPoseReceived = false;
     let showFooter = false;
 
-    let creatorObject: Transform | Mesh | null = null;
+    let creatorObjectNodeId: SceneNodeId | null = null;
 
     /**
      * Initial setup.
@@ -34,7 +35,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
@@ -70,17 +71,17 @@
             }
         }
 
-        if (!creatorObject) {
-            const position = new Vec3(0, 0, -2);
-            const orientation = new Quat(0, 0, 0, 1);
+        if (!creatorObjectNodeId) {
+            const position = vec3.fromValues(0, 0, -2);
+            const orientation = quat.create();
 
             if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
-                creatorObject = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
+                creatorObjectNodeId = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObject = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation).transform;
+                creatorObjectNodeId = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
             } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
                 const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
-                creatorObject = experiencePlaceholderObject;
+                creatorObjectNodeId = experiencePlaceholderObject;
                 tdEngine.addClickEvent(experiencePlaceholderObject, () => parentInstance.experienceLoadHandler(experiencePlaceholderObject, position, orientation, $creatorModeSettings.sceneurl));
             } else {
                 console.log('unknown creator type');

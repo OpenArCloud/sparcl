@@ -41,7 +41,7 @@
 
     import type webxr from '@core/engines/webxr';
     import { logToElement } from '@src/core/devTools';
-    import type ogl from '@core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { ExperimentsViewers } from '../types/xr.ts';
     import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
 
@@ -53,7 +53,7 @@
     let showOutro: boolean = false;
     let dashboard: Dashboard | null = null;
     let viewer: ComponentType<ViewerOscp | ViewerCreate | ViewerDevelop | ViewerMarker | ExperimentsViewers> | null | undefined;
-    let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: ogl, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
+    let viewerInstance: { startAr: (xrEngine: webxr, tdEngine: RenderingEngine, options: { settings?: Writable<Record<string, unknown>> }) => void; onNetworkEvent?: (data: any) => void } | null | undefined;
     let spectator: Spectator | null = null;
     let showDashboardRequested: boolean = false;
     let showServicesUnavailableInfo: boolean = false;
@@ -217,9 +217,10 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        const values = await Promise.all([import('@core/engines/ogl/ogl'), import('@core/engines/webxr'), viewerImplementation]);
+        const { createRenderingEngine } = await import('@core/engines/createRenderingEngine');
+        const values = await Promise.all([createRenderingEngine('ogl'), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
-        const tdEngine = new values[0].default();
+        const tdEngine = values[0];
         viewer = values[2]?.default;
         await tick();
         if ($allowMessageBroker && $selectedMessageBrokerService && $messageBrokerAuth) {

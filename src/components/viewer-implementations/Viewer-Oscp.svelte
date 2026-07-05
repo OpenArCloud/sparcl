@@ -14,11 +14,14 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
-    import { PRIMITIVES } from '../../core/engines/ogl/modelTemplates';
+    import { PRIMITIVES } from '@core/contents/primitives';
     import type webxr from '@core/engines/webxr';
-    import type ogl from '@core/engines/ogl/ogl';
-    import { Quat, type OGLRenderingContext, type Transform, Vec3, Mesh } from 'ogl';
-    import type { ObjectDescription, XrFeature } from '../../types/xr';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import type { RigidPose } from '@core/frameTransforms';
+    import { quat, vec3 } from 'gl-matrix';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
+    import type { ObjectDescription } from '../../core/contents/objectDescription';
+    import type { XrFeature } from '../../types/xr';
     import { checkGLError } from '@core/devTools';
     import { myAgentName, myAgentId, myAgentColor, enableReticlePoseSharing, showOtherReticles } from '@src/stateStore';
     import { createEventDispatcher } from 'svelte';
@@ -27,11 +30,11 @@
 
     let parentInstance: Parent;
 
-    let myGl: OGLRenderingContext | null = null;
+    let myGl: WebGL2RenderingContext | null = null;
 
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource: XRHitTestSource | undefined;
-    let reticle: Transform | null = null; // TODO: should be Mesh
+    let reticleNodeId: SceneNodeId | null = null;
     let agentReticles: string[] = [];
     const dispatcher = createEventDispatcher();
 
@@ -41,7 +44,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         parentInstance.startAr(thisWebxr, this3dEngine);
         startSession();
     }
@@ -65,7 +68,7 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr: webxr, session: XRSession, gl: OGLRenderingContext | null) => {
+            (xr: webxr, session: XRSession, gl: WebGL2RenderingContext | null) => {
                 if (!gl) {
                     throw new Error('gl is undefined');
                 }
@@ -85,14 +88,24 @@
         );
     }
 
-    function drawReticle({ localTargetPose, targetAgentId, color }: { localTargetPose: Transform; targetAgentId: string; color: [number, number, number, number] }) {
-        const id = `${targetAgentId}_reticle`;
-        const mesh = parentInstance.getRenderer().getDynamicObjectMesh(id);
-        const xrQuatCorrection = new Quat().fromAxisAngle(new Vec3(1, 0, 0), Math.PI / 2); // to make the torus flat on the surface
-        const torusQuaternion = new Quat().copy(localTargetPose.quaternion).multiply(xrQuatCorrection);
-        if (mesh) {
-            mesh.position.copy(localTargetPose.position);
-            mesh.quaternion.copy(torusQuaternion);
+    function drawReticle({ localTargetPose, targetAgentId, color }: { localTargetPose: RigidPose; targetAgentId: string; color: [number, number, number, number] }) {
+        const id: string = `${targetAgentId}_reticle`;
+        const renderer = parentInstance.getRenderer();
+        const nodeId: SceneNodeId | null = renderer.getDynamicObjectNodeId(id);
+        const base = quat.fromValues(
+            localTargetPose.orientation.x,
+            localTargetPose.orientation.y,
+            localTargetPose.orientation.z,
+            localTargetPose.orientation.w,
+        );
+        const correction = quat.setAxisAngle(quat.create(), [1, 0, 0], Math.PI / 2);
+        const torusQ = quat.multiply(quat.create(), base, correction);
+        const correctedPose: RigidPose = {
+            position: localTargetPose.position,
+            orientation: { x: torusQ[0], y: torusQ[1], z: torusQ[2], w: torusQ[3] },
+        };
+        if (nodeId) {
+            renderer.updateDynamicObjectWithRigidPose(id, correctedPose);
         } else {
             const description: ObjectDescription = {
                 version: 2,
@@ -102,7 +115,7 @@
                 transparent: false,
                 options: {},
             };
-            const node = parentInstance.getRenderer().addDynamicObject(id, localTargetPose.position, torusQuaternion, description);
+            renderer.addDynamicObjectWithRigidPose(id, correctedPose, description);
             agentReticles.push(id);
         }
     }
@@ -153,9 +166,7 @@
             const msg: { agent_id: string; geopose: Geopose; color: [number, number, number, number] } = events.reticle_update;
             const targetAgentId = msg.agent_id;
             const globalTargetPose = msg.geopose;
-            const localTargetPose = parentInstance
-                .getRenderer()
-                .transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(globalTargetPose));
+            const localTargetPose = worldAlignment.convertGeoPoseToLocalPose(globalTargetPose);
             const color = msg.color;
             drawReticle({ localTargetPose, targetAgentId, color });
         }
@@ -168,7 +179,8 @@
 
         let message_body;
         const timestamp = Date.now();
-        if (!reticle || !reticle.visible) {
+        const tdEngine = parentInstance.getRenderer();
+        if (reticleNodeId === null || !tdEngine.isNodeVisible(reticleNodeId)) {
             // If the reticle did not find a hitpoint, send a remove message
             // TODO: send 1 remove message, but not at every frame!
             message_body = {
@@ -177,7 +189,13 @@
                 timestamp: timestamp,
             };
         } else {
-            const curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(reticle.position, reticle.quaternion);
+            const reticlePosition = vec3.create();
+            const reticleOrientation = quat.create();
+            tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
+            const curReticleGeoPose = worldAlignment.convertScenePoseToGeoposeFromActive(
+                { x: reticlePosition[0], y: reticlePosition[1], z: reticlePosition[2] },
+                { x: reticleOrientation[0], y: reticleOrientation[1], z: reticleOrientation[2], w: reticleOrientation[3] },
+            );
             message_body = {
                 agent_id: $myAgentId,
                 avatar: {
@@ -213,16 +231,15 @@
      * @param xrReferenceSpace
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) {
-        if (useReticle && myGl) {
-            checkGLError(myGl, 'before creating reticle');
-            if (reticle == undefined || reticle == null) {
-                reticle = parentInstance.getRenderer().addReticle();
-            }
-            checkGLError(myGl, 'after creating reticle');
-
+        if (useReticle && reticleNodeId === null) {
+            const tdEngine = parentInstance.getRenderer();
+            reticleNodeId = tdEngine.addReticle();
+        }
+        if (useReticle && myGl && reticleNodeId !== null) {
+            const tdEngine = parentInstance.getRenderer();
             if (hitTestSource === undefined) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
-                reticle.visible = false;
+                tdEngine.setNodeVisible(reticleNodeId, false);
             } else {
                 const hitTestResults = frame.getHitTestResults(hitTestSource);
                 if (hitTestResults.length > 0) {
@@ -230,17 +247,21 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        parentInstance.getRenderer().updateReticlePose(reticle, new Vec3(position.x, position.y, position.z), new Quat(orientation.x, orientation.y, orientation.z, orientation.w));
-                        reticle.visible = true;
+                        tdEngine.updateReticlePose(
+                            reticleNodeId,
+                            vec3.fromValues(position.x, position.y, position.z),
+                            quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
+                        );
+                        tdEngine.setNodeVisible(reticleNodeId, true);
                     }
                 } else {
-                    reticle.visible = false;
+                    tdEngine.setNodeVisible(reticleNodeId, false);
                 }
             }
 
             // hide if there was no localization yet
             if (!worldAlignment.hasActiveWorldAlignment()) {
-                reticle.visible = false;
+                tdEngine.setNodeVisible(reticleNodeId, false);
             }
 
             if ($enableReticlePoseSharing) {
@@ -276,7 +297,7 @@
     }
 
     function onRelocalize() {
-        reticle = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
+        reticleNodeId = null; // TODO: we should store the reticle inside tdEngine to avoid the need for explicit deletion here.
         parentInstance.relocalize();
     }
 
@@ -294,7 +315,7 @@
         if (!event.detail.checked) {
             for (const agentId in parentInstance.getAgentInfo()) {
                 // remove dynamic object representation (if exists)
-                let model1 = parentInstance.getRenderer().getDynamicObjectMesh(agentId);
+                let model1 = parentInstance.getRenderer().getDynamicObjectNodeId(agentId);
                 if (model1) {
                     console.log('removed agent dynamic object ' + agentId);
                     parentInstance.getRenderer().removeDynamicObject(agentId);

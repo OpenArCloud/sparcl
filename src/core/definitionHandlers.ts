@@ -7,8 +7,8 @@
   SPDX-License-Identifier: MIT
 */
 
-import type { Mesh } from 'ogl';
-import type ogl from './engines/ogl/ogl';
+import type { RenderingEngine } from './engines/RenderingEngine';
+import type { SceneNodeId } from './engines/RenderingEngine';
 
 /*
     Class to handle the definitions added to the content record for an entry of type placeholder.
@@ -26,8 +26,8 @@ const definition = [
 /**
  * Interpret and apply the provided definitions to the provided placeholder object.
  *
- * @param tdEngine  OGL     3D engine used by sparcl
- * @param placeholder  Mesh     3D object to apply the definitions to
+ * @param tdEngine  Rendering engine (OGL today; swappable)
+ * @param placeholder  {@link SceneNodeId}  3D object to apply the definitions to
  * @param definitions  String       The definitions to apply
  */
-export function handlePlaceholderDefinitions(tdEngine: ogl, placeholder: Mesh, definitions?: string) {}
+export function handlePlaceholderDefinitions(tdEngine: RenderingEngine, placeholder: SceneNodeId, definitions?: string) {}

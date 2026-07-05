@@ -9,9 +9,19 @@ nav_order: 50
 
 [OGL](https://github.com/oframe/ogl) was seleceted as the default 3D engine for sparcl, because it is very small and still manages to hide away the specifics of [WebGL](https://www.khronos.org/webgl/).
 
-The idea is, that the 3D engine can 'easily' be replaced by another one, but still being able to use the default `Viewer` and XR engine. For this, we will have some kind of API defined, but this is not yet accomplished, unfortunately.
+Viewers depend on the **`RenderingEngine`** interface (`src/core/engines/RenderingEngine.ts`), not on OGL types directly. The default implementation is OGL (`src/core/engines/ogl/ogl.ts`); instantiate it via **`createRenderingEngine('ogl')`** (`src/core/engines/createRenderingEngine.ts`).
 
-To give you an overview what can be used right now, we added a list with currently available functions. Please be aware that this list is likely to change in the future.
+Neutral helpers used by viewers and future engines:
+
+- **`PRIMITIVES` / `PrimitiveShape`** — `src/core/contents/primitives.ts` (SCR placeholder shapes)
+- **`model3DFormatFromRef` / `pointCloudFormatFromRef`** — `src/core/contents/contentFormats.ts`
+- **`getExternalCameraParameters`** — `src/core/engines/externalCameraPose.ts` (returns **`ExternalCameraParameters`**: projection intrinsics + `camerapose` extrinsic column-major `mat4`)
+- **`RigidPose` placement** — `addModelWithRigidPose`, `addDynamicObjectWithRigidPose`, `addTextObjectWithRigidPose`, etc.
+- **Scene graph handles** — opaque **`SceneNodeId`** (`string`, exported from `RenderingEngine.ts`). `add*` methods return this id; use `getNodePose` / `setNodePose` / `remove(nodeId)` — never OGL `Mesh` / `Transform` or THREE `Object3D` in viewers. `addModel` / `addModelWithRigidPose` return **`SceneNodeId`** (GLTF root). Engine-local registries: **`OglSceneNodeRegistry`** (`src/core/engines/ogl/oglSceneNodeRegistry.ts`), **`ThreeSceneNodeRegistry`** (`src/core/engines/three/threeSceneNodeRegistry.ts`).
+- **OGL GPU teardown** — `src/core/engines/ogl/oglDisposeHelper.ts`: **`disposeOglGpuResourcesUnder(scene)`** at **`ogl.cleanup()`** (full scene). **`disposeOglGpuResourcesForDetachedSubtree(node, scene)`** from **`ogl.remove()`** before detaching the node: geometry/programs are disposed only when their total use under `scene` equals use under the subtree being removed, so shared GLTF assets stay valid. After full dispose, **`ogl.cleanup()`** also clears the PLY singleton program cache (`clearPlyProgramCache` in `oglPlyHelper.ts`), **`gltfCache`**, and **`TextureLoader.clearCache()`** (OGL’s module-level image texture cache), so the next load does not reuse deleted WebGL programs or textures—including **`loadLogoTexture`** / icon billboards.
+- **Poses at the engine boundary** — gl-matrix **`ReadonlyVec3`**, **`ReadonlyQuat`**, and **`mat4`**. Build placement poses with `vec3.fromValues` / `quat.fromValues` (or from `RigidPose` fields). Read or update nodes with `getNodePose`, `setNodePose`, `translateNode`, `setNodeUniformScale`, `setNodeVisible`, `getNodeWorldMatrix`.
+
+The list below still points at the OGL class for historical links; prefer the interface and neutral modules above when adding features.
 
 [init()](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L35)
 
@@ -35,4 +45,4 @@ To give you an overview what can be used right now, we added a list with current
 
 [setWaiting(3dObject)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L306)
 
-[getExternalCameraPose(view, matrix)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L278)
+[getExternalCameraParameters(view, matrix)](https://github.com/OpenArCloud/sparcl/blob/5b28318dc53dbfc70d9ae987dcadf697219c85e9/src/core/engines/ogl/ogl.js#L278) — returns **`ExternalCameraParameters`** (`projection` intrinsics + `camerapose` extrinsic column-major `mat4`).

@@ -66,7 +66,7 @@ export function loadVideo(videoUrl: string): VideoInfo {
     videoElement.setAttribute('playsinline', 'playsinline');
     videoElement.play();
 
-    numVideos = numVideos++;
+    numVideos += 1;
     const videoId = numVideos;
     const videoInfo: VideoInfo = {
         videoId: videoId,
@@ -129,11 +129,15 @@ export function createVideoBox(gl: OGLRenderingContext, scene: Transform, positi
     return videoMesh;
 }
 
-export function onPreRender(t: DOMHighResTimeStamp) {
-    for (let videoId in videoInfos) {
-        const videoElement = videoInfos[videoId].videoElement;
+export function onPreRender(_time: DOMHighResTimeStamp) {
+    for (const videoIdStr of Object.keys(videoInfos)) {
+        const videoId = Number(videoIdStr);
+        const videoElement = videoInfos[videoId]?.videoElement;
         const videoTexture = videoTextures[videoId];
         const videoMesh = videoMeshes[videoId];
+        if (!videoElement || !videoTexture || !videoMesh) {
+            continue;
+        }
         // Attach video and/or update texture when video is ready
         if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
             if (!videoTexture.image) {
@@ -143,4 +147,25 @@ export function onPreRender(t: DOMHighResTimeStamp) {
         }
         videoMesh.rotation.y += 0.003;
     }
+}
+
+/** Pause and strip all video elements; clear module maps (call from engine {@link cleanup}). */
+export function disposeAllVideoResources(): void {
+    for (const videoIdStr of Object.keys(videoInfos)) {
+        const videoId = Number(videoIdStr);
+        const info = videoInfos[videoId];
+        if (info?.videoElement) {
+            info.videoElement.pause();
+            info.videoElement.removeAttribute('src');
+            info.videoElement.load();
+        }
+        delete videoInfos[videoId];
+    }
+    for (const videoIdStr of Object.keys(videoTextures)) {
+        delete videoTextures[Number(videoIdStr)];
+    }
+    for (const videoIdStr of Object.keys(videoMeshes)) {
+        delete videoMeshes[Number(videoIdStr)];
+    }
+    numVideos = 0;
 }

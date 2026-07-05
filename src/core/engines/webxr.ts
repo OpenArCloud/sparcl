@@ -9,8 +9,7 @@
 
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
 import { checkGLError } from '@core/devTools';
-import type { SetupFunction, XrFrameUpdateCallbackType, XrMarkerFrameUpdateCallbackType, XrNoPoseCallbackType } from '../../types/xr';
-import type { AttributeData, Mat4, OGLRenderingContext } from 'ogl';
+import type { SetupFunction, XrFrameUpdateCallbackType, XrMarkerFrameUpdateCallbackType, XrNoPoseCallbackType, SceneRootMatrix } from '../../types/xr';
 
 // TODO(soeroesg): xrNoPoseCallback does not seem to be triggered ever
 
@@ -24,7 +23,7 @@ let xrNoPoseCallback: XrNoPoseCallbackType | null = null;
 let animationFrameCallback: (time: DOMHighResTimeStamp, xrFrame: XRFrame) => void;
 let localFloorWebXrReferenceSpace: XRReferenceSpace;
 let localWebXrReferenceSpace: XRReferenceSpace;
-let gl: OGLRenderingContext | null;
+let gl: WebGL2RenderingContext | null;
 
 /**
  * WebXR implementation of the AR engine.
@@ -105,7 +104,7 @@ export default class webxr {
         return viewport;
     }
 
-    initCameraCapture(gl: OGLRenderingContext) {
+    initCameraCapture(gl: WebGL2RenderingContext) {
         initCameraCaptureScene(gl);
     }
 
@@ -226,7 +225,7 @@ export default class webxr {
      * @param frame  XRFrame        The current frame to base the anchor on
      * @param rootUpdater  function     Callback into the 3D engine to adopt changes when anchor is moved
      */
-    createRootAnchor(frame: XRFrame, rootUpdater: (matrix: number[] | AttributeData) => Mat4) {
+    createRootAnchor(frame: XRFrame, rootUpdater: (matrix: SceneRootMatrix) => void) {
         if (frame.createAnchor) {
             // note: we use the local floor reference space for the anchors
             const anchorPromise = frame.createAnchor(new XRRigidTransform(), localFloorWebXrReferenceSpace);
@@ -271,7 +270,7 @@ export default class webxr {
         this.session = xrSession;
         animationFrameCallback = this._onXrFrameUpdate; // NOTE: recursion of _onXrFrameUpdate alone seems invalid, so we store a reference to it
 
-        gl = canvas.getContext('webgl2', { xrCompatible: true }) as OGLRenderingContext;
+        gl = canvas.getContext('webgl2', { xrCompatible: true }) as WebGL2RenderingContext | null;
         if (!gl) {
             throw new Error('gl is undefined!');
         }

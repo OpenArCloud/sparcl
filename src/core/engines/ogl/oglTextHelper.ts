@@ -21,7 +21,7 @@
     Outputs a .png bitmap spritesheet and a .json with character parameters.
 */
 
-import { Geometry, Texture, Program, Mesh, Text, Vec3, Transform, type OGLRenderingContext } from 'ogl';
+import { Geometry, Texture, Program, Mesh, Text, Vec3, type OGLRenderingContext } from 'ogl';
 
 const vertex = /* glsl */ `
     attribute vec2 uv;

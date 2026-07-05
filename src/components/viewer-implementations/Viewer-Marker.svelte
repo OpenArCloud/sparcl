@@ -13,21 +13,22 @@
 <script lang="ts">
     import { createEventDispatcher, onDestroy } from 'svelte';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
-    import { Mesh, Quat, Vec3 } from 'ogl';
+    import { quat, vec3 } from 'gl-matrix';
 
     import { currentMarkerImage, currentMarkerImageWidth } from '@src/stateStore';
 
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import { wait } from '@core/common';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import type webxr from '../../core/engines/webxr';
-    import type ogl from '../../core/engines/ogl/ogl';
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
 
     let canvas: HTMLCanvasElement;
     let overlay: HTMLElement;
     let externalContent: HTMLIFrameElement;
     let closeExperience: HTMLImageElement;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
 
     let showFooter = false;
     let experienceLoaded = false;
@@ -36,7 +37,7 @@
     let hasLostTracking = false;
     let unableToStartSession = false;
 
-    let trackedImageObject: Mesh;
+    let trackedImageObjectNodeId: SceneNodeId | null = null;
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined;
 
     const message = (msg: string) => console.log(msg);
@@ -50,7 +51,7 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
 
@@ -156,15 +157,15 @@
         showFooter = false;
         if (trackedImage && trackedImage.trackingState === 'tracked') {
             // TODO: use XRImageTrackingState.tracked
-            if (!trackedImageObject) {
-                trackedImageObject = tdEngine.addMarkerObject();
+            if (trackedImageObjectNodeId === null) {
+                trackedImageObjectNodeId = tdEngine.addMarkerObject();
             }
 
             const markerPos = xrMarkerPose.transform.position;
             const markerOri = xrMarkerPose.transform.orientation;
-            const position = new Vec3(markerPos.x, markerPos.y, markerPos.z);
-            const orientation = new Quat(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
-            tdEngine.updateMarkerObjectPosition(trackedImageObject, position, orientation);
+            const position = vec3.fromValues(markerPos.x, markerPos.y, markerPos.z);
+            const orientation = quat.fromValues(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
+            tdEngine.updateMarkerObjectPosition(trackedImageObjectNodeId, position, orientation);
             isLocalized = true;
         }
 

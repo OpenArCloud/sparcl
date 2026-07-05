@@ -40,7 +40,7 @@
         enableCameraPoseSharing,
         showOtherCameras,
     } from '@src/stateStore';
-    import { PRIMITIVES } from '../core/engines/ogl/modelTemplates'; // just for drawing an agent
+    import { PRIMITIVES } from '@core/contents/primitives';
     import { rgbToHex, normalizeColor } from '@core/common'; // just for drawing an agent
     import { ARMODES, wait } from '@core/common';
     import {
@@ -54,43 +54,24 @@
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
-    import type { PlyLoadOptions } from '@core/engines/ogl/oglPlyHelper';
+    import { parseScrPlyLoadOptions } from '@core/contents/pointcloud';
     import * as worldAlignment from '@core/worldAlignment';
-    import type { WebXrRigidPose } from '@core/frameTransforms';
+    import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
+    import { mat4, quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
     import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
-    import ogl, { model3DFormatFromRef } from '../core/engines/ogl/ogl';
-    import { Vec3, type Mat4, type Mesh, Quat, type Transform } from 'ogl';
-    import { createSensorVisualization, updateSensorFromMsg, updateSensorVisualization } from '@src/features/sensor-visualizer';
-    import { subscribeToSensor } from '@src/core/rmqnetwork';
-
-    /** PLY display options from SCR `definitions` (parsing stays in Viewer until type-specific SCR parsers). */
-    function plyLoadOptions(def: Record<string, string>): PlyLoadOptions | undefined {
-        const out: PlyLoadOptions = {};
-        const mode = def['plyColorMode'];
-        if (mode === 'auto' || mode === 'vertex' || mode === 'uniform') {
-            out.colorMode = mode;
-        }
-        const ucs = def['plyUniformColor'];
-        if (ucs) {
-            const parts = ucs
-                .split(/[,\s]+/)
-                .map((s) => parseFloat(s.trim()))
-                .filter((n) => !Number.isNaN(n));
-            if (parts.length >= 3) {
-                out.uniformColor = [parts[0], parts[1], parts[2]];
-            }
-        }
-        return Object.keys(out).length > 0 ? out : undefined;
-    }
+    import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import { model3DFormatFromRef } from '@core/contents/contentFormats';
+    import type { SceneNodeId } from '@core/engines/RenderingEngine';
+    import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
     /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
     function applyModel3dDefinitionAnimations(
-        engine: ogl,
-        root: Transform,
+        engine: RenderingEngine,
+        nodeId: SceneNodeId,
         definitions: Record<string, string>,
     ) {
         const animation = definitions['animation'];
@@ -99,7 +80,7 @@
         }
         switch (animation) {
             case 'SPIN_UP':
-                engine.setVerticallyRotating(root);
+                engine.setVerticallyRotating(nodeId);
                 break;
             default:
                 break;
@@ -125,12 +106,13 @@
     let externalContentIFrame: HTMLIFrameElement;
     let externalContentCloseButton: HTMLImageElement;
     let xrEngine: webxr;
-    let tdEngine: ogl;
+    let tdEngine: RenderingEngine;
+    let sensorVisualizer: SensorVisualizer | undefined;
 
     let unableToStartSession = false;
     let startLocalizing = false;
     let experienceLoaded = false;
-    let experienceMatrix: Mat4 | null = null;
+    let experienceMatrix: mat4 | null = null;
     let firstPoseReceived = false;
     let poseFoundHeartbeat: DebouncedFunction<() => boolean> | undefined = undefined;
 
@@ -171,9 +153,10 @@
      * @param thisWebxr  class instance     Handler class for WebXR
      * @param this3dEngine  class instance      Handler class for 3D processing
      */
-    export function startAr(thisWebxr: webxr, this3dEngine: ogl) {
+    export function startAr(thisWebxr: webxr, this3dEngine: RenderingEngine) {
         xrEngine = thisWebxr;
         tdEngine = this3dEngine;
+        sensorVisualizer = new SensorVisualizer(tdEngine);
 
         // give the component some time to set up itself
         wait(1000).then(() => {
@@ -348,7 +331,8 @@
                 }
             }
 
-            updateSensorVisualization();
+            // Particle / label animation step for sensor visualizations. 
+            sensorVisualizer?.updateAnimation();
 
             // If we know the world alignment...
             if (worldAlignment.hasActiveWorldAlignment()) {
@@ -488,6 +472,9 @@
         worldAlignment.clearActiveGeoPoseAlignment();
         worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
+
+        // cleanup rendering
+        sensorVisualizer?.clearAllSensors();
         tdEngine.cleanup();
 
         // broadcast event to parent
@@ -516,6 +503,9 @@
         worldAlignment.clearActiveGeoPoseAlignment();
         worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
+
+        // cleanup rendering
+        sensorVisualizer?.clearAllSensors();
         tdEngine.reinitialize();
     }
 
@@ -569,11 +559,7 @@
             position: { x: 0, y: 0, z: 0 },
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
-        tdEngine.addDebugAxesAtWorldMatrix(
-            tdEngine.transformFromRigidPose(origin),
-            [1, 1, 1, 0.5],
-            true,
-        );
+        tdEngine.addDebugAxesAtWorldMatrix(mat4FromRigidPose(origin), [1, 1, 1, 0.5], true);
 
         const geoAlign = worldAlignment.getActiveGeoAlignment();
         const anchorForEnuDebug = geoAlign?.anchorGeopose ?? coarseGeopose;
@@ -603,7 +589,7 @@
             if (experienceMatrix == null) {
                 throw new Error('experienceMatrix is null!');
             }
-            externalContentIFrame?.contentWindow?.postMessage(tdEngine.getExternalCameraPose(view, experienceMatrix), '*');
+            externalContentIFrame?.contentWindow?.postMessage(tdEngine.getExternalCameraParameters(view, experienceMatrix), '*');
         }
     }
 
@@ -784,9 +770,11 @@
                     console.log(`Skipping SCR ${record.content.id} (${record.content.type}): ${poseResult.reason}`);
                     return;
                 }
-                const lp = tdEngine.transformFromRigidPose(poseResult.pose);
-                const localPosition = lp.position;
-                const localQuaternion = lp.quaternion;
+
+                const p = poseResult.pose.position;
+                const o = poseResult.pose.orientation;
+                const localPosition = vec3.fromValues(p.x, p.y, p.z);
+                const localQuaternion = quat.fromValues(o.x, o.y, o.z, o.w);
 
                 // Difficult to generalize, because there are no types defined yet.
                 switch (record.content.type) {
@@ -826,13 +814,13 @@
 
                             switch (modelFormat) {
                                 case 'gltf': {
-                                    const nodeTransform = tdEngine.addModel(url, localPosition, localQuaternion).transform;
-                                    applyModel3dDefinitionAnimations(tdEngine, nodeTransform, content_definitions);
+                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion);
+                                    applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                     break;
                                 }
                                 case 'ply': {
                                     void tdEngine
-                                        .addPlyObject(url, localPosition, localQuaternion, plyLoadOptions(content_definitions))
+                                        .addPlyObject(url, localPosition, localQuaternion, parseScrPlyLoadOptions(content_definitions))
                                         .then((mesh) => {
                                             if (mesh == null) {
                                                 const placeholder = tdEngine.addPlaceholder(
@@ -881,9 +869,8 @@
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
                             let object_id = record.content.id;
-
                             let object_description = (record.content as any).object_description;
-                            if (tdEngine.getDynamicObjectMesh(object_id) != null) {
+                            if (tdEngine.getDynamicObjectNodeId(object_id) != null) {
                                 tdEngine.updateDynamicObject(object_id, localPosition, localQuaternion, object_description);
                             } else {
                                 tdEngine.addDynamicObject(object_id, localPosition, localQuaternion, object_description);
@@ -893,23 +880,23 @@
                     }
 
                     case 'sensor_stream': {
-                        if (debugScrs) console.log(`addSensorObject ${record.content.title}`);
-
-                        // handle general sensor stream objects
-                        const sensor_id = createSensorVisualization(tdEngine, localPosition, localQuaternion, content_definitions);
-                        if (sensor_id == undefined) {
-                            console.error('ERROR: Unable to parse sensor content record! ' + record.content.id);
+                        const sensor_id = content_definitions['sensor_id']
+                        if (sensor_id === undefined) {
+                            console.error('ERROR: Unable to parse sensor_id from sensor content record: ' + JSON.stringify(record.content));
                             break;
                         }
-                        if (content_definitions.rmqTopic) {
-                            subscribeToSensor(content_definitions.rmqTopic, (d) => {
-                                console.log(d.body);
-                                updateSensorFromMsg(d.body, tdEngine);
-                            });
-                        } else {
-                            console.error('Missing rmqTopic field for sensor');
+                        if (!sensorVisualizer) {
+                            console.error('ERROR: Sensor stream SCR received but sensor visualizer is not initialized');
+                            break;
                         }
-
+                        if (sensorVisualizer.hasSensor(sensor_id)) {
+                            // ignore if the sensor visualization already exists
+                            break;
+                        }
+                        if (debugScrs) {
+                            console.log(`Sensor stream visualization created for ${record.content.title}, sensor_id: ${sensor_id}`);
+                        }
+                        sensorVisualizer.createSensor(localPosition, localQuaternion, content_definitions);
                         break;
                     }
 
@@ -924,7 +911,7 @@
                             }
                             const refContentType = record.content.refs?.[0]?.contentType ?? '';
                             tdEngine.addPointCloudObject(url, localPosition, localQuaternion, {
-                                ...(plyLoadOptions(content_definitions) ?? {}),
+                                ...(parseScrPlyLoadOptions(content_definitions) ?? {}),
                                 contentType: refContentType,
                                 scrContentType: record.content.type,
                             });
@@ -985,17 +972,21 @@
                                         position: { lat: poiLat, lon: poiLon, h: poiH },
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
-                                    const localFeaturePose = tdEngine.transformFromRigidPose(worldAlignment.convertGeoPoseToLocalPose(featureGeopose));
-                                    const nodeTransform = tdEngine.addModel('/media/models/map_pin.glb', localFeaturePose.position, localFeaturePose.quaternion, new Vec3(2, 2, 2), (pinModel) => {
-                                        //tdEngine.setVerticallyRotating(pinModel.parent!); // TODO: why does this not work?
+                                    const pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+                                    const modelNodeId = tdEngine.addModelWithRigidPose(
+                                        '/media/models/map_pin.glb',
+                                        pinPose,
+                                        [2, 2, 2],
+                                        (pinModelId) => {
                                         if (debugScrs) console.log('POI ' + featureName + ' added.');
-                                    }).transform;
-                                    tdEngine.setVerticallyRotating(nodeTransform);
+                                        //tdEngine.setVerticallyRotating(pinModelId.parent!); // TODO: why does this not work?
+                                    });
+                                    tdEngine.setVerticallyRotating(modelNodeId);
 
-                                    let localTextPosition = localFeaturePose.position.clone();
-                                    localTextPosition.y += 3;
-                                    const textColor = new Vec3(0.063, 0.741, 1.0); // light blue
-                                    const textMesh = tdEngine.addTextObject(localTextPosition, localFeaturePose.quaternion, featureName, textColor);
+                                    const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
+                                        textColor: [0.063, 0.741, 1.0],
+                                        positionOffset: [0, 3, 0],
+                                    });
                                     textMesh.then((node) => {
                                         tdEngine.setTowardsCameraRotating(node);
                                     });
@@ -1054,22 +1045,29 @@
     /**
      * Handler to load and unload external experiences.
      *
-     * @param placeholder  Model    The initial placeholder placed into the 3D scene
-     * @param position  Vec3        The position the experience should be placed
-     * @param orientation  Quat     The orientation of the experience
+     * @param placeholderNodeId  SceneNodeId    The initial placeholder placed into the 3D scene
+     * @param position  ReadonlyVec3        The position the experience should be placed
+     * @param orientation  ReadonlyQuat     The orientation of the experience
      * @param url  String           The URL to load the experience from
      */
-    export function experienceLoadHandler(placeholder: Mesh, position: Vec3, orientation: Quat, url: string) {
-        tdEngine.setWaiting(placeholder);
+    export function experienceLoadHandler(
+        placeholderNodeId: SceneNodeId,
+        position: ReadonlyVec3,
+        orientation: ReadonlyQuat,
+        url: string
+    ) {
+        tdEngine.setWaiting(placeholderNodeId);
 
         externalContentIFrame.src = url;
         window.addEventListener(
             'message',
             (event) => {
                 if (event.data.type === 'loaded') {
-                    tdEngine.remove(placeholder);
+                    tdEngine.remove(placeholderNodeId);
                     experienceLoaded = true;
-                    experienceMatrix = placeholder.matrix;
+                    const world = mat4.create();
+                    tdEngine.getNodeWorldMatrix(placeholderNodeId, world);
+                    experienceMatrix = mat4.clone(world);
 
                     externalContentCloseButton.addEventListener(
                         'click',
