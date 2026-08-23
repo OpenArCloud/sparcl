@@ -53,10 +53,6 @@
         margin-left: 0;
     }
 
-    pre {
-        margin: 5px;
-    }
-
     select {
         width: 100%;
         height: 30px;

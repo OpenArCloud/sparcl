@@ -343,17 +343,6 @@
 <pre id="logger"></pre>
 
 <style>
-    main {
-        max-width: 100vw;
-        overflow-x: hidden;
-        margin: 0 48px 90px;
-        font:
-            normal 18px/24px Trebuchet,
-            Arial,
-            sans-serif;
-        color: var(--theme-color);
-    }
-
     aside {
         position: fixed;
         top: 0;

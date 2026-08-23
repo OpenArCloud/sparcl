@@ -298,13 +298,6 @@
 </svelte:head>
 
 <style>
-    html,
-    body,
-    #map {
-        margin: 0;
-        padding: 0;
-    }
-
     details {
         position: absolute;
         right: 10px;
