@@ -15,7 +15,8 @@
     import { createEventDispatcher } from 'svelte';
     import ColorPicker from 'svelte-awesome-color-picker';
 
-    import { Swipeable, Screen, Controls } from 'thumb-ui';
+    import IntroCarousel from './IntroCarousel.svelte';
+    import IntroScreen from './IntroScreen.svelte';
 
     import { hasIntroSeen, arIsAvailable, isLocationAccessAllowed, arMode, myAgentColor, myAgentName } from '@src/stateStore';
 
@@ -35,6 +36,7 @@
         locationaccessinfo,
         noservicesavailable,
         playerScreenTitle,
+        swipeToContinueLabel,
     } from '@src/contentStore';
     import { ARMODES } from '@core/common';
 
@@ -84,14 +86,14 @@
         {/if}
     </div>
 {:else if $arIsAvailable}
-    <Swipeable>
-        <Screen numScreens="4">
+    <IntroCarousel swipeLabel={$swipeToContinueLabel}>
+        <IntroScreen>
             <div id="welcomewrapper">
                 <h3>{$introGreeting}</h3>
                 <div>{@html $intro}</div>
             </div>
-        </Screen>
-        <Screen>
+        </IntroScreen>
+        <IntroScreen>
             {#if !$isLocationAccessAllowed}
                 <h4>{$locationaccessrequired}</h4>
                 <p>{@html $locationaccessinfo}</p>
@@ -104,9 +106,9 @@
                 <h4 id="locationgranted">{$locationaccessgranted}</h4>
                 <img src="/media/overlay/marker.png" alt="location marker" />
             {/if}
-        </Screen>
+        </IntroScreen>
         {#if userWithoutAuth}
-            <Screen>
+            <IntroScreen>
                 <h4 id="player-title">{$playerScreenTitle}</h4>
 
                 <p id="player-username-text">Choose your name</p>
@@ -117,14 +119,14 @@
                 <div class="color-picker-container">
                     <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" --picker-z-index="100" --picker-height="90px" --picker-width="120px" />
                 </div>
-            </Screen>
+            </IntroScreen>
         {/if}
-        <Screen>
+        <IntroScreen>
             <h4 id="staysafe">Stay safe</h4>
             <img src="/media/overlay/ready.png" alt="Ready icon showing phone" />
             <p>Always keep aware of your surroundings.</p>
-        </Screen>
-        <Screen>
+        </IntroScreen>
+        <IntroScreen>
             {#if showServicesUnavailableInfo && $arMode !== ARMODES.develop && $arMode !== ARMODES.create}
                 <h4>{$noservicesavailable}</h4>
                 <div>{$unavailableInfo}</div>
@@ -145,9 +147,8 @@
                     </button>
                 {/if}
             {/if}
-        </Screen>
-        <Controls />
-    </Swipeable>
+        </IntroScreen>
+    </IntroCarousel>
 {/if}
 
 <style>
@@ -206,11 +207,26 @@
 
         width: 100%;
         height: 100%;
+        box-sizing: border-box;
 
-        padding-top: 45px;
+        padding: 20px 12px 0;
 
         font-weight: bold;
-        background: url('/media/overlay/welcome.png') no-repeat;
+        background: url('/media/overlay/welcome.png') no-repeat center top;
+        background-size: cover;
+        overflow: hidden;
+    }
+
+    #welcomewrapper h3 {
+        margin-top: 0;
+        margin-bottom: 4px;
+        font-size: 28px;
+        line-height: 1.1;
+    }
+
+    #welcomewrapper :global(div) {
+        font-size: 16px;
+        line-height: 1.25;
     }
 
     #welcomebackwrapper {
@@ -266,15 +282,10 @@
 
     :global(.swipeable) {
         position: relative;
-        height: 385px !important;
+        height: 385px;
 
         color: white;
         background-color: var(--theme-background);
         overflow-x: hidden;
-    }
-
-    :global(.prev),
-    :global(.next) {
-        display: none;
     }
 </style>

@@ -20,6 +20,12 @@ export const introGreeting = readable('', (set) => {
     return () => set('');
 });
 
+// Hint shown below the intro carousel on the first screen
+export const swipeToContinueLabel = readable('', (set) => {
+    set('Swipe to continue');
+    return () => set('');
+});
+
 // Text shown on intro screen
 export const intro = readable('', (set) => {
     set(`
