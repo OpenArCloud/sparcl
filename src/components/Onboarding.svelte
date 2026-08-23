@@ -44,6 +44,7 @@
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { ExperimentsViewers } from '../types/xr';
     import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
+    import { createRenderingEngine, resolveRenderingEngineId } from '@core/engines/createRenderingEngine';
 
     /**
      * Start AR work
@@ -217,7 +218,6 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        const { createRenderingEngine, resolveRenderingEngineId } = await import('@core/engines/createRenderingEngine');
         const values = await Promise.all([createRenderingEngine(resolveRenderingEngineId()), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
         const tdEngine = values[0];
