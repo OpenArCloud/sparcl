@@ -107,10 +107,32 @@
         clearTimeout(stopTimeout ?? undefined);
         stopTimeout = setTimeout(stopMove, 100);
     }
+
+    function goToSlide(index: number) {
+        if (index < 0 || index > maxSlideIndex || size <= 0) return;
+        draggedPixels = index * size;
+        $progress = index;
+    }
+
+    function keydown(event: KeyboardEvent) {
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            goToSlide(current - 1);
+        } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            goToSlide(current + 1);
+        }
+    }
 </script>
 
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+<!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <div
     bind:clientWidth
+    role="region"
+    aria-roledescription="carousel"
+    aria-label="Introduction"
+    tabindex="0"
     on:pointercancel={pointercancel}
     on:touchstart={touchstart}
     on:touchmove={touchmove}
@@ -120,6 +142,7 @@
     on:mouseup={mouseup}
     on:wheel={wheel}
     on:click={click}
+    on:keydown={keydown}
     class="intro-carousel"
 >
     <slot {current} progress={$progress} />
