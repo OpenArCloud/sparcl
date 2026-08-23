@@ -11,8 +11,7 @@
             "@public/*": ["public/*"],
             "@shaders/*": ["src/core/engines/ogl/shaders/*"],
             "@thirdparty/*": ["src/third-party/*"],
-            "@experiments/*": ["src/experiments/*"],
-            "*": ["node_modules/*", "src/types/*"] // to accept importing packages from external libraries
+            "@experiments/*": ["src/experiments/*"]
         },
         "target": "ESNext",
         "useDefineForClassFields": true,
@@ -20,7 +19,6 @@
         "moduleResolution": "Bundler",
         "noEmit": true,
         "resolveJsonModule": true,
-        "allowImportingTsExtensions": true,
         /**
          * Typecheck JS in `.svelte` and `.js` files by default.
          * Disable checkJs if you'd like to use dynamic types in JS.
@@ -31,5 +29,5 @@
         "checkJs": true,
         "isolatedModules": true
     },
-    "include": ["src/**/*.ts", "src/**/*.js", "src/**/*.svelte", "test/**/*.ts"]
+    "include": ["src/**/*.ts", "src/**/*.svelte", "test/**/*.ts"]
 }

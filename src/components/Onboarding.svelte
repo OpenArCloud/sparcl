@@ -42,7 +42,7 @@
     import type webxr from '@core/engines/webxr';
     import { logToElement } from '@src/core/devTools';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import type { ExperimentsViewers } from '../types/xr.ts';
+    import type { ExperimentsViewers } from '../types/xr';
     import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
 
     /**
