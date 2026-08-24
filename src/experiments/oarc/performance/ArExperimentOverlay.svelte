@@ -45,8 +45,8 @@
     <p>Max slow passed: {hasPassedMaxSlow}</p>
     <button class="prime" on:click={() => dispatch('toggleAutoPlacement')}>Toggle placement</button>
     {#if $experimentModeSettings.performance.localisation}
-        <button class="secondary" on:click={() => dispatch('relocalize')}>
-            <img src="/media/refresh.svg" />
+        <button class="secondary" aria-label="Relocalize" on:click={() => dispatch('relocalize')}>
+            <img src="/media/refresh.svg" alt="" />
         </button>
     {/if}
 {/if}

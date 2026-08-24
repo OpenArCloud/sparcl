@@ -4,7 +4,7 @@
   SPDX-License-Identifier: MIT
 */
 
-import auth0 from './auth0Service.js';
+import auth0 from './auth0Service';
 import { isLoggedIn, showLogin, showDashboard } from '../stateStore';
 
 /////////////////////////////////// Signout Configuration ///////////////////////////////////

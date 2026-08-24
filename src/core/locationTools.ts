@@ -15,7 +15,7 @@ import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
 import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import * as h3 from 'h3-js';
 
-import { supportedCountries } from '@oarc/ssd-access';
+import { supportedCountries, setSsdUrl, getServicesAtLocation } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
 import { availableGeoPoseServices, debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, selectedGeoPoseService, ssr } from '../stateStore';
 import { get } from 'svelte/store';
@@ -88,17 +88,16 @@ export const setInitialLocationAndServices = async () => {
             const currentLocation = await getCurrentLocation();
             console.log('currentLocation', currentLocation);
             initialLocation.set(currentLocation);
-            const ssdModule = await import('@oarc/ssd-access');
             const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
             if (ssdUrl != undefined && ssdUrl != '') {
-                ssdModule.setSsdUrl(ssdUrl);
+                setSsdUrl(ssdUrl);
                 console.log('Setting SSD URL to ' + ssdUrl);
             } else {
                 console.error('Cannot determine SSD URL!');
                 throw new Error('Cannot determine SSD URL!');
             }
             // TODO: we could also query all the neighboring hexagons
-            const services = await ssdModule.getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index);
+            const services = await getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index);
             ssr.set(services);
 
             if (get(availableGeoPoseServices).length > 0 && get(selectedGeoPoseService) == null) {

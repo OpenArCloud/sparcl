@@ -49,9 +49,14 @@
                                 {:else}
                                     <input type="password" bind:value={$messageBrokerAuth[$selectedMessageBrokerService.guid].password} name="password" />
                                 {/if}
-                                <span on:click={() => (passwordVisible = !passwordVisible)} style="position: absolute; right: 5px; top: 50%; transform: translateY(-50%); cursor: pointer;">
+                                <button
+                                    type="button"
+                                    class="password-toggle"
+                                    aria-label={passwordVisible ? 'Hide password' : 'Show password'}
+                                    on:click={() => (passwordVisible = !passwordVisible)}
+                                >
                                     {passwordVisible ? '🙈' : '👁️'}
-                                </span>
+                                </button>
                             </div>
                         </div>
                     </form>
@@ -148,5 +153,17 @@
         direction: ltr;
         text-align: left;
         padding-bottom: 3px;
+    }
+
+    .password-toggle {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 0;
+        padding: 0;
+        background: transparent;
+        cursor: pointer;
+        line-height: 1;
     }
 </style>

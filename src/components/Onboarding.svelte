@@ -42,8 +42,9 @@
     import type webxr from '@core/engines/webxr';
     import { logToElement } from '@src/core/devTools';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import type { ExperimentsViewers } from '../types/xr.ts';
+    import type { ExperimentsViewers } from '../types/xr';
     import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
+    import { createRenderingEngine, resolveRenderingEngineId } from '@core/engines/createRenderingEngine';
 
     /**
      * Start AR work
@@ -217,7 +218,6 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
-        const { createRenderingEngine, resolveRenderingEngineId } = await import('@core/engines/createRenderingEngine');
         const values = await Promise.all([createRenderingEngine(resolveRenderingEngineId()), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
         const tdEngine = values[0];
@@ -343,17 +343,6 @@
 <pre id="logger"></pre>
 
 <style>
-    main {
-        max-width: 100vw;
-        overflow-x: hidden;
-        margin: 0 48px 90px;
-        font:
-            normal 18px/24px Trebuchet,
-            Arial,
-            sans-serif;
-        color: var(--theme-color);
-    }
-
     aside {
         position: fixed;
         top: 0;

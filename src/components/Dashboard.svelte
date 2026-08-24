@@ -461,7 +461,6 @@
         color: var(--theme-muted, #888);
     }
 
-    h2,
     summary {
         margin-top: 60px;
         margin-bottom: 15px;
@@ -469,10 +468,6 @@
 
         font-size: 1.5em;
         font-weight: bold;
-    }
-
-    legend h4 {
-        margin-bottom: 0;
     }
 
     #go-immersive-button {
@@ -503,8 +498,7 @@
         background-color: white;
     }
 
-    :global(.dashboard dt),
-    .label {
+    :global(.dashboard dt) {
         height: 20px;
 
         margin-bottom: 6px;
@@ -513,8 +507,7 @@
         text-align: left;
     }
 
-    :global(.dashboard dd),
-    .value {
+    :global(.dashboard dd) {
         display: flex;
         align-items: center;
 
@@ -636,19 +629,9 @@
         background: #8e9ca9 0 0 no-repeat padding-box;
     }
 
-    pre {
-        margin: 5px;
-    }
-
     #showagain {
         margin-top: 20px;
         margin-bottom: 26px;
-    }
-
-    .autoheight {
-        height: initial;
-
-        padding: 0;
     }
 
     .serviceurl {
