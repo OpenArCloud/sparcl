@@ -16,7 +16,8 @@ import { readable, writable, derived, get } from 'svelte/store';
 import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES, type RGBA } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
-import type { Geopose, SCR } from '@oarc/scd-access';
+import type { Geopose } from '@oarc/scd-access';
+import type { SCRExtended } from '@core/scrPlacement';
 
 /**
  * Determines the isAuthenticatedAuth0 status.
@@ -479,7 +480,7 @@ dashboardDetail.subscribe((value) => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
 });
 
-export const receivedScrs = writable<SCR[]>([]);
+export const receivedScrs = writable<SCRExtended[]>([]);
 
 export const enableCameraPoseSharing = writable(localStorage.getItem('enableCameraPoseSharing') === null || localStorage.getItem('enableCameraPoseSharing') === 'true'); // set true if stored true or undefined
 enableCameraPoseSharing.subscribe((value) => {

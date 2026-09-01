@@ -7,12 +7,25 @@
   Resolve Spatial Content Record **Content** poses into WebXR scene rigid poses using session alignment.
 */
 
-import type { Content } from '@oarc/scd-access';
+import type { Content, SCR } from '@oarc/scd-access';
 import { SPARCL_WEBXR_SCENE_FRAME_REF, parseFramedPose, type FramedPose } from '@core/spatial';
 import { frameTransformGraph } from '@core/frameTransforms';
 import { upgradeGeoPoseStandard } from '@core/locationTools';
 import * as worldAlignment from '@core/worldAlignment';
 import type { RigidPose } from '@core/frameTransforms';
+
+/**
+ * SPARCL SCR content: published `@oarc/scd-access` still requires `geopose` and has no `framedPose`.
+ * Until that package is updated, a record may carry optional `geopose` and/or SpatialDDS `framedPose`.
+ */
+export type ContentExtended = Omit<Content, 'geopose'> & {
+    geopose?: Content['geopose'];
+    framedPose?: FramedPose;
+};
+
+export type SCRExtended = Omit<SCR, 'content'> & {
+    content: ContentExtended;
+};
 
 export type SceneRigidPoseResult =
     | { ok: true; pose: RigidPose }
@@ -33,10 +46,9 @@ function framedPoseToRigidPose(framedPose: FramedPose): RigidPose {
  * use **framedPose** if {@link worldAlignment.findFramedPoseAlignment} matches that pose’s `frame_ref`, else try **frameTransformGraph**
  * **T_scene_from_ref** from content frame → {@link SPARCL_WEBXR_SCENE_FRAME_REF}; otherwise fall back to **geopose** when {@link worldAlignment.getActiveGeoAlignment} is set.
  */
-export function sceneRigidPoseFromScrContent(content: Content): SceneRigidPoseResult {
-    const c = content as Content & { framedPose?: unknown; geopose?: unknown };
-    const framedPoseWire = c.framedPose;
-    const geoPose = c.geopose;
+export function sceneRigidPoseFromScrContent(content: ContentExtended): SceneRigidPoseResult {
+    const framedPoseWire = content.framedPose;
+    const geoPose = content.geopose;
 
     const framedPose = framedPoseWire === undefined ? undefined : parseFramedPose(framedPoseWire as unknown);
     if (framedPoseWire !== undefined && framedPose === undefined) {

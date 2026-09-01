@@ -12,6 +12,7 @@ import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
 import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
+import type { SCRExtended } from '@core/scrPlacement';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
 import { frameTransformGraph } from '@core/frameTransforms';
@@ -586,7 +587,7 @@ export function buildFakeLocalizationResponse(
 }
 
 /** Dev-only SCR using **framedPose** in {@link SPARCL_WEBXR_SCENE_FRAME_REF} (requires framed alignment for that frame, e.g. override localization). */
-export const fakeContentWithFramedPoseScene: SCR = {
+export const fakeContentWithFramedPoseScene: SCRExtended = {
     content: {
         description: '',
         id: 'framed-demo-1',
@@ -611,7 +612,7 @@ export const fakeContentWithFramedPoseScene: SCR = {
 /**
  * Dev-only SCR: **framedPose** in {@link SPARCL_TEST_HOP2_FRAME_REF} (needs {@link seedSparclTestFrameGraph} + graph path hop2→scene; no VPS framed alignment for hop2).
  */
-export const fakeContentWithFramedPoseHop2: SCR = {
+export const fakeContentWithFramedPoseHop2: SCRExtended = {
     content: {
         description: '',
         id: 'framed-demo-hop2',

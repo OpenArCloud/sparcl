@@ -50,7 +50,7 @@
         saveText,
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
-    import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
+    import { sceneRigidPoseFromScrContent, type SCRExtended } from '@core/scrPlacement';
     import { parseScrPlyLoadOptions } from '@core/contents/pointcloud';
     import * as worldAlignment from '@core/worldAlignment';
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
@@ -763,7 +763,7 @@
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export async function placeContent(scrs: SCR[][]) {
+    export async function placeContent(scrs: SCRExtended[][]) {
         if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log(`There is no world alignment!`);
             return;
@@ -795,8 +795,8 @@
                         if (record.content.geopose !== undefined) {
                             console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
                         }
-                        if ((record.content as any).framedPose !== undefined) { // TODO: remove any after finalizing the SCR format
-                            console.log(' -framedPose: ' + JSON.stringify((record.content as any).framedPose));
+                        if (record.content.framedPose !== undefined) {
+                            console.log(' -framedPose: ' + JSON.stringify(record.content.framedPose));
                         }
                     }
                 }
