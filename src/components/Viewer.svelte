@@ -45,12 +45,9 @@
     import { ARMODES, wait } from '@core/common';
     import {
         buildFakeLocalizationResponse,
-        fakeContentWithFramedPoseScene,
-        fakeContentWithFramedPoseHop2,
         loadImageBase64,
         saveImageBase64,
         saveText,
-        seedSparclTestFrameGraph,
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
     import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
@@ -59,7 +56,7 @@
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
     import { mat4, quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
-    import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
+    import { parseGppResponse, type GeoPoseResponseExtended, type GeoPoseAccuracy } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
@@ -67,6 +64,13 @@
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
+
+    // Fake contents for testing FramedPose support
+    import { 
+        fakeContentWithFramedPoseScene, 
+        fakeContentWithFramedPoseHop2, 
+        seedSparclTestFrameGraph,
+    } from '@core/devTools';
 
     /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
     function applyModel3dDefinitionAnimations(
@@ -637,7 +641,17 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({ geopose: selfEstimatedGeoPose});
+                    const selfEstimatedGeoPoseResponse:GeoPoseResponseExtended = {
+                        geopose: selfEstimatedGeoPose,
+                        type: 'sensor',
+                        id: 'sensor',
+                        timestamp: Date.now(),
+                        accuracy: {
+                            position: 0,
+                            orientation: 0,
+                        },
+                    };
+                    resolve(selfEstimatedGeoPoseResponse);
                 });
                 return;
             }
@@ -781,8 +795,8 @@
                         if (record.content.geopose !== undefined) {
                             console.log(' -geopose: ' + JSON.stringify(record.content.geopose));
                         }
-                        if (record.content.framedPose !== undefined) {
-                            console.log(' -framedPose: ' + JSON.stringify(record.content.framedPose));
+                        if ((record.content as any).framedPose !== undefined) { // TODO: remove any after finalizing the SCR format
+                            console.log(' -framedPose: ' + JSON.stringify((record.content as any).framedPose));
                         }
                     }
                 }
