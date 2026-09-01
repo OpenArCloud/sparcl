@@ -23,15 +23,14 @@
          * Disable this if you'd like to use dynamic types.
          */
         "checkJs": true,
-        "baseUrl": ".",
         "paths": {
-            "@src/*": ["src/*"],
-            "@components/*": ["src/components/*"],
-            "@core/*": ["src/core/*"],
-            "@public/*": ["public/*"],
-            "@shaders/*": ["src/core/engines/ogl/shaders/*"],
-            "@thirdparty/*": ["src/third-party/*"],
-            "@experiments/*": ["src/experiments/*"]
+            "@src/*": ["./src/*"],
+            "@components/*": ["./src/components/*"],
+            "@core/*": ["./src/core/*"],
+            "@public/*": ["./public/*"],
+            "@shaders/*": ["./src/core/engines/ogl/shaders/*"],
+            "@thirdparty/*": ["./src/third-party/*"],
+            "@experiments/*": ["./src/experiments/*"]
         }
     },
     /**
