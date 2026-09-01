@@ -18,7 +18,13 @@
     import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-    import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
+    import { 
+        type XrFeature,
+        type XrInitCallbackType, 
+        type XrFrameUpdateCallbackType, 
+        type XrNoPoseCallbackType,
+        type XrSessionEndedCallbackType,
+    } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -178,15 +184,15 @@
      * @param xrFrameUpdateCallback  function      Will be called from animation loop
      * @param xrSessionEndedCallback  function     Will be called when AR session ends
      * @param xrNoPoseCallback  function           Will be called when no pose was found
-     * @param setup  function               Specific setup for AR mode or experiment
+     * @param xrInitCallback  function             Called after the XR-compatible GL context exists, before canvas resize / XRWebGLLayer
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
     export async function startSession(
         xrFrameUpdateCallback: XrFrameUpdateCallbackType,
-        xrSessionEndedCallback: () => void,
-        xrNoPoseCallback: XrNoPoseCallbackType,
-        setup: SetupFunction = () => {},
+        xrSessionEndedCallback: XrSessionEndedCallbackType = () => {},
+        xrNoPoseCallback: XrNoPoseCallbackType = () => {},
+        xrInitCallback: XrInitCallbackType = () => {},
         requiredFeatures: XrFeature[] = [],
         optionalFeatures: XrFeature[] = [],
     ) {
@@ -200,15 +206,15 @@
         }
 
         try {
-            await xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
+            await xrEngine.startSession(canvas, xrFrameUpdateCallback, options, xrInitCallback);
+            xrEngine.setXrCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
+            tdEngine.init();
+            xrEngine.startXrRenderLoop();
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
             return;
         }
-
-        xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
-        tdEngine.init();
 
         if ($debug_useGeolocationSensors) {
             startOrientationSensor();

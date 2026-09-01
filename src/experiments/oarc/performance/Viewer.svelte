@@ -193,7 +193,7 @@
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace) {
         parentInstance.handlePoseHeartbeat();
 
         if (!hitTestSource) {

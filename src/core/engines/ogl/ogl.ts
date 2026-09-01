@@ -27,6 +27,7 @@ import {
     Color,
     TextureLoader,
     type OGLRenderingContext,
+    type RenderTarget,
     Mat3,
     type GLTF,
     type GLTFDescription,
@@ -99,6 +100,9 @@ let gltfCache: Record<string, GLTFDescription> = {};
 
 /** True after {@link ogl.init} registers window/document listeners; cleared in {@link ogl.stop}. */
 let listenersAttached = false;
+
+/** Dummy target used to keep OGL drawing into the currently bound XR layer FBO. */
+let xrRenderTarget: RenderTarget | null = null;
 
 // whether to print verbose logs in the console
 const debugOgl = false;
@@ -188,10 +192,14 @@ export default class ogl implements RenderingEngine {
      * Initialize ogl for use with WebXR.
      */
     init() {
-        if (!renderer) {
+        const canvasEl = document.querySelector('#application') as HTMLCanvasElement;
+        const contextLost = !!renderer?.gl?.isContextLost?.();
+        const canvasChanged = !!renderer && renderer.gl?.canvas !== canvasEl;
+        if (!renderer || contextLost || canvasChanged) {
+            xrRenderTarget = null;
             renderer = new Renderer({
                 alpha: true,
-                canvas: document.querySelector('#application') as HTMLCanvasElement,
+                canvas: canvasEl,
                 dpr: window.devicePixelRatio,
                 webgl: 2,
             });
@@ -1181,6 +1189,9 @@ export default class ogl implements RenderingEngine {
             listenersAttached = false;
         }
         experimentTapHandler = null;
+        if (gl && !gl.isContextLost()) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
     }
 
     /**
@@ -1197,6 +1208,9 @@ export default class ogl implements RenderingEngine {
      * @param view  XRView      Provided by WebXR
      */
     render(time: DOMHighResTimeStamp, view: XRView) {
+        if (!gl || !renderer || gl.isContextLost()) {
+            return;
+        }
         checkGLError(gl, 'OGL render() begin');
 
         const position = view.transform.position;
@@ -1224,7 +1238,29 @@ export default class ogl implements RenderingEngine {
         });
 
         videoHelper.onPreRender(time);
-        renderer.render({ scene, camera });
+        // Keep drawing on the XR layer framebuffer. OGL's default render() binds framebuffer null
+        // (the canvas default FBO), which is invalid during an immersive session and also fights
+        // the XRWebGLLayer that webxr bound for this animation frame.
+        const xrFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+        if (xrFramebuffer) {
+            const width = gl.drawingBufferWidth;
+            const height = gl.drawingBufferHeight;
+            if (!xrRenderTarget) {
+                xrRenderTarget = { buffer: xrFramebuffer, width, height } as RenderTarget;
+            } else {
+                xrRenderTarget.buffer = xrFramebuffer;
+                if (xrRenderTarget.width !== width || xrRenderTarget.height !== height) {
+                    xrRenderTarget.width = width;
+                    xrRenderTarget.height = height;
+                }
+            }
+            
+            // draw into the XR layer FBO
+            renderer.render({ scene, camera, target: xrRenderTarget });
+        } else {
+            // draw into the default framebuffer of the canvas (should not happen in normal operation)
+            renderer.render({ scene, camera });
+        }
 
         checkGLError(gl, 'OGL render() end');
     }

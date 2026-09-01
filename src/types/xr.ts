@@ -12,9 +12,14 @@ import type Ismar2021SignPostViewer from '@experiments/oarc/ismar2021signpost/Vi
 import type Ismar2021MultiViewer from '@experiments/oarc/ismar2021multi/Viewer.svelte';
 import type Ismar2021PerformanceViewer from '@experiments/oarc/performance/Viewer.svelte';
 
+export type XrFeature = string;
+
 export type XrFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace | XRBoundedReferenceSpace) => void;
 export type XrMarkerFrameUpdateCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, markerPose: XRPose, trackedImage: XRImageTrackingResult) => void;
 export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, frameDuration?: number, passedMaxSlow?: boolean) => void;
+export type XrInitCallbackType = (xr: webxr, xrSession: XRSession, gl: XrWebGL2Context | null) => void;
+export type XrSessionEndedCallbackType = () => void;
+export type XrReferenceSpaceResetCallbackType = (transform: XRRigidTransform) => void;
 
 /** WebGL2 context bound to the WebXR session canvas (`webgl2`, `xrCompatible`). */
 export type XrWebGL2Context = WebGL2RenderingContext;
@@ -24,8 +29,5 @@ export type XrWebGL2Context = WebGL2RenderingContext;
  * Used when applying anchored scene-root updates; kept separate from any specific renderer.
  */
 export type SceneRootMatrix = Float32Array | number[];
-
-export type SetupFunction = (xr: webxr, xrSession: XRSession, gl: XrWebGL2Context | null) => void;
-export type XrFeature = string;
 
 export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer;

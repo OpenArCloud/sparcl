@@ -170,6 +170,8 @@ function unregisterTrackedEngineMaterials(
 
 export default class ThreeEngine implements RenderingEngine {
     private renderer: THREE.WebGLRenderer | null = null;
+    /** Dummy target used to keep Three drawing into the currently bound XR layer FBO. */
+    private xrRenderTarget: THREE.WebGLRenderTarget | null = null;
     private scene = new THREE.Scene();
     private camera = new THREE.PerspectiveCamera(75, 1, XR_DEPTH_NEAR, XR_DEPTH_FAR);
     private readonly gltfLoader = new GLTFLoader();
@@ -255,7 +257,12 @@ export default class ThreeEngine implements RenderingEngine {
             throw new Error('ThreeEngine: webgl2 context not available on #application canvas');
         }
 
-        if (!this.renderer) {
+        const contextLost = gl.isContextLost();
+        const canvasChanged = !!this.renderer && this.renderer.domElement !== canvas;
+        if (!this.renderer || contextLost || canvasChanged) {
+            this.xrRenderTarget?.dispose();
+            this.xrRenderTarget = null;
+            this.renderer?.dispose();
             this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, alpha: true, antialias: true });
             this.renderer.autoClear = true;
             this.renderer.setClearColor(0x000000, 0);
@@ -917,6 +924,11 @@ export default class ThreeEngine implements RenderingEngine {
             this.listenersAttached = false;
         }
         this.experimentTapHandler = null;
+        const gl = this.renderer?.getContext();
+        if (gl && !gl.isContextLost()) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+        this.renderer?.setRenderTarget(null);
     }
 
     updateMatrixWorld(): void {
@@ -925,6 +937,10 @@ export default class ThreeEngine implements RenderingEngine {
 
     render(time: DOMHighResTimeStamp, view: XRView): void {
         if (!this.renderer) {
+            return;
+        }
+        const gl = this.renderer.getContext();
+        if (gl.isContextLost()) {
             return;
         }
 
@@ -953,6 +969,41 @@ export default class ThreeEngine implements RenderingEngine {
         }
 
         onThreeVideoPreRender();
+
+        // Keep drawing on the XR layer framebuffer. Three's default render() binds
+        // the canvas default FBO (setRenderTarget(null)), which is invalid during an
+        // immersive session and also fights the XRWebGLLayer that webxr bound for this
+        // animation frame.
+        const xrFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+        if (xrFramebuffer) {
+            const width = gl.drawingBufferWidth;
+            const height = gl.drawingBufferHeight;
+            if (!this.xrRenderTarget) {
+                this.xrRenderTarget = new THREE.WebGLRenderTarget(width, height);
+            } else if (this.xrRenderTarget.width !== width || this.xrRenderTarget.height !== height) {
+                this.xrRenderTarget.setSize(width, height);
+            }
+
+            // set the viewport to the size of the XR layer FBO
+            const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+            this.xrRenderTarget.viewport.set(viewport[0], viewport[1], viewport[2], viewport[3]);
+            
+            // Three.js runtime method for wrapping an XRWebGLLayer framebuffer; not in @types/three.
+            (
+                this.renderer as THREE.WebGLRenderer & {
+                    setRenderTargetFramebuffer: (
+                        target: THREE.WebGLRenderTarget,
+                        defaultFramebuffer: WebGLFramebuffer | undefined,
+                    ) => void;
+                }
+            ).setRenderTargetFramebuffer(this.xrRenderTarget, xrFramebuffer);
+
+            // draw into the XR layer FBO
+            this.renderer.setRenderTarget(this.xrRenderTarget);
+        } else {
+            // draw into the default framebuffer of the canvas (should not happen in normal operation)
+            this.renderer.setRenderTarget(null);
+        }
 
         this.renderer.render(this.scene, this.camera);
     }

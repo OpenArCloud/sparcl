@@ -16,3 +16,5 @@ So far, the separation is there, but there is no specific 'API' between the `Vie
 When you try this feature and run into problems, feel free to let us know.
 
 As always, please share you feedback with us. Pull requests are more than welcome.
+
+It is worth noting that WebXR requires a WebGL context with XR support (`WebGL2RenderingContext` with flag `{xrCompatible: true}`). As neither OGL nor ThreeJS uses this flag by default, we need to first create such a context ourselves (see `xrEngine._initSession()`). After this, we configure any custom callbacks on the XR session (`setXrCallbacks`). Next, we need to initialize the RenderingEngine and attach to the previously created context and resize the buffers (`tdEngine.init()` and `tdEngine.resize()`). Finally, we need to create an `XRWebGLLayer` with the already resized buffers and start the XR rendering loop with `requestAnimationFrame` in `xrEngine.startXrRenderLoop()`.

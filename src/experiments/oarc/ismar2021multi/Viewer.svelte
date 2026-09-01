@@ -102,7 +102,7 @@
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace) {
         // If localization is required and not done yet, pass on to the parent
         if ($settings.localizationRequired && !$parentState.isLocalized) {
             parentInstance.onXrFrameUpdate(time, frame, xrViewerPose);

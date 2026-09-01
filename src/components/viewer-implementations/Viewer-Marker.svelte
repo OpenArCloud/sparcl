@@ -11,7 +11,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import { createEventDispatcher, onDestroy, tick } from 'svelte';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { quat, vec3 } from 'gl-matrix';
 
@@ -65,7 +65,15 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
+        await tick();
+        if (!canvas || !overlay) {
+            unableToStartSession = true;
+            message('WebXR Immersive AR failed to start: canvas or overlay not ready');
+            return;
+        }
+
         const bitmap = await loadDefaultMarker();
+        const widthInMeters = Number($currentMarkerImageWidth);
         const options = {
             requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
             domOverlay: { root: overlay },
@@ -73,21 +81,21 @@
             trackedImages: [
                 {
                     image: bitmap,
-                    widthInMeters: $currentMarkerImageWidth,
+                    widthInMeters: Number.isFinite(widthInMeters) && widthInMeters > 0 ? widthInMeters : 0.2,
                 },
             ],
         };
 
         try {
             await xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
+            xrEngine.setXrCallbacks(onXrSessionEnded, onXrNoPose);
+            tdEngine.init();
+            xrEngine.startXrRenderLoop();
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
             return;
         }
-
-        xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
-        tdEngine.init();
     }
 
     onDestroy(() => {
