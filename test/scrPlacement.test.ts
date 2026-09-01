@@ -49,7 +49,7 @@ describe('sceneRigidPoseFromScrContent', () => {
             position: { lat: 47.4985, lon: 19.0415, h: 158.2 },
             quaternion: { x: 0.15, y: 0.2, z: 0.25, w: 0.93 },
         });
-        const content = {
+        const content:Content = {
             id: 'c1',
             type: 'MODEL_3D',
             title: 'x',
@@ -72,7 +72,7 @@ describe('sceneRigidPoseFromScrContent', () => {
             referenceFrameRef: frame,
             anchorGeopose: null,
         });
-        const content = {
+        const content:Content = {
             id: 'c2',
             type: 'MODEL_3D',
             title: 'x',
@@ -83,7 +83,7 @@ describe('sceneRigidPoseFromScrContent', () => {
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } as Content;
+        } as unknown as Content; // TODO: remove unknown after finalizing the SCR format
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(r.ok);
         assert.ok(Math.abs(r.pose.position.x - 1) < 1e-5);
@@ -93,7 +93,7 @@ describe('sceneRigidPoseFromScrContent', () => {
 
     it('framedPose-only fails without framed alignment', () => {
         clearAllWorldAlignment();
-        const content = {
+        const content:Content = {
             id: 'c3',
             type: 'MODEL_3D',
             title: 'x',
@@ -104,7 +104,7 @@ describe('sceneRigidPoseFromScrContent', () => {
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } as Content;
+        } as unknown as Content; // TODO: remove unknown after finalizing the SCR format
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(!r.ok);
         clearAllWorldAlignment();
@@ -130,7 +130,7 @@ describe('sceneRigidPoseFromScrContent', () => {
             orientation: { x: 0, y: 0, z: 0, w: 1 },
         };
         const expected = convertFramedPoseToLocalPose(frame, rigidInRef);
-        const content = {
+        const content:Content = {
             id: 'c4',
             type: 'MODEL_3D',
             title: 'x',
@@ -142,7 +142,7 @@ describe('sceneRigidPoseFromScrContent', () => {
                     q: { x: 0, y: 0, z: 0, w: 1 },
                 },
             },
-        } as Content;
+        } as unknown as Content; // TODO: remove unknown after finalizing the SCR format
         const r = sceneRigidPoseFromScrContent(content);
         assert.ok(r.ok);
         assert.ok(Math.abs(r.pose.position.x - expected.position.x) < 1e-5);
