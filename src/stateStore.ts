@@ -335,7 +335,7 @@ selectedP2pService.subscribe((value) => {
  *
  * @type {Writable<string>}
  */
-export const currentMarkerImage = writable('marker.jpg');
+export const currentMarkerImage = writable('hiro-marker.jpg');
 
 /**
  * The width of the marker image in meters.

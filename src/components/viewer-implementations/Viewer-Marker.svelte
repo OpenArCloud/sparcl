@@ -110,7 +110,7 @@
      * Leaving this function here for now, as the marker system needs some bigger rework anyway.
      */
     async function loadDefaultMarker() {
-        const response = await fetch(`/media/${$currentMarkerImage}`);
+        const response = await fetch(`/media/markers/${$currentMarkerImage}`);
         const blob = await response.blob();
         return await createImageBitmap(blob);
     }
