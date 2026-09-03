@@ -135,7 +135,7 @@
         // NOTE: when using device GPS and compass, the Sensor coordinate system returns values that match the landscape-primary orientation of the device
         // Therefore, we enforce landscape view when device sensors are used. (Alternatively, we could do the math for all possible orientations)
         // NOTE: locking the screen orientation requires going fullscreen first.
-        // NOTE: screen orientation cannot be changed between user clicks the go-immersive-button and WebXR startSession,
+        // NOTE: screen orientation cannot be changed between user clicks the start-ar-button and WebXR startSession,
         // and it cannot be changed after the XR Session started, so the only place to change it is here
         if ($debug_useGeolocationSensors) {
             lockScreenOrientation('landscape-primary');
@@ -150,7 +150,7 @@
 
     <div id="sepeator"></div>
 
-    <button id="go-immersive-button" on:click={() => dispatch('okClicked')} on:keydown={() => dispatch('okClicked')}> Go immersive </button>
+    <button id="start-ar-button" on:click={() => dispatch('startArButtonClicked')} on:keydown={() => dispatch('startArButtonClicked')}> Start AR </button>
 
     <div>
         <input id="showagain" type="checkbox" bind:checked={$showDashboard} />
@@ -470,7 +470,7 @@
         font-weight: bold;
     }
 
-    #go-immersive-button {
+    #start-ar-button {
         width: 100%;
         height: 50px;
 

@@ -306,7 +306,7 @@
 <!-- AR Dashboard -->
 
 {#if arWithDashboard}
-    <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startViewer} />
+    <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:startArButtonClicked={startViewer} />
 {/if}
 
 {#if arReady}
