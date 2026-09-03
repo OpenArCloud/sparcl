@@ -126,14 +126,15 @@ export default class webxr {
         });
 
         if (this.xrMarkerFrameUpdateCallback) {
-            try {
-                const scores = await this.session.getTrackedImageScores?.();
-                if (scores && scores.length > 0) {
-                    console.log('Marker score: ', scores[0]);
-                }
-            } catch (error) {
-                console.warn('getTrackedImageScores failed (non-fatal):', error);
-            }
+            this.session.getTrackedImageScores?.()
+                .then((scores) => {
+                    if (scores && scores.length > 0) {
+                        console.log('Marker score: ', scores[0]);
+                    }
+                })
+                .catch((error) => {
+                    console.warn('getTrackedImageScores failed (non-fatal):', error);
+                });
         }
 
         await this.referenceSpacesReady;
@@ -340,15 +341,14 @@ export default class webxr {
 
             if (this.xrMarkerFrameUpdateCallback) {
                 const results = xrFrame.getImageTrackingResults();
-                let markerPose: XRPose | undefined;
-                let trackedImage: XRImageTrackingResult | undefined;
                 if (results.length > 0) {
-                    trackedImage = results[0];
-                    markerPose = xrFrame.getPose(results[0].imageSpace, this.localFloorWebXrReferenceSpace) ?? undefined;
                     // TODO(soeroesg): markerPose is actually the pose of image space relative to the localFloor reference space
                     // but the name suggests it is the camera pose w.r.t the marker
+                    const markerPose = xrFrame.getPose(results[0].imageSpace, this.localFloorWebXrReferenceSpace);
+                    if (markerPose) {
+                        this.xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
+                    }
                 }
-                this.xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, trackedImage);
             }
         } else {
             this.xrNoPoseCallback?.(time, xrFrame);

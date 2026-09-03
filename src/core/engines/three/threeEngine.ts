@@ -436,7 +436,9 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addMarkerObject(): SceneNodeId {
-        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.75, 0, 0, 1], false);
+        // Match OGL getDefaultMarkerObject: red box, 0.02 scale (2 cm on a ~1 m unit cube).
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.75, 0, 0, 1], false, [0.02, 0.02, 0.02]);
+        entry.three.frustumCulled = false;
         this.rootEntry.three.add(entry.three);
         return this.track(entry);
     }

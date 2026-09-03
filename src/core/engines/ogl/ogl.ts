@@ -195,9 +195,11 @@ export default class ogl implements RenderingEngine {
      */
     init() {
         const canvasEl = document.querySelector('#application') as HTMLCanvasElement;
+        const existingGl = canvasEl.getContext('webgl2') as WebGL2RenderingContext | null;
         const contextLost = !!renderer?.gl?.isContextLost?.();
         const canvasChanged = !!renderer && renderer.gl?.canvas !== canvasEl;
-        if (!renderer || contextLost || canvasChanged) {
+        const glMismatch = !!existingGl && !!renderer?.gl && renderer.gl !== existingGl;
+        if (!renderer || contextLost || canvasChanged || glMismatch) {
             xrRenderTarget = null;
             renderer = new Renderer({
                 alpha: true,
@@ -206,7 +208,10 @@ export default class ogl implements RenderingEngine {
                 webgl: 2,
             });
 
-            gl = renderer.gl;
+            gl = renderer.gl ?? existingGl;
+            if (!gl) {
+                throw new Error('OGL init: could not attach to WebGL2 context on XR canvas');
+            }
             gl.clearColor(0, 0, 0, 0);
         }
 

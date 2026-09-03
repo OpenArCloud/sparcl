@@ -149,7 +149,7 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+    function onXrNoPose(_time: DOMHighResTimeStamp, _frame: XRFrame) {
         hasLostTracking = true;
     }
 
@@ -167,13 +167,14 @@
         time: DOMHighResTimeStamp,
         frame: XRFrame,
         xrViewerPose: XRViewerPose,
-        xrMarkerPose?: XRPose,
-        trackedImage?: XRImageTrackingResult,
+        xrMarkerPose: XRPose,
+        trackedImage: XRImageTrackingResult,
     ) {
-        handlePoseHeartbeat();
-
         showFooter = false;
-        if (trackedImage?.trackingState === 'tracked' && xrMarkerPose) {
+
+        if (trackedImage.trackingState === 'tracked') {
+            handlePoseHeartbeat();
+
             if (trackedImageObjectNodeId === null) {
                 trackedImageObjectNodeId = tdEngine.addMarkerObject();
             }
@@ -184,6 +185,8 @@
             const orientation = quat.fromValues(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
             tdEngine.updateMarkerObjectPosition(trackedImageObjectNodeId, position, orientation);
             isLocalized = true;
+        } else {
+            hasLostTracking = true;
         }
 
         xrEngine.setViewportForView(xrViewerPose.views[0]);

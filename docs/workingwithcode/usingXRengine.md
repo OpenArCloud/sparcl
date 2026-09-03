@@ -59,6 +59,6 @@ await xrEngine.startImmersiveAr({
 
 `webxr` does not import or know about `RenderingEngine`; the viewer composes the two engines via `onXrGlContextReady`.
 
-All callbacks are optional. Omit any you do not need; `webxr` does not render 3D content itself. Callers that need graphics must pass `onXrFrameUpdate` and/or `onXrMarkerFrameUpdate` and call `tdEngine.render()` from those handlers when a pose is available.
+All callbacks are optional. Omit any you do not need; `webxr` does not render 3D content itself. Callers that need graphics must pass `onXrFrameUpdate` and/or `onXrMarkerFrameUpdate` and call `tdEngine.render()` from those handlers.
 
-When tracking is lost (`getViewerPose` is null), `onXrNoPose(time, frame)` is invoked. Do not call `tdEngine.render()` from that callback — there is no view to render.
+In Marker mode, `onXrMarkerFrameUpdate` is invoked when `getViewerPose` succeeds and image-tracking returns a pose for the configured marker. `onXrNoPose` is called when `getViewerPose` returns null (device tracking lost). Marker viewers should also use `trackedImage.trackingState` to detect when the marker is no longer visible.

@@ -20,8 +20,8 @@ export type XrMarkerFrameUpdateCallbackType = (
     time: DOMHighResTimeStamp,
     frame: XRFrame,
     xrViewerPose: XRViewerPose,
-    markerPose?: XRPose,
-    trackedImage?: XRImageTrackingResult,
+    markerPose: XRPose,
+    trackedImage: XRImageTrackingResult,
 ) => void;
 
 export type XrNoPoseCallbackType = (time: DOMHighResTimeStamp, frame: XRFrame) => void;
