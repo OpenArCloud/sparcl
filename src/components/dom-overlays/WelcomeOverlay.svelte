@@ -230,7 +230,8 @@
     }
 
     #welcomebackwrapper {
-        background: url('/media/overlay/welcomeback.jpg') no-repeat;
+        background: url('/media/overlay/welcomeback.jpg') no-repeat center top;
+        background-size: cover;
     }
 
     #welcomebackwrapper h3 {

@@ -346,10 +346,7 @@
 <style>
     aside {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
+        inset: 0;
 
         display: flex;
         align-items: center;
@@ -359,8 +356,8 @@
     }
 
     #frame {
-        width: calc(100vw - 2 * var(--ui-margin));
-        max-width: var(--ui-max-width);
+        box-sizing: border-box;
+        width: min(var(--ui-max-width), calc(100% - 2 * var(--ui-margin)));
         max-height: var(--ui-max-height);
 
         text-align: center;
@@ -368,7 +365,8 @@
         box-shadow: 0 3px 6px #00000029;
         border: 2px solid var(--theme-color);
 
-        background-color: white;
+        background-color: var(--theme-background);
+        overflow: hidden;
     }
 
     #logger {

@@ -12,7 +12,7 @@
 
 <style>
     header {
-        width: 100vw;
+        width: 100%;
         height: 110px;
         display: flex;
         justify-content: space-between;
