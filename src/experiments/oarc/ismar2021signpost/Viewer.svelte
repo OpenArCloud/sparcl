@@ -42,7 +42,6 @@
             onXrNoPose,
             (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
                 session.requestReferenceSpace('viewer');
@@ -78,8 +77,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, xrViewerPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+        parentInstance.onXrNoPose(time, frame);
     }
 </script>
 

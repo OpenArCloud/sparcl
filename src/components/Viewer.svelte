@@ -20,7 +20,7 @@
     import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
     import { 
         type XrFeature,
-        type XrInitCallbackType, 
+        type XrSessionSetupCallbackType, 
         type XrFrameUpdateCallbackType, 
         type XrNoPoseCallbackType,
         type XrSessionEndedCallbackType,
@@ -181,10 +181,14 @@
     /**
      * Setup required AR features and start the XRSession.
      *
+     * Intended for child viewer implementations (OSCP, Develop, Create, experiments) that wrap
+     * this component via `bind:this={parentInstance}` and call `parentInstance.startSession(...)`.
+     * Do not call from `startAr` here — child viewers invoke this after their own setup.
+     *
      * @param xrFrameUpdateCallback  function      Will be called from animation loop
      * @param xrSessionEndedCallback  function     Will be called when AR session ends
      * @param xrNoPoseCallback  function           Will be called when no pose was found
-     * @param xrInitCallback  function             Called after the XR-compatible GL context exists, before canvas resize / XRWebGLLayer
+     * @param xrSessionSetupCallback  function       After renderer attach (`onXrGlContextReady`), before `XRWebGLLayer` — binding, camera capture, hit-test
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
@@ -192,7 +196,7 @@
         xrFrameUpdateCallback: XrFrameUpdateCallbackType,
         xrSessionEndedCallback: XrSessionEndedCallbackType = () => {},
         xrNoPoseCallback: XrNoPoseCallbackType = () => {},
-        xrInitCallback: XrInitCallbackType = () => {},
+        xrSessionSetupCallback: XrSessionSetupCallbackType = () => {},
         requiredFeatures: XrFeature[] = [],
         optionalFeatures: XrFeature[] = [],
     ) {
@@ -206,10 +210,15 @@
         }
 
         try {
-            await xrEngine.startSession(canvas, xrFrameUpdateCallback, options, xrInitCallback);
-            xrEngine.setXrCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
-            tdEngine.init();
-            xrEngine.startXrRenderLoop();
+            await xrEngine.startImmersiveAr({
+                canvas,
+                xrSessionOptions: options,
+                onXrGlContextReady: () => tdEngine.init(),
+                onXrSessionSetup: xrSessionSetupCallback,
+                onXrFrameUpdate: xrFrameUpdateCallback,
+                onXrSessionEnded: xrSessionEndedCallback,
+                onXrNoPose: xrNoPoseCallback,
+            });
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
@@ -463,9 +472,8 @@
      * @param frame The XRFrame provided to the update loop
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
         $context.hasLostTracking = true;
-        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**

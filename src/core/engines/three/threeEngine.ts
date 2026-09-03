@@ -250,6 +250,11 @@ export default class ThreeEngine implements RenderingEngine {
         mat4.copy(out, entry.three.matrixWorld.elements as ReadonlyMat4);
     }
 
+    /**
+     * Attach Three.js to the existing `#application` WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag.
+     */
     init(): void {
         const canvas = document.querySelector('#application') as HTMLCanvasElement;
         const gl = canvas.getContext('webgl2') as WebGL2RenderingContext | null;

@@ -189,7 +189,9 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Initialize ogl for use with WebXR.
+     * Attach OGL to the existing `#application` WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag.
      */
     init() {
         const canvasEl = document.querySelector('#application') as HTMLCanvasElement;

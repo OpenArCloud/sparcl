@@ -218,6 +218,7 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
+        // Load engines but do not start them. We need to create an XR-compatible WebGL context first
         const values = await Promise.all([createRenderingEngine(resolveRenderingEngineId()), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
         const tdEngine = values[0];

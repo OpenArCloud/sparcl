@@ -34,6 +34,12 @@ export type SceneNodeId = string;
 export type ModelName = string;
 
 export interface RenderingEngine {
+    /**
+     * Attach to an existing WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag. Called from the viewer's `onXrGlContextReady` callback during XR startup;
+     * viewers must not call this themselves for immersive session start.
+     */
     init(): void;
     initScene(): void;
 

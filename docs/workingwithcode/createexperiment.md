@@ -173,7 +173,7 @@ When doing so, the lifecycle functions of the component and their minimal implem
                   xrFrameUpdateCallback,
                   xrSessionEndedCallback,
                   xrNoposeCallback,
-                  [xrInitCallback],
+                  [xrSessionSetupCallback],
                   [<requiredfeatures>],
                   [<optionalfeatures>]
               );

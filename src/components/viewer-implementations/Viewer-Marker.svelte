@@ -75,6 +75,7 @@
         const bitmap = await loadDefaultMarker();
         const widthInMeters = Number($currentMarkerImageWidth);
         const options = {
+            // note: image-tracking instead of camera-access
             requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
             domOverlay: { root: overlay },
             // hack to circumvent exhaustive type checking of object literals, because trackedImages does not exist on XRSessionInit
@@ -87,10 +88,14 @@
         };
 
         try {
-            await xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
-            xrEngine.setXrCallbacks(onXrSessionEnded, onXrNoPose);
-            tdEngine.init();
-            xrEngine.startXrRenderLoop();
+            await xrEngine.startImmersiveAr({
+                canvas,
+                xrSessionOptions: options,
+                onXrGlContextReady: () => tdEngine.init(),
+                onXrMarkerFrameUpdate: onXrMarkerFrameUpdateCallback,
+                onXrSessionEnded,
+                onXrNoPose,
+            });
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
@@ -144,9 +149,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
         hasLostTracking = true;
-        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -159,12 +163,17 @@
      * @param xrMarkerPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function onXrMarkerFrameUpdateCallback(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrMarkerPose: XRPose, trackedImage: XRImageTrackingResult) {
+    function onXrMarkerFrameUpdateCallback(
+        time: DOMHighResTimeStamp,
+        frame: XRFrame,
+        xrViewerPose: XRViewerPose,
+        xrMarkerPose?: XRPose,
+        trackedImage?: XRImageTrackingResult,
+    ) {
         handlePoseHeartbeat();
 
         showFooter = false;
-        if (trackedImage && trackedImage.trackingState === 'tracked') {
-            // TODO: use XRImageTrackingState.tracked
+        if (trackedImage?.trackingState === 'tracked' && xrMarkerPose) {
             if (trackedImageObjectNodeId === null) {
                 trackedImageObjectNodeId = tdEngine.addMarkerObject();
             }

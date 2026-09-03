@@ -75,15 +75,14 @@
             onXrFrameUpdate,
             onXrSessionEnded,
             onXrNoPose,
-            (xr, result, gl) => {
+            (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(result, gl);
                     xr.initCameraCapture(gl);
                 }
 
-                result
+                session
                     .requestReferenceSpace('viewer')
-                    .then((refSpace) => result.requestHitTestSource?.({ space: refSpace }))
+                    .then((refSpace) => session.requestHitTestSource?.({ space: refSpace }))
                     .then((source) => (hitTestSource = source));
             },
             ['dom-overlay', 'camera-access', 'anchors', 'hit-test', 'local-floor'],
@@ -163,8 +162,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, xrViewerPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+        parentInstance.onXrNoPose(time, frame);
     }
 
     function relocalize() {
