@@ -30,8 +30,6 @@
 
     let parentInstance: Parent;
 
-    let myGl: WebGL2RenderingContext | null = null;
-
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource: XRHitTestSource | undefined;
     let reticleNodeId: SceneNodeId | null = null;
@@ -73,7 +71,6 @@
                     throw new Error('gl is undefined');
                 }
                 xr.initCameraCapture(gl);
-                myGl = gl;
                 if (useReticle) {
                     // request hit testing
                     session
@@ -234,7 +231,7 @@
             const tdEngine = parentInstance.getRenderer();
             reticleNodeId = tdEngine.addReticle();
         }
-        if (useReticle && myGl && reticleNodeId !== null) {
+        if (useReticle && reticleNodeId !== null) {
             const tdEngine = parentInstance.getRenderer();
             if (hitTestSource === undefined) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
