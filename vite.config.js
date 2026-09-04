@@ -9,7 +9,9 @@ import typescript from '@rollup/plugin-typescript';
 // https://vitejs.dev/config/
 export default defineConfig({
     server: {
-        allowedHosts: ['localhost'],
+        allowedHosts: [
+            'localhost'
+        ],
     },
     build: {
         target: 'esnext',
