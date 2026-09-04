@@ -1,7 +1,7 @@
 {
     "name": "spARcl",
-    "version": "0.3.0",
-    "description": "Generic OSCP client prototype with WebXR",
+    "version": "0.5.0",
+    "description": "spARcl (spatial AR cloud client) - Open Spatial Cloud Platform (OSCP) client with WebXR",
     "type": "module",
     "main": "src/index.js",
     "scripts": {
@@ -10,7 +10,7 @@
         "start": "npm run dev",
         "build": "vite build",
         "build:docker": "docker build . -t sparcl",
-        "start:docker": "docker run -p 8034:80 -d sparcl:latest",
+        "start:docker": "docker run -p 8080:80 -d sparcl:latest",
         "preview": "vite preview --port 8080",
         "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/worldAlignment.test.ts test/frameTransforms.test.ts test/geoPoseProtocolExtended.test.ts test/scrPlacement.test.ts test/cameraFrameBridge.test.ts",
         "test:mocha": "npx mocha --reporter spec 'test/**/*.js'",
@@ -26,7 +26,7 @@
         "oscp",
         "arcloud"
     ],
-    "author": "Michael Vogt",
+    "author": "Gabor Soros, Michael Vogt",
     "license": "MIT",
     "bugs": {
         "url": "https://github.com/OpenArCloud/sparcl/issues"
