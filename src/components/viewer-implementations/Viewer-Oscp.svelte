@@ -325,6 +325,41 @@
             }
         }
     }
+
+    function saveReticlePose() {
+        if (reticleNodeId === null) {
+            console.warn('Cannot save reticle pose: reticle is not available');
+            return;
+        }
+        const tdEngine = parentInstance.getRenderer();
+        if (!tdEngine.isNodeVisible(reticleNodeId)) {
+            console.warn('Cannot save reticle pose: reticle is not visible (no hit test)');
+            return;
+        }
+        if (!worldAlignment.hasActiveWorldAlignment()) {
+            console.warn('Cannot save reticle pose: not localized yet');
+            return;
+        }
+        const reticlePosition = vec3.create();
+        const reticleOrientation = quat.create();
+        tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
+        const poseObj = worldAlignment.convertScenePoseToGeoposeFromActive(
+            { x: reticlePosition[0], y: reticlePosition[1], z: reticlePosition[2] },
+            { x: reticleOrientation[0], y: reticleOrientation[1], z: reticleOrientation[2], w: reticleOrientation[3] },
+        );
+        const pose = JSON.stringify(poseObj, null, 2);
+        if (navigator.share) {
+            navigator
+                .share({
+                    title: 'Cursor Pose',
+                    text: pose,
+                })
+                .then(() => console.log('Successful share'))
+                .catch((error) => console.log('Error sharing', error));
+        } else {
+            alert(pose);
+        }
+    }
 </script>
 
 <Parent
@@ -342,6 +377,8 @@
             {receivedContentTitles}
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:showOtherReticlesCheckboxChange={(event) => onShowOtherReticlesCheckboxChange(event)}
+            on:showOtherCamerasCheckboxChange={(event) => onShowOtherCamerasCheckboxChange(event)}
+            on:saveReticle={() => saveReticlePose()}
             on:relocalize={() => onRelocalize()}
         />
     </svelte:fragment>
