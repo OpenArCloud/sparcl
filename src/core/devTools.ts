@@ -10,7 +10,6 @@
 import { mat4, quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
-import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
 import type { SCRExtended } from '@core/scrPlacement';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
@@ -157,9 +156,13 @@ export function saveImageBase64(imageBase64: string, fileNameStem: string) {
     let ext = imageBase64.split(';')[0].match(/jpeg|png|gif/)?.[0];
     // strip off the data: url prefix to get just the base64-encoded bytes
     let data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    let buf = Buffer.from(data, 'base64');
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
     let a = document.createElement('a');
-    a.href = window.URL.createObjectURL(new Blob([buf], { type: 'image' + '/' + ext }));
+    a.href = window.URL.createObjectURL(new Blob([bytes], { type: 'image' + '/' + ext }));
     a.download = fileNameStem + '.' + ext;
     a.click();
 }
