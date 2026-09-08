@@ -698,18 +698,21 @@ export default class ogl implements RenderingEngine {
         dynamic_objects_meshes[object_id].quaternion = new_orientation;
 
         // check whether anything changed in the description
+        // null/undefined description means pose-only update: keep the existing mesh.
+        if (object_description == null) {
+            return true;
+        }
         const old_object_description = dynamic_objects_descriptions[object_id];
         if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
             // nothing to do
             return true;
         }
-        let new_object_description = object_description ? { ...object_description } : null;
 
-        // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
-        // if there was an event handler on the old object, we transfer that to the new object (currently only one event handler is supported)
+        // Mesh geometry/program cannot be mutated in place; recreate with the new description.
+        // If there was an event handler on the old object, transfer it (currently only one is supported).
         const eventHandler = this.getClickEvent(object_id);
         this.removeDynamicObject(object_id);
-        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, { ...object_description });
         if (eventHandler) {
             this.addClickEvent(newObject, eventHandler);
         }
