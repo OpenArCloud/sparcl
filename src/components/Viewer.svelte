@@ -17,7 +17,7 @@
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-    import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
+    import { applyModel3dDefinitionAnimations, handlePlaceholderDefinitions } from '@core/contents/contentDefinitions';
     import { 
         type XrFeature,
         type XrSessionSetupCallbackType, 
@@ -77,25 +77,6 @@
         fakeContentWithFramedPoseHop2, 
         seedSparclTestFrameGraph,
     } from '@core/devTools';
-
-    /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
-    function applyModel3dDefinitionAnimations(
-        engine: RenderingEngine,
-        nodeId: SceneNodeId,
-        definitions: Record<string, string>,
-    ) {
-        const animation = definitions['animation'];
-        if (animation == undefined) {
-            return;
-        }
-        switch (animation) {
-            case 'SPIN_UP':
-                engine.setVerticallyRotating(nodeId);
-                break;
-            default:
-                break;
-        }
-    }
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{
@@ -903,16 +884,16 @@
                                 case 'ply': {
                                     void tdEngine
                                         .addPlyObject(url, localPosition, localQuaternion, parseScrPlyLoadOptions(content_definitions))
-                                        .then((mesh) => {
-                                            if (mesh == null) {
+                                        .then((modelNodeId) => {
+                                            if (modelNodeId == null) {
                                                 const placeholder = tdEngine.addPlaceholder(
                                                     record.content.keywords,
                                                     localPosition,
                                                     localQuaternion,
                                                 );
-                                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                                handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                                             } else {
-                                                applyModel3dDefinitionAnimations(tdEngine, mesh, content_definitions);
+                                                applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                             }
                                         });
                                     break;
@@ -924,14 +905,14 @@
                                         localPosition,
                                         localQuaternion,
                                     );
-                                    handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                    handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                                 }
                             }
                         } else {
                             // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
                             // so draw a placeholder instead
                             const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
-                            handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                            handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                         }
                         break;
                     }
