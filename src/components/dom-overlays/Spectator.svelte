@@ -197,14 +197,13 @@
                 (position) => {
                     map = L.map(container, {
                         center: [position.coords.latitude, position.coords.longitude],
-                        zoom: 20,
+                        zoom: 19,
                     });
 
-                    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                        attribution: `&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>,
-                                &copy; <a href="https://carto.com/attributions" target="_blank">CARTO</a>`,
-                        subdomains: 'abcd',
-                        maxZoom: 30,
+                    // CARTO's raster tiles now draw an "API key required" watermark, so we use the public OpenStreetMap tiles instead
+                    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+                        maxZoom: 19,
                     }).addTo(map);
 
                     map.on('click', (event: any) => {
