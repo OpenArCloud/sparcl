@@ -190,6 +190,38 @@ export const initialLocation = writable({
  */
 export const ssr = writable<SSR[]>([]);
 
+type SelectableGeoPose = {
+    id: string;
+    url: string;
+    title?: string;
+};
+
+function geoPoseSnapshot(service: SelectableGeoPose): string {
+    return JSON.stringify({
+        id: service.id,
+        url: service.url,
+        title: service.title ?? '',
+    });
+}
+
+/**
+ * Choose which GeoPose service stays selected.
+ * An empty list keeps the current choice, because the service record is often empty until the first response.
+ * A stored service that is still listed stays selected. Otherwise the first listed service is used.
+ */
+function resolveSelectedGeoPoseService<T extends SelectableGeoPose>(services: T[], current: T | null): T | null {
+    if (services.length === 0) {
+        return current;
+    }
+    if (current?.id) {
+        const match = services.find((service) => service.id === current.id);
+        if (match) {
+            return geoPoseSnapshot(match) === geoPoseSnapshot(current) ? current : match;
+        }
+    }
+    return services[0];
+}
+
 /**
  * Derived store of the ssr store for easy access of all contained GeoPose services.
  */
@@ -207,21 +239,15 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
 
         set(geoposeServices);
 
-        if (get(selectedGeoPoseService) !== null) {
-            const selected = get(selectedGeoPoseService);
-            // Make sure that the selected service is still available
-            if (!geoposeServices.find((service) => service.id === selected?.id)) {
-                selectedGeoPoseService.set(null);
-            }
+        const current = get(selectedGeoPoseService);
+        const next = resolveSelectedGeoPoseService(geoposeServices, current);
+        if (next !== current) {
+            selectedGeoPoseService.set(next);
         }
 
-        // If none selected yet, set the first available as selected
-        if (get(selectedGeoPoseService) === null && geoposeServices.length > 0) {
-            selectedGeoPoseService.set(geoposeServices[0]);
-        }
-
-        // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
-        if (get(selectedGeoPoseService) !== null) {
+        // Prefer a listed GeoPose service. An empty list falls back to on-device sensors
+        // without clearing a stored choice that may still be valid once services arrive.
+        if (geoposeServices.length > 0 && get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
         } else if (!get(debug_useOverrideGeopose)) {
             debug_useGeolocationSensors.set(true);
@@ -291,6 +317,40 @@ selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
 
+type SelectableMessageBroker = {
+    guid: string;
+    url: string;
+    description?: string;
+    properties?: unknown;
+};
+
+function messageBrokerSnapshot(service: SelectableMessageBroker): string {
+    return JSON.stringify({
+        guid: service.guid,
+        url: service.url,
+        description: service.description ?? '',
+        properties: service.properties ?? [],
+    });
+}
+
+/**
+ * Choose which message broker stays selected.
+ * An empty list keeps the current choice, because the service record is often empty until the first response.
+ * A stored broker that is still listed stays selected. Otherwise the first listed broker is used.
+ */
+export function resolveSelectedMessageBroker<T extends SelectableMessageBroker>(services: T[], current: T | null): T | null {
+    if (services.length === 0) {
+        return current;
+    }
+    if (current?.guid) {
+        const match = services.find((service) => service.guid === current.guid);
+        if (match) {
+            return messageBrokerSnapshot(match) === messageBrokerSnapshot(current) ? current : match;
+        }
+    }
+    return services[0];
+}
+
 export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
     ssr,
     ($ssr, set) => {
@@ -305,10 +365,10 @@ export const availableMessageBrokerServices = derived<typeof ssr, (Service & { g
             }
         }
         set(messageBrokerServices);
-        // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
-        if (get(selectedP2pService) === null && messageBrokerServices.length > 0) {
-            selectedP2pService.set(messageBrokerServices[0]);
+        const current = get(selectedMessageBrokerService);
+        const next = resolveSelectedMessageBroker(messageBrokerServices, current);
+        if (next !== current) {
+            selectedMessageBrokerService.set(next);
         }
     },
     [],

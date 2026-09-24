@@ -28,7 +28,12 @@
         </div>
         {#if $allowMessageBroker}
             <dd class="select">
-                <Select bind:value={$selectedMessageBrokerService} displayFunc={(option) => option.description} options={Object.values($availableMessageBrokerServices)}></Select>
+                <Select
+                    bind:value={$selectedMessageBrokerService}
+                    displayFunc={(option) => option.description}
+                    equals={(option, current) => option.guid === current.guid}
+                    options={$availableMessageBrokerServices}
+                ></Select>
             </dd>
             <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
                 <label for="url">{$selectedMessageBrokerService?.url || '---'}</label>

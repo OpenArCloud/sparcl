@@ -99,6 +99,14 @@
         $selectedContentServices[service.id].isSelected = event.currentTarget.checked;
     }
 
+    function handleGeoPoseServiceSelection(event: Event) {
+        const id = (event.currentTarget as HTMLSelectElement).value;
+        const match = $availableGeoPoseServices.find((service) => String(service.id) === id);
+        if (match) {
+            $selectedGeoPoseService = match;
+        }
+    }
+
     function handleContentServiceTopicSelection(service: Service, topic: string) {
         $selectedContentServices[service.id].selectedTopic = topic;
     }
@@ -279,15 +287,13 @@
         <dl class="nested">
             <dt><label for="geoposeService">GeoPose Services</label></dt>
             <dd class="select">
-                <select id="geoposeService" bind:value={$selectedGeoPoseService}>
+                <select id="geoposeService" value={$selectedGeoPoseService?.id != null ? String($selectedGeoPoseService.id) : ''} on:change={handleGeoPoseServiceSelection}>
                     {#if $availableGeoPoseServices.length === 0}
-                        <option value={null} disabled selected>Device sensors (no VPS available)</option>
-                        <!--{debug_useGeolocationSensors.set(true)}-->
+                        <option value="" disabled>Device sensors (no VPS available)</option>
                     {:else}
                         {#each $availableGeoPoseServices as service}
-                            <option value={service}>{service.title}</option>
+                            <option value={String(service.id)}>{service.title}</option>
                         {/each}
-                        <!--{debug_useGeolocationSensors.set(false)}-->
                     {/if}
                 </select>
             </dd>
