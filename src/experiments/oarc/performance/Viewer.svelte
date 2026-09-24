@@ -222,7 +222,7 @@
                         reticleNodeId = tdEngine.addReticle();
                     }
                     if (reticleNodeId !== null) {
-                        tdEngine.updateReticlePose(
+                        tdEngine.setNodePose(
                             reticleNodeId,
                             vec3.fromValues(position.x, position.y, position.z),
                             quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w),

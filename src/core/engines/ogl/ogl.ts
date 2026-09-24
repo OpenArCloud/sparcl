@@ -531,7 +531,12 @@ export default class ogl implements RenderingEngine {
      * @returns {@link SceneNodeId} for the reticle root (GLTF subtree)
      */
     addReticle() {
-        return this.addModel('/media/models/reticle.gltf', vec3.fromValues(0, 0, 0), quat.fromValues(0, 0, 0, 1));
+        return this.addModel(
+            '/media/models/reticle.gltf',
+            vec3.fromValues(0, 0, 0),
+            quat.fromValues(0, 0, 0, 1),
+            vec3.fromValues(0.2, 0.2, 0.2),
+        );
     }
 
     /** @param orientation - Scene orientation ({@link ReadonlyQuat}) */
@@ -772,26 +777,6 @@ export default class ogl implements RenderingEngine {
         const native = this.sceneNodes.get(objectNodeId);
         native.position.copy(oglVec3(position));
         native.quaternion.copy(oglQuat(orientation));
-    }
-
-    /**
-     * Update the position of the reticle to the provided position and orientation.
-     *
-     * @param reticle - {@link SceneNodeId} from {@link addReticle}
-     * @param position - Scene position ({@link ReadonlyVec3})
-     * @param orientation - Scene orientation ({@link ReadonlyQuat})
-     * @param scale - Optional root scale ({@link ReadonlyVec3})
-     */
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale: ReadonlyVec3 = [0.2, 0.2, 0.2],
-    ) {
-        const native = this.sceneNodes.get(reticle);
-        native.position.copy(oglVec3(position));
-        native.quaternion.copy(oglQuat(orientation));
-        native.scale.copy(oglVec3(scale));
     }
 
     /**

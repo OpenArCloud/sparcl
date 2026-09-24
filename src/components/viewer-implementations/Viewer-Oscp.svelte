@@ -243,7 +243,7 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        tdEngine.updateReticlePose(
+                        tdEngine.setNodePose(
                             reticleNodeId,
                             vec3.fromValues(position.x, position.y, position.z),
                             quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)

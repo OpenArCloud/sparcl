@@ -189,14 +189,6 @@ export interface RenderingEngine {
         orientation: ReadonlyQuat
     ): void;
 
-    /** @param reticle - {@link SceneNodeId} from {@link addReticle} */
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale?: ReadonlyVec3
-    ): void;
-
     /** Writes world-space TRS of `node` into the provided out parameters. */
     getNodePose(
         nodeId: SceneNodeId,

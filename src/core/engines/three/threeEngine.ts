@@ -54,7 +54,6 @@ import {
 } from './threeVideoHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
-const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
 
 function disposeMaterial(material: THREE.Material | undefined): void {
     if (!material) return;
@@ -443,7 +442,7 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addReticle(): SceneNodeId {
-        return this.addModel('/media/models/reticle.gltf', [0, 0, 0], [0, 0, 0, 1]);
+        return this.addModel('/media/models/reticle.gltf', [0, 0, 0], [0, 0, 0, 1], [0.2, 0.2, 0.2]);
     }
 
     /** Matches OGL `isHorizontal`: pitch (Euler x) ≈ 0 for floor alignment. */
@@ -625,15 +624,6 @@ export default class ThreeEngine implements RenderingEngine {
 
     updateMarkerObjectPosition(object: SceneNodeId, position: ReadonlyVec3, orientation: ReadonlyQuat): void {
         this.sceneNodes.applyTrs(this.resolve(object), position, orientation);
-    }
-
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale: ReadonlyVec3 = defaultReticleScale,
-    ): void {
-        this.sceneNodes.applyTrs(this.resolve(reticle), position, orientation, scale);
     }
 
     addAxes(): SceneNodeId {
