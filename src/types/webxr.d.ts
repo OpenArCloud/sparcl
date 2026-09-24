@@ -36,7 +36,7 @@ declare interface XRImageTrackingResult {
 declare type XRImageTrackingState = 'untracked' | 'tracked' | 'emulated'; // TODO: should be enum
 
 declare interface XRAnchor {
-    context?: { rootUpdater: rootUpdater };
+    context?: { rootUpdater: (matrix: Float32Array | number[]) => void };
 }
 
 declare interface XRSession {

@@ -21,7 +21,6 @@ import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
-import type { SceneRootMatrix } from '../../../types/xr';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
@@ -817,10 +816,10 @@ export default class ThreeEngine implements RenderingEngine {
         return getExternalCameraParametersForExperience(view, experienceMatrix);
     }
 
-    getRootSceneUpdater(): (matrix: SceneRootMatrix) => mat4 {
+    getRootSceneUpdater(): (matrix: mat4) => mat4 {
         const out = mat4.create();
-        return (matrix: SceneRootMatrix) => {
-            this.scene.matrix.fromArray(matrix as number[]);
+        return (matrix: mat4) => {
+            this.scene.matrix.fromArray(matrix);
             this.scene.matrixAutoUpdate = false;
             this.scene.updateMatrixWorld(true);
             mat4.copy(out, this.scene.matrixWorld.elements as mat4);

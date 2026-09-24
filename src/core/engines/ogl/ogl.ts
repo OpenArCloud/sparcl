@@ -55,7 +55,6 @@ import {
 } from '@core/engines/ogl/oglPrimitives';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
-import type { SceneRootMatrix } from '../../../types/xr';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import {
@@ -1055,8 +1054,8 @@ export default class ogl implements RenderingEngine {
      */
     getRootSceneUpdater() {
         const out = mat4.create();
-        return (matrix: SceneRootMatrix) => {
-            scene.matrix = new Mat4().fromArray(matrix);
+        return (matrix: mat4) => {
+            scene.matrix = new Mat4().fromArray(matrix as unknown as number[]);
             mat4.copy(out, scene.matrix as unknown as mat4);
             return out;
         };
