@@ -131,8 +131,8 @@
     let loadedH3Indices: string[] = [];
     let isContentRetrievalInFlight = false;
 
-    // Fail fast on unreachable content services so one bad endpoint does not stall the whole query cycle.
-    const kContentRequestTimeoutMs = 1500;
+    // Bound each content-service request so one unreachable endpoint does not stall the query cycle.
+    const kContentRequestTimeoutMs = 3000;
 
     // spatial contents are organized into topics.
     const kDefaultOscpScdTopic = 'history';
@@ -767,7 +767,10 @@
             }
 
             const service = serviceRequests[index];
-            console.warn(`Failed to retrieve SCRs from service ${service.serviceId} (${service.serviceUrl}):`, result.reason);
+            const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+            console.warn(
+                `Failed to retrieve SCRs from service ${service.serviceId} at ${service.serviceUrl}/scrs/${topic}?h3Index=${h3Index}: ${reason}`,
+            );
         });
 
         return successfulResults;
