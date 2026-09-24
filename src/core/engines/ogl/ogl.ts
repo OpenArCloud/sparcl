@@ -367,7 +367,7 @@ export default class ogl implements RenderingEngine {
      * @param orientation - Root orientation ({@link ReadonlyQuat})
      * @param scale - Root uniform/non-uniform scale ({@link ReadonlyVec3})
      * @param callback - Called once per loaded mesh leaf with its {@link SceneNodeId}
-     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @param name - Optional {@link ModelName} for {@link getModelNodeId} / {@link removeModel}
      * @returns {@link SceneNodeId} for the GLTF root transform
      */
     addModel(
@@ -464,7 +464,7 @@ export default class ogl implements RenderingEngine {
      * @param name - {@link ModelName} passed to {@link addModel}
      * @returns {@link SceneNodeId} of the GLTF root, or `null` if not cached
      */
-    getModel(name: ModelName): SceneNodeId | null {
+    getModelNodeId(name: ModelName): SceneNodeId | null {
         const native = gltf_objects_transforms[name];
         if (!native) {
             return null;

@@ -407,7 +407,7 @@ export default class ThreeEngine implements RenderingEngine {
         );
     }
 
-    getModel(name: ModelName): SceneNodeId | null {
+    getModelNodeId(name: ModelName): SceneNodeId | null {
         const root = this.gltfRoots[name];
         if (!root) {
             return null;

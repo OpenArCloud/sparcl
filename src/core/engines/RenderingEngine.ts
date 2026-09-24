@@ -72,7 +72,7 @@ export interface RenderingEngine {
 
     /**
      * @param callback - Invoked per loaded GLTF mesh leaf with its {@link SceneNodeId}
-     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @param name - Optional {@link ModelName} for {@link getModelNodeId} / {@link removeModel}
      * @returns {@link SceneNodeId} for the GLTF root transform
      */
     addModel(
@@ -97,7 +97,7 @@ export interface RenderingEngine {
      *
      * @returns {@link SceneNodeId} of the GLTF root, or `null` if `name` was never registered
      */
-    getModel(name: ModelName): SceneNodeId | null;
+    getModelNodeId(name: ModelName): SceneNodeId | null;
 
     /** Removes a GLTF root registered with the same {@link ModelName} passed to {@link addModel}. */
     removeModel(name: ModelName): void;

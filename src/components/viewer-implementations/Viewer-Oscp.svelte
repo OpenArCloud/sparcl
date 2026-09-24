@@ -317,7 +317,7 @@
                     parentInstance.getRenderer().removeDynamicObject(agentId);
                 }
                 // remove GLTF representation (if exists)
-                let model2 = parentInstance.getRenderer().getModel(agentId);
+                let model2 = parentInstance.getRenderer().getModelNodeId(agentId);
                 if (model2) {
                     console.log('removed agent GLTF ' + agentId);
                     parentInstance.getRenderer().removeModel(agentId);
