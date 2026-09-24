@@ -8,9 +8,6 @@
 */
 
 import type webxr from '@core/engines/webxr';
-import type Ismar2021SignPostViewer from '@experiments/oarc/ismar2021signpost/Viewer.svelte';
-import type Ismar2021MultiViewer from '@experiments/oarc/ismar2021multi/Viewer.svelte';
-import type Ismar2021PerformanceViewer from '@experiments/oarc/performance/Viewer.svelte';
 
 export type XrFeature = string;
 
@@ -44,8 +41,6 @@ export type XrWebGL2Context = WebGL2RenderingContext;
  * Used when applying anchored scene-root updates; kept separate from any specific renderer.
  */
 export type SceneRootMatrix = Float32Array | number[];
-
-export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer;
 
 /** Options for {@link webxr.startImmersiveAr}. */
 export type StartImmersiveArOptions = {

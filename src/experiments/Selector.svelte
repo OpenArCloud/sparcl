@@ -9,7 +9,7 @@
 
 <script lang="ts">
     import { type ComponentType, createEventDispatcher, onMount } from 'svelte';
-    import type { ExperimentsViewers } from '../types/xr';
+    import type { ExperimentsViewers } from '@experiments/types';
     import { activeExperiment } from '../stateStore';
     const dispatch = createEventDispatcher<{ change: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType<ExperimentsViewers> }> | null; key: string } }>();
     onMount(() => {
