@@ -28,8 +28,8 @@
     }
 </script>
 
-<select style={`font-size: ${fontSize}px`} value={String(index)} on:change={onChange}>
+<select style={`font-size: ${fontSize}px`} on:change={onChange}>
     {#each options as option, i}
-        <option value={i}>{displayFunc(option)}</option>
+        <option value={String(i)} selected={i === index}>{displayFunc(option) ?? ''}</option>
     {/each}
 </select>
