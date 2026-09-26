@@ -14,7 +14,7 @@
 <script lang="ts">
     import ColorPicker from 'svelte-awesome-color-picker';
     import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
-    import { supportedCountries, type Service } from '@oarc/ssd-access';
+    import { getSupportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
         showDashboard,
@@ -62,7 +62,8 @@
 
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
-    import { setInitialLocationAndServices } from '../core/locationTools';
+    import { determineCurrentLocation } from '../core/locationTools';
+    import { regionCode, regionCodeForCountry, retrieveServicesAtLocation } from '../core/serviceDiscovery';
     import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
     import {
         getPersistedRenderingEngineId,
@@ -77,6 +78,7 @@
     const dispatch = createEventDispatcher();
     const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
+    let supportedCountryCodes: string[] = [];
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
     let overrideGeoposePromise: Promise<void>;
     const serviceUrlFontSizePx = 9;
@@ -90,6 +92,23 @@
             rmqTestPromise = testRmqConnection({ url: $selectedMessageBrokerService.url, ...$messageBrokerAuth[$selectedMessageBrokerService?.guid] });
         }
     });
+
+    onMount(async () => {
+        try {
+            const countries = await getSupportedCountries();
+            supportedCountryCodes = [...countries].sort((a, b) => a.localeCompare(b));
+        } catch (error) {
+            console.error('Could not load supported countries', error);
+        }
+    });
+
+    async function useOverridePosition() {
+        const currentLocation = await determineCurrentLocation();
+        if (currentLocation) {
+            $regionCode = await regionCodeForCountry(currentLocation.countryCode);
+            await retrieveServicesAtLocation($regionCode, currentLocation.h3Index);
+        }
+    }
 
     function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
@@ -183,7 +202,12 @@
             <dt>OSCP Region</dt>
             <!--  TODO: Might make sense to do some validation here  -->
             <dd class="list">
-                <input list="supported-countries" bind:value={$initialLocation.regionCode} />
+                <input list="supported-countries" bind:value={$regionCode} />
+                <datalist id="supported-countries">
+                    {#each supportedCountryCodes as country}
+                        <option value={country}></option>
+                    {/each}
+                </datalist>
             </dd>
         </dl>
 
@@ -443,7 +467,7 @@
                 <input class="geopose-input" name="height" type="text" bind:value={$debug_overrideGeopose.position.h} />
             </form>
             <div style="padding-top: 1rem;">
-                <button on:click={() => (overrideGeoposePromise = setInitialLocationAndServices())}>Use position</button>
+                <button on:click={() => (overrideGeoposePromise = useOverridePosition())}>Use position</button>
             </div>
             {#if overrideGeoposePromise}
                 {#await overrideGeoposePromise}
@@ -457,8 +481,6 @@
         {/if}
     </details>
 </div>
-
-{@html supportedCountries}
 
 <style>
     .rendering-engine-hint {

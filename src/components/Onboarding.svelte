@@ -43,7 +43,8 @@
     import { logToElement } from '@src/core/devTools';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { ExperimentsViewers } from '@experiments/types';
-    import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
+    import { determineCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
+    import { regionCode, regionCodeForCountry, retrieveServicesAtLocation, setConfiguredSsdUrl } from '@src/core/serviceDiscovery';
     import { createRenderingEngine, resolveRenderingEngineId } from '@core/engines/createRenderingEngine';
 
     /**
@@ -75,7 +76,13 @@
      */
     $: {
         if ($isLocationAccessAllowed) {
-            setInitialLocationAndServices();
+            determineCurrentLocation().then(async (currentLocation) => {
+                if (currentLocation) {
+                    const currentRegionCode = await regionCodeForCountry(currentLocation.countryCode);
+                    regionCode.set(currentRegionCode);
+                    return retrieveServicesAtLocation(currentRegionCode, currentLocation.h3Index);
+                }
+            });
         }
     }
 
@@ -127,6 +134,9 @@
 
         //console.log('Onboarding.svelte');
         //console.log('URL parameters: ' + urlParams?.toString() || 'none');
+
+        // Point ssd-access at the server specified in the environment variable VITE_SSD_ROOT_URL
+        setConfiguredSsdUrl();
 
         // Start as AR client
         // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed

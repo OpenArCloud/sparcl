@@ -24,7 +24,8 @@
     import P2PServiceSelector from './P2PServiceSelector.svelte';
     import { type SCR } from '@oarc/scd-access';
     import { rgbToHex } from '@src/core/common';
-    import { setInitialLocationAndServices } from '@src/core/locationTools';
+    import { determineCurrentLocation } from '@src/core/locationTools';
+    import { regionCode, regionCodeForCountry, retrieveServicesAtLocation } from '@src/core/serviceDiscovery';
 
     let map: L.Map | null;
     let shouldPlaceRandomObjects = false;
@@ -243,7 +244,12 @@
 
     async function onUsePositionClick(){
         map.panTo([$debug_overrideGeopose.position.lat, $debug_overrideGeopose.position.lon]);
-        await setInitialLocationAndServices();
+        const currentLocation = await determineCurrentLocation();
+        if (currentLocation) {
+            const currentRegionCode = await regionCodeForCountry(currentLocation.countryCode);
+            regionCode.set(currentRegionCode);
+            await retrieveServicesAtLocation(currentRegionCode, currentLocation.h3Index);
+        }
     }
 </script>
 

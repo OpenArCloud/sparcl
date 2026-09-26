@@ -15,9 +15,8 @@ import LatLon from 'geodesy/latlon-ellipsoidal-vincenty';
 import { quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 import * as h3 from 'h3-js';
 
-import { supportedCountries, setSsdUrl, getServicesAtLocation } from '@oarc/ssd-access';
 import type { Geopose } from '@oarc/scd-access';
-import { availableGeoPoseServices, debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed, selectedGeoPoseService, ssr } from '../stateStore';
+import { debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed } from '../stateStore';
 import { get } from 'svelte/store';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
@@ -78,53 +77,13 @@ export function getEarthRadiusAt(latitude: number) {
 let lastTimeCurrentLocationQuery = 0;
 
 /**
- *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
- */
-export const setInitialLocationAndServices = async () => {
-    console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
-    if (get(isLocationAccessAllowed) || get(debug_useOverrideGeopose)) {
-        // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
-        try {
-            const currentLocation = await getCurrentLocation();
-            console.log('currentLocation', currentLocation);
-            initialLocation.set(currentLocation);
-            const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
-            if (ssdUrl != undefined && ssdUrl != '') {
-                setSsdUrl(ssdUrl);
-                console.log('Setting SSD URL to ' + ssdUrl);
-            } else {
-                console.error('Cannot determine SSD URL!');
-                throw new Error('Cannot determine SSD URL!');
-            }
-            // TODO: we could also query all the neighboring hexagons
-            const services = await getServicesAtLocation(currentLocation.regionCode, currentLocation.h3Index);
-            ssr.set(services);
-
-            if (get(availableGeoPoseServices).length > 0 && get(selectedGeoPoseService) == null) {
-                selectedGeoPoseService.set(get(availableGeoPoseServices)[0]);
-            }
-
-            if (services.length === 0) {
-                console.error('No available services found');
-            } else {
-                console.log('Retrieved ' + services.length + ' SSRs');
-            }
-        } catch (error) {
-            console.error('Could not retrieve spatial services');
-            console.error(error);
-            throw error;
-        }
-    }
-};
-
-/**
- *  Promise resolving to the current location (lat, lon) and region code (country currently) of the device.
+ *  Promise resolving to the current location (lat, lon, h3, country code) of the device.
  *
- * @returns {Promise<LOCATIONINFO>}     Object with lat, lon, regionCode or rejects
+ * @returns {Promise<{h3Index, lat, lon, countryCode}>} or rejects
  */
 export function getCurrentLocation() {
     console.log('getCurrentLocation...');
-    return new Promise<{ h3Index: h3.H3Index; lat: number; lon: number; countryCode: string; regionCode: string }>((resolve, reject) => {
+    return new Promise<{ h3Index: h3.H3Index; lat: number; lon: number; countryCode: string }>((resolve, reject) => {
         if (!('geolocation' in navigator)) {
             reject('Location is not available');
         }
@@ -150,13 +109,15 @@ export function getCurrentLocation() {
                     }
                 })
                 .then((data) => {
+                    if (data == undefined) {
+                        return;
+                    }
                     const countryCode = data.address.country_code;
                     resolve({
                         h3Index: h3.latLngToCell(latAngle, lonAngle, kOscpDefaultH3level),
                         lat: latAngle,
                         lon: lonAngle,
                         countryCode: countryCode,
-                        regionCode: supportedCountries.includes(countryCode) ? countryCode : 'us',
                     });
                 })
                 .catch((error) => {
@@ -180,6 +141,30 @@ export function getCurrentLocation() {
             currentPositionCallback({ coords: { latitude: predefinedGeolocation.position.lat, longitude: predefinedGeolocation.position.lon } });
         }
     });
+}
+
+export type CurrentLocation = {
+    h3Index: string;
+    lat: number;
+    lon: number;
+    countryCode: string;
+};
+
+/**
+ * Resolves the device location and stores it as the initial location.
+ * Returns undefined when location access is not allowed and the geopose override is off.
+ */
+export async function determineCurrentLocation(): Promise<CurrentLocation | undefined> {
+    console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
+    if (!(get(isLocationAccessAllowed) || get(debug_useOverrideGeopose))) {
+        return undefined;
+    }
+
+    // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
+    const currentLocation = await getCurrentLocation();
+    console.log('currentLocation', currentLocation);
+    initialLocation.set(currentLocation);
+    return currentLocation;
 }
 
 /**

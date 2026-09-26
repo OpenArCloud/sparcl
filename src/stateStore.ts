@@ -182,7 +182,6 @@ export const initialLocation = writable({
     lat: 0,
     lon: 0,
     countryCode: '',
-    regionCode: '',
 });
 
 /**
