@@ -14,6 +14,7 @@
 <script lang="ts">
     import ColorPicker from 'svelte-awesome-color-picker';
     import { createEventDispatcher, onMount, type ComponentType } from 'svelte';
+    import { getSupportedTopics } from '@oarc/scd-access';
     import { getSupportedCountries, type Service } from '@oarc/ssd-access';
 
     import {
@@ -63,7 +64,7 @@
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
     import { determineCurrentLocation } from '../core/locationTools';
-    import { regionCode, regionCodeForCountry, retrieveServicesAtLocation } from '../core/serviceDiscovery';
+    import { configuredSsdBaseUrl, regionCode, regionCodeForCountry, retrieveServicesAtLocation } from '../core/serviceDiscovery';
     import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
     import {
         getPersistedRenderingEngineId,
@@ -79,6 +80,10 @@
     const userWithoutAuth = import.meta.env.VITE_NOAUTH === 'true';
 
     let supportedCountryCodes: string[] = [];
+    let topicsByServiceId: Record<string, { status: 'loading' } | { status: 'ready'; topics: string[] } | { status: 'unavailable' }> = {};
+    const topicRequests = new Set<string>();
+    let supportedRegionsStatus: 'loading' | 'ready' | 'unavailable' = 'loading';
+    const ssdUrl = configuredSsdBaseUrl() ?? '';
     let experimentDetail: { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType }> | null; key: string } | null = null;
     let overrideGeoposePromise: Promise<void>;
     const serviceUrlFontSizePx = 9;
@@ -97,10 +102,68 @@
         try {
             const countries = await getSupportedCountries();
             supportedCountryCodes = [...countries].sort((a, b) => a.localeCompare(b));
+            supportedRegionsStatus = 'ready';
         } catch (error) {
+            supportedRegionsStatus = 'unavailable';
             console.error('Could not load supported countries', error);
         }
     });
+
+    $: {
+        for (const service of $availableContentServices) {
+            const url = service.url?.trim();
+            if (!url || topicRequests.has(service.id)) {
+                continue;
+            }
+            topicRequests.add(service.id);
+            topicsByServiceId = { ...topicsByServiceId, [service.id]: { status: 'loading' } };
+            getSupportedTopics(url)
+                .then((topics) => {
+                    topicsByServiceId = {
+                        ...topicsByServiceId,
+                        [service.id]: { status: 'ready', topics: [...topics].sort((a, b) => a.localeCompare(b)) },
+                    };
+                })
+                .catch((error) => {
+                    console.error(`Could not load topics from ${url}`, error);
+                    topicsByServiceId = { ...topicsByServiceId, [service.id]: { status: 'unavailable' } };
+                });
+        }
+    }
+
+    function topicsFromProperties(service: Service): string[] {
+        const topics = new Set<string>();
+        for (const property of service.properties ?? []) {
+            if (property.type !== 'topics') {
+                continue;
+            }
+            for (const topic of property.value.split(',')) {
+                const trimmed = topic.trim();
+                if (trimmed !== '') {
+                    topics.add(trimmed);
+                }
+            }
+        }
+        return [...topics];
+    }
+
+    /** Topics to offer as checkboxes. `/topics` wins when the SCD provides it; otherwise the service record is used. */
+    function topicChoices(service: Service): string[] {
+        const entry = topicsByServiceId[service.id];
+        if (entry?.status === 'ready') {
+            return entry.topics;
+        }
+        return topicsFromProperties(service);
+    }
+
+    function isTopicSelected(serviceId: string, topic: string): boolean {
+        const selected = $selectedContentServices[serviceId]?.selectedTopics ?? [];
+        return selected.some((item) => item.toLowerCase() === topic.toLowerCase());
+    }
+
+    function canonicalRegion(code: string): string {
+        return supportedCountryCodes.find((country) => country.toLowerCase() === code.toLowerCase()) ?? code;
+    }
 
     async function useOverridePosition() {
         const currentLocation = await determineCurrentLocation();
@@ -112,7 +175,7 @@
 
     function handleContentServiceSelection(event: Event & { currentTarget: EventTarget & HTMLInputElement }, service: Service) {
         if (!$selectedContentServices[service.id]) {
-            $selectedContentServices[service.id] = { isSelected: event.currentTarget.checked, selectedTopic: '' };
+            $selectedContentServices[service.id] = { isSelected: event.currentTarget.checked, selectedTopics: [] };
         }
 
         $selectedContentServices[service.id].isSelected = event.currentTarget.checked;
@@ -126,8 +189,15 @@
         }
     }
 
-    function handleContentServiceTopicSelection(service: Service, topic: string) {
-        $selectedContentServices[service.id].selectedTopic = topic;
+    function handleContentServiceTopicSelection(service: Service, topic: string, checked: boolean) {
+        if (!$selectedContentServices[service.id]) {
+            $selectedContentServices[service.id] = { isSelected: false, selectedTopics: [] };
+        }
+        const selectedTopics = $selectedContentServices[service.id].selectedTopics.filter((item) => item !== topic);
+        if (checked) {
+            selectedTopics.push(topic);
+        }
+        $selectedContentServices[service.id].selectedTopics = selectedTopics;
     }
 
     // Retrieve user details from logged in state
@@ -186,33 +256,9 @@
 
     <details class="dashboard" bind:open={$dashboardDetail.state}>
         <summary>Application state</summary>
-        <dl>
-            <dt>Location access</dt>
-            <dd>{$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</dd>
-            {#if !isLocationAccessAllowed}
-                <dd>Request access</dd>
-            {/if}
-        </dl>
-
-        <dl>
-            <dt>H3Index</dt>
-            <dd>{$initialLocation.h3Index}</dd>
-            <dt>Country</dt>
-            <dd>{$initialLocation.countryCode}</dd>
-            <dt>OSCP Region</dt>
-            <!--  TODO: Might make sense to do some validation here  -->
-            <dd class="list">
-                <input list="supported-countries" bind:value={$regionCode} />
-                <datalist id="supported-countries">
-                    {#each supportedCountryCodes as country}
-                        <option value={country}></option>
-                    {/each}
-                </datalist>
-            </dd>
-        </dl>
-
-        <dl class="radio connected">
-            <dt>AR mode</dt>
+        <section class="dashboard-block">
+            <h2 class="block-title">AR mode</h2>
+            <dl class="radio connected">
             <dd>
                 <input id="armodeoscp" type="radio" bind:group={$arMode} value={ARMODES.oscp} />
                 <label for="armodeoscp">{ARMODES.oscp}</label>
@@ -307,9 +353,63 @@
                 {/if}
             {/await}
         {/if}
+        </section>
 
-        <dl class="nested">
-            <dt><label for="geoposeService">GeoPose Services</label></dt>
+        <section class="dashboard-block">
+            <h2 class="block-title">Location</h2>
+            <p class="location-field">Location access: {$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</p>
+            {#if !isLocationAccessAllowed}
+                <p class="location-field">Request access</p>
+            {/if}
+            <p class="location-field">H3 index: {$initialLocation.h3Index}</p>
+            <p class="location-field">Country: {$initialLocation.countryCode}</p>
+        </section>
+
+        <section class="dashboard-block">
+            <h2 class="block-title">Service discovery</h2>
+            <p id="ssd-url" class="location-field">SSD URL: {ssdUrl || 'Not configured'}</p>
+            <p class="location-field">
+                Supported regions:
+                {#if supportedRegionsStatus === 'loading'}
+                    Loading regions…
+                {:else if supportedRegionsStatus === 'unavailable'}
+                    This SSD does not list supported regions.
+                {:else}
+                    {supportedCountryCodes.join(', ')}
+                {/if}
+            </p>
+            <p class="location-field">
+                <label for="oscp-region">OSCP region:</label>
+                {#if supportedCountryCodes.length > 0}
+                    <!-- Region choice stays visible but inactive; the app still chooses the region from the device country. -->
+                    <select
+                        id="oscp-region"
+                        class="inline-select"
+                        disabled
+                        value={canonicalRegion($regionCode)}
+                        on:change={(event) => {
+                            $regionCode = event.currentTarget.value;
+                        }}
+                    >
+                        {#if $regionCode === ''}
+                            <option value=""></option>
+                        {:else if !supportedCountryCodes.some((country) => country.toLowerCase() === $regionCode.toLowerCase())}
+                            <option value={$regionCode}>{$regionCode}</option>
+                        {/if}
+                        {#each supportedCountryCodes as country}
+                            <option value={country}>{country}</option>
+                        {/each}
+                    </select>
+                {:else}
+                    <span id="oscp-region">{$regionCode || '—'}</span>
+                {/if}
+            </p>
+            <p class="unimplemented-note">Manual region selection is not implemented</p>
+        </section>
+
+        <section class="dashboard-block">
+            <h2 class="block-title">GeoPose Services</h2>
+            <dl class="nested">
             <dd class="select">
                 <select id="geoposeService" value={$selectedGeoPoseService?.id != null ? String($selectedGeoPoseService.id) : ''} on:change={handleGeoPoseServiceSelection}>
                     {#if $availableGeoPoseServices.length === 0}
@@ -325,62 +425,71 @@
                 <dd>
                     <label for="geoposeServiceTitle">{$selectedGeoPoseService?.title || ''}</label>
 
+                    <p class="topic-note">GPP URL:</p>
                     <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
                         <label for="geoposeServiceUrl">{$selectedGeoPoseService?.url || ''}</label>
                     </p>
                 </dd>
             {/if}
-        </dl>
+            </dl>
+        </section>
 
-        <dl class="nested">
-            <dt>
-                <!-- svelte-ignore a11y-label-has-associated-control -->
-                <label> Content Services </label>
-            </dt>
-
+        <section class="dashboard-block">
+            <h2 class="block-title">Content Services</h2>
+            <dl class="nested">
             {#if $availableContentServices.length > 0}
                 {#each $availableContentServices as service}
-                    <dd>
-                        <input
-                            id="selectedContentService_{service.id}"
-                            type="checkbox"
-                            checked={$selectedContentServices[service.id]?.isSelected}
-                            on:change={(event) => handleContentServiceSelection(event, service)}
-                        />
-                        <label for="selectedContentService_{service.id}">{service.title}</label>
+                    <dd class="content-service">
+                        <div class="content-service-title">
+                            <input
+                                id="selectedContentService_{service.id}"
+                                type="checkbox"
+                                checked={$selectedContentServices[service.id]?.isSelected}
+                                on:change={(event) => handleContentServiceSelection(event, service)}
+                            />
+                            <label for="selectedContentService_{service.id}">{service.title}</label>
+                        </div>
+                        <div class="content-service-detail">
+                        <p class="topic-note">SCD URL:</p>
                         <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
                             <label for="selectedContentService_{service.id}">{service.url || ''}</label>
                         </p>
 
-                        {#if service?.properties}
-                            <ul>
-                                {#each service.properties as property}
-                                    {#if property.type === 'topics'}
-                                        {#each property.value.split(',') as topic}
-                                            <li>
-                                                <input
-                                                    id="contenttopic"
-                                                    type="radio"
-                                                    name={service.id}
-                                                    disabled={!$selectedContentServices[service.id]?.isSelected}
-                                                    checked={$selectedContentServices[service.id]?.selectedTopic === topic}
-                                                    on:change={(event) => handleContentServiceTopicSelection(service, topic)}
-                                                />
-                                                <label for="contenttopic">{topic}</label>
-                                            </li>
-                                        {/each}
-                                    {/if}
+                        {#if topicsByServiceId[service.id]?.status === 'loading'}
+                            <p class="topic-note">Loading topics…</p>
+                        {:else if topicChoices(service).length > 0}
+                            <p class="topic-note">Supported topics:</p>
+                            <ul class="topic-list">
+                                {#each topicChoices(service) as topic}
+                                    <li>
+                                        <!-- Topic choice stays visible but inactive; demos request the history topic only. -->
+                                        <input
+                                            id="contenttopic_{service.id}_{topic}"
+                                            type="checkbox"
+                                            disabled
+                                            checked={isTopicSelected(service.id, topic)}
+                                            on:change={(event) => handleContentServiceTopicSelection(service, topic, event.currentTarget.checked)}
+                                        />
+                                        <label for="contenttopic_{service.id}_{topic}">{topic}</label>
+                                    </li>
                                 {/each}
                             </ul>
-                        {:else}
-                            <p>No Topics</p>
+                        {:else if topicsByServiceId[service.id]?.status === 'unavailable'}
+                            <p class="topic-note">Supported topics:</p>
+                            <p class="topic-note">This SCD does not list supported topics.</p>
+                        {:else if topicsByServiceId[service.id]?.status === 'ready'}
+                            <p class="topic-note">Supported topics:</p>
+                            <p class="topic-note">none</p>
                         {/if}
+                        <p class="unimplemented-note">Manual topic selection is not implemented</p>
+                        </div>
                     </dd>
                 {/each}
             {:else}
                 <p class="no-services">No Content Services available</p>
             {/if}
-        </dl>
+            </dl>
+        </section>
     </details>
 
     <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
@@ -496,6 +605,52 @@
 
         font-size: 1.5em;
         font-weight: bold;
+    }
+
+    .dashboard-block {
+        padding-bottom: 0.85rem;
+        border-bottom: 1px solid #c8c8c8;
+    }
+
+    .block-title {
+        margin: 1.25rem 0 0.75rem;
+        padding: 1rem 2rem;
+        background-color: #f0f0f0;
+        color: #333;
+        font-size: 1.15rem;
+        font-weight: bold;
+        line-height: 1.2;
+    }
+
+    .location-field {
+        margin: 0.2rem 0;
+        font-size: 0.95rem;
+        font-weight: normal;
+        line-height: 1.35;
+        color: #000;
+        overflow-wrap: anywhere;
+    }
+
+    .location-field label {
+        font-weight: normal;
+    }
+
+    .inline-select {
+        width: auto;
+        height: auto;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        font-size: inherit;
+        font-weight: normal;
+        color: #000;
+        background: transparent;
+    }
+
+    .inline-select:disabled {
+        color: #000;
+        background: transparent;
+        opacity: 1;
     }
 
     #start-ar-button {
@@ -636,6 +791,42 @@
 
     :global(.dashboard input[type='checkbox']) {
         margin-bottom: 14px;
+    }
+
+    .content-service-title {
+        margin-left: -1.25rem;
+    }
+
+    .topic-note {
+        margin: 0.15rem 0 0.25rem;
+        font-size: 0.8rem;
+    }
+
+    :global(.dashboard) .unimplemented-note {
+        margin: 0.1rem 0 0.35rem;
+        font-size: 0.7rem;
+        font-weight: normal;
+        line-height: 1.2;
+        color: #000;
+    }
+
+    .topic-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.8rem;
+        line-height: 1.2;
+    }
+
+    .topic-list li {
+        margin: 0;
+    }
+
+    .topic-list input[type='checkbox'] {
+        width: 0.85rem;
+        height: 0.85rem;
+        margin: 0 0.35rem 0.15rem 0;
+        vertical-align: middle;
     }
 
     :global(.dashboard select) {

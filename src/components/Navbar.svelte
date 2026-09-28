@@ -28,13 +28,9 @@
     };
 </script>
 
-<!-- Navbar Component -->
+<!-- Navbar Component. The Dashboard title is not shown; this bar is only the signed-in account menu. -->
+{#if !userWithoutAuth}
 <nav class="navbar">
-    <div class="navbar-left">
-        <a href="/" class="nav-link">Dashboard</a>
-    </div>
-
-    {#if !userWithoutAuth}
         <div class="navbar-right">
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <!-- svelte-ignore a11y-no-static-element-interactions -->
@@ -51,8 +47,8 @@
             <span class="welcome-message">Welcome, {username}!</span>
             <a href="/login" class="nav-link" on:click={signOut}>Logout</a>
         </div>
-    {/if}
 </nav>
+{/if}
 
 <style>
     .navbar {
@@ -74,6 +70,10 @@
 
     .nav-link:hover {
         color: #007bff;
+    }
+
+    .navbar-right {
+        margin-left: auto;
     }
 
     .welcome-message {
@@ -142,6 +142,7 @@
         }
 
         .navbar-right {
+            margin-left: auto;
             text-align: right;
         }
 

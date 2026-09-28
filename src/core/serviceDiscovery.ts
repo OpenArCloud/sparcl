@@ -17,7 +17,7 @@ import { get, writable } from 'svelte/store';
 import { availableGeoPoseServices, selectedGeoPoseService, ssr } from '../stateStore';
 
 /** Configured SSD base URL, or undefined when VITE_SSD_ROOT_URL is missing. */
-function configuredSsdBaseUrl(): string | undefined {
+export function configuredSsdBaseUrl(): string | undefined {
     const ssdUrl = import.meta.env.VITE_SSD_ROOT_URL;
     return ssdUrl != undefined && ssdUrl != '' ? ssdUrl : undefined;
 }

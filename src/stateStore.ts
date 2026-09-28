@@ -272,9 +272,9 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
         set(contentServices);
         // If none selected yet, set all available as selected
         if (Object.keys(get(selectedContentServices)).length === 0 && contentServices.length > 0) {
-            let selection: Record<string, { isSelected: boolean; selectedTopic: string }> = {};
+            let selection: Record<string, { isSelected: boolean; selectedTopics: string[] }> = {};
             for (const [key, service] of contentServices.entries()) {
-                selection[service.id] = { isSelected: true, selectedTopic: 'history' };
+                selection[service.id] = { isSelected: true, selectedTopics: ['history'] };
                 // TODO: get first topic from service (As of 2021, we put everything under the history topic)
             }
             selectedContentServices.set(selection);
@@ -378,7 +378,7 @@ export const isRabbitmqConnectionTestSuccessful = writable(null);
 /**
  * The ones of the received content services to be used to request content around the current location from.
  */
-export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopic: string }>>({});
+export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopics: string[] }>>({});
 
 /**
  * The one of the returned p2p services to be used to set up a local peer to peer network.
