@@ -1,6 +1,6 @@
 {
     "name": "spARcl",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "spARcl (spatial AR cloud client) - Open Spatial Cloud Platform (OSCP) client with WebXR",
     "type": "module",
     "scripts": {
