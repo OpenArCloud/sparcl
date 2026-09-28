@@ -526,13 +526,17 @@ debug_enableOGCPoIContents.subscribe((value) => {
 /**
  * Keeps some state of the dashboard.
  *
- * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
+ * @type {any|{debug: boolean, state: boolean, multiplayer: boolean, arMode: boolean}}
  */
-const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
+const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean; arMode: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
     state: false,
     multiplayer: true,
     debug: true,
+    arMode: true,
 };
+if (storedDashboardDetail.arMode === undefined) {
+    storedDashboardDetail.arMode = true;
+}
 
 export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe((value) => {

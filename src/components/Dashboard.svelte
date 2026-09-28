@@ -63,7 +63,7 @@
 
     import Selector from '@experiments/Selector.svelte';
     import MessageBrokerSelector from './dom-overlays/MessageBrokerSelector.svelte';
-    import { determineCurrentLocation } from '../core/locationTools';
+    import { determineCurrentLocation, locationQueryStatus } from '../core/locationTools';
     import { configuredSsdBaseUrl, regionCode, regionCodeForCountry, retrieveServicesAtLocation } from '../core/serviceDiscovery';
     import P2PServiceSelector from './dom-overlays/P2PServiceSelector.svelte';
     import {
@@ -72,8 +72,6 @@
         RENDERING_ENGINE_STORAGE_KEY,
         type RenderingEngineId,
     } from '@core/engines/createRenderingEngine';
-
-    import Navbar from './Navbar.svelte';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher();
@@ -243,8 +241,6 @@
 </script>
 
 <div id="dashboard-elements">
-    <Navbar />
-
     <div id="sepeator"></div>
 
     <button id="start-ar-button" on:click={() => dispatch('startArButtonClicked')} on:keydown={() => dispatch('startArButtonClicked')}> Start AR </button>
@@ -257,107 +253,9 @@
     <details class="dashboard" bind:open={$dashboardDetail.state}>
         <summary>Application state</summary>
         <section class="dashboard-block">
-            <h2 class="block-title">AR mode</h2>
-            <dl class="radio connected">
-            <dd>
-                <input id="armodeoscp" type="radio" bind:group={$arMode} value={ARMODES.oscp} />
-                <label for="armodeoscp">{ARMODES.oscp}</label>
-            </dd>
-            <dd>
-                <input id="marker" type="radio" bind:group={$arMode} value={ARMODES.marker} />
-                <label for="marker">{ARMODES.marker}</label>
-            </dd>
-            <dd>
-                <input id="armodecreator" type="radio" bind:group={$arMode} value={ARMODES.create} />
-                <label for="armodecreator">{ARMODES.create}</label>
-            </dd>
-            <dd>
-                <input id="armodedev" type="radio" bind:group={$arMode} value={ARMODES.develop} />
-                <label for="armodedev">{ARMODES.develop}</label>
-            </dd>
-            <dd>
-                <input id="armodeexperiment" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
-                <label for="armodeexperiment">{ARMODES.experiment}</label>
-            </dd>
-        </dl>
-
-        {#if $arMode === ARMODES.marker}
-            <dl>
-                <dt>Marker image</dt>
-                <dd>{$currentMarkerImage}</dd>
-                <dt><label for="markerwidth">Width</label></dt>
-                <dd class="unitinput">
-                    <input id="markerwidth" type="number" bind:value={$currentMarkerImageWidth} />m
-                </dd>
-            </dl>
-        {/if}
-
-        {#if $arMode === ARMODES.create}
-            <dl>
-                <dt><label for="creatortype">Content Type</label></dt>
-                <dd class="select">
-                    <select id="creatortype" bind:value={$creatorModeSettings.type}>
-                        {#each Object.values(CREATIONTYPES) as type}
-                            <option value={type}>{type}</option>
-                        {/each}
-                    </select>
-                </dd>
-
-                {#if $creatorModeSettings.type === CREATIONTYPES.placeholder}
-                    <dt><label for="creatorshape">Content Shape</label></dt>
-                    <dd class="select">
-                        <select id="creatorshape" bind:value={$creatorModeSettings.shape}>
-                            {#each Object.values(PLACEHOLDERSHAPES) as shape}
-                                <option value={shape}>{shape}</option>
-                            {/each}
-                        </select>
-                    </dd>
-                {:else if $creatorModeSettings.type === CREATIONTYPES.model}
-                    <dt><label for="modelurl">URL</label></dt>
-                    <dd class="area">
-                        <textarea id="modelurl" bind:value={$creatorModeSettings.modelurl}></textarea>
-                    </dd>
-                {:else}
-                    <dt><label for="sceneurl">URL</label></dt>
-                    <dd class="area">
-                        <textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea>
-                    </dd>
-                {/if}
-            </dl>
-        {/if}
-
-        {#if $arMode === ARMODES.experiment}
-            <dl>
-                <dt><label for="experimentselector">Type</label></dt>
-                <dd class="select" id="experimentselector">
-                    <Selector
-                        on:change={(event) => {
-                            experimentDetail = event.detail;
-
-                            if ($experimentModeSettings === null) {
-                                $experimentModeSettings = {};
-                            }
-
-                            $activeExperiment = experimentDetail.key;
-                            if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
-                        }}
-                    />
-                </dd>
-            </dl>
-
-            {#await experimentDetail?.settings}
-                <p>Loading...</p>
-            {:then setting}
-                {#if experimentDetail?.key && $experimentModeSettings}
-                    <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
-                {/if}
-            {/await}
-        {/if}
-        </section>
-
-        <section class="dashboard-block">
             <h2 class="block-title">Location</h2>
             <p class="location-field">Location access: {$isLocationAccessAllowed ? 'Allowed' : 'Not allowed'}</p>
+            <p class="location-field">Location query: {$locationQueryStatus}</p>
             {#if !isLocationAccessAllowed}
                 <p class="location-field">Request access</p>
             {/if}
@@ -367,7 +265,10 @@
 
         <section class="dashboard-block">
             <h2 class="block-title">Service discovery</h2>
-            <p id="ssd-url" class="location-field">SSD URL: {ssdUrl || 'Not configured'}</p>
+            <div class="url-line">
+                <span class="url-line-label">SSD URL:</span>
+                <span id="ssd-url" class="url-line-value">{ssdUrl || 'Not configured'}</span>
+            </div>
             <p class="location-field">
                 Supported regions:
                 {#if supportedRegionsStatus === 'loading'}
@@ -407,8 +308,9 @@
             <p class="unimplemented-note">Manual region selection is not implemented</p>
         </section>
 
-        <section class="dashboard-block">
+        <section class="dashboard-block catalog-block">
             <h2 class="block-title">GeoPose Services</h2>
+            <p class="topic-note">Available GeoPose services:</p>
             <dl class="nested">
             <dd class="select">
                 <select id="geoposeService" value={$selectedGeoPoseService?.id != null ? String($selectedGeoPoseService.id) : ''} on:change={handleGeoPoseServiceSelection}>
@@ -422,20 +324,22 @@
                 </select>
             </dd>
             {#if $availableGeoPoseServices.length > 0}
+                <p class="topic-note">Selected GeoPose service:</p>
                 <dd>
-                    <label for="geoposeServiceTitle">{$selectedGeoPoseService?.title || ''}</label>
+                    <label class="selected-service-name" for="geoposeServiceTitle">{$selectedGeoPoseService?.title || ''}</label>
 
-                    <p class="topic-note">GPP URL:</p>
-                    <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
-                        <label for="geoposeServiceUrl">{$selectedGeoPoseService?.url || ''}</label>
-                    </p>
+                    <div class="url-line">
+                        <span class="url-line-label">GPP URL:</span>
+                        <span class="url-line-value">{$selectedGeoPoseService?.url || ''}</span>
+                    </div>
                 </dd>
             {/if}
             </dl>
         </section>
 
-        <section class="dashboard-block">
+        <section class="dashboard-block catalog-block">
             <h2 class="block-title">Content Services</h2>
+            <p class="topic-note">Available content services:</p>
             <dl class="nested">
             {#if $availableContentServices.length > 0}
                 {#each $availableContentServices as service}
@@ -450,10 +354,10 @@
                             <label for="selectedContentService_{service.id}">{service.title}</label>
                         </div>
                         <div class="content-service-detail">
-                        <p class="topic-note">SCD URL:</p>
-                        <p class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
-                            <label for="selectedContentService_{service.id}">{service.url || ''}</label>
-                        </p>
+                        <div class="url-line">
+                            <span class="url-line-label">SCD URL:</span>
+                            <span class="url-line-value">{service.url || ''}</span>
+                        </div>
 
                         {#if topicsByServiceId[service.id]?.status === 'loading'}
                             <p class="topic-note">Loading topics…</p>
@@ -494,23 +398,138 @@
 
     <details class="dashboard" bind:open={$dashboardDetail.multiplayer}>
         <summary>Multiplayer</summary>
-        <dl>
-            <dt>Choose your name</dt>
-            <dd class="list">
+        <section class="dashboard-block">
+            <h2 class="block-title">Avatar</h2>
+            <div class="avatar-row">
+                <label for="agentName">Name:</label>
                 <input placeholder="Type your name here" id="agentName" bind:value={$myAgentName} readonly={$isAgentNameReadonly} />
+            </div>
+            <div class="avatar-row">
+                <span>Color:</span>
+                <ColorPicker bind:rgb={$myAgentColor} label="" />
+            </div>
+        </section>
+
+        <section class="dashboard-block">
+            <h2 class="block-title">Message Broker Services</h2>
+            <MessageBrokerSelector
+                onSubmit={testRmqConnection}
+                submitButtonLabel="Test Authentication"
+                submitFailureMessage="Authentication unsuccessful. Reason:"
+                submitSuccessMessage="Authentication successful"
+                {serviceUrlFontSizePx}
+                showHeading={false}
+            ></MessageBrokerSelector>
+        </section>
+
+        <section class="dashboard-block">
+            <h2 class="block-title">P2P Services</h2>
+            <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} showHeading={false} />
+        </section>
+    </details>
+
+    <details class="dashboard" bind:open={$dashboardDetail.arMode}>
+        <summary>AR mode</summary>
+        <section class="dashboard-block">
+            <dl class="radio connected">
+            <dd>
+                <input id="armodeoscp" type="radio" bind:group={$arMode} value={ARMODES.oscp} />
+                <label for="armodeoscp">{ARMODES.oscp}</label>
+            </dd>
+            <dd>
+                <input id="marker" type="radio" bind:group={$arMode} value={ARMODES.marker} />
+                <label for="marker">{ARMODES.marker}</label>
+            </dd>
+            <dd>
+                <input id="armodecreator" type="radio" bind:group={$arMode} value={ARMODES.create} />
+                <label for="armodecreator">{ARMODES.create}</label>
+            </dd>
+            <dd>
+                <input id="armodedev" type="radio" bind:group={$arMode} value={ARMODES.develop} />
+                <label for="armodedev">{ARMODES.develop}</label>
+            </dd>
+            <dd>
+                <input id="armodeexperiment" type="radio" bind:group={$arMode} value={ARMODES.experiment} />
+                <label for="armodeexperiment">{ARMODES.experiment}</label>
             </dd>
         </dl>
-        <ColorPicker bind:rgb={$myAgentColor} label="Choose your color" />
+        </section>
 
-        <MessageBrokerSelector
-            onSubmit={testRmqConnection}
-            submitButtonLabel="Test Authentication"
-            submitFailureMessage="Authentication unsuccessful. Reason:"
-            submitSuccessMessage="Authentication successful"
-            {serviceUrlFontSizePx}
-        ></MessageBrokerSelector>
+        <section class="dashboard-block">
+            <h2 class="block-title">{$arMode} Mode Settings</h2>
 
-        <P2PServiceSelector on:broadcast={(event) => dispatch('broadcast', event.detail)} {serviceUrlFontSizePx} />
+        {#if $arMode === ARMODES.marker}
+            <div class="avatar-row">
+                <span>Marker image:</span>
+                <span class="marker-value">{$currentMarkerImage}</span>
+            </div>
+            <div class="avatar-row">
+                <label for="markerwidth">Width:</label>
+                <input id="markerwidth" class="marker-width" type="number" bind:value={$currentMarkerImageWidth} />
+                <span>m</span>
+            </div>
+        {:else if $arMode === ARMODES.create}
+            <dl>
+                <dt><label for="creatortype">Content Type</label></dt>
+                <dd class="select">
+                    <select id="creatortype" bind:value={$creatorModeSettings.type}>
+                        {#each Object.values(CREATIONTYPES) as type}
+                            <option value={type}>{type}</option>
+                        {/each}
+                    </select>
+                </dd>
+
+                {#if $creatorModeSettings.type === CREATIONTYPES.placeholder}
+                    <dt><label for="creatorshape">Content Shape</label></dt>
+                    <dd class="select">
+                        <select id="creatorshape" bind:value={$creatorModeSettings.shape}>
+                            {#each Object.values(PLACEHOLDERSHAPES) as shape}
+                                <option value={shape}>{shape}</option>
+                            {/each}
+                        </select>
+                    </dd>
+                {:else if $creatorModeSettings.type === CREATIONTYPES.model}
+                    <dt><label for="modelurl">URL</label></dt>
+                    <dd class="area">
+                        <textarea id="modelurl" bind:value={$creatorModeSettings.modelurl}></textarea>
+                    </dd>
+                {:else}
+                    <dt><label for="sceneurl">URL</label></dt>
+                    <dd class="area">
+                        <textarea id="sceneurl" bind:value={$creatorModeSettings.sceneurl}></textarea>
+                    </dd>
+                {/if}
+            </dl>
+        {:else if $arMode === ARMODES.experiment}
+            <dl>
+                <dt><label for="experimentselector">Type</label></dt>
+                <dd class="select" id="experimentselector">
+                    <Selector
+                        on:change={(event) => {
+                            experimentDetail = event.detail;
+
+                            if ($experimentModeSettings === null) {
+                                $experimentModeSettings = {};
+                            }
+
+                            $activeExperiment = experimentDetail.key;
+                            if ($experimentModeSettings[experimentDetail.key] === undefined) $experimentModeSettings[experimentDetail.key] = {};
+                        }}
+                    />
+                </dd>
+            </dl>
+
+            {#await experimentDetail?.settings}
+                <p>Loading...</p>
+            {:then setting}
+                {#if experimentDetail?.key && $experimentModeSettings}
+                    <svelte:component this={setting?.default} bind:settings={$experimentModeSettings[experimentDetail.key]} />
+                {/if}
+            {/await}
+        {:else}
+            <p class="location-field">None</p>
+        {/if}
+        </section>
     </details>
 
     <details class="dashboard" bind:open={$dashboardDetail.debug}>
@@ -599,7 +618,7 @@
     }
 
     summary {
-        margin-top: 60px;
+        margin-top: 24px;
         margin-bottom: 15px;
         color: var(--theme-highlight);
 
@@ -610,6 +629,19 @@
     .dashboard-block {
         padding-bottom: 0.85rem;
         border-bottom: 1px solid #c8c8c8;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
+        color: #000;
+    }
+
+    :global(.dashboard .catalog-block > dl.nested) {
+        margin-top: 0;
+    }
+
+    :global(.dashboard .catalog-block dl.nested > dd:not(.select)) {
+        padding-left: 1rem;
+        padding-right: 1rem;
     }
 
     .block-title {
@@ -617,22 +649,53 @@
         padding: 1rem 2rem;
         background-color: #f0f0f0;
         color: #333;
-        font-size: 1.15rem;
+        font-size: 1.35rem;
         font-weight: bold;
         line-height: 1.2;
     }
 
     .location-field {
         margin: 0.2rem 0;
-        font-size: 0.95rem;
+        font-size: 1rem;
         font-weight: normal;
-        line-height: 1.35;
+        line-height: 1.25;
         color: #000;
         overflow-wrap: anywhere;
     }
 
     .location-field label {
         font-weight: normal;
+    }
+
+    .avatar-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 0.35rem 0;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
+        color: #000;
+    }
+
+    .avatar-row input {
+        flex: 1;
+        min-width: 0;
+        height: 2rem;
+        margin: 0;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--theme-color);
+        font-size: 1rem;
+        font-weight: normal;
+    }
+
+    .avatar-row input.marker-width {
+        flex: 0 0 6rem;
+    }
+
+    .marker-value {
+        font-weight: normal;
+        overflow-wrap: anywhere;
     }
 
     .inline-select {
@@ -655,7 +718,7 @@
 
     #start-ar-button {
         width: 100%;
-        height: 50px;
+        height: 64px;
 
         border: 2px solid var(--theme-color);
 
@@ -679,6 +742,13 @@
         font-size: 1.125rem;
         line-height: 1.75rem;
         background-color: white;
+    }
+
+    :global(.dashboard .dashboard-block dt) {
+        height: auto;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
     }
 
     :global(.dashboard dt) {
@@ -794,12 +864,24 @@
     }
 
     .content-service-title {
-        margin-left: -1.25rem;
+        margin-left: 0;
+        font-weight: bold;
+    }
+
+    .selected-service-name {
+        font-weight: bold;
+    }
+
+    .content-service-detail {
+        max-width: 100%;
+        min-width: 0;
     }
 
     .topic-note {
         margin: 0.15rem 0 0.25rem;
-        font-size: 0.8rem;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
     }
 
     :global(.dashboard) .unimplemented-note {
@@ -814,8 +896,9 @@
         margin: 0;
         padding: 0;
         list-style: none;
-        font-size: 0.8rem;
-        line-height: 1.2;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
     }
 
     .topic-list li {
@@ -853,12 +936,32 @@
         margin-bottom: 26px;
     }
 
-    .serviceurl {
-        font-size: 8px;
+    .url-line {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        max-width: 100%;
+        min-width: 0;
+        margin: 0.15rem 0 0.35rem;
+    }
+
+    .url-line-label {
+        flex: 0 0 auto;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
+    }
+
+    .url-line-value {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-x: auto;
+        white-space: nowrap;
         font-family: monospace;
-        direction: ltr;
-        text-align: left;
-        padding-bottom: 3px;
+        font-size: 1rem;
+        line-height: 1.25;
+        padding: 0.15rem 0.4rem;
+        border: 1px solid var(--theme-color);
     }
 
     .center-img {

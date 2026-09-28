@@ -2,18 +2,21 @@
     import { createEventDispatcher } from 'svelte';
     import { availableP2pServices, allowP2pNetwork, selectedP2pService, p2pNetworkState } from '../../stateStore';
     export let serviceUrlFontSizePx: number | undefined = undefined;
+    export let showHeading = true;
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any; routing_key?: string } }>();
 </script>
 
 {#if $availableP2pServices.length > 0}
-    <dt><label for="p2p-server">P2P Services</label></dt>
+    {#if showHeading}
+        <dt><label for="p2p-server">P2P Services</label></dt>
+    {/if}
     <div class="inline">
         <input id="allowP2p" type="checkbox" bind:checked={$allowP2pNetwork} />
         <label for="allowP2p">Connect to p2p network</label>
     </div>
     {#if $allowP2pNetwork}
         <dl>
-            <dt><label for="p2pserver">P2P Service</label></dt>
+            <p class="p2p-note">Available P2P services:</p>
             <dd class="select">
                 <select id="p2pserver" bind:value={$selectedP2pService} disabled={$availableP2pServices.length < 2}>
                     {#if $availableP2pServices.length === 0}
@@ -25,14 +28,22 @@
                     {/if}
                 </select>
             </dd>
-            <ul class="serviceurl" style={serviceUrlFontSizePx ? `font-size: ${serviceUrlFontSizePx}px;` : undefined}>
-                <label for="p2pserviceurl">URL: {$selectedP2pService?.url || 'no url'}</label><br />
+            <p class="p2p-note">Selected P2P service:</p>
+            <div class="p2p-box">
+                <p class="selected-service-name">{$selectedP2pService?.title || ''}</p>
+                <div class="url-line">
+                    <span class="url-line-label">Rendezvous URL:</span>
+                    <span class="url-line-value">{$selectedP2pService?.url || 'no url'}</span>
+                </div>
                 {#if $selectedP2pService?.properties != undefined && $selectedP2pService.properties.length != 0}
                     {#each $selectedP2pService.properties as prop}
-                        <label for="p2pserviceproperty_{prop.type}">{prop.type}: {prop.value}<br /></label>
+                        <div class="url-line">
+                            <span class="url-line-label">{prop.type}:</span>
+                            <span class="url-line-value">{prop.value}</span>
+                        </div>
                     {/each}
                 {/if}
-            </ul>
+            </div>
         </dl>
         <button
             on:click={() => {
@@ -78,11 +89,59 @@
         padding: 0;
     }
 
-    .serviceurl {
-        font-size: var(--serviceUrlFontSizePx) px;
+    .selected-service-name {
+        margin: 0 0 0.5rem;
+        font-weight: bold;
+    }
+
+    :global(.dashboard) .selected-service-name {
+        margin: 0 0 0.5rem;
+    }
+
+    .p2p-box {
+        margin-top: 0.75rem;
+        padding: 0.75rem;
+        border: 1px solid var(--theme-color);
+        max-width: 100%;
+        min-width: 0;
+    }
+
+    .p2p-note {
+        margin: 0 0 0.25rem;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
+    }
+
+    :global(.dashboard) .p2p-note {
+        margin: 0 0 0.25rem;
+    }
+
+    .url-line {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        max-width: 100%;
+        min-width: 0;
+        margin: 0.15rem 0 0.35rem;
+    }
+
+    .url-line-label {
+        flex: 0 0 auto;
+        font-size: 1rem;
+        font-weight: normal;
+        line-height: 1.25;
+    }
+
+    .url-line-value {
+        flex: 1 1 0;
+        min-width: 0;
+        overflow-x: auto;
+        white-space: nowrap;
         font-family: monospace;
-        direction: ltr;
-        text-align: left;
-        padding-bottom: 3px;
+        font-size: 1rem;
+        line-height: 1.25;
+        padding: 0.15rem 0.4rem;
+        border: 1px solid var(--theme-color);
     }
 </style>

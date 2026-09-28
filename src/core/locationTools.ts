@@ -17,7 +17,7 @@ import * as h3 from 'h3-js';
 
 import type { Geopose } from '@oarc/scd-access';
 import { debug_overrideGeopose, debug_useOverrideGeopose, initialLocation, isLocationAccessAllowed } from '../stateStore';
-import { get } from 'svelte/store';
+import { get, writable } from 'svelte/store';
 
 export const toRadians = (degrees: number) => (degrees / 180) * Math.PI;
 export const toDegrees = (radians: number) => (radians / Math.PI) * 180;
@@ -150,6 +150,11 @@ export type CurrentLocation = {
     countryCode: string;
 };
 
+/** Status of the latest device-location query (GPS plus country lookup). */
+export type LocationQueryStatus = 'unavailable' | 'querying' | 'available' | 'failed';
+
+export const locationQueryStatus = writable<LocationQueryStatus>('unavailable');
+
 /**
  * Resolves the device location and stores it as the initial location.
  * Returns undefined when location access is not allowed and the geopose override is off.
@@ -157,14 +162,22 @@ export type CurrentLocation = {
 export async function determineCurrentLocation(): Promise<CurrentLocation | undefined> {
     console.log('get(isLocationAccessAllowed)', get(isLocationAccessAllowed));
     if (!(get(isLocationAccessAllowed) || get(debug_useOverrideGeopose))) {
+        locationQueryStatus.set('unavailable');
         return undefined;
     }
 
     // WARNING: call getCurrentLocation() only infrequently otherwise we can get banned from OpenStreetMap
-    const currentLocation = await getCurrentLocation();
-    console.log('currentLocation', currentLocation);
-    initialLocation.set(currentLocation);
-    return currentLocation;
+    locationQueryStatus.set('querying');
+    try {
+        const currentLocation = await getCurrentLocation();
+        console.log('currentLocation', currentLocation);
+        initialLocation.set(currentLocation);
+        locationQueryStatus.set('available');
+        return currentLocation;
+    } catch (error) {
+        locationQueryStatus.set('failed');
+        throw error;
+    }
 }
 
 /**
