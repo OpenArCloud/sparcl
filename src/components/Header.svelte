@@ -55,6 +55,7 @@
         align-items: center;
         margin-bottom: 63px;
         position: relative;
+        z-index: 11000;
 
         background: transparent linear-gradient(2deg, var(--theme-color) 0%, #293441 31%, #242428 72%, #231f20 98%) 0 0 no-repeat padding-box;
     }
