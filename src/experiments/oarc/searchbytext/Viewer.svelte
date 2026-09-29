@@ -16,7 +16,8 @@
     let tdEngine: RenderingEngine;
     let settings: Writable<Record<string, unknown>> = writable({});
 
-    let searchEnabled = true;
+    let searching = false;
+    let searchFailed = false;
 
     let parentState = writable();
     setContext('state', parentState);
@@ -135,8 +136,14 @@
         parentInstance.relocalize();
     }
 
-    async function getPlaces(query: String) {
-        if (searchEnabled) {
+    async function getPlaces(query: string) {
+        if (searching) {
+            return;
+        }
+        searching = true;
+        searchFailed = false;
+
+        try {
             // reset 3D engine to remove old POI markers
             worldAlignment.clearActiveGeoPoseAlignment();
             worldAlignment.clearActiveFramedPoseAlignment();
@@ -158,31 +165,29 @@
             }
 
             if (!baseUrl) {
-                console.error('baseUrl is not defined!');
-                return;
+                throw new Error('baseUrl is not defined');
             }
             const url = baseUrl + '?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
 
-            try {
-                const response = await fetch(url);
+            const response = await fetch(url);
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log(data.features);
-                data.features.forEach(function (place: any) {
-                    placePOI(place.name.name, place.geometry.coordinates[0], place.geometry.coordinates[1]);
-                });
-            } catch (error) {
-                console.error('Error fetching data:', error);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
             }
-            searchEnabled = false;
 
-            setTimeout(() => {
-                searchEnabled = true;
-            }, 3000);
+            const data = await response.json();
+            console.log(data.features);
+            if (!Array.isArray(data.features)) {
+                throw new Error('Search response did not include features');
+            }
+            data.features.forEach(function (place: any) {
+                placePOI(place.name.name, place.geometry.coordinates[0], place.geometry.coordinates[1]);
+            });
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            searchFailed = true;
+        } finally {
+            searching = false;
         }
     }
 
@@ -203,7 +208,7 @@
         {#if $settings.localisation && !isLocalisationDone}
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
-            <Overlay on:relocalize={() => relocalize()} on:textInput={getRecievedText} on:categorySelected={basicSearch} />
+            <Overlay {searching} {searchFailed} on:relocalize={() => relocalize()} on:textInput={getRecievedText} on:categorySelected={basicSearch} />
         {/if}
     </svelte:fragment>
 </Parent>
