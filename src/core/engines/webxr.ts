@@ -40,6 +40,8 @@ export default class webxr {
 
     private localFloorWebXrReferenceSpace: XRReferenceSpace | null = null;
     private localWebXrReferenceSpace: XRReferenceSpace | null = null;
+    private anchorsAccessFailed = false;
+    private frameCallbackFailed = false;
 
     /**
      * Start an immersive AR session: request session, create XR-compatible GL context,
@@ -304,12 +306,38 @@ export default class webxr {
         if (!this.localFloorWebXrReferenceSpace) {
             return;
         }
-        frame.trackedAnchors?.forEach((anchor) => {
-            const anchorPose = frame.getPose(anchor.anchorSpace, this.localFloorWebXrReferenceSpace!);
-            if (anchorPose) {
-                anchor.context?.rootUpdater(anchorPose.transform.matrix);
+
+        // The getter throws InvalidStateError when the anchors feature is not enabled.
+        // Optional chaining does not catch that, and Create/Develop call this every frame.
+        let anchors: XRAnchorSet | undefined;
+        try {
+            anchors = frame.trackedAnchors;
+        } catch (error) {
+            this.logAnchorsFailure('WebXR trackedAnchors is unavailable:', error);
+            return;
+        }
+        if (!anchors) {
+            return;
+        }
+
+        anchors.forEach((anchor) => {
+            try {
+                const anchorPose = frame.getPose(anchor.anchorSpace, this.localFloorWebXrReferenceSpace!);
+                if (anchorPose) {
+                    anchor.context?.rootUpdater(anchorPose.transform.matrix);
+                }
+            } catch (error) {
+                this.logAnchorsFailure('WebXR anchor pose failed:', error);
             }
         });
+    }
+
+    private logAnchorsFailure(message: string, error: unknown) {
+        if (this.anchorsAccessFailed) {
+            return;
+        }
+        this.anchorsAccessFailed = true;
+        console.error(message, error);
     }
 
     /**
@@ -335,19 +363,26 @@ export default class webxr {
 
         const xrViewerPose = xrFrame.getViewerPose(this.localFloorWebXrReferenceSpace);
         if (xrViewerPose) {
-            if (this.xrFrameUpdateCallback) {
+            try {
                 this.xrFrameUpdateCallback?.(time, xrFrame, xrViewerPose, this.localFloorWebXrReferenceSpace);
-            }
 
-            if (this.xrMarkerFrameUpdateCallback) {
-                const results = xrFrame.getImageTrackingResults();
-                if (results.length > 0) {
-                    // TODO(soeroesg): markerPose is actually the pose of image space relative to the localFloor reference space
-                    // but the name suggests it is the camera pose w.r.t the marker
-                    const markerPose = xrFrame.getPose(results[0].imageSpace, this.localFloorWebXrReferenceSpace);
-                    if (markerPose) {
-                        this.xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
+                if (this.xrMarkerFrameUpdateCallback) {
+                    const results = xrFrame.getImageTrackingResults();
+                    if (results.length > 0) {
+                        // TODO(soeroesg): markerPose is actually the pose of image space relative to the localFloor reference space
+                        // but the name suggests it is the camera pose w.r.t the marker
+                        const markerPose = xrFrame.getPose(results[0].imageSpace, this.localFloorWebXrReferenceSpace);
+                        if (markerPose) {
+                            this.xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
+                        }
                     }
+                }
+            } catch (error) {
+                // An exception here used to repeat on every animation frame and skip the GL draw,
+                // which hides the camera passthrough and leaves the tracking indicator red.
+                if (!this.frameCallbackFailed) {
+                    this.frameCallbackFailed = true;
+                    console.error('XR frame update failed:', error);
                 }
             }
         } else {
@@ -377,6 +412,8 @@ export default class webxr {
         this.xrNoPoseCallback = null;
         this.xrReferenceSpaceResetCallback = null;
         this.xrSessionEndedCallback = null;
+        this.anchorsAccessFailed = false;
+        this.frameCallbackFailed = false;
     };
 
     /**

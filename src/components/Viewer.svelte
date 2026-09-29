@@ -212,8 +212,10 @@
     }
 
     /**
-     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
-     * is shown to let the user know that the tracking was lost.
+     * Call when an {@link XRViewerPose} was received.
+     * Clears the tracking-lost indicator, and on the first pose marks the DOM overlay as ready.
+     * If no pose arrives for 300ms, the indicator is shown again.
+     * Child modes that do not call {@link onXrFrameUpdate} must call this themselves.
      */
     export function handlePoseHeartbeat() {
         $context.hasLostTracking = false;
@@ -221,6 +223,14 @@
             poseFoundHeartbeat = debounce(() => ($context.hasLostTracking = true), 300);
         }
         poseFoundHeartbeat();
+
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+
+            if ($debug_showLocalAxes) {
+                tdEngine.addAxes();
+            }
+        }
     }
 
     /**
@@ -233,14 +243,6 @@
      */
     export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         handlePoseHeartbeat();
-
-        if (firstPoseReceived === false) {
-            firstPoseReceived = true;
-
-            if ($debug_showLocalAxes) {
-                tdEngine.addAxes();
-            }
-        }
 
         // TODO: Handle multiple views and the localization correctly if there are multiple views
         for (let view of xrViewerPose.views) {
@@ -545,6 +547,9 @@
      * @param globalImagePose GeoPose from the GeoPose service for that capture.
      */
     export function onGeoPoseLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+        $context.isLocalizing = false;
+        $context.isLocalized = true;
+
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
 
         // This represents the camera in the WebXR coordinate system at the time of localization
@@ -942,6 +947,7 @@
                         break;
                     }
 
+                    case 'SENSOR_STREAM':
                     case 'sensor_stream': {
                         const sensor_id = content_definitions['sensor_id']
                         if (sensor_id === undefined) {

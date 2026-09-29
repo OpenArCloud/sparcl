@@ -13,7 +13,8 @@
 <script lang="ts">
     import Parent from '@components/Viewer.svelte';
 
-    import { debug_showLocalAxes, creatorModeSettings } from '@src/stateStore';
+    import { creatorModeSettings } from '@src/stateStore';
+    import { movePhoneMessage } from '@src/contentStore';
     import { CREATIONTYPES } from '@core/common';
     import type webxr from '@src/core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
@@ -24,10 +25,8 @@
     let xrEngine: webxr;
     let tdEngine: RenderingEngine;
 
-    let firstPoseReceived = false;
-    let showFooter = false;
-
     let creatorObjectNodeId: SceneNodeId | null = null;
+    let frameSetupErrorLogged = false;
 
     /**
      * Initial setup.
@@ -58,38 +57,38 @@
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        showFooter = false;
+        // Must run before mode-specific work. A throw later in this callback used to skip it,
+        // which left the tracking-lost indicator red for the whole session.
+        parentInstance.handlePoseHeartbeat();
 
-        if (firstPoseReceived === false) {
-            firstPoseReceived = true;
+        try {
+            if (!creatorObjectNodeId) {
+                const position = vec3.fromValues(0, 0, -2);
+                const orientation = quat.create();
 
-            // TODO: Fails for some reason
-            // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
+                if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
+                    creatorObjectNodeId = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
+                } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
+                    creatorObjectNodeId = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
+                } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
+                    const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
+                    creatorObjectNodeId = experiencePlaceholderObject;
+                    tdEngine.addClickEvent(experiencePlaceholderObject, () => parentInstance.experienceLoadHandler(experiencePlaceholderObject, position, orientation, $creatorModeSettings.sceneurl));
+                } else if (!frameSetupErrorLogged) {
+                    frameSetupErrorLogged = true;
+                    console.error('Unknown creator type:', $creatorModeSettings.type);
+                }
+            }
 
-            if ($debug_showLocalAxes) {
-                tdEngine.addAxes();
+            xrEngine.handleAnchors(frame);
+        } catch (error) {
+            if (!frameSetupErrorLogged) {
+                frameSetupErrorLogged = true;
+                console.error('Create mode frame setup failed:', error);
             }
         }
 
-        if (!creatorObjectNodeId) {
-            const position = vec3.fromValues(0, 0, -2);
-            const orientation = quat.create();
-
-            if ($creatorModeSettings.type === CREATIONTYPES.placeholder) {
-                creatorObjectNodeId = tdEngine.addPlaceholder($creatorModeSettings.shape, position, orientation);
-            } else if ($creatorModeSettings.type === CREATIONTYPES.model) {
-                creatorObjectNodeId = tdEngine.addModel($creatorModeSettings.modelurl, position, orientation);
-            } else if ($creatorModeSettings.type === CREATIONTYPES.scene) {
-                const experiencePlaceholderObject = tdEngine.addExperiencePlaceholder(position, orientation);
-                creatorObjectNodeId = experiencePlaceholderObject;
-                tdEngine.addClickEvent(experiencePlaceholderObject, () => parentInstance.experienceLoadHandler(experiencePlaceholderObject, position, orientation, $creatorModeSettings.sceneurl));
-            } else {
-                console.log('unknown creator type');
-            }
-        }
-
-        xrEngine.handleAnchors(frame);
-        for (let view of xrViewerPose.views) {
+        for (const view of xrViewerPose.views) {
             xrEngine.setViewportForView(view);
             parentInstance.handleExternalExperience(view);
             tdEngine.render(time, view);
@@ -103,4 +102,12 @@
     on:broadcast
     on:worldAlignmentEstablished
     on:worldAlignmentCleared
-/>
+>
+    <svelte:fragment slot="overlay" let:firstPoseReceived>
+        {#if !firstPoseReceived}
+            <p>{$movePhoneMessage}</p>
+        {:else}
+            <p>Content creation · {$creatorModeSettings.type}</p>
+        {/if}
+    </svelte:fragment>
+</Parent>
