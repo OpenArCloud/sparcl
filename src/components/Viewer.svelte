@@ -680,18 +680,18 @@
                 sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
                     .then((gppResponse) => {
                         $context.isLocalizing = false;
-                        $context.isLocalized = true;
-                        // allow relocalization after a few seconds
-                        wait(4000).then(() => {
-                            $context.showFooter = true;
-                            $context.isLocalisationDone = true;
-                        });
 
                         console.log('GPP response:');
                         console.log(JSON.stringify(gppResponse));
 
                         try {
                             const parsed = parseGppResponse(gppResponse);
+                            $context.isLocalized = true;
+                            // allow relocalization after a few seconds
+                            wait(4000).then(() => {
+                                $context.showFooter = true;
+                                $context.isLocalisationDone = true;
+                            });
                             resolve(parsed);
                         } catch (parseErr) {
                             console.error(parseErr);
