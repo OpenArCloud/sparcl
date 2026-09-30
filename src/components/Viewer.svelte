@@ -1084,6 +1084,11 @@
                             console.log(`A TEXT content ${record.content.title} was received but this type is disabled`);
                             break;
                         }
+                        const inlineText = record.content.description?.trim();
+                        if (inlineText) {
+                            void tdEngine.addTextObject(localPosition, localQuaternion, inlineText, [1, 1, 1], [1, 1, 1]);
+                            break;
+                        }
                         const url = record.content.refs ? record.content.refs[0].url : '';
                         fetch(url)
                             .then((response) => {
