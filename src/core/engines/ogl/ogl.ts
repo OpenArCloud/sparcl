@@ -133,6 +133,10 @@ export default class ogl implements RenderingEngine {
     private readonly boundClick = (event: MouseEvent) =>
         this._handleEvent({ x: event.clientX, y: event.clientY });
 
+    hasSceneNode(nodeId: SceneNodeId): boolean {
+        return this.sceneNodes.has(nodeId);
+    }
+
     getNodePose(
         nodeId: SceneNodeId,
         outPosition: vec3,

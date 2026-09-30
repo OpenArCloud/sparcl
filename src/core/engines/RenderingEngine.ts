@@ -189,6 +189,9 @@ export interface RenderingEngine {
         orientation: ReadonlyQuat
     ): void;
 
+    /** True when `nodeId` is still registered in the scene graph. */
+    hasSceneNode(nodeId: SceneNodeId): boolean;
+
     /** Writes world-space TRS of `node` into the provided out parameters. */
     getNodePose(
         nodeId: SceneNodeId,

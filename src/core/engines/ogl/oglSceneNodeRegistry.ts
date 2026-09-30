@@ -43,6 +43,10 @@ export class OglSceneNodeRegistry {
         return id;
     }
 
+    has(nodeId: SceneNodeId): boolean {
+        return this.nodesById.has(nodeId);
+    }
+
     get(nodeId: SceneNodeId): Transform | Mesh {
         const native = this.nodesById.get(nodeId);
         if (!native) {

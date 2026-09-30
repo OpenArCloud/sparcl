@@ -207,6 +207,10 @@ export default class ThreeEngine implements RenderingEngine {
         return entry;
     }
 
+    hasSceneNode(nodeId: SceneNodeId): boolean {
+        return this.objectsById.has(nodeId);
+    }
+
     getNodePose(nodeId: SceneNodeId, outPosition: vec3, outOrientation: quat, outScale?: vec3): void {
         const entry = this.resolve(nodeId);
         const p = entry.three.position;
