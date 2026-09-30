@@ -62,7 +62,7 @@
 <style>
     .top-controls {
         position: fixed;
-        top: env(safe-area-inset-top, 20px);
+        top: calc(env(safe-area-inset-top, 0px) + 48px);
         left: 0;
         right: 0;
         display: flex;
@@ -148,7 +148,7 @@
 
     .category-buttons-container {
         position: fixed;
-        top: calc(env(safe-area-inset-top, 20px) + 70px);
+        top: calc(env(safe-area-inset-top, 0px) + 48px + 70px);
         left: 0;
         right: 0;
         display: flex;
