@@ -111,6 +111,11 @@
     let contentQueryInterval: NodeJS.Timeout | undefined = undefined;
     let loadedH3Indices: string[] = [];
     let isContentRetrievalInFlight = false;
+    let enableContentZoneRequery = false;
+
+    export function setEnableContentZoneRequery(enabled: boolean) {
+        enableContentZoneRequery = enabled;
+    }
 
     // Bound each content-service request so one unreachable endpoint does not stall the query cycle.
     const kContentRequestTimeoutMs = 3000;
@@ -429,19 +434,21 @@
         isContentRetrievalInFlight = true;
 
         try {
-        const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
-        for (const h3Index of h3Indices) {
-            // skip already loaded h3 indices
-            // NOTE: disable to support dynamically created contents
-            if (loadedH3Indices.includes(h3Index)) {
-                continue;
-            } else {
-                console.log('New h3 index', h3Index);
-                loadedH3Indices.push(h3Index);
+            const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
+            for (const h3Index of h3Indices) {
+                // skip already loaded h3 indices if content zone requery is disabled
+                // duplicate contents are avoided due to SCR id filter
+                // however, SCRs added at runtime will appear only if content zone requery is enabled
+                if (!enableContentZoneRequery && loadedH3Indices.includes(h3Index)) {
+                    continue;
+                }
+                if (!loadedH3Indices.includes(h3Index)) {
+                    console.log('New h3 index', h3Index);
+                    loadedH3Indices.push(h3Index);
+                }
+                const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
+                placeContent(scrs);
             }
-            const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
-            placeContent(scrs);
-        }
         } finally {
             isContentRetrievalInFlight = false;
         }
