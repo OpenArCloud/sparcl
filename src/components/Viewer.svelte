@@ -797,14 +797,24 @@
 
                 // TODO: first save the records and then start to instantiate the objects asynchronously
 
-                // Check whether we have already received this SCR
-                if ($receivedScrs.map((scr) => scr.id).includes(record.id)) {
+                // remember the received SCRs except the streams and ignore them when we receive them again
+                let skipDuplicateScr = false;
+                receivedScrs.update((scrs) => {
+                    if (scrs.some((scr) => scr.id === record.id)) {
+                        skipDuplicateScr = true;
+                        return scrs;
+                    }
+                    // do not add streams to the received SCRs because we want to keep receiving them
+                    if (record.content.type === 'sensor_stream' || record.content.type === 'geopose_stream') {
+                        return scrs;
+                    }
+                    return [...scrs, record];
+                });
+                if (skipDuplicateScr) {
                     return;
                 }
 
-                // remember the received SCRs except the streams and ignore them when we receive them again
                 if (record.content.type !== 'sensor_stream' && record.content.type !== 'geopose_stream') {
-                    $receivedScrs.push(record);
                     if (debugScrs) {
                         // DEBUG
                         console.log('New SCR received:');
