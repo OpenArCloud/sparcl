@@ -7,7 +7,7 @@
 import type { Auth0Client, PopupLoginOptions } from '@auth0/auth0-spa-js';
 import { createAuth0Client } from '@auth0/auth0-spa-js';
 import { popupOpen } from '@src/stateStore';
-import { isAuthenticatedScdAuth0 } from './mementoState';
+import { currentScdLoggedInUser, isAuthenticatedScdAuth0 } from './mementoState';
 
 let scdAuth0Client: Auth0Client | null = null;
 
@@ -76,6 +76,18 @@ export function getScdAuth0Client(): Auth0Client | null {
     return scdAuth0Client;
 }
 
+export async function syncScdUserProfile(client: Auth0Client): Promise<void> {
+    const userData = await client.getUser();
+    const userDetails = {
+        email: userData?.email,
+        username: userData?.given_name,
+        name: userData?.name,
+        given_name: userData?.given_name,
+        family_name: userData?.family_name,
+    };
+    currentScdLoggedInUser.set(JSON.stringify(userDetails));
+}
+
 export async function getScdAccessToken(): Promise<string | undefined> {
     const client = scdAuth0Client ?? (await initScdAuth0Client());
     return client.getTokenSilently({
@@ -90,7 +102,11 @@ async function loginWithPopup(client: Auth0Client, options?: PopupLoginOptions) 
     popupOpen.set(true);
     try {
         await client.loginWithPopup(options);
-        isAuthenticatedScdAuth0.set(await client.isAuthenticated());
+        const authenticated = await client.isAuthenticated();
+        isAuthenticatedScdAuth0.set(authenticated);
+        if (authenticated) {
+            await syncScdUserProfile(client);
+        }
     } catch (e) {
         console.error(e);
         throw e;
@@ -101,6 +117,7 @@ async function loginWithPopup(client: Auth0Client, options?: PopupLoginOptions) 
 
 function logoutScdAuth0(client: Auth0Client | null) {
     isAuthenticatedScdAuth0.set(false);
+    currentScdLoggedInUser.set('{}');
     scdAuth0Client = null;
     if (!client) {
         return Promise.resolve();
@@ -112,6 +129,7 @@ const scdAuth0 = {
     initScdAuth0Client,
     getScdAuth0Client,
     getScdAccessToken,
+    syncScdUserProfile,
     loginWithPopup,
     logoutScdAuth0,
     isScdAuthConfigured,
