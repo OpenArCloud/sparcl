@@ -18,6 +18,9 @@
     export let serviceUrlFontSizePx: number | undefined = undefined;
     export let showHeading = true;
     let passwordVisible = false;
+
+    $: serviceUrlBoxStyle =
+        serviceUrlFontSizePx != null ? `--url-font-size: ${serviceUrlFontSizePx}px` : undefined;
 </script>
 
 {#if $availableMessageBrokerServices.length > 0}
@@ -40,7 +43,7 @@
                 ></Select>
             </dd>
             <p class="rmq-note">Selected RMQ service:</p>
-            <div class="rmq-box">
+            <div class="rmq-box" style={serviceUrlBoxStyle}>
                 <p class="selected-service-name">{$selectedMessageBrokerService?.description || $selectedMessageBrokerService?.title || ''}</p>
                 <div class="url-line">
                     <span class="url-line-label">RMQ URL:</span>
@@ -215,18 +218,10 @@
         overflow-x: auto;
         white-space: nowrap;
         font-family: monospace;
-        font-size: 1rem;
+        font-size: var(--url-font-size, 1rem);
         line-height: 1.25;
         padding: 0.15rem 0.4rem;
         border: 1px solid var(--theme-color);
-    }
-
-    .serviceurl {
-        font-size: var(--serviceUrlFontSizePx) px;
-        font-family: monospace;
-        direction: ltr;
-        text-align: left;
-        padding-bottom: 3px;
     }
 
     .password-toggle {

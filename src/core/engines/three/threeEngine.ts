@@ -293,7 +293,7 @@ export default class ThreeEngine implements RenderingEngine {
         this.scene.matrix.identity();
         this.scene.matrixAutoUpdate = true;
 
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.85));
+        this.scene.add(new THREE.AmbientLight(0xffffff, 1.0));
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
         directionalLight.position.set(1, 2, 1);

@@ -4,6 +4,9 @@
     export let serviceUrlFontSizePx: number | undefined = undefined;
     export let showHeading = true;
     const dispatch = createEventDispatcher<{ broadcast: { event: string; value?: any; routing_key?: string } }>();
+
+    $: serviceUrlBoxStyle =
+        serviceUrlFontSizePx != null ? `--url-font-size: ${serviceUrlFontSizePx}px` : undefined;
 </script>
 
 {#if $availableP2pServices.length > 0}
@@ -29,7 +32,7 @@
                 </select>
             </dd>
             <p class="p2p-note">Selected P2P service:</p>
-            <div class="p2p-box">
+            <div class="p2p-box" style={serviceUrlBoxStyle}>
                 <p class="selected-service-name">{$selectedP2pService?.title || ''}</p>
                 <div class="url-line">
                     <span class="url-line-label">Rendezvous URL:</span>
@@ -139,7 +142,7 @@
         overflow-x: auto;
         white-space: nowrap;
         font-family: monospace;
-        font-size: 1rem;
+        font-size: var(--url-font-size, 1rem);
         line-height: 1.25;
         padding: 0.15rem 0.4rem;
         border: 1px solid var(--theme-color);
