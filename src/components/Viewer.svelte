@@ -17,7 +17,12 @@
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-    import { applyModel3dDefinitionAnimations, handlePlaceholderDefinitions } from '@core/contents/contentDefinitions';
+    import {
+        applyModel3dDefinitionAnimations,
+        handlePlaceholderDefinitions,
+        uniformScaleFromScrContentSize,
+        uniformScaleVec3FromScrContentSize,
+    } from '@core/contents/contentDefinitions';
     import { 
         type XrFeature,
         type XrSessionSetupCallbackType, 
@@ -907,9 +912,12 @@
                             const url = record.content.refs[0].url;
                             const modelFormat = model3DFormatFromRef(url, contentType, record.content.type);
 
+                            const modelScale = uniformScaleVec3FromScrContentSize(record.content.size);
+                            const modelUniformScale = uniformScaleFromScrContentSize(record.content.size);
+
                             switch (modelFormat) {
                                 case 'gltf': {
-                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion);
+                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion, modelScale);
                                     applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                     break;
                                 }
@@ -925,6 +933,9 @@
                                                 );
                                                 handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                                             } else {
+                                                if (modelUniformScale !== 1) {
+                                                    tdEngine.setNodeUniformScale(modelNodeId, modelUniformScale);
+                                                }
                                                 applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                             }
                                         });
