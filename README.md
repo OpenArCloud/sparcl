@@ -81,9 +81,9 @@ VITE_SSD_ROOT_URL="YOUR_SSD_ROOT_URL"
 ## Redirection URI (during authentication)
 VITE_AUTH_REDIRECT_URI="YOUR_APP_REDIRECTION_URI"
 
-## Auth0 Login
-VITE_AUTH_AUTH0_DOMAIN="AUTH0_DOMAIN"
-VITE_AUTH_AUTH0_CLIENTID="AUTH0_CLIENT_ID"
+## Auth0 Login (sparcl app)
+VITE_AUTH_AUTH0_DOMAIN="your-sparcl-auth0-domain.auth0.com"
+VITE_AUTH_AUTH0_CLIENTID="your-sparcl-app-client-id-from-auth0"
 
 ## Here you can disable authentication (for development)
 VITE_NOAUTH=false // false if you want Auth0 authentication

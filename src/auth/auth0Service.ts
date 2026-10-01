@@ -5,8 +5,60 @@
 */
 
 import type { Auth0Client, PopupLoginOptions } from '@auth0/auth0-spa-js';
+import { createAuth0Client } from '@auth0/auth0-spa-js';
 import { navigate } from 'svelte-routing';
 import { isAuthenticatedAuth0, popupOpen, showLogin, showDashboard, isLoggedIn, currentLoggedInUser } from '../stateStore';
+
+let auth0Client: Auth0Client | null = null;
+
+function appAuthRequired(): boolean {
+    return import.meta.env.VITE_NOAUTH !== 'true';
+}
+
+function requireAppAuthEnv(name: string, value: string | undefined): string {
+    const trimmed = value?.trim();
+    if (!trimmed) {
+        throw new Error(`${name} is required when VITE_NOAUTH is not true.`);
+    }
+    return trimmed;
+}
+
+/** OIDC scopes for app login (name/email via {@link Auth0Client.getUser}). */
+const kAppAuth0Scope = 'openid profile email';
+
+function assertAppAuthEnvConfigured(): { domain: string; clientId: string; redirectUri: string } {
+    if (!appAuthRequired()) {
+        throw new Error('Auth0 app login is disabled (VITE_NOAUTH=true).');
+    }
+    return {
+        domain: requireAppAuthEnv('VITE_AUTH_AUTH0_DOMAIN', import.meta.env.VITE_AUTH_AUTH0_DOMAIN),
+        clientId: requireAppAuthEnv('VITE_AUTH_AUTH0_CLIENTID', import.meta.env.VITE_AUTH_AUTH0_CLIENTID),
+        redirectUri: requireAppAuthEnv('VITE_AUTH_REDIRECT_URI', import.meta.env.VITE_AUTH_REDIRECT_URI),
+    };
+}
+
+export async function initAuth0Client(): Promise<Auth0Client> {
+    if (auth0Client) {
+        return auth0Client;
+    }
+
+    const { domain, clientId, redirectUri } = assertAppAuthEnvConfigured();
+
+    auth0Client = await createAuth0Client({
+        domain,
+        clientId,
+        authorizationParams: {
+            redirect_uri: redirectUri,
+            scope: kAppAuth0Scope,
+        },
+    });
+
+    return auth0Client;
+}
+
+export function getAuth0Client(): Auth0Client | null {
+    return auth0Client;
+}
 
 async function loginWithPopup(client: Auth0Client, options?: PopupLoginOptions) {
     popupOpen.set(true);
@@ -40,14 +92,20 @@ async function loginWithPopup(client: Auth0Client, options?: PopupLoginOptions) 
     }
 }
 
-function logoutAuth0(client: Auth0Client) {
+function logoutAuth0(client: Auth0Client | null) {
     localStorage.removeItem('isAuthenticatedAuth0');
-    localStorage.removeItem('auth0Client');
+    auth0Client = null;
+
+    if (!client) {
+        return Promise.resolve();
+    }
 
     return client.logout();
 }
 
 const auth0 = {
+    initAuth0Client,
+    getAuth0Client,
     loginWithPopup,
     logoutAuth0,
 };

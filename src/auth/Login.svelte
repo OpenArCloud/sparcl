@@ -6,45 +6,32 @@
 
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { navigate } from 'svelte-routing';
     import '@fortawesome/fontawesome-free/css/all.min.css';
 
     // Auth0
     import auth0 from './auth0Service';
-    import { createAuth0Client, Auth0Client } from '@auth0/auth0-spa-js';
-    import { isLoggedIn, isAuthenticatedAuth0 } from '../stateStore';
+    import type { Auth0Client } from '@auth0/auth0-spa-js';
+    import { isAuthenticatedAuth0 } from '../stateStore';
 
 
     /////////////////////////////////// Handle Auth0 Login ///////////////////////////////////
 
-    let auth0Client: Auth0Client;
+    let auth0Client: Auth0Client | null = null;
 
     onMount(async () => {
         try {
-            // Initialize Auth0 client with configuration
-            auth0Client = await createAuth0Client({
-                domain: import.meta.env.VITE_AUTH_AUTH0_DOMAIN,
-                clientId: import.meta.env.VITE_AUTH_AUTH0_CLIENTID,
-                authorizationParams: {
-                    redirect_uri: import.meta.env.VITE_AUTH_REDIRECT_URI, // Match Allowed Callback URLs
-                    scope: 'openid profile email',
-                },
-            });
-
-            // Check if the user is authenticated
+            auth0Client = await auth0.initAuth0Client();
             const authenticated = await auth0Client.isAuthenticated();
             isAuthenticatedAuth0.set(authenticated);
-
-            // Store auth 0 client value in the localStorage
-            localStorage.setItem('auth0Client', JSON.stringify(auth0Client));
-            console.log('auth0Client saved to localStorage.');
         } catch (err) {
             console.error('Error initializing Auth0 client:', err);
         }
     });
 
     function handleAuth0Login() {
-        auth0.loginWithPopup(auth0Client);
+        if (auth0Client) {
+            auth0.loginWithPopup(auth0Client);
+        }
     }
 </script>
 
