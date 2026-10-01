@@ -54,6 +54,7 @@ import {
 } from './threeVideoHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
+const worldUpAxis = new THREE.Vector3(0, 1, 0);
 
 function disposeMaterial(material: THREE.Material | undefined): void {
     if (!material) return;
@@ -962,7 +963,7 @@ export default class ThreeEngine implements RenderingEngine {
         Object.values(this.updateHandlers).forEach((handler) => handler());
 
         for (const entry of this.verticallyRotatingNodes) {
-            entry.three.rotation.y += 0.01;
+            entry.three.rotateOnWorldAxis(worldUpAxis, 0.01);
         }
 
         for (const entry of this.towardsCameraRotatingNodes) {

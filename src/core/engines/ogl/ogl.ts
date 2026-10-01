@@ -106,6 +106,35 @@ let xrRenderTarget: RenderTarget | null = null;
 // whether to print verbose logs in the console
 const debugOgl = false;
 
+const worldUpAxis: ReadonlyVec3 = [0, 1, 0];
+
+function rotateOnWorldAxis(node: Transform, axis: ReadonlyVec3, angle: number) {
+    const spinAxis = vec3.create();
+    const spinDeltaQuat = quat.create();
+    const spinWorldQuat = quat.create();
+    const spinParentWorldQuat = quat.create();
+    const spinInvParentQuat = quat.create();
+    const spinLocalQuat = quat.create();
+
+    node.updateMatrixWorld(true);
+    vec3.copy(spinAxis, axis);
+    vec3.normalize(spinAxis, spinAxis);
+    quat.setAxisAngle(spinDeltaQuat, spinAxis, angle);
+    mat4.getRotation(spinWorldQuat, node.worldMatrix as unknown as mat4);
+    quat.multiply(spinWorldQuat, spinDeltaQuat, spinWorldQuat);
+
+    const parent = node.parent;
+    if (parent) {
+        parent.updateMatrixWorld(true);
+        mat4.getRotation(spinParentWorldQuat, parent.worldMatrix as unknown as mat4);
+        quat.invert(spinInvParentQuat, spinParentWorldQuat);
+        quat.multiply(spinLocalQuat, spinInvParentQuat, spinWorldQuat);
+    } else {
+        quat.copy(spinLocalQuat, spinWorldQuat);
+    }
+    node.quaternion.set(spinLocalQuat[0], spinLocalQuat[1], spinLocalQuat[2], spinLocalQuat[3]);
+}
+
 /** Maps a neutral {@link RigidPose} to OGL vec types (internal to this engine). */
 function oglTrsFromRigidPose(pose: RigidPose): { position: Vec3; quaternion: Quat } {
     return {
@@ -1224,9 +1253,8 @@ export default class ogl implements RenderingEngine {
         lastRenderTime = time;
         uniforms.time.forEach((model) => (model.program.uniforms.uTime.value = time * 0.001)); // Time in seconds
 
-        // rotate all user facing labels to face the current camera position
         verticallyRotatingNodes.forEach((node) => {
-            node.rotation.y += 0.01;
+            rotateOnWorldAxis(node, worldUpAxis, 0.01);
         });
 
         // rotate all text labels to face the current camera position

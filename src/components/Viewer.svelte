@@ -1048,7 +1048,9 @@
                                         position: { lat: poiLat, lon: poiLon, h: poiH },
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
-                                    const pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+                                    let pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+                                    // set the pin to be vertical in WebGL:
+                                    pinPose.orientation.x = 0; pinPose.orientation.y = 0; pinPose.orientation.z = 0; pinPose.orientation.w = 1;
                                     const modelNodeId = tdEngine.addModelWithRigidPose(
                                         '/media/models/map_pin.glb',
                                         pinPose,
