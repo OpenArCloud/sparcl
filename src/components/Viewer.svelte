@@ -117,11 +117,21 @@
         enableContentZoneRequery = enabled;
     }
 
+    /** Topic used by periodic H3 content retrieval (e.g. Memento experiment settings). */
+    export function setContentQueryTopic(topic: string) {
+        contentQueryTopic = topic.trim().toLowerCase() || kDefaultOscpScdTopic;
+    }
+
+    export async function refreshContentAtCurrentLocation() {
+        await retrieveAndPlaceContents(currentGeoPose);
+    }
+
     // Bound each content-service request so one unreachable endpoint does not stall the query cycle.
     const kContentRequestTimeoutMs = 3000;
 
     // spatial contents are organized into topics.
     const kDefaultOscpScdTopic = 'history';
+    let contentQueryTopic = kDefaultOscpScdTopic;
 
     // Multiplayer: poses of others
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
@@ -446,7 +456,7 @@
                     console.log('New h3 index', h3Index);
                     loadedH3Indices.push(h3Index);
                 }
-                const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
+                const scrs = await getContentsInH3Cell(h3Index, contentQueryTopic);
                 placeContent(scrs);
             }
         } finally {
