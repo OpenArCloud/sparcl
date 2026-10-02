@@ -30,6 +30,7 @@
     // Non-standard: TEXT SCRs usually point at real text assets on CDN; 
     // this local placeholder ref is only used in the Memento demo.
     const kInlineTextRefUrl = '/media/texts/inline.txt';
+    const kTextHeightOffsetM = 2.0;
 
     let parentInstance: Parent;
     let xrEngine: webxr;
@@ -48,7 +49,6 @@
     let reticleGeoPose: Geopose | undefined;
     let persisting = false;
     let persistError = '';
-    const kTextHeightOffsetM = 2.5;
 
     let parentState = writable();
     setContext('state', parentState);
