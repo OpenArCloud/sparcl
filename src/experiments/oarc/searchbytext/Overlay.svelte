@@ -3,13 +3,22 @@
     import { createEventDispatcher } from 'svelte';
     import { experimentModeSettings } from '@src/stateStore';
 
+    export let searching = false;
+    export let searchFailed = false;
+
     const dispatch = createEventDispatcher();
 
     function sendText() {
+        if (searching) {
+            return;
+        }
         dispatch('textInput', inputText);
     }
 
     function handleCategoryClick(category: string) {
+        if (searching) {
+            return;
+        }
         dispatch('categorySelected', category);
     }
 </script>
@@ -19,16 +28,31 @@
         <button class="secondary" on:click={() => dispatch('relocalize')}>
             <img src="/media/refresh.svg" alt="refresh icon" />
         </button>
-        <input type="text" bind:value={inputText} placeholder="Type something..." />
-        <button on:click={sendText}>Search</button>
+        <input type="text" bind:value={inputText} placeholder="Type something..." disabled={searching} />
+        <button on:click={sendText} disabled={searching} aria-busy={searching}>Search</button>
+        {#if searching}
+            <span class="search-status" role="status">
+                <img class="search-spinner" alt="" src="/media/spinner.svg" />
+                <span class="visually-hidden">Searching</span>
+            </span>
+        {:else if searchFailed}
+            <span class="search-status search-failed" role="alert" title="Search failed">
+                <svg class="fail-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"></circle>
+                    <path d="M12 7v7" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                    <circle cx="12" cy="17" r="1.2" fill="currentColor"></circle>
+                </svg>
+                Failed
+            </span>
+        {/if}
     </div>
 
     <div class="category-buttons-container">
-        <button on:click={() => handleCategoryClick('restaurant')}>
+        <button on:click={() => handleCategoryClick('restaurant')} disabled={searching}>
             <img src="https://cdn-icons-png.flaticon.com/512/2771/2771401.png" alt="Restaurant" />
             Restaurant
         </button>
-        <button on:click={() => handleCategoryClick('shop')}>
+        <button on:click={() => handleCategoryClick('shop')} disabled={searching}>
             <img src="https://cdn-icons-png.flaticon.com/512/3443/3443338.png" alt="Shop" />
             Shop
         </button>
@@ -38,7 +62,7 @@
 <style>
     .top-controls {
         position: fixed;
-        top: env(safe-area-inset-top, 20px);
+        top: calc(env(safe-area-inset-top, 0px) + 48px);
         left: 0;
         right: 0;
         display: flex;
@@ -67,6 +91,48 @@
         color: white;
     }
 
+    button:disabled,
+    input:disabled {
+        opacity: 0.55;
+        cursor: default;
+    }
+
+    .search-status {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .search-spinner {
+        width: 28px;
+        height: 28px;
+    }
+
+    .search-failed {
+        color: #c62828;
+    }
+
+    .fail-icon {
+        width: 22px;
+        height: 22px;
+        flex-shrink: 0;
+    }
+
+    .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
     .secondary {
         width: 40px;
         height: 40px;
@@ -82,7 +148,7 @@
 
     .category-buttons-container {
         position: fixed;
-        top: calc(env(safe-area-inset-top, 20px) + 70px);
+        top: calc(env(safe-area-inset-top, 0px) + 48px + 70px);
         left: 0;
         right: 0;
         display: flex;

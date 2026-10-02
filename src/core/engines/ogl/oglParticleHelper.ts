@@ -10,6 +10,8 @@ export interface OglParticleSystemState {
     shape: ParticleShape;
     systemSize: number;
     speed: number;
+    /** Seconds since this system was registered. Not shared across systems or sessions. */
+    animationTime: number;
 }
 
 const particleSystemStateBySceneNodeId = new Map<SceneNodeId, OglParticleSystemState>();
@@ -18,11 +20,14 @@ export function clearRegisteredParticleSystems(): void {
     particleSystemStateBySceneNodeId.clear();
 }
 
-export function registerParticleSystem(sceneNodeId: SceneNodeId, state: OglParticleSystemState): void {
+export function registerParticleSystem(
+    sceneNodeId: SceneNodeId,
+    state: Omit<OglParticleSystemState, 'animationTime'>,
+): void {
     if (particleSystemStateBySceneNodeId.has(sceneNodeId)) {
         throw new Error(`OGL particles: particle system already registered for scene node ${sceneNodeId}`);
     }
-    particleSystemStateBySceneNodeId.set(sceneNodeId, state);
+    particleSystemStateBySceneNodeId.set(sceneNodeId, { ...state, animationTime: 0 });
 }
 
 export function unregisterParticleSystem(sceneNodeId: SceneNodeId): void {
@@ -171,11 +176,9 @@ function generateVelocity(shape: ParticleShape, position: Vec3, speed: number): 
     return velocity.scale(speed);
 }
 
-/** Time variable for particle animations. */
-let particleAnimationTime = 0;
-
 // TODO: pass the clock delta time instead of a fixed 1/60
 export function updateParticles(sceneNodeId: SceneNodeId) {
-    particleAnimationTime += 1 / 60;
-    getParticleSystemState(sceneNodeId).mesh.program.uniforms.uTime.value = particleAnimationTime;
+    const state = getParticleSystemState(sceneNodeId);
+    state.animationTime += 1 / 60;
+    state.mesh.program.uniforms.uTime.value = state.animationTime;
 }

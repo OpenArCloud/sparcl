@@ -10,8 +10,8 @@
 import { mat4, quat, vec3, type ReadonlyQuat } from 'gl-matrix';
 import { getEuler, toDegrees } from '@core/locationTools';
 import { Quat, Euler, Vec3, Mat4, Transform } from 'ogl';
-import { Buffer } from 'buffer';
 import type { Geopose, SCR } from '@oarc/scd-access';
+import type { SCRExtended } from '@core/scrPlacement';
 import type { GeoPose, GeoPoseResponse } from '@oarc/gpp-access';
 import { GEO_POSE_ACCURACY_UNSPECIFIED, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
 import { frameTransformGraph } from '@core/frameTransforms';
@@ -156,9 +156,13 @@ export function saveImageBase64(imageBase64: string, fileNameStem: string) {
     let ext = imageBase64.split(';')[0].match(/jpeg|png|gif/)?.[0];
     // strip off the data: url prefix to get just the base64-encoded bytes
     let data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    let buf = Buffer.from(data, 'base64');
+    const binary = atob(data);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
     let a = document.createElement('a');
-    a.href = window.URL.createObjectURL(new Blob([buf], { type: 'image' + '/' + ext }));
+    a.href = window.URL.createObjectURL(new Blob([bytes], { type: 'image' + '/' + ext }));
     a.download = fileNameStem + '.' + ext;
     a.click();
 }
@@ -586,7 +590,7 @@ export function buildFakeLocalizationResponse(
 }
 
 /** Dev-only SCR using **framedPose** in {@link SPARCL_WEBXR_SCENE_FRAME_REF} (requires framed alignment for that frame, e.g. override localization). */
-export const fakeContentWithFramedPoseScene: SCR = {
+export const fakeContentWithFramedPoseScene: SCRExtended = {
     content: {
         description: '',
         id: 'framed-demo-1',
@@ -611,7 +615,7 @@ export const fakeContentWithFramedPoseScene: SCR = {
 /**
  * Dev-only SCR: **framedPose** in {@link SPARCL_TEST_HOP2_FRAME_REF} (needs {@link seedSparclTestFrameGraph} + graph path hop2→scene; no VPS framed alignment for hop2).
  */
-export const fakeContentWithFramedPoseHop2: SCR = {
+export const fakeContentWithFramedPoseHop2: SCRExtended = {
     content: {
         description: '',
         id: 'framed-demo-hop2',

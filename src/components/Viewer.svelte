@@ -17,8 +17,19 @@
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { sendRequest, validateRequest, GeoPoseRequest, Sensor, Privacy, ImageOrientation, IMAGEFORMAT, CameraParam, CAMERAMODEL, SENSORTYPE } from '@oarc/gpp-access';
     import { getContentsAtLocation, type Geopose, type SCR } from '@oarc/scd-access';
-    import { handlePlaceholderDefinitions } from '@core/definitionHandlers';
-    import { type SetupFunction, type XrFeature, type XrFrameUpdateCallbackType, type XrNoPoseCallbackType } from '../types/xr';
+    import {
+        applyModel3dDefinitionAnimations,
+        handlePlaceholderDefinitions,
+        uniformScaleFromScrContentSize,
+        uniformScaleVec3FromScrContentSize,
+    } from '@core/contents/contentDefinitions';
+    import { 
+        type XrFeature,
+        type XrSessionSetupCallbackType, 
+        type XrFrameUpdateCallbackType, 
+        type XrNoPoseCallbackType,
+        type XrSessionEndedCallbackType,
+    } from '../types/xr';
     import {
         arMode,
         availableContentServices,
@@ -45,47 +56,33 @@
     import { ARMODES, wait } from '@core/common';
     import {
         buildFakeLocalizationResponse,
-        fakeContentWithFramedPoseScene,
-        fakeContentWithFramedPoseHop2,
         loadImageBase64,
         saveImageBase64,
         saveText,
-        seedSparclTestFrameGraph,
     } from '@core/devTools';
     import { getClosestH3Cells, upgradeGeoPoseStandard } from '@core/locationTools';
-    import { sceneRigidPoseFromScrContent } from '@core/scrPlacement';
+    import { sceneRigidPoseFromScrContent, type SCRExtended } from '@core/scrPlacement';
     import { parseScrPlyLoadOptions } from '@core/contents/pointcloud';
     import * as worldAlignment from '@core/worldAlignment';
     import { mat4FromRigidPose, type WebXrRigidPose } from '@core/frameTransforms';
     import { mat4, quat, vec3, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
     import type { FramedPose } from '@core/spatial';
-    import { parseGppResponse, type GeoPoseResponseExtended } from '@core/geoPoseProtocolExtended';
+    import { parseGppResponse, type GeoPoseResponseExtended, type GeoPoseAccuracy } from '@core/geoPoseProtocolExtended';
     import { getSensorEstimatedGeoPose, startOrientationSensor, stopOrientationSensor } from '@core/sensors';
     import ArMarkerOverlay from '@components/dom-overlays/ArMarkerOverlay.svelte';
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
+    import { infostickerLabel } from '@core/contents/infosticker';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
-    /** SCR `definitions` that animate any placed MODEL_3D root (GLTF scene transform, PLY mesh, etc.). */
-    function applyModel3dDefinitionAnimations(
-        engine: RenderingEngine,
-        nodeId: SceneNodeId,
-        definitions: Record<string, string>,
-    ) {
-        const animation = definitions['animation'];
-        if (animation == undefined) {
-            return;
-        }
-        switch (animation) {
-            case 'SPIN_UP':
-                engine.setVerticallyRotating(nodeId);
-                break;
-            default:
-                break;
-        }
-    }
+    // Fake contents for testing FramedPose support
+    import { 
+        fakeContentWithFramedPoseScene, 
+        fakeContentWithFramedPoseHop2, 
+        seedSparclTestFrameGraph,
+    } from '@core/devTools';
 
     // Used to dispatch events to parent
     const dispatch = createEventDispatcher<{
@@ -120,12 +117,27 @@
     let contentQueryInterval: NodeJS.Timeout | undefined = undefined;
     let loadedH3Indices: string[] = [];
     let isContentRetrievalInFlight = false;
+    let enableContentZoneRequery = false;
 
-    // Fail fast on unreachable content services so one bad endpoint does not stall the whole query cycle.
-    const kContentRequestTimeoutMs = 1500;
+    export function setEnableContentZoneRequery(enabled: boolean) {
+        enableContentZoneRequery = enabled;
+    }
+
+    /** Topic used by periodic H3 content retrieval (e.g. Memento experiment settings). */
+    export function setContentQueryTopic(topic: string) {
+        contentQueryTopic = topic.trim().toLowerCase() || kDefaultOscpScdTopic;
+    }
+
+    export async function refreshContentAtCurrentLocation() {
+        await retrieveAndPlaceContents(currentGeoPose);
+    }
+
+    // Bound each content-service request so one unreachable endpoint does not stall the query cycle.
+    const kContentRequestTimeoutMs = 3000;
 
     // spatial contents are organized into topics.
     const kDefaultOscpScdTopic = 'history';
+    let contentQueryTopic = kDefaultOscpScdTopic;
 
     // Multiplayer: poses of others
     let agentInfo: Record<string, { hexColor: string; agentName: string; agentId: string }> = {};
@@ -171,18 +183,22 @@
     /**
      * Setup required AR features and start the XRSession.
      *
+     * Intended for child viewer implementations (OSCP, Develop, Create, experiments) that wrap
+     * this component via `bind:this={parentInstance}` and call `parentInstance.startSession(...)`.
+     * Do not call from `startAr` here — child viewers invoke this after their own setup.
+     *
      * @param xrFrameUpdateCallback  function      Will be called from animation loop
      * @param xrSessionEndedCallback  function     Will be called when AR session ends
      * @param xrNoPoseCallback  function           Will be called when no pose was found
-     * @param setup  function               Specific setup for AR mode or experiment
+     * @param xrSessionSetupCallback  function       After renderer attach (`onXrGlContextReady`), before `XRWebGLLayer` — binding, camera capture, hit-test
      * @param requiredFeatures  Array       Required features for the AR session
      * @param optionalFeatures  Array       Optional features for the AR session
      */
     export async function startSession(
         xrFrameUpdateCallback: XrFrameUpdateCallbackType,
-        xrSessionEndedCallback: () => void,
-        xrNoPoseCallback: XrNoPoseCallbackType,
-        setup: SetupFunction = () => {},
+        xrSessionEndedCallback: XrSessionEndedCallbackType = () => {},
+        xrNoPoseCallback: XrNoPoseCallbackType = () => {},
+        xrSessionSetupCallback: XrSessionSetupCallbackType = () => {},
         requiredFeatures: XrFeature[] = [],
         optionalFeatures: XrFeature[] = [],
     ) {
@@ -196,15 +212,20 @@
         }
 
         try {
-            await xrEngine.startSession(canvas, xrFrameUpdateCallback, options, setup);
+            await xrEngine.startImmersiveAr({
+                canvas,
+                xrSessionOptions: options,
+                onXrGlContextReady: () => tdEngine.init(),
+                onXrSessionSetup: xrSessionSetupCallback,
+                onXrFrameUpdate: xrFrameUpdateCallback,
+                onXrSessionEnded: xrSessionEndedCallback,
+                onXrNoPose: xrNoPoseCallback,
+            });
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
             return;
         }
-
-        xrEngine.setCallbacks(xrSessionEndedCallback, xrNoPoseCallback);
-        tdEngine.init();
 
         if ($debug_useGeolocationSensors) {
             startOrientationSensor();
@@ -212,8 +233,10 @@
     }
 
     /**
-     * Handles a pose found heartbeat. When it's not triggered for a specific time (300ms as default) an indicator
-     * is shown to let the user know that the tracking was lost.
+     * Call when an {@link XRViewerPose} was received.
+     * Clears the tracking-lost indicator, and on the first pose marks the DOM overlay as ready.
+     * If no pose arrives for 300ms, the indicator is shown again.
+     * Child modes that do not call {@link onXrFrameUpdate} must call this themselves.
      */
     export function handlePoseHeartbeat() {
         $context.hasLostTracking = false;
@@ -221,6 +244,14 @@
             poseFoundHeartbeat = debounce(() => ($context.hasLostTracking = true), 300);
         }
         poseFoundHeartbeat();
+
+        if (firstPoseReceived === false) {
+            firstPoseReceived = true;
+
+            if ($debug_showLocalAxes) {
+                tdEngine.addAxes();
+            }
+        }
     }
 
     /**
@@ -233,14 +264,6 @@
      */
     export function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
         handlePoseHeartbeat();
-
-        if (firstPoseReceived === false) {
-            firstPoseReceived = true;
-
-            if ($debug_showLocalAxes) {
-                tdEngine.addAxes();
-            }
-        }
 
         // TODO: Handle multiple views and the localization correctly if there are multiple views
         for (let view of xrViewerPose.views) {
@@ -427,19 +450,21 @@
         isContentRetrievalInFlight = true;
 
         try {
-        const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
-        for (const h3Index of h3Indices) {
-            // skip already loaded h3 indices
-            // NOTE: disable to support dynamically created contents
-            if (loadedH3Indices.includes(h3Index)) {
-                continue;
-            } else {
-                console.log('New h3 index', h3Index);
-                loadedH3Indices.push(h3Index);
+            const h3Indices = getClosestH3Cells(queryGeoPose.position.lat, queryGeoPose.position.lon);
+            for (const h3Index of h3Indices) {
+                // skip already loaded h3 indices if content zone requery is disabled
+                // duplicate contents are avoided due to SCR id filter
+                // however, SCRs added at runtime will appear only if content zone requery is enabled
+                if (!enableContentZoneRequery && loadedH3Indices.includes(h3Index)) {
+                    continue;
+                }
+                if (!loadedH3Indices.includes(h3Index)) {
+                    console.log('New h3 index', h3Index);
+                    loadedH3Indices.push(h3Index);
+                }
+                const scrs = await getContentsInH3Cell(h3Index, contentQueryTopic);
+                placeContent(scrs);
             }
-            const scrs = await getContentsInH3Cell(h3Index, kDefaultOscpScdTopic);
-            placeContent(scrs);
-        }
         } finally {
             isContentRetrievalInFlight = false;
         }
@@ -453,9 +478,8 @@
      * @param frame The XRFrame provided to the update loop
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      */
-    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+    export function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
         $context.hasLostTracking = true;
-        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -546,6 +570,9 @@
      * @param globalImagePose GeoPose from the GeoPose service for that capture.
      */
     export function onGeoPoseLocalizationSuccess(localImagePose: WebXrRigidPose, globalImagePose: Geopose) {
+        $context.isLocalizing = false;
+        $context.isLocalized = true;
+
         const mats = worldAlignment.setActiveGeoAlignmentFromCapture(localImagePose, globalImagePose);
 
         // This represents the camera in the WebXR coordinate system at the time of localization
@@ -637,7 +664,17 @@
                     });
                     console.log('SENSOR GeoPose:');
                     console.log(selfEstimatedGeoPose);
-                    resolve({ geopose: selfEstimatedGeoPose});
+                    const selfEstimatedGeoPoseResponse:GeoPoseResponseExtended = {
+                        geopose: selfEstimatedGeoPose,
+                        type: 'sensor',
+                        id: 'sensor',
+                        timestamp: Date.now(),
+                        accuracy: {
+                            position: 0,
+                            orientation: 0,
+                        },
+                    };
+                    resolve(selfEstimatedGeoPoseResponse);
                 });
                 return;
             }
@@ -666,18 +703,18 @@
                 sendRequest($selectedGeoPoseService?.url, JSON.stringify(geoPoseRequest))
                     .then((gppResponse) => {
                         $context.isLocalizing = false;
-                        $context.isLocalized = true;
-                        // allow relocalization after a few seconds
-                        wait(4000).then(() => {
-                            $context.showFooter = true;
-                            $context.isLocalisationDone = true;
-                        });
 
                         console.log('GPP response:');
                         console.log(JSON.stringify(gppResponse));
 
                         try {
                             const parsed = parseGppResponse(gppResponse);
+                            $context.isLocalized = true;
+                            // allow relocalization after a few seconds
+                            wait(4000).then(() => {
+                                $context.showFooter = true;
+                                $context.isLocalisationDone = true;
+                            });
                             resolve(parsed);
                         } catch (parseErr) {
                             console.error(parseErr);
@@ -739,7 +776,10 @@
             }
 
             const service = serviceRequests[index];
-            console.warn(`Failed to retrieve SCRs from service ${service.serviceId} (${service.serviceUrl}):`, result.reason);
+            const reason = result.reason instanceof Error ? result.reason.message : String(result.reason);
+            console.warn(
+                `Failed to retrieve SCRs from service ${service.serviceId} at ${service.serviceUrl}/scrs/${topic}?h3Index=${h3Index}: ${reason}`,
+            );
         });
 
         return successfulResults;
@@ -749,7 +789,7 @@
      *  Places the contents provided by Spacial Content Discovery providers.
      * @param scrs  [[SCR]]      Content Records with the result from the selected content services (array of array of SCRs. One array of SCRs by content provider)
      */
-    export async function placeContent(scrs: SCR[][]) {
+    export async function placeContent(scrs: SCRExtended[][]) {
         if (!worldAlignment.hasActiveWorldAlignment()) {
             console.log(`There is no world alignment!`);
             return;
@@ -763,14 +803,34 @@
 
                 // TODO: first save the records and then start to instantiate the objects asynchronously
 
-                // Check whether we have already received this SCR
-                if ($receivedScrs.map((scr) => scr.id).includes(record.id)) {
+                // remember the received SCRs except the streams and ignore them when we receive them again
+                let skipDuplicateScr = false;
+                receivedScrs.update((scrs) => {
+                    if (scrs.some((scr) => scr.id === record.id)) {
+                        skipDuplicateScr = true;
+                        return scrs;
+                    }
+                    // do not add streams to the received SCRs because we want to keep receiving them
+                    if (
+                        record.content.type === 'sensor_stream' ||
+                        record.content.type === 'SENSOR_STREAM' ||
+                        record.content.type === 'geopose_stream' ||
+                        record.content.type === 'GEOPOSE_STREAM'
+                    ) {
+                        return scrs;
+                    }
+                    return [...scrs, record];
+                });
+                if (skipDuplicateScr) {
                     return;
                 }
 
-                // remember the received SCRs except the streams and ignore them when we receive them again
-                if (record.content.type !== 'sensor_stream' && record.content.type !== 'geopose_stream') {
-                    $receivedScrs.push(record);
+                if (
+                    record.content.type !== 'sensor_stream' &&
+                    record.content.type !== 'SENSOR_STREAM' &&
+                    record.content.type !== 'geopose_stream' &&
+                    record.content.type !== 'GEOPOSE_STREAM'
+                ) {
                     if (debugScrs) {
                         // DEBUG
                         console.log('New SCR received:');
@@ -795,7 +855,8 @@
                     record.content.type === 'ICON' ||
                     record.content.type === 'VIDEO' ||
                     record.content.type === 'POINT_CLOUD' ||
-                    record.content.type === 'POINTCLOUD'
+                    record.content.type === 'POINTCLOUD' ||
+                    record.content.type === 'INFOSTICKER'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
@@ -863,25 +924,31 @@
                             const url = record.content.refs[0].url;
                             const modelFormat = model3DFormatFromRef(url, contentType, record.content.type);
 
+                            const modelScale = uniformScaleVec3FromScrContentSize(record.content.size);
+                            const modelUniformScale = uniformScaleFromScrContentSize(record.content.size);
+
                             switch (modelFormat) {
                                 case 'gltf': {
-                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion);
+                                    const modelNodeId = tdEngine.addModel(url, localPosition, localQuaternion, modelScale);
                                     applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                     break;
                                 }
                                 case 'ply': {
                                     void tdEngine
                                         .addPlyObject(url, localPosition, localQuaternion, parseScrPlyLoadOptions(content_definitions))
-                                        .then((mesh) => {
-                                            if (mesh == null) {
+                                        .then((modelNodeId) => {
+                                            if (modelNodeId == null) {
                                                 const placeholder = tdEngine.addPlaceholder(
                                                     record.content.keywords,
                                                     localPosition,
                                                     localQuaternion,
                                                 );
-                                                handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                                handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                                             } else {
-                                                applyModel3dDefinitionAnimations(tdEngine, mesh, content_definitions);
+                                                if (modelUniformScale !== 1) {
+                                                    tdEngine.setNodeUniformScale(modelNodeId, modelUniformScale);
+                                                }
+                                                applyModel3dDefinitionAnimations(tdEngine, modelNodeId, content_definitions);
                                             }
                                         });
                                     break;
@@ -893,18 +960,19 @@
                                         localPosition,
                                         localQuaternion,
                                     );
-                                    handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                                    handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                                 }
                             }
                         } else {
                             // we cannot load anything else but OSCP-compliant and AC-compliant 3D models
                             // so draw a placeholder instead
                             const placeholder = tdEngine.addPlaceholder(record.content.keywords, localPosition, localQuaternion);
-                            handlePlaceholderDefinitions(tdEngine, placeholder /* record.content.definition */);
+                            handlePlaceholderDefinitions(tdEngine, placeholder, content_definitions);
                         }
                         break;
                     }
 
+                    case 'EPHEMERAL':
                     case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
@@ -916,6 +984,7 @@
                         break;
                     }
 
+                    case 'GEOPOSE_STREAM':
                     case 'geopose_stream': {
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
@@ -930,6 +999,7 @@
                         break;
                     }
 
+                    case 'SENSOR_STREAM':
                     case 'sensor_stream': {
                         const sensor_id = content_definitions['sensor_id']
                         if (sensor_id === undefined) {
@@ -1023,7 +1093,9 @@
                                         position: { lat: poiLat, lon: poiLon, h: poiH },
                                         quaternion: { x: 0, y: 0, z: 0, w: 1 },
                                     };
-                                    const pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+                                    let pinPose = worldAlignment.convertGeoPoseToLocalPose(featureGeopose);
+                                    // set the pin to be vertical in WebGL:
+                                    pinPose.orientation.x = 0; pinPose.orientation.y = 0; pinPose.orientation.z = 0; pinPose.orientation.w = 1;
                                     const modelNodeId = tdEngine.addModelWithRigidPose(
                                         '/media/models/map_pin.glb',
                                         pinPose,
@@ -1059,6 +1131,17 @@
                             console.log(`A TEXT content ${record.content.title} was received but this type is disabled`);
                             break;
                         }
+                        const textScale = uniformScaleVec3FromScrContentSize(record.content.size);
+                        const placeText = (value: string) => {
+                            void tdEngine.addTextObject(localPosition, localQuaternion, value, [1, 1, 1], textScale).then((node) => {
+                                tdEngine.setTowardsCameraRotating(node);
+                            });
+                        };
+                        const inlineText = record.content.description?.trim();
+                        if (inlineText) {
+                            placeText(inlineText);
+                            break;
+                        }
                         const url = record.content.refs ? record.content.refs[0].url : '';
                         fetch(url)
                             .then((response) => {
@@ -1070,7 +1153,9 @@
                                 }
                             })
                             .then((textdata) => {
-                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!, [1, 1, 1], [1, 1, 1]);
+                                if (textdata) {
+                                    placeText(textdata);
+                                }
                             })
                             .catch((error) => {
                                 console.error('Error while processing TEXT: ' + error);
@@ -1082,6 +1167,15 @@
                         const videoUrl = record.content.refs ? record.content.refs[0].url : '';
                         tdEngine.addVideoObject(localPosition, localQuaternion, videoUrl);
                         break;
+
+                    case 'INFOSTICKER': {
+                        // Proprietary Augmented City sticker. sticker_type would select a specific
+                        // icon; we draw one generic information icon and the sticker_text caption.
+                        // refs[0].url is an external link and is intentionally not opened.
+                        const label = infostickerLabel(record.content);
+                        void tdEngine.addInfoSticker(localPosition, localQuaternion, label);
+                        break;
+                    }
 
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);

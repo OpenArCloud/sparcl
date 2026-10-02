@@ -55,18 +55,39 @@ npm run build
 npm run start
 ```
 
-## Docker build
+## Docker Compose
 
-To build a docker image run the `npm run build:docker` script. Make sure you have your `.env` file correctly set up before building. If you are unwilling or unable to create a `.env` file (eg.: because the build is happening in a CI pipeline), then an alternate solution is to add the following lines to the Dockerfile:
+Vite reads `VITE_*` values when the image is built. Put them in a `.env` file in the repo root (see below). Compose loads that file and passes the values into the build. A plain `docker build` does not.
 
-```Dockerfile
-ARG VITE_SSD_ROOT_URL
-ENV VITE_SSD_ROOT_URL=$VITE_SSD_ROOT_URL
-# Optional, if you use FrameTransformsClient with HTTP baseUrl:
-# ARG VITE_FRAME_TRANSFORMS_URL
-# ENV VITE_FRAME_TRANSFORMS_URL=$VITE_FRAME_TRANSFORMS_URL
+From the repo root, build the image and start the HTTP service in the background:
+
 ```
-and to run the docker build script with the following command line argument: `docker build --build-arg VITE_SSD_ROOT_URL=https://your-ssd-url-domain.com . -t sparcl`
+docker compose up -d --build
+```
+
+The image is `oscp/sparcl`. The container is `oscp-sparcl` (container names cannot contain `/`). It listens on port 80 inside the container and is published on the host at `http://localhost:8034`. The service uses `restart: unless-stopped`, so Docker brings it back after a reboot until you stop it yourself.
+
+```
+docker compose stop
+docker compose start
+docker compose down
+```
+
+`stop` leaves the container in place. `down` removes it. The next `up` creates it again.
+
+To publish a different host port, set `SPARCL_HOST_PORT` in `.env` or in the shell before `up`:
+
+```
+SPARCL_HOST_PORT=8080 docker compose up -d --build
+```
+
+WebXR on a phone needs HTTPS. The `https` profile builds `oscp/sparcl:https`, runs it as `oscp-sparcl-https`, generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3), and publishes `https://localhost:8034`. That service does not restart on its own.
+
+```
+docker compose --profile https up -d --build sparcl-https
+```
+
+The same flows are available as `npm run build:docker`, `npm run start:docker`, `npm run build:docker:https`, and `npm run start:docker:https`. For CI, export the `VITE_*` variables in the environment before `docker compose up --build`. Compose substitutes them into the build args. Changing `.env` requires a rebuild.
 
 ### Authentication:
 
@@ -81,9 +102,9 @@ VITE_SSD_ROOT_URL="YOUR_SSD_ROOT_URL"
 ## Redirection URI (during authentication)
 VITE_AUTH_REDIRECT_URI="YOUR_APP_REDIRECTION_URI"
 
-## Auth0 Login
-VITE_AUTH_AUTH0_DOMAIN="AUTH0_DOMAIN"
-VITE_AUTH_AUTH0_CLIENTID="AUTH0_CLIENT_ID"
+## Auth0 Login (sparcl app)
+VITE_AUTH_AUTH0_DOMAIN="your-sparcl-auth0-domain.auth0.com"
+VITE_AUTH_AUTH0_CLIENTID="your-sparcl-app-client-id-from-auth0"
 
 ## Here you can disable authentication (for development)
 VITE_NOAUTH=false // false if you want Auth0 authentication
@@ -94,6 +115,7 @@ VITE_NOAUTH_USER_EMAIL="DUMMY_EMAIL"
 VITE_RMQ_TOPIC_GEOPOSE_UPDATE="/exchange/ngi_search/geopose_update"
 VITE_RMQ_TOPIC_RETICLE_UPDATE="/exchange/ngi_search/reticle_update"
 VITE_RMQ_TOPIC_OBJECT_CREATED="/exchange/ngi_search/object_created"
+VITE_RMQ_TOPIC_SENSOR_UPDATE="/exchange/ngi_search/sensor_update"
 
 ## PoI Search (optional, see OSCP PoI search service)
 VITE_POI_SEARCH_BASEURL=""

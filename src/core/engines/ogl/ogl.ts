@@ -27,6 +27,7 @@ import {
     Color,
     TextureLoader,
     type OGLRenderingContext,
+    type RenderTarget,
     Mat3,
     type GLTF,
     type GLTFDescription,
@@ -37,6 +38,12 @@ import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { createPlyMeshProgram, createPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
+import {
+    INFOSTICKER_ICON_SIZE_M,
+    INFOSTICKER_ICON_URL,
+    INFOSTICKER_LABEL_SCALE,
+    INFOSTICKER_LABEL_TOP_M,
+} from '@core/contents/infosticker';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from '@core/engines/ogl/oglVideoHelper';
@@ -54,7 +61,6 @@ import {
 } from '@core/engines/ogl/oglPrimitives';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import { PRIMITIVES, type PrimitiveShape } from '@core/contents/primitives';
-import type { SceneRootMatrix } from '../../../types/xr';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import {
@@ -100,8 +106,40 @@ let gltfCache: Record<string, GLTFDescription> = {};
 /** True after {@link ogl.init} registers window/document listeners; cleared in {@link ogl.stop}. */
 let listenersAttached = false;
 
+/** Dummy target used to keep OGL drawing into the currently bound XR layer FBO. */
+let xrRenderTarget: RenderTarget | null = null;
+
 // whether to print verbose logs in the console
 const debugOgl = false;
+
+const worldUpAxis: ReadonlyVec3 = [0, 1, 0];
+
+function rotateOnWorldAxis(node: Transform, axis: ReadonlyVec3, angle: number) {
+    const spinAxis = vec3.create();
+    const spinDeltaQuat = quat.create();
+    const spinWorldQuat = quat.create();
+    const spinParentWorldQuat = quat.create();
+    const spinInvParentQuat = quat.create();
+    const spinLocalQuat = quat.create();
+
+    node.updateMatrixWorld(true);
+    vec3.copy(spinAxis, axis);
+    vec3.normalize(spinAxis, spinAxis);
+    quat.setAxisAngle(spinDeltaQuat, spinAxis, angle);
+    mat4.getRotation(spinWorldQuat, node.worldMatrix as unknown as mat4);
+    quat.multiply(spinWorldQuat, spinDeltaQuat, spinWorldQuat);
+
+    const parent = node.parent;
+    if (parent) {
+        parent.updateMatrixWorld(true);
+        mat4.getRotation(spinParentWorldQuat, parent.worldMatrix as unknown as mat4);
+        quat.invert(spinInvParentQuat, spinParentWorldQuat);
+        quat.multiply(spinLocalQuat, spinInvParentQuat, spinWorldQuat);
+    } else {
+        quat.copy(spinLocalQuat, spinWorldQuat);
+    }
+    node.quaternion.set(spinLocalQuat[0], spinLocalQuat[1], spinLocalQuat[2], spinLocalQuat[3]);
+}
 
 /** Maps a neutral {@link RigidPose} to OGL vec types (internal to this engine). */
 function oglTrsFromRigidPose(pose: RigidPose): { position: Vec3; quaternion: Quat } {
@@ -129,6 +167,10 @@ export default class ogl implements RenderingEngine {
     private readonly boundResize = () => this.resize();
     private readonly boundClick = (event: MouseEvent) =>
         this._handleEvent({ x: event.clientX, y: event.clientY });
+
+    hasSceneNode(nodeId: SceneNodeId): boolean {
+        return this.sceneNodes.has(nodeId);
+    }
 
     getNodePose(
         nodeId: SceneNodeId,
@@ -185,18 +227,29 @@ export default class ogl implements RenderingEngine {
     }
 
     /**
-     * Initialize ogl for use with WebXR.
+     * Attach OGL to the existing `#application` WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag.
      */
     init() {
-        if (!renderer) {
+        const canvasEl = document.querySelector('#application') as HTMLCanvasElement;
+        const existingGl = canvasEl.getContext('webgl2') as WebGL2RenderingContext | null;
+        const contextLost = !!renderer?.gl?.isContextLost?.();
+        const canvasChanged = !!renderer && renderer.gl?.canvas !== canvasEl;
+        const glMismatch = !!existingGl && !!renderer?.gl && renderer.gl !== existingGl;
+        if (!renderer || contextLost || canvasChanged || glMismatch) {
+            xrRenderTarget = null;
             renderer = new Renderer({
                 alpha: true,
-                canvas: document.querySelector('#application') as HTMLCanvasElement,
+                canvas: canvasEl,
                 dpr: window.devicePixelRatio,
                 webgl: 2,
             });
 
-            gl = renderer.gl;
+            gl = renderer.gl ?? existingGl;
+            if (!gl) {
+                throw new Error('OGL init: could not attach to WebGL2 context on XR canvas');
+            }
             gl.clearColor(0, 0, 0, 0);
         }
 
@@ -352,7 +405,7 @@ export default class ogl implements RenderingEngine {
      * @param orientation - Root orientation ({@link ReadonlyQuat})
      * @param scale - Root uniform/non-uniform scale ({@link ReadonlyVec3})
      * @param callback - Called once per loaded mesh leaf with its {@link SceneNodeId}
-     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @param name - Optional {@link ModelName} for {@link getModelNodeId} / {@link removeModel}
      * @returns {@link SceneNodeId} for the GLTF root transform
      */
     addModel(
@@ -449,7 +502,7 @@ export default class ogl implements RenderingEngine {
      * @param name - {@link ModelName} passed to {@link addModel}
      * @returns {@link SceneNodeId} of the GLTF root, or `null` if not cached
      */
-    getModel(name: ModelName): SceneNodeId | null {
+    getModelNodeId(name: ModelName): SceneNodeId | null {
         const native = gltf_objects_transforms[name];
         if (!native) {
             return null;
@@ -517,7 +570,12 @@ export default class ogl implements RenderingEngine {
      * @returns {@link SceneNodeId} for the reticle root (GLTF subtree)
      */
     addReticle() {
-        return this.addModel('/media/models/reticle.gltf', vec3.fromValues(0, 0, 0), quat.fromValues(0, 0, 0, 1));
+        return this.addModel(
+            '/media/models/reticle.gltf',
+            vec3.fromValues(0, 0, 0),
+            quat.fromValues(0, 0, 0, 1),
+            vec3.fromValues(0.2, 0.2, 0.2),
+        );
     }
 
     /** @param orientation - Scene orientation ({@link ReadonlyQuat}) */
@@ -683,18 +741,21 @@ export default class ogl implements RenderingEngine {
         dynamic_objects_meshes[object_id].quaternion = new_orientation;
 
         // check whether anything changed in the description
+        // null/undefined description means pose-only update: keep the existing mesh.
+        if (object_description == null) {
+            return true;
+        }
         const old_object_description = dynamic_objects_descriptions[object_id];
         if (JSON.stringify(old_object_description) === JSON.stringify(object_description)) {
             // nothing to do
             return true;
         }
-        let new_object_description = object_description ? { ...object_description } : null;
 
-        // as the Mesh properties cannot be changed, we need to delete the mesh and recreate a new one with the new description
-        // if there was an event handler on the old object, we transfer that to the new object (currently only one event handler is supported)
+        // Mesh geometry/program cannot be mutated in place; recreate with the new description.
+        // If there was an event handler on the old object, transfer it (currently only one is supported).
         const eventHandler = this.getClickEvent(object_id);
         this.removeDynamicObject(object_id);
-        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, new_object_description);
+        const newObject = this.addDynamicObject(object_id, new_position, new_orientation, { ...object_description });
         if (eventHandler) {
             this.addClickEvent(newObject, eventHandler);
         }
@@ -755,26 +816,6 @@ export default class ogl implements RenderingEngine {
         const native = this.sceneNodes.get(objectNodeId);
         native.position.copy(oglVec3(position));
         native.quaternion.copy(oglQuat(orientation));
-    }
-
-    /**
-     * Update the position of the reticle to the provided position and orientation.
-     *
-     * @param reticle - {@link SceneNodeId} from {@link addReticle}
-     * @param position - Scene position ({@link ReadonlyVec3})
-     * @param orientation - Scene orientation ({@link ReadonlyQuat})
-     * @param scale - Optional root scale ({@link ReadonlyVec3})
-     */
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale: ReadonlyVec3 = [0.2, 0.2, 0.2],
-    ) {
-        const native = this.sceneNodes.get(reticle);
-        native.position.copy(oglVec3(position));
-        native.quaternion.copy(oglQuat(orientation));
-        native.scale.copy(oglVec3(scale));
     }
 
     /**
@@ -890,6 +931,69 @@ export default class ogl implements RenderingEngine {
             console.error('OGL addLogoObject failed', error);
             return null;
         }
+    }
+
+    /**
+     * Augmented City INFOSTICKER: camera-facing icon with an optional tiny caption.
+     * The external link is not opened.
+     */
+    async addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null> {
+        if (!gl) {
+            console.error('OGL addInfoSticker: GL is not initialized');
+            return null;
+        }
+        const root = new Transform();
+        root.position.copy(oglVec3(position));
+        root.quaternion.copy(oglQuat(quaternion));
+
+        let hasVisual = false;
+        try {
+            const texture = await loadLogoTexture(gl, INFOSTICKER_ICON_URL);
+            if (texture) {
+                const logoProgram = createLogoProgram(gl, texture, {
+                    alphaTest: 0.05,
+                    depthWrite: false,
+                    unlit: true,
+                });
+                const plane = new Mesh(gl, {
+                    geometry: new Plane(gl, { width: INFOSTICKER_ICON_SIZE_M, height: INFOSTICKER_ICON_SIZE_M }),
+                    program: logoProgram,
+                    frustumCulled: false,
+                });
+                plane.setParent(root);
+                hasVisual = true;
+            }
+        } catch (error) {
+            console.error('OGL addInfoSticker icon failed', error);
+        }
+
+        const text = label.trim();
+        if (text) {
+            try {
+                const textMesh = await loadTextMesh(gl, 'MgOpenModernaRegular', text, new Vec3(1, 1, 1));
+                const scale = INFOSTICKER_LABEL_SCALE;
+                textMesh.scale.set(scale, scale, scale);
+                // Glyphs extend downward from local y = 0, so the caption hangs under the icon.
+                textMesh.position.set(0, INFOSTICKER_LABEL_TOP_M, 0);
+                textMesh.setParent(root);
+                hasVisual = true;
+            } catch (error) {
+                console.error('OGL addInfoSticker label failed', error);
+            }
+        }
+
+        if (!hasVisual) {
+            return null;
+        }
+
+        root.setParent(scene);
+        const nodeId = this.sceneNodes.add(root);
+        this.setTowardsCameraRotating(nodeId);
+        return nodeId;
     }
 
     /**
@@ -1037,8 +1141,8 @@ export default class ogl implements RenderingEngine {
      */
     getRootSceneUpdater() {
         const out = mat4.create();
-        return (matrix: SceneRootMatrix) => {
-            scene.matrix = new Mat4().fromArray(matrix);
+        return (matrix: mat4) => {
+            scene.matrix = new Mat4().fromArray(matrix as unknown as number[]);
             mat4.copy(out, scene.matrix as unknown as mat4);
             return out;
         };
@@ -1181,6 +1285,9 @@ export default class ogl implements RenderingEngine {
             listenersAttached = false;
         }
         experimentTapHandler = null;
+        if (gl && !gl.isContextLost()) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
     }
 
     /**
@@ -1197,6 +1304,9 @@ export default class ogl implements RenderingEngine {
      * @param view  XRView      Provided by WebXR
      */
     render(time: DOMHighResTimeStamp, view: XRView) {
+        if (!gl || !renderer || gl.isContextLost()) {
+            return;
+        }
         checkGLError(gl, 'OGL render() begin');
 
         const position = view.transform.position;
@@ -1212,9 +1322,8 @@ export default class ogl implements RenderingEngine {
         lastRenderTime = time;
         uniforms.time.forEach((model) => (model.program.uniforms.uTime.value = time * 0.001)); // Time in seconds
 
-        // rotate all user facing labels to face the current camera position
         verticallyRotatingNodes.forEach((node) => {
-            node.rotation.y += 0.01;
+            rotateOnWorldAxis(node, worldUpAxis, 0.01);
         });
 
         // rotate all text labels to face the current camera position
@@ -1224,7 +1333,29 @@ export default class ogl implements RenderingEngine {
         });
 
         videoHelper.onPreRender(time);
-        renderer.render({ scene, camera });
+        // Keep drawing on the XR layer framebuffer. OGL's default render() binds framebuffer null
+        // (the canvas default FBO), which is invalid during an immersive session and also fights
+        // the XRWebGLLayer that webxr bound for this animation frame.
+        const xrFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+        if (xrFramebuffer) {
+            const width = gl.drawingBufferWidth;
+            const height = gl.drawingBufferHeight;
+            if (!xrRenderTarget) {
+                xrRenderTarget = { buffer: xrFramebuffer, width, height } as RenderTarget;
+            } else {
+                xrRenderTarget.buffer = xrFramebuffer;
+                if (xrRenderTarget.width !== width || xrRenderTarget.height !== height) {
+                    xrRenderTarget.width = width;
+                    xrRenderTarget.height = height;
+                }
+            }
+            
+            // draw into the XR layer FBO
+            renderer.render({ scene, camera, target: xrRenderTarget });
+        } else {
+            // draw into the default framebuffer of the canvas (should not happen in normal operation)
+            renderer.render({ scene, camera });
+        }
 
         checkGLError(gl, 'OGL render() end');
     }

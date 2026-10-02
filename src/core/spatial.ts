@@ -43,11 +43,13 @@ export type FrameRef = {
     fqn: string;
     /** SpatialDDS 1.6 optional axis convention for poses in this frame. */
     coord_convention?: CoordConvention;
+    has_coord_convention?: boolean;
     /**
      * VPS extension (optional): multiply {@link FramedPose} translation `pose.t` by `scale_factor` to obtain **meters**
      * when `target_unit` is {@link CoordScaleUnit} **`SI_METER`**.
      */
-    coord_scale?: CoordScale;
+    coord_scale?: CoordScale; // TODO: add to SpatialDDS specs
+    has_coord_scale?: boolean; // TODO: add to SpatialDDS specs
 };
 
 /** Reserved frame reference for OSCP GeoPose (WGS-84 + ENU), per poseconversions.md */

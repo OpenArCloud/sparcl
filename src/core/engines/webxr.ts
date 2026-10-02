@@ -1,8 +1,8 @@
 /*
-  (c) 2021 Open AR Cloud
+  (c) 2026 Open AR Cloud
   This code is licensed under MIT license (see LICENSE.md for details)
 
-  (c) 2024 Nokia
+  (c) 2026 Nokia
   Licensed under the MIT License
   SPDX-License-Identifier: MIT
 */
@@ -10,94 +10,156 @@
 import { initCameraCaptureScene, drawCameraCaptureScene, createImageFromTexture, getCameraIntrinsics } from '@core/cameraCapture';
 import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { checkGLError } from '@core/devTools';
-import type { SetupFunction, XrFrameUpdateCallbackType, XrMarkerFrameUpdateCallbackType, XrNoPoseCallbackType, SceneRootMatrix } from '../../types/xr';
+import type {
+    StartImmersiveArOptions,
+    SceneRootMatrix,
+    XrFrameUpdateCallbackType,
+    XrMarkerFrameUpdateCallbackType,
+    XrNoPoseCallbackType,
+    XrReferenceSpaceResetCallbackType,
+    XrSessionEndedCallbackType,
+} from '../../types/xr';
 
-// TODO(soeroesg): xrNoPoseCallback does not seem to be triggered ever
-
-// TODO(soeroesg): coordinate system reset must be handled https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
-
-let xrSessionEndedCallback: (() => void) | null = null;
-let xrFrameUpdateCallback: XrFrameUpdateCallbackType | null = null;
-let xrMarkerFrameUpdateCallback: XrMarkerFrameUpdateCallbackType;
-let xrReferenceSpaceResetCallback: ((transform: XRRigidTransform) => void) | null = null;
-let xrNoPoseCallback: XrNoPoseCallbackType | null = null;
-let animationFrameCallback: (time: DOMHighResTimeStamp, xrFrame: XRFrame) => void;
-let localFloorWebXrReferenceSpace: XRReferenceSpace;
-let localWebXrReferenceSpace: XRReferenceSpace;
-let gl: WebGL2RenderingContext | null;
+// TODO(soeroesg): coordinate system reset must be handled
+// See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
 
 /**
  * WebXR implementation of the AR engine.
  */
 export default class webxr {
     private session: XRSession | null = null;
-    public glBinding: XRWebGLBinding | undefined;
+    private glBinding: XRWebGLBinding | undefined;
+    private gl: WebGL2RenderingContext | null = null;
+    private referenceSpacesReady: Promise<void> = Promise.resolve();
+
+    private xrFrameUpdateCallback: XrFrameUpdateCallbackType | null = null;
+    private xrMarkerFrameUpdateCallback: XrMarkerFrameUpdateCallbackType | null = null;
+    private xrSessionEndedCallback: XrSessionEndedCallbackType | null = null;
+    private xrNoPoseCallback: XrNoPoseCallbackType | null = null;
+    private xrReferenceSpaceResetCallback: XrReferenceSpaceResetCallbackType | null = null;
+
+    private localFloorWebXrReferenceSpace: XRReferenceSpace | null = null;
+    private localWebXrReferenceSpace: XRReferenceSpace | null = null;
+    private anchorsAccessFailed = false;
+    private frameCallbackFailed = false;
+
     /**
-     * Setup regular use session.
-     *
-     * @param canvas  Canvas        The element to use
-     * @param onXrFrameUpdateCallback  function        Callback to call for every frame
-     * @param options  {}       Settings to use to setup the AR session
-     * @param setup  function       Allows to execute setup functions for session
-     * @returns {Promise}
+     * Start an immersive AR session: request session, create XR-compatible GL context,
+     * optional `onXrGlContextReady` / `onXrSessionSetup`, then create the XR layer and RAF loop.
+     * @param options  StartImmersiveArOptions The options to use
+     * @returns void
      */
-    startSession(canvas: HTMLCanvasElement, onXrFrameUpdateCallback: XrFrameUpdateCallbackType, options: XRSessionInit, setup: SetupFunction = () => {}) {
-        xrFrameUpdateCallback = onXrFrameUpdateCallback;
+    async startImmersiveAr(options: StartImmersiveArOptions): Promise<void> {
+        if (this.session) {
+            throw new Error('startImmersiveAr: an immersive AR session is already active');
+        }
 
-        return navigator.xr?.requestSession('immersive-ar', options).then((result) => {
-            this._initSession(canvas, result);
+        if (!navigator.xr) {
+            throw new Error('WebXR not available');
+        }
 
-            setup(this, result, gl);
+        const {
+            canvas,
+            xrSessionOptions,
+            onXrGlContextReady,
+            onXrSessionSetup,
+            onXrFrameUpdate,
+            onXrMarkerFrameUpdate,
+            onXrSessionEnded,
+            onXrNoPose,
+        } = options;
+
+        this.xrFrameUpdateCallback = onXrFrameUpdate ?? null;
+        this.xrMarkerFrameUpdateCallback = onXrMarkerFrameUpdate ?? null;
+        this.xrSessionEndedCallback = onXrSessionEnded ?? null;
+        this.xrNoPoseCallback = onXrNoPose ?? null;
+
+        const xrSession = await navigator.xr.requestSession('immersive-ar', xrSessionOptions);
+        await this.createXrCompatibleContext(canvas, xrSession);
+
+        await onXrGlContextReady?.(this.gl!);
+        onXrSessionSetup?.(this, xrSession, this.gl);
+
+        await this.createXrLayerAndStartLoop();
+    }
+
+    /**
+     * @private
+     * Creates an XR-compatible WebGL2 context and reference spaces.
+     * @param canvas  HTMLCanvasElement The canvas to use
+     * @param xrSession  XRSession The session to use
+     * @returns void
+     */
+    private async createXrCompatibleContext(canvas: HTMLCanvasElement, xrSession: XRSession): Promise<void> {
+        this.session = xrSession;
+        this.session.addEventListener('end', this._onXrSessionEnded);
+
+        this.gl = canvas.getContext('webgl2', { xrCompatible: true }) as WebGL2RenderingContext | null;
+        if (!this.gl) {
+            throw new Error('Could not create an XR-compatible WebGL context!');
+        }
+
+        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-spaces
+        this.referenceSpacesReady = Promise.all([
+            this.session.requestReferenceSpace('local-floor'),
+            this.session.requestReferenceSpace('local'),
+        ]).then((values) => {
+            this.localFloorWebXrReferenceSpace = values[0];
+            this.localWebXrReferenceSpace = values[1];
+            this.localFloorWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset);
+            this.localWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset);
         });
     }
 
     /**
-     * Setup specific session for marker handling.
-     *
-     * @param canvas  Canvas        The element to use
-     * @param callback  function        Callback to call for every frame
-     * @param options  {}       Settings to use to setup the AR session
-     * @returns {Promise}
+     * @private
+     * Create the XRWebGLLayer after the canvas drawing buffer has been sized, then start the XR animation loop.
      */
-    startMarkerSession(canvas: HTMLCanvasElement, onXrMarkerFrameUpdateCallback: XrMarkerFrameUpdateCallbackType, options: XRSessionInit) {
-        xrMarkerFrameUpdateCallback = onXrMarkerFrameUpdateCallback;
+    private async createXrLayerAndStartLoop(): Promise<void> {
+        if (!this.session || !this.gl) {
+            throw new Error('createXrLayerAndStartLoop: session or GL context missing');
+        }
 
-        return navigator.xr
-            ?.requestSession('immersive-ar', options)
-            .then((result) => {
-                this._initSession(canvas, result);
+        // Widen depth clip vs tight UA defaults so near/far clipping is less aggressive while moving (meters).
+        this.session.updateRenderState({
+            baseLayer: new XRWebGLLayer(this.session, this.gl),
+            depthNear: XR_DEPTH_NEAR,
+            depthFar: XR_DEPTH_FAR,
+        });
 
-                return this.session?.getTrackedImageScores();
-            })
-            .then((scores) => {
-                // Simplified handling for a single marker image
-                if (scores && scores.length > 0) {
-                    // When marker image provided by user or server, inform user that marker can't be tracked
-                    console.log('Marker score: ', scores[0]);
-                }
-            });
+        if (this.xrMarkerFrameUpdateCallback) {
+            this.session.getTrackedImageScores?.()
+                .then((scores) => {
+                    if (scores && scores.length > 0) {
+                        console.log('Marker score: ', scores[0]);
+                    }
+                })
+                .catch((error) => {
+                    console.warn('getTrackedImageScores failed (non-fatal):', error);
+                });
+        }
+
+        await this.referenceSpacesReady;
+        this.session.requestAnimationFrame(this._onXrFrameUpdate);
     }
 
     /**
      * Set the default viewport of the WebGL context.
+     * @returns void
      */
     setViewPort() {
-        gl?.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        this.gl?.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
     }
 
     /**
      * Set the viewport according to provided view.
-     *
-     * @param view  XRView      The view to make the settings for
-     * @returns {XRViewport}
+     * @param view  XRView The view to use
+     * @returns XRViewport
      */
     setViewportForView(view: XRView) {
         const viewport = this.session?.renderState?.baseLayer?.getViewport(view);
         if (viewport) {
-            gl?.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
-
-            // For an application working in viewport space, get the camera intrinsics
-            // based on the viewport dimensions:
+            this.gl?.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
             getCameraIntrinsics(view.projectionMatrix, viewport);
         } else {
             this.setViewPort();
@@ -105,18 +167,24 @@ export default class webxr {
         return viewport;
     }
 
+    /**
+     * Requires `camera-access` on the session. Creates `XRWebGLBinding` and the GL blit scene for `getCameraTexture2`.
+     * @param gl  WebGL2RenderingContext The WebGL context to use
+     * See https://immersive-web.github.io/webxr/camera-access-explainer.html#session-init
+     */
     initCameraCapture(gl: WebGL2RenderingContext) {
+        if (!this.session) {
+            throw new Error('initCameraCapture: no active XR session');
+        }
+        this.glBinding = new XRWebGLBinding(this.session, gl);
         initCameraCaptureScene(gl);
     }
 
     /**
      * Current best effort to get the camera image from the WebXR session.
-     *
-     * The implementation has recently changed in Chromium. Will adapt when available for Chrome (beta).
-     *
-     * @param frame  XRFrame        The current frame to get the image for
-     * @param view  XRView      The view to use
-     * @returns {WebGLTexture}
+     * @param frame XRFrame The current frame to get the image for
+     * @param view  XRView  The view to use
+     * @returns WebGLTexture
      */
     getCameraTexture(frame: XRFrame, view: XRView) {
         // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
@@ -125,15 +193,15 @@ export default class webxr {
         // We want to capture the camera image, however, it is not directly available here,
         // but only as a GPU texture. We draw something textured with the camera image at every frame,
         // so that the texture is kept in GPU memory. We can then capture it below.
-        if (!gl || !view.camera) {
+        if (!this.gl || !view.camera) {
             return;
         }
         const cameraTexture = this.glBinding?.getCameraImage(view.camera); // note: this returns a WebGlTexture
         if (!cameraTexture) {
             return;
         }
-        drawCameraCaptureScene(gl, cameraTexture);
-        checkGLError(gl, 'getCameraTexture() end');
+        drawCameraCaptureScene(this.gl, cameraTexture);
+        checkGLError(this.gl, 'getCameraTexture() end');
         return cameraTexture;
     }
     // NOTE: since Chrome update in June 2021, the getCameraImage(frame, view) method is not available anymore
@@ -168,12 +236,11 @@ export default class webxr {
 
             // NOTE: if we do not draw anything on pose update for more than 5 frames, Chrome's WebXR sends warnings
             // See OnFrameEnd() in https://chromium.googlesource.com/chromium/src/third_party/+/master/blink/renderer/modules/xr/xr_webgl_layer.cc
-            if (!gl || !cameraTexture) {
+            if (!this.gl || !cameraTexture) {
                 throw new Error('gl or cameraTexture is null!');
             }
-            drawCameraCaptureScene(gl, cameraTexture);
-
-            checkGLError(gl, 'getCameraTexture2() end');
+            drawCameraCaptureScene(this.gl, cameraTexture);
+            checkGLError(this.gl, 'getCameraTexture2() end');
 
             return {
                 cameraTexture: cameraTexture,
@@ -185,19 +252,16 @@ export default class webxr {
 
     /**
      * Convert WebGL texture to actual image to use for localisation.
-     *
-     * The implementation for camera access has recently changed in Chromium. Will adapt when available for Chrome (beta).
-     *
      * @param texture  WebGLTexture     The texture to convert
      * @param width  Number     Width of the texture
-     * @param height  Number        Height of the texture
-     * @returns {string}        base64 encoded image
+     * @param height  Number Height of the texture
+     * @returns base64 encoded image
      */
     getCameraImageFromTexture(texture: WebGLTexture, width: number, height: number) {
-        if (!gl) {
+        if (!this.gl) {
             throw new Error('gl is undefined!');
         }
-        return createImageFromTexture(gl, texture, width, height);
+        return createImageFromTexture(this.gl, texture, width, height);
     }
 
     /**
@@ -210,26 +274,16 @@ export default class webxr {
     }
 
     /**
-     * Set callbacks that should be called for certain situations.
-     *
-     * @param onXrSessionEndedCallback  function       The function to call when session ends
-     * @param onXrNoPoseCallback  function      The function to call when no pose was reported for experiment mode
-     */
-    setCallbacks(onXrSessionEndedCallback: () => void, onXrNoPoseCallback: XrNoPoseCallbackType) {
-        xrSessionEndedCallback = onXrSessionEndedCallback;
-        xrNoPoseCallback = onXrNoPoseCallback;
-    }
-
-    /**
      * Create anchor for origin point of WebXR coordinate system to fix the 3D engine to it.
-     *
-     * @param frame  XRFrame        The current frame to base the anchor on
-     * @param rootUpdater  function     Callback into the 3D engine to adopt changes when anchor is moved
+     * @param frame  XRFrame The current frame to base the anchor on
+     * @param rootUpdater  function Callback into the 3D engine to adopt changes when anchor is moved
      */
     createRootAnchor(frame: XRFrame, rootUpdater: (matrix: SceneRootMatrix) => void) {
+        if (!this.localFloorWebXrReferenceSpace) {
+            return;
+        }
         if (frame.createAnchor) {
-            // note: we use the local floor reference space for the anchors
-            const anchorPromise = frame.createAnchor(new XRRigidTransform(), localFloorWebXrReferenceSpace);
+            const anchorPromise = frame.createAnchor(new XRRigidTransform(), this.localFloorWebXrReferenceSpace);
             if (anchorPromise) {
                 anchorPromise
                     .then((anchor) => {
@@ -245,113 +299,135 @@ export default class webxr {
 
     /**
      * Check if anchor has moved and trigger 3D engine to adapt to this change.
-     *
      * Handles a single anchor right now. Needs to be extended when more anchors are used.
-     *
-     * @param frame  XRFrame        The current frame to get the image for
+     * @param frame  XRFrame The current frame to get the image for
      */
     handleAnchors(frame: XRFrame) {
-        frame.trackedAnchors?.forEach((anchor) => {
-            // note: we use the local floor reference space for the anchors
-            const anchorPose = frame.getPose(anchor.anchorSpace, localFloorWebXrReferenceSpace);
-            if (anchorPose) {
-                anchor.context?.rootUpdater(anchorPose.transform.matrix);
-            }
-        });
-    }
-
-    /**
-     * @private
-     * Initializes a new session.
-     *
-     * @param canvas  Canvas        The canvas element to use
-     * @param xrSession  XRSession     The session created by caller
-     */
-    _initSession(canvas: HTMLCanvasElement, xrSession: XRSession) {
-        this.session = xrSession;
-        animationFrameCallback = this._onXrFrameUpdate; // NOTE: recursion of _onXrFrameUpdate alone seems invalid, so we store a reference to it
-
-        gl = canvas.getContext('webgl2', { xrCompatible: true }) as WebGL2RenderingContext | null;
-        if (!gl) {
-            throw new Error('gl is undefined!');
+        if (!this.localFloorWebXrReferenceSpace) {
+            return;
         }
 
-        this.session.addEventListener('end', this._onXrSessionEnded);
-        // Widen depth clip vs tight UA defaults so near/far clipping is less aggressive while moving (meters).
-        this.session.updateRenderState({
-            baseLayer: new XRWebGLLayer(this.session, gl),
-            depthNear: XR_DEPTH_NEAR,
-            depthFar: XR_DEPTH_FAR,
-        });
+        // The getter throws InvalidStateError when the anchors feature is not enabled.
+        // Optional chaining does not catch that, and Create/Develop call this every frame.
+        let anchors: XRAnchorSet | undefined;
+        try {
+            anchors = frame.trackedAnchors;
+        } catch (error) {
+            this.logAnchorsFailure('WebXR trackedAnchors is unavailable:', error);
+            return;
+        }
+        if (!anchors) {
+            return;
+        }
 
-        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-spaces
-        // Note: reference spaces viewer, local, and local-floor are always available, but others may not
-        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#ensuring-hardware-compatibility
-        Promise.all([this.session.requestReferenceSpace('local-floor'), this.session.requestReferenceSpace('local')]).then((values) => {
-            localFloorWebXrReferenceSpace = values[0];
-            localWebXrReferenceSpace = values[1];
-            // TODO: use unbounded space, if available
-            localFloorWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
-            localWebXrReferenceSpace.addEventListener('reset', this._onXrReferenceSpaceReset); // TODO: handle properly
-            this.session?.requestAnimationFrame(animationFrameCallback);
+        anchors.forEach((anchor) => {
+            try {
+                const anchorPose = frame.getPose(anchor.anchorSpace, this.localFloorWebXrReferenceSpace!);
+                if (anchorPose) {
+                    anchor.context?.rootUpdater(anchorPose.transform.matrix);
+                }
+            } catch (error) {
+                this.logAnchorsFailure('WebXR anchor pose failed:', error);
+            }
         });
     }
 
+    private logAnchorsFailure(message: string, error: unknown) {
+        if (this.anchorsAccessFailed) {
+            return;
+        }
+        this.anchorsAccessFailed = true;
+        console.error(message, error);
+    }
+
     /**
-     * @private
-     * Animation loop for WebXR.
-     *
-     * @param time  DOMHighResTimeStamp      indicates the time at which the frame was scheduled for rendering
-     * @param xrFrame  XRFrame        The frame to handle
+     * Main XR frame update callback.
+     * @param time  DOMHighResTimeStamp The time of the frame
+     * @param xrFrame  XRFrame The current frame
      */
-    _onXrFrameUpdate(time: DOMHighResTimeStamp, xrFrame: XRFrame) {
-        const session = xrFrame.session; // NOTE: session of the frame (should be the same as this.session)
+    private _onXrFrameUpdate = (time: DOMHighResTimeStamp, xrFrame: XRFrame) => {
+        const session = xrFrame.session;
+        if (!this.session || session !== this.session) {
+            return;
+        }
 
-        session.requestAnimationFrame(animationFrameCallback);
+        session.requestAnimationFrame(this._onXrFrameUpdate);
 
-        gl?.bindFramebuffer(gl.FRAMEBUFFER, session?.renderState?.baseLayer?.framebuffer || null);
+        this.gl?.bindFramebuffer(this.gl.FRAMEBUFFER, session.renderState?.baseLayer?.framebuffer || null);
 
-        // TODO(soeroesg): we could query the pose in multiple reference frames and trigger respective callbacks
-        const xrViewerPose = xrFrame.getViewerPose(localFloorWebXrReferenceSpace);
+        if (!this.localFloorWebXrReferenceSpace) {
+            return;
+        }
+
+        // NOTE(soeroesg): we could query the pose in multiple reference frames and trigger respective callbacks
+
+        const xrViewerPose = xrFrame.getViewerPose(this.localFloorWebXrReferenceSpace);
         if (xrViewerPose) {
-            if (xrFrameUpdateCallback) {
-                xrFrameUpdateCallback(time, xrFrame, xrViewerPose, localFloorWebXrReferenceSpace);
-            }
+            try {
+                this.xrFrameUpdateCallback?.(time, xrFrame, xrViewerPose, this.localFloorWebXrReferenceSpace);
 
-            if (xrMarkerFrameUpdateCallback) {
-                const results = xrFrame.getImageTrackingResults();
-                if (results.length > 0) {
-                    // TODO: markerPose is actually the pose of image space relative to the localFloor reference space
-                    // so the naming is incorrect
-                    const markerPose = xrFrame.getPose(results[0].imageSpace, localFloorWebXrReferenceSpace);
-                    if (markerPose) {
-                        xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
+                if (this.xrMarkerFrameUpdateCallback) {
+                    const results = xrFrame.getImageTrackingResults();
+                    if (results.length > 0) {
+                        // TODO(soeroesg): markerPose is actually the pose of image space relative to the localFloor reference space
+                        // but the name suggests it is the camera pose w.r.t the marker
+                        const markerPose = xrFrame.getPose(results[0].imageSpace, this.localFloorWebXrReferenceSpace);
+                        if (markerPose) {
+                            this.xrMarkerFrameUpdateCallback(time, xrFrame, xrViewerPose, markerPose, results[0]);
+                        }
                     }
                 }
+            } catch (error) {
+                // An exception here used to repeat on every animation frame and skip the GL draw,
+                // which hides the camera passthrough and leaves the tracking indicator red.
+                if (!this.frameCallbackFailed) {
+                    this.frameCallbackFailed = true;
+                    console.error('XR frame update failed:', error);
+                }
             }
+        } else {
+            this.xrNoPoseCallback?.(time, xrFrame);
         }
-    }
+    };
 
     /**
      * Handler for session ended event. Used to clean up allocated memory and handler.
      */
-    _onXrSessionEnded() {
-        this.session = null;
-        gl = null;
+    private _onXrSessionEnded = () => {
+        this.xrSessionEndedCallback?.();
 
-        if (xrSessionEndedCallback) {
-            xrSessionEndedCallback();
+        if (this.session) {
+            this.session.removeEventListener('end', this._onXrSessionEnded);
         }
-    }
+        this.session = null;
+        if (this.gl && !this.gl.isContextLost()) {
+            this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);
+        }
+        this.gl = null;
+        this.glBinding = undefined;
+        this.localFloorWebXrReferenceSpace = null;
+        this.localWebXrReferenceSpace = null;
+        this.xrFrameUpdateCallback = null;
+        this.xrMarkerFrameUpdateCallback = null;
+        this.xrNoPoseCallback = null;
+        this.xrReferenceSpaceResetCallback = null;
+        this.xrSessionEndedCallback = null;
+        this.anchorsAccessFailed = false;
+        this.frameCallbackFailed = false;
+    };
 
-    _onXrReferenceSpaceReset(xrReferenceSpaceEvent: XRReferenceSpaceEvent) {
-        // See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
+    /**
+     * Handler for reference space reset event.
+     * @param xrReferenceSpaceEvent  XRReferenceSpaceEvent The event to handle
+     * See https://immersive-web.github.io/webxr/spatial-tracking-explainer.html#reference-space-reset-event
+     */
+    private _onXrReferenceSpaceReset = (xrReferenceSpaceEvent: XRReferenceSpaceEvent) => {
         console.log('Reference space reset happened!');
         // Check for the transformation between the previous origin and the current origin
         // This will not always be available, but if it is, developers may choose to use it
         const transform = xrReferenceSpaceEvent.transform;
-        if (xrReferenceSpaceResetCallback != undefined && transform) {
-            xrReferenceSpaceResetCallback(transform);
+        if (this.xrReferenceSpaceResetCallback != undefined && transform) {
+            this.xrReferenceSpaceResetCallback(transform);
         }
-    }
+    };
 }

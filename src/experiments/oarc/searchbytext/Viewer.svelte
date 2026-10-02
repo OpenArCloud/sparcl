@@ -4,7 +4,7 @@
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import Parent from '@components/Viewer.svelte';
     import type webxr from '../../../core/engines/webxr';
-    import type { RenderingEngine } from '@core/engines/RenderingEngine';
+    import type { RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
     import type { Geopose } from '@oarc/scd-access';
     import Overlay from './Overlay.svelte';
     import { getCurrentLocation } from '@src/core/locationTools';
@@ -16,7 +16,10 @@
     let tdEngine: RenderingEngine;
     let settings: Writable<Record<string, unknown>> = writable({});
 
-    let searchEnabled = true;
+    let searching = false;
+    let searchFailed = false;
+    let placedPoiNodeIds: SceneNodeId[] = [];
+    let poiPlacementGeneration = 0;
 
     let parentState = writable();
     setContext('state', parentState);
@@ -55,7 +58,6 @@
             onXrNoPose,
             (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
                 session.requestReferenceSpace('viewer');
@@ -103,8 +105,21 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, xrViewerPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+        parentInstance.onXrNoPose(time, frame);
+    }
+
+    function clearPlacedPois() {
+        poiPlacementGeneration += 1;
+        const nodeIds = placedPoiNodeIds;
+        placedPoiNodeIds = [];
+        for (const nodeId of nodeIds) {
+            try {
+                tdEngine.remove(nodeId);
+            } catch (error) {
+                console.warn('Could not remove previous POI marker', error);
+            }
+        }
     }
 
     function placePOI(name: string, lat: number, lon: number) {
@@ -112,6 +127,7 @@
             console.log('Undefined values in POI data');
             return;
         }
+        const generation = poiPlacementGeneration;
         const featureName = name;
         const featureGeopose = {
             position: { lat: lat, lon: lon, h: 0 },
@@ -121,6 +137,7 @@
         const modelNodeId = tdEngine.addModelWithRigidPose('/media/models/map_pin.glb', pinPose, [2, 2, 2], (_meshNodeId) => {
             console.log('POI ' + featureName + ' added.');
         });
+        placedPoiNodeIds.push(modelNodeId);
         tdEngine.setVerticallyRotating(modelNodeId);
 
         const textMesh = tdEngine.addTextObjectWithRigidPose(pinPose, featureName, {
@@ -128,6 +145,15 @@
             positionOffset: [0, 3, 0],
         });
         textMesh.then((node) => {
+            if (generation !== poiPlacementGeneration) {
+                try {
+                    tdEngine.remove(node);
+                } catch {
+                    // A newer search already replaced this label.
+                }
+                return;
+            }
+            placedPoiNodeIds.push(node);
             tdEngine.setTowardsCameraRotating(node);
         });
     }
@@ -136,12 +162,17 @@
         parentInstance.relocalize();
     }
 
-    async function getPlaces(query: String) {
-        if (searchEnabled) {
-            // reset 3D engine to remove old POI markers
-            worldAlignment.clearActiveGeoPoseAlignment();
-            worldAlignment.clearActiveFramedPoseAlignment();
-            tdEngine.reinitialize();
+    async function getPlaces(query: string) {
+        if (searching) {
+            return;
+        }
+        searching = true;
+        searchFailed = false;
+
+        try {
+            // Drop only the previous search markers. The geopose alignment and the
+            // rest of the scene (localized content, sensor visualizations) stay.
+            clearPlacedPois();
 
             // use initial location as fallback
             let lat = $initialLocation.lat;
@@ -159,31 +190,29 @@
             }
 
             if (!baseUrl) {
-                console.error('baseUrl is not defined!');
-                return;
+                throw new Error('baseUrl is not defined');
             }
             const url = baseUrl + '?lat=' + lat + '&lng=' + lon + '&textQuery=' + query;
 
-            try {
-                const response = await fetch(url);
+            const response = await fetch(url);
 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log(data.features);
-                data.features.forEach(function (place: any) {
-                    placePOI(place.name.name, place.geometry.coordinates[0], place.geometry.coordinates[1]);
-                });
-            } catch (error) {
-                console.error('Error fetching data:', error);
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
             }
-            searchEnabled = false;
 
-            setTimeout(() => {
-                searchEnabled = true;
-            }, 3000);
+            const data = await response.json();
+            console.log(data.features);
+            if (!Array.isArray(data.features)) {
+                throw new Error('Search response did not include features');
+            }
+            data.features.forEach(function (place: any) {
+                placePOI(place.name.name, place.geometry.coordinates[0], place.geometry.coordinates[1]);
+            });
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            searchFailed = true;
+        } finally {
+            searching = false;
         }
     }
 
@@ -204,7 +233,7 @@
         {#if $settings.localisation && !isLocalisationDone}
             <ArCloudOverlay hasPose={firstPoseReceived} {isLocalizing} {isLocalized} on:startLocalisation={() => parentInstance.startLocalisation()} />
         {:else}
-            <Overlay on:relocalize={() => relocalize()} on:textInput={getRecievedText} on:categorySelected={basicSearch} />
+            <Overlay {searching} {searchFailed} on:relocalize={() => relocalize()} on:textInput={getRecievedText} on:categorySelected={basicSearch} />
         {/if}
     </svelte:fragment>
 </Parent>

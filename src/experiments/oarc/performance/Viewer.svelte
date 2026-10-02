@@ -63,7 +63,6 @@
             onXrNoPose,
             (xr, session, gl) => {
                 if (gl) {
-                    xr.glBinding = new XRWebGLBinding(session, gl);
                     xr.initCameraCapture(gl);
                 }
 
@@ -193,7 +192,7 @@
      * @param xrViewerPose The pose of the device as reported by the XRFrame
      * @param xrReferenceSpace
      */
-    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRSpace) {
+    function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrReferenceSpace: XRReferenceSpace) {
         parentInstance.handlePoseHeartbeat();
 
         if (!hitTestSource) {
@@ -223,7 +222,7 @@
                         reticleNodeId = tdEngine.addReticle();
                     }
                     if (reticleNodeId !== null) {
-                        tdEngine.updateReticlePose(
+                        tdEngine.setNodePose(
                             reticleNodeId,
                             vec3.fromValues(position.x, position.y, position.z),
                             quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w),
@@ -247,8 +246,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, xrViewerPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+        parentInstance.onXrNoPose(time, frame);
     }
 
     /**

@@ -18,10 +18,15 @@ import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVe
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
+import {
+    INFOSTICKER_ICON_SIZE_M,
+    INFOSTICKER_ICON_URL,
+    INFOSTICKER_LABEL_SCALE,
+    INFOSTICKER_LABEL_TOP_M,
+} from '@core/contents/infosticker';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
-import type { SceneRootMatrix } from '../../../types/xr';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
@@ -55,7 +60,7 @@ import {
 } from './threeVideoHelper';
 
 const unitScale: ReadonlyVec3 = [1, 1, 1] as const;
-const defaultReticleScale: ReadonlyVec3 = [0.2, 0.2, 0.2] as const;
+const worldUpAxis = new THREE.Vector3(0, 1, 0);
 
 function disposeMaterial(material: THREE.Material | undefined): void {
     if (!material) return;
@@ -170,6 +175,8 @@ function unregisterTrackedEngineMaterials(
 
 export default class ThreeEngine implements RenderingEngine {
     private renderer: THREE.WebGLRenderer | null = null;
+    /** Dummy target used to keep Three drawing into the currently bound XR layer FBO. */
+    private xrRenderTarget: THREE.WebGLRenderTarget | null = null;
     private scene = new THREE.Scene();
     private camera = new THREE.PerspectiveCamera(75, 1, XR_DEPTH_NEAR, XR_DEPTH_FAR);
     private readonly gltfLoader = new GLTFLoader();
@@ -205,6 +212,10 @@ export default class ThreeEngine implements RenderingEngine {
             throw new Error(`ThreeEngine: unknown scene node id ${nodeId}`);
         }
         return entry;
+    }
+
+    hasSceneNode(nodeId: SceneNodeId): boolean {
+        return this.objectsById.has(nodeId);
     }
 
     getNodePose(nodeId: SceneNodeId, outPosition: vec3, outOrientation: quat, outScale?: vec3): void {
@@ -248,6 +259,11 @@ export default class ThreeEngine implements RenderingEngine {
         mat4.copy(out, entry.three.matrixWorld.elements as ReadonlyMat4);
     }
 
+    /**
+     * Attach Three.js to the existing `#application` WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag.
+     */
     init(): void {
         const canvas = document.querySelector('#application') as HTMLCanvasElement;
         const gl = canvas.getContext('webgl2') as WebGL2RenderingContext | null;
@@ -255,7 +271,12 @@ export default class ThreeEngine implements RenderingEngine {
             throw new Error('ThreeEngine: webgl2 context not available on #application canvas');
         }
 
-        if (!this.renderer) {
+        const contextLost = gl.isContextLost();
+        const canvasChanged = !!this.renderer && this.renderer.domElement !== canvas;
+        if (!this.renderer || contextLost || canvasChanged) {
+            this.xrRenderTarget?.dispose();
+            this.xrRenderTarget = null;
+            this.renderer?.dispose();
             this.renderer = new THREE.WebGLRenderer({ canvas, context: gl, alpha: true, antialias: true });
             this.renderer.autoClear = true;
             this.renderer.setClearColor(0x000000, 0);
@@ -278,6 +299,7 @@ export default class ThreeEngine implements RenderingEngine {
         this.scene.matrix.identity();
         this.scene.matrixAutoUpdate = true;
 
+        this.scene.add(new THREE.AmbientLight(0xffffff, 1.0));
         this.scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1));
         const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
         directionalLight.position.set(1, 2, 1);
@@ -395,7 +417,7 @@ export default class ThreeEngine implements RenderingEngine {
         );
     }
 
-    getModel(name: ModelName): SceneNodeId | null {
+    getModelNodeId(name: ModelName): SceneNodeId | null {
         const root = this.gltfRoots[name];
         if (!root) {
             return null;
@@ -424,13 +446,15 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     addMarkerObject(): SceneNodeId {
-        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.75, 0, 0, 1], false);
+        // Match OGL getDefaultMarkerObject: red box, 0.02 scale (2 cm on a ~1 m unit cube).
+        const entry = createPrimitiveNode(this.sceneNodes, PRIMITIVES.box, [0.75, 0, 0, 1], false, [0.02, 0.02, 0.02]);
+        entry.three.frustumCulled = false;
         this.rootEntry.three.add(entry.three);
         return this.track(entry);
     }
 
     addReticle(): SceneNodeId {
-        return this.addModel('/media/models/reticle.gltf', [0, 0, 0], [0, 0, 0, 1]);
+        return this.addModel('/media/models/reticle.gltf', [0, 0, 0], [0, 0, 0, 1], [0.2, 0.2, 0.2]);
     }
 
     /** Matches OGL `isHorizontal`: pitch (Euler x) ≈ 0 for floor alignment. */
@@ -614,15 +638,6 @@ export default class ThreeEngine implements RenderingEngine {
         this.sceneNodes.applyTrs(this.resolve(object), position, orientation);
     }
 
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale: ReadonlyVec3 = defaultReticleScale,
-    ): void {
-        this.sceneNodes.applyTrs(this.resolve(reticle), position, orientation, scale);
-    }
-
     addAxes(): SceneNodeId {
         const axes = new THREE.AxesHelper(1);
         const entry = this.sceneNodes.register(axes);
@@ -715,6 +730,61 @@ export default class ThreeEngine implements RenderingEngine {
         }
     }
 
+    async addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null> {
+        const group = new THREE.Group();
+        group.frustumCulled = false;
+        group.position.set(position[0], position[1], position[2]);
+        group.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+
+        let hasVisual = false;
+        try {
+            const texture = await new THREE.TextureLoader().loadAsync(INFOSTICKER_ICON_URL);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            const geometry = new THREE.PlaneGeometry(INFOSTICKER_ICON_SIZE_M, INFOSTICKER_ICON_SIZE_M);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                alphaTest: 0.05,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            const plane = new THREE.Mesh(geometry, material);
+            plane.frustumCulled = false;
+            group.add(plane);
+            hasVisual = true;
+        } catch (error) {
+            console.error('ThreeEngine: addInfoSticker icon failed', error);
+        }
+
+        const text = label.trim();
+        if (text) {
+            try {
+                const mesh = await createThreeTextMesh(text, [1, 1, 1]);
+                const scale = INFOSTICKER_LABEL_SCALE;
+                mesh.scale.set(scale, scale, scale);
+                // Glyphs extend downward from local y = 0, so the caption hangs under the icon.
+                mesh.position.set(0, INFOSTICKER_LABEL_TOP_M, 0);
+                group.add(mesh);
+                hasVisual = true;
+            } catch (error) {
+                console.error('ThreeEngine: addInfoSticker label failed', error);
+            }
+        }
+
+        if (!hasVisual) {
+            return null;
+        }
+
+        this.rootEntry.three.add(group);
+        const nodeId = this.track(this.sceneNodes.register(group));
+        this.setTowardsCameraRotating(nodeId);
+        return nodeId;
+    }
+
     async addTextObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
@@ -803,10 +873,10 @@ export default class ThreeEngine implements RenderingEngine {
         return getExternalCameraParametersForExperience(view, experienceMatrix);
     }
 
-    getRootSceneUpdater(): (matrix: SceneRootMatrix) => mat4 {
+    getRootSceneUpdater(): (matrix: mat4) => mat4 {
         const out = mat4.create();
-        return (matrix: SceneRootMatrix) => {
-            this.scene.matrix.fromArray(matrix as number[]);
+        return (matrix: mat4) => {
+            this.scene.matrix.fromArray(matrix);
             this.scene.matrixAutoUpdate = false;
             this.scene.updateMatrixWorld(true);
             mat4.copy(out, this.scene.matrixWorld.elements as mat4);
@@ -917,6 +987,11 @@ export default class ThreeEngine implements RenderingEngine {
             this.listenersAttached = false;
         }
         this.experimentTapHandler = null;
+        const gl = this.renderer?.getContext();
+        if (gl && !gl.isContextLost()) {
+            gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        }
+        this.renderer?.setRenderTarget(null);
     }
 
     updateMatrixWorld(): void {
@@ -925,6 +1000,10 @@ export default class ThreeEngine implements RenderingEngine {
 
     render(time: DOMHighResTimeStamp, view: XRView): void {
         if (!this.renderer) {
+            return;
+        }
+        const gl = this.renderer.getContext();
+        if (gl.isContextLost()) {
             return;
         }
 
@@ -945,7 +1024,7 @@ export default class ThreeEngine implements RenderingEngine {
         Object.values(this.updateHandlers).forEach((handler) => handler());
 
         for (const entry of this.verticallyRotatingNodes) {
-            entry.three.rotation.y += 0.01;
+            entry.three.rotateOnWorldAxis(worldUpAxis, 0.01);
         }
 
         for (const entry of this.towardsCameraRotatingNodes) {
@@ -953,6 +1032,41 @@ export default class ThreeEngine implements RenderingEngine {
         }
 
         onThreeVideoPreRender();
+
+        // Keep drawing on the XR layer framebuffer. Three's default render() binds
+        // the canvas default FBO (setRenderTarget(null)), which is invalid during an
+        // immersive session and also fights the XRWebGLLayer that webxr bound for this
+        // animation frame.
+        const xrFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null;
+        if (xrFramebuffer) {
+            const width = gl.drawingBufferWidth;
+            const height = gl.drawingBufferHeight;
+            if (!this.xrRenderTarget) {
+                this.xrRenderTarget = new THREE.WebGLRenderTarget(width, height);
+            } else if (this.xrRenderTarget.width !== width || this.xrRenderTarget.height !== height) {
+                this.xrRenderTarget.setSize(width, height);
+            }
+
+            // set the viewport to the size of the XR layer FBO
+            const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+            this.xrRenderTarget.viewport.set(viewport[0], viewport[1], viewport[2], viewport[3]);
+            
+            // Three.js runtime method for wrapping an XRWebGLLayer framebuffer; not in @types/three.
+            (
+                this.renderer as THREE.WebGLRenderer & {
+                    setRenderTargetFramebuffer: (
+                        target: THREE.WebGLRenderTarget,
+                        defaultFramebuffer: WebGLFramebuffer | undefined,
+                    ) => void;
+                }
+            ).setRenderTargetFramebuffer(this.xrRenderTarget, xrFramebuffer);
+
+            // draw into the XR layer FBO
+            this.renderer.setRenderTarget(this.xrRenderTarget);
+        } else {
+            // draw into the default framebuffer of the canvas (should not happen in normal operation)
+            this.renderer.setRenderTarget(null);
+        }
 
         this.renderer.render(this.scene, this.camera);
     }

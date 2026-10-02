@@ -32,7 +32,7 @@ export class OglSceneNodeRegistry {
     add(native: Transform | Mesh): SceneNodeId {
         let id = this.getId(native);
         if (!id) {
-            if (typeof native.id === 'number' && Number.isFinite(native.id)) {
+            if ('id' in native && typeof native.id === 'number' && Number.isFinite(native.id)) {
                 id = String(native.id);
             } else {
                 id = `tn_${++this.nextTransformSceneNodeId}`;
@@ -41,6 +41,10 @@ export class OglSceneNodeRegistry {
         }
         this.nodesById.set(id, native);
         return id;
+    }
+
+    has(nodeId: SceneNodeId): boolean {
+        return this.nodesById.has(nodeId);
     }
 
     get(nodeId: SceneNodeId): Transform | Mesh {

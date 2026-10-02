@@ -30,8 +30,6 @@
 
     let parentInstance: Parent;
 
-    let myGl: WebGL2RenderingContext | null = null;
-
     let useReticle = true; // TODO: make selectable on the GUI
     let hitTestSource: XRHitTestSource | undefined;
     let reticleNodeId: SceneNodeId | null = null;
@@ -72,9 +70,7 @@
                 if (!gl) {
                     throw new Error('gl is undefined');
                 }
-                xr.glBinding = new XRWebGLBinding(session, gl);
                 xr.initCameraCapture(gl);
-                myGl = gl;
                 if (useReticle) {
                     // request hit testing
                     session
@@ -235,7 +231,7 @@
             const tdEngine = parentInstance.getRenderer();
             reticleNodeId = tdEngine.addReticle();
         }
-        if (useReticle && myGl && reticleNodeId !== null) {
+        if (useReticle && reticleNodeId !== null) {
             const tdEngine = parentInstance.getRenderer();
             if (hitTestSource === undefined) {
                 console.log('HitTestSource is invalid! Cannot use reticle');
@@ -247,7 +243,7 @@
                     const position = reticlePose?.transform.position;
                     const orientation = reticlePose?.transform.orientation;
                     if (position && orientation) {
-                        tdEngine.updateReticlePose(
+                        tdEngine.setNodePose(
                             reticleNodeId,
                             vec3.fromValues(position.x, position.y, position.z),
                             quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w)
@@ -281,8 +277,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
-        parentInstance.onXrNoPose(time, frame, xrViewerPose);
+    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame) {
+        parentInstance.onXrNoPose(time, frame);
     }
 
     /**
@@ -321,12 +317,47 @@
                     parentInstance.getRenderer().removeDynamicObject(agentId);
                 }
                 // remove GLTF representation (if exists)
-                let model2 = parentInstance.getRenderer().getModel(agentId);
+                let model2 = parentInstance.getRenderer().getModelNodeId(agentId);
                 if (model2) {
                     console.log('removed agent GLTF ' + agentId);
                     parentInstance.getRenderer().removeModel(agentId);
                 }
             }
+        }
+    }
+
+    function saveReticlePose() {
+        if (reticleNodeId === null) {
+            console.warn('Cannot save reticle pose: reticle is not available');
+            return;
+        }
+        const tdEngine = parentInstance.getRenderer();
+        if (!tdEngine.isNodeVisible(reticleNodeId)) {
+            console.warn('Cannot save reticle pose: reticle is not visible (no hit test)');
+            return;
+        }
+        if (!worldAlignment.hasActiveWorldAlignment()) {
+            console.warn('Cannot save reticle pose: not localized yet');
+            return;
+        }
+        const reticlePosition = vec3.create();
+        const reticleOrientation = quat.create();
+        tdEngine.getNodePose(reticleNodeId, reticlePosition, reticleOrientation);
+        const poseObj = worldAlignment.convertScenePoseToGeoposeFromActive(
+            { x: reticlePosition[0], y: reticlePosition[1], z: reticlePosition[2] },
+            { x: reticleOrientation[0], y: reticleOrientation[1], z: reticleOrientation[2], w: reticleOrientation[3] },
+        );
+        const pose = JSON.stringify(poseObj, null, 2);
+        if (navigator.share) {
+            navigator
+                .share({
+                    title: 'Cursor Pose',
+                    text: pose,
+                })
+                .then(() => console.log('Successful share'))
+                .catch((error) => console.log('Error sharing', error));
+        } else {
+            alert(pose);
         }
     }
 </script>
@@ -346,6 +377,8 @@
             {receivedContentTitles}
             on:startLocalisation={() => parentInstance.startLocalisation()}
             on:showOtherReticlesCheckboxChange={(event) => onShowOtherReticlesCheckboxChange(event)}
+            on:showOtherCamerasCheckboxChange={(event) => onShowOtherCamerasCheckboxChange(event)}
+            on:saveReticle={() => saveReticlePose()}
             on:relocalize={() => onRelocalize()}
         />
     </svelte:fragment>

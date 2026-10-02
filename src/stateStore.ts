@@ -16,7 +16,8 @@ import { readable, writable, derived, get } from 'svelte/store';
 import { ARMODES, CREATIONTYPES, PLACEHOLDERSHAPES, type RGBA } from './core/common.js';
 import { v4 as uuidv4 } from 'uuid';
 import type { SSR, Service } from '@oarc/ssd-access';
-import type { Geopose, SCR } from '@oarc/scd-access';
+import type { Geopose } from '@oarc/scd-access';
+import type { SCRExtended } from '@core/scrPlacement';
 
 /**
  * Determines the isAuthenticatedAuth0 status.
@@ -181,13 +182,44 @@ export const initialLocation = writable({
     lat: 0,
     lon: 0,
     countryCode: '',
-    regionCode: '',
 });
 
 /**
  * Currently valid ssr record, containing the last requested spatial services record.
  */
 export const ssr = writable<SSR[]>([]);
+
+type SelectableGeoPose = {
+    id: string;
+    url: string;
+    title?: string;
+};
+
+function geoPoseSnapshot(service: SelectableGeoPose): string {
+    return JSON.stringify({
+        id: service.id,
+        url: service.url,
+        title: service.title ?? '',
+    });
+}
+
+/**
+ * Choose which GeoPose service stays selected.
+ * An empty list keeps the current choice, because the service record is often empty until the first response.
+ * A stored service that is still listed stays selected. Otherwise the first listed service is used.
+ */
+function resolveSelectedGeoPoseService<T extends SelectableGeoPose>(services: T[], current: T | null): T | null {
+    if (services.length === 0) {
+        return current;
+    }
+    if (current?.id) {
+        const match = services.find((service) => service.id === current.id);
+        if (match) {
+            return geoPoseSnapshot(match) === geoPoseSnapshot(current) ? current : match;
+        }
+    }
+    return services[0];
+}
 
 /**
  * Derived store of the ssr store for easy access of all contained GeoPose services.
@@ -206,21 +238,15 @@ export const availableGeoPoseServices = derived<typeof ssr, Service[]>(
 
         set(geoposeServices);
 
-        if (get(selectedGeoPoseService) !== null) {
-            const selected = get(selectedGeoPoseService);
-            // Make sure that the selected service is still available
-            if (!geoposeServices.find((service) => service.id === selected?.id)) {
-                selectedGeoPoseService.set(null);
-            }
+        const current = get(selectedGeoPoseService);
+        const next = resolveSelectedGeoPoseService(geoposeServices, current);
+        if (next !== current) {
+            selectedGeoPoseService.set(next);
         }
 
-        // If none selected yet, set the first available as selected
-        if (get(selectedGeoPoseService) === null && geoposeServices.length > 0) {
-            selectedGeoPoseService.set(geoposeServices[0]);
-        }
-
-        // Prefer GeoPose services, but if there is none, fall back to on-device sensors for localization
-        if (get(selectedGeoPoseService) !== null) {
+        // Prefer a listed GeoPose service. An empty list falls back to on-device sensors
+        // without clearing a stored choice that may still be valid once services arrive.
+        if (geoposeServices.length > 0 && get(selectedGeoPoseService) !== null) {
             debug_useGeolocationSensors.set(false);
         } else if (!get(debug_useOverrideGeopose)) {
             debug_useGeolocationSensors.set(true);
@@ -246,9 +272,9 @@ export const availableContentServices = derived<typeof ssr, Service[]>(
         set(contentServices);
         // If none selected yet, set all available as selected
         if (Object.keys(get(selectedContentServices)).length === 0 && contentServices.length > 0) {
-            let selection: Record<string, { isSelected: boolean; selectedTopic: string }> = {};
+            let selection: Record<string, { isSelected: boolean; selectedTopics: string[] }> = {};
             for (const [key, service] of contentServices.entries()) {
-                selection[service.id] = { isSelected: true, selectedTopic: 'history' };
+                selection[service.id] = { isSelected: true, selectedTopics: ['history'] };
                 // TODO: get first topic from service (As of 2021, we put everything under the history topic)
             }
             selectedContentServices.set(selection);
@@ -290,6 +316,40 @@ selectedGeoPoseService.subscribe((value) => {
     localStorage.setItem('selectedGeoPoseServiceStorage', JSON.stringify(value));
 });
 
+type SelectableMessageBroker = {
+    guid: string;
+    url: string;
+    description?: string;
+    properties?: unknown;
+};
+
+function messageBrokerSnapshot(service: SelectableMessageBroker): string {
+    return JSON.stringify({
+        guid: service.guid,
+        url: service.url,
+        description: service.description ?? '',
+        properties: service.properties ?? [],
+    });
+}
+
+/**
+ * Choose which message broker stays selected.
+ * An empty list keeps the current choice, because the service record is often empty until the first response.
+ * A stored broker that is still listed stays selected. Otherwise the first listed broker is used.
+ */
+export function resolveSelectedMessageBroker<T extends SelectableMessageBroker>(services: T[], current: T | null): T | null {
+    if (services.length === 0) {
+        return current;
+    }
+    if (current?.guid) {
+        const match = services.find((service) => service.guid === current.guid);
+        if (match) {
+            return messageBrokerSnapshot(match) === messageBrokerSnapshot(current) ? current : match;
+        }
+    }
+    return services[0];
+}
+
 export const availableMessageBrokerServices = derived<typeof ssr, (Service & { guid: string })[]>(
     ssr,
     ($ssr, set) => {
@@ -304,10 +364,10 @@ export const availableMessageBrokerServices = derived<typeof ssr, (Service & { g
             }
         }
         set(messageBrokerServices);
-        // If none selected yet, set the first available as selected
-        // TODO: Make sure that stored selected service is still valid
-        if (get(selectedP2pService) === null && messageBrokerServices.length > 0) {
-            selectedP2pService.set(messageBrokerServices[0]);
+        const current = get(selectedMessageBrokerService);
+        const next = resolveSelectedMessageBroker(messageBrokerServices, current);
+        if (next !== current) {
+            selectedMessageBrokerService.set(next);
         }
     },
     [],
@@ -318,7 +378,7 @@ export const isRabbitmqConnectionTestSuccessful = writable(null);
 /**
  * The ones of the received content services to be used to request content around the current location from.
  */
-export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopic: string }>>({});
+export const selectedContentServices = writable<Record<string, { isSelected: boolean; selectedTopics: string[] }>>({});
 
 /**
  * The one of the returned p2p services to be used to set up a local peer to peer network.
@@ -334,7 +394,7 @@ selectedP2pService.subscribe((value) => {
  *
  * @type {Writable<string>}
  */
-export const currentMarkerImage = writable('marker.jpg');
+export const currentMarkerImage = writable('hiro-marker.jpg');
 
 /**
  * The width of the marker image in meters.
@@ -466,20 +526,24 @@ debug_enableOGCPoIContents.subscribe((value) => {
 /**
  * Keeps some state of the dashboard.
  *
- * @type {any|{debug: boolean, state: boolean, multiplayer: boolean}}
+ * @type {any|{debug: boolean, state: boolean, multiplayer: boolean, arMode: boolean}}
  */
-const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
+const storedDashboardDetail: { state: boolean; multiplayer: boolean; debug: boolean; arMode: boolean } = JSON.parse(localStorage.getItem('dashboardDetail') || 'null') || {
     state: false,
     multiplayer: true,
     debug: true,
+    arMode: true,
 };
+if (storedDashboardDetail.arMode === undefined) {
+    storedDashboardDetail.arMode = true;
+}
 
 export const dashboardDetail = writable(storedDashboardDetail);
 dashboardDetail.subscribe((value) => {
     localStorage.setItem('dashboardDetail', JSON.stringify(value));
 });
 
-export const receivedScrs = writable<SCR[]>([]);
+export const receivedScrs = writable<SCRExtended[]>([]);
 
 export const enableCameraPoseSharing = writable(localStorage.getItem('enableCameraPoseSharing') === null || localStorage.getItem('enableCameraPoseSharing') === 'true'); // set true if stored true or undefined
 enableCameraPoseSharing.subscribe((value) => {

@@ -42,8 +42,9 @@
     import type webxr from '@core/engines/webxr';
     import { logToElement } from '@src/core/devTools';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
-    import type { ExperimentsViewers } from '../types/xr';
-    import { locationAccessOptions, setInitialLocationAndServices } from '@src/core/locationTools';
+    import type { ExperimentsViewers } from '@experiments/types';
+    import { determineCurrentLocation, locationAccessOptions } from '@src/core/locationTools';
+    import { regionCode, regionCodeForCountry, retrieveServicesAtLocation, setConfiguredSsdUrl } from '@src/core/serviceDiscovery';
     import { createRenderingEngine, resolveRenderingEngineId } from '@core/engines/createRenderingEngine';
 
     /**
@@ -75,7 +76,13 @@
      */
     $: {
         if ($isLocationAccessAllowed) {
-            setInitialLocationAndServices();
+            determineCurrentLocation().then(async (currentLocation) => {
+                if (currentLocation) {
+                    const currentRegionCode = await regionCodeForCountry(currentLocation.countryCode);
+                    regionCode.set(currentRegionCode);
+                    return retrieveServicesAtLocation(currentRegionCode, currentLocation.h3Index);
+                }
+            });
         }
     }
 
@@ -127,6 +134,9 @@
 
         //console.log('Onboarding.svelte');
         //console.log('URL parameters: ' + urlParams?.toString() || 'none');
+
+        // Point ssd-access at the server specified in the environment variable VITE_SSD_ROOT_URL
+        setConfiguredSsdUrl();
 
         // Start as AR client
         // AR sessions need to be started by user action, so welcome dialog (or the dashboard) is always needed
@@ -218,6 +228,7 @@
                 throw new Error(`Unknown AR mode: ${$arMode}`);
         }
 
+        // Load engines but do not start them. We need to create an XR-compatible WebGL context first
         const values = await Promise.all([createRenderingEngine(resolveRenderingEngineId()), import('@core/engines/webxr'), viewerImplementation]);
         const xrEngine = new values[1].default();
         const tdEngine = values[0];
@@ -305,7 +316,7 @@
 <!-- AR Dashboard -->
 
 {#if arWithDashboard}
-    <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:okClicked={startViewer} />
+    <Dashboard bind:this={dashboard} on:broadcast={handleBroadcast} on:startArButtonClicked={startViewer} />
 {/if}
 
 {#if arReady}
@@ -345,10 +356,7 @@
 <style>
     aside {
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
+        inset: 0;
 
         display: flex;
         align-items: center;
@@ -358,8 +366,8 @@
     }
 
     #frame {
-        width: calc(100vw - 2 * var(--ui-margin));
-        max-width: var(--ui-max-width);
+        box-sizing: border-box;
+        width: min(var(--ui-max-width), calc(100% - 2 * var(--ui-margin)));
         max-height: var(--ui-max-height);
 
         text-align: center;
@@ -367,7 +375,8 @@
         box-shadow: 0 3px 6px #00000029;
         border: 2px solid var(--theme-color);
 
-        background-color: white;
+        background-color: var(--theme-background);
+        overflow: hidden;
     }
 
     #logger {

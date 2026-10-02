@@ -11,7 +11,7 @@
     Initializes and runs the AR session. Configuration will be according the data provided by the parent.
 -->
 <script lang="ts">
-    import { createEventDispatcher, onDestroy } from 'svelte';
+    import { createEventDispatcher, onDestroy, tick } from 'svelte';
     import { debounce, type DebouncedFunction } from 'es-toolkit';
     import { quat, vec3 } from 'gl-matrix';
 
@@ -65,29 +65,42 @@
      * Setup required AR features and start the XRSession.
      */
     async function startSession() {
+        await tick();
+        if (!canvas || !overlay) {
+            unableToStartSession = true;
+            message('WebXR Immersive AR failed to start: canvas or overlay not ready');
+            return;
+        }
+
         const bitmap = await loadDefaultMarker();
+        const widthInMeters = Number($currentMarkerImageWidth);
         const options = {
+            // note: image-tracking instead of camera-access
             requiredFeatures: ['dom-overlay', 'image-tracking', 'anchors', 'local-floor'],
             domOverlay: { root: overlay },
             // hack to circumvent exhaustive type checking of object literals, because trackedImages does not exist on XRSessionInit
             trackedImages: [
                 {
                     image: bitmap,
-                    widthInMeters: $currentMarkerImageWidth,
+                    widthInMeters: Number.isFinite(widthInMeters) && widthInMeters > 0 ? widthInMeters : 0.2,
                 },
             ],
         };
 
         try {
-            await xrEngine.startMarkerSession(canvas, onXrMarkerFrameUpdateCallback, options);
+            await xrEngine.startImmersiveAr({
+                canvas,
+                xrSessionOptions: options,
+                onXrGlContextReady: () => tdEngine.init(),
+                onXrMarkerFrameUpdate: onXrMarkerFrameUpdateCallback,
+                onXrSessionEnded,
+                onXrNoPose,
+            });
         } catch (error) {
             unableToStartSession = true;
             message('WebXR Immersive AR failed to start: ' + error);
             return;
         }
-
-        xrEngine.setCallbacks(onXrSessionEnded, onXrNoPose);
-        tdEngine.init();
     }
 
     onDestroy(() => {
@@ -102,7 +115,7 @@
      * Leaving this function here for now, as the marker system needs some bigger rework anyway.
      */
     async function loadDefaultMarker() {
-        const response = await fetch(`/media/${$currentMarkerImage}`);
+        const response = await fetch(`/media/markers/${$currentMarkerImage}`);
         const blob = await response.blob();
         return await createImageBitmap(blob);
     }
@@ -136,9 +149,8 @@
      * @param frame  XRFrame        The XRFrame provided to the update loop
      * @param xrViewerPose  XRPose     The pose of the device as reported by the XRFrame
      */
-    function onXrNoPose(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+    function onXrNoPose(_time: DOMHighResTimeStamp, _frame: XRFrame) {
         hasLostTracking = true;
-        tdEngine.render(time, xrViewerPose.views[0]);
     }
 
     /**
@@ -151,12 +163,18 @@
      * @param xrMarkerPose The pose relative to the center of the marker
      * @param trackedImage
      */
-    function onXrMarkerFrameUpdateCallback(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose, xrMarkerPose: XRPose, trackedImage: XRImageTrackingResult) {
-        handlePoseHeartbeat();
-
+    function onXrMarkerFrameUpdateCallback(
+        time: DOMHighResTimeStamp,
+        frame: XRFrame,
+        xrViewerPose: XRViewerPose,
+        xrMarkerPose: XRPose,
+        trackedImage: XRImageTrackingResult,
+    ) {
         showFooter = false;
-        if (trackedImage && trackedImage.trackingState === 'tracked') {
-            // TODO: use XRImageTrackingState.tracked
+
+        if (trackedImage.trackingState === 'tracked') {
+            handlePoseHeartbeat();
+
             if (trackedImageObjectNodeId === null) {
                 trackedImageObjectNodeId = tdEngine.addMarkerObject();
             }
@@ -167,6 +185,8 @@
             const orientation = quat.fromValues(markerOri.x, markerOri.y, markerOri.z, markerOri.w);
             tdEngine.updateMarkerObjectPosition(trackedImageObjectNodeId, position, orientation);
             isLocalized = true;
+        } else {
+            hasLostTracking = true;
         }
 
         xrEngine.setViewportForView(xrViewerPose.views[0]);

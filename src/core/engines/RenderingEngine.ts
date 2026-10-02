@@ -15,7 +15,6 @@ import type { mat4, quat, ReadonlyMat4, ReadonlyQuat, ReadonlyVec3, vec3 } from 
 
 import type { ExternalCameraParameters } from './externalCameraPose';
 import type { ObjectDescription } from '@core/contents/objectDescription';
-import type { SceneRootMatrix } from '../../types/xr';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import type { ParticleSystem } from '@core/contents/particleSystem';
@@ -34,6 +33,12 @@ export type SceneNodeId = string;
 export type ModelName = string;
 
 export interface RenderingEngine {
+    /**
+     * Attach to an existing WebGL2 context created by WebXR
+     * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
+     * without the `xrCompatible` flag. Called from the viewer's `onXrGlContextReady` callback during XR startup;
+     * viewers must not call this themselves for immersive session start.
+     */
     init(): void;
     initScene(): void;
 
@@ -66,7 +71,7 @@ export interface RenderingEngine {
 
     /**
      * @param callback - Invoked per loaded GLTF mesh leaf with its {@link SceneNodeId}
-     * @param name - Optional {@link ModelName} for {@link getModel} / {@link removeModel}
+     * @param name - Optional {@link ModelName} for {@link getModelNodeId} / {@link removeModel}
      * @returns {@link SceneNodeId} for the GLTF root transform
      */
     addModel(
@@ -91,7 +96,7 @@ export interface RenderingEngine {
      *
      * @returns {@link SceneNodeId} of the GLTF root, or `null` if `name` was never registered
      */
-    getModel(name: ModelName): SceneNodeId | null;
+    getModelNodeId(name: ModelName): SceneNodeId | null;
 
     /** Removes a GLTF root registered with the same {@link ModelName} passed to {@link addModel}. */
     removeModel(name: ModelName): void;
@@ -184,13 +189,8 @@ export interface RenderingEngine {
         orientation: ReadonlyQuat
     ): void;
 
-    /** @param reticle - {@link SceneNodeId} from {@link addReticle} */
-    updateReticlePose(
-        reticle: SceneNodeId,
-        position: ReadonlyVec3,
-        orientation: ReadonlyQuat,
-        scale?: ReadonlyVec3
-    ): void;
+    /** True when `nodeId` is still registered in the scene graph. */
+    hasSceneNode(nodeId: SceneNodeId): boolean;
 
     /** Writes world-space TRS of `node` into the provided out parameters. */
     getNodePose(
@@ -242,6 +242,16 @@ export interface RenderingEngine {
         height?: number,
     ): Promise<SceneNodeId | null>;
 
+    /**
+     * Augmented City INFOSTICKER: a 0.2 m camera-facing icon with an optional tiny caption underneath.
+     * The sticker link is not opened.
+     */
+    addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null>;
+
     addTextObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
@@ -275,7 +285,7 @@ export interface RenderingEngine {
     getClickEvent(modelId: string): (() => void) | undefined;
 
     getExternalCameraParameters(view: XRView, experienceMatrix: ReadonlyMat4): ExternalCameraParameters;
-    getRootSceneUpdater(): (matrix: SceneRootMatrix) => mat4;
+    getRootSceneUpdater(): (matrix: mat4) => mat4;
 
     /** @param modelId - {@link SceneNodeId} to show loading / waiting visuals */
     setWaiting(modelId: SceneNodeId): void;

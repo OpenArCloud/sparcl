@@ -169,8 +169,11 @@ When doing so, the lifecycle functions of the component and their minimal implem
 - AR session startup
 
           function startSession() {
-              parentInstance.startSession(<xrFrameUpdateCallback>, xrSessionEndedCallback, xrNoposeCallback,
-                  setupFunction(),
+              parentInstance.startSession(
+                  xrFrameUpdateCallback,
+                  xrSessionEndedCallback,
+                  xrNoposeCallback,
+                  [xrSessionSetupCallback],
                   [<requiredfeatures>],
                   [<optionalfeatures>]
               );

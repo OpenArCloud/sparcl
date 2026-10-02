@@ -86,6 +86,8 @@ function unsubscribeAllSensorTopics(): void {
 let sensorTexts: Record<SensorId, SceneNodeId> = {};
 let particleSensorVisualizations: Record<SensorId, SceneNodeId> = {};
 let textSensorVisualizations: Record<SensorId, TextSensor> = {};
+/** Sensors whose scene nodes were removed outside the visualizer (for example by engine reinitialize). */
+const sensorsMissingSceneNodes = new Set<SensorId>();
 
 function offsetPosition(localPosition: ReadonlyVec3, dy: number): Vec3Out {
     const out = vec3.clone(localPosition);
@@ -150,6 +152,8 @@ function removeSensorVisualization(tdEngine: RenderingEngine, sensorId: SensorId
         }
         delete sensorTexts[sensorId];
     }
+
+    sensorsMissingSceneNodes.delete(sensorId);
 
     const buttonId = `${sensorId}_button`;
     try {
@@ -217,7 +221,11 @@ function createParticleSensor(
         let object_id = sensor_id + '_button';
         const mesh = tdEngine.addDynamicObject(object_id, localPosition, localQuaternion);
         tdEngine.addClickEvent(mesh, () => {
-            const newIntensity = tdEngine.updateParticleIntensity(particleSensorVisualizations[sensor_id], (oldIntensity) => oldIntensity * 2);
+            const nodeId = particleSensorVisualizations[sensor_id];
+            if (!nodeId || !tdEngine.hasSceneNode(nodeId)) {
+                return;
+            }
+            const newIntensity = tdEngine.updateParticleIntensity(nodeId, (oldIntensity) => oldIntensity * 2);
             setSensorText(tdEngine, sensor_id, `${newIntensity}`);
         });
     }
@@ -266,7 +274,13 @@ function createTextSensor(
 function updateSensorVisualizationAnimation(
     tdEngine: RenderingEngine
 ) {
-    for (const sceneNodeId of Object.values(particleSensorVisualizations) as SceneNodeId[]) {
+    for (const sensorId of Object.keys(particleSensorVisualizations)) {
+        const sceneNodeId = particleSensorVisualizations[sensorId];
+        if (!sceneNodeId || !tdEngine.hasSceneNode(sceneNodeId)) {
+            delete particleSensorVisualizations[sensorId];
+            sensorsMissingSceneNodes.add(sensorId);
+            continue;
+        }
         tdEngine.updateParticleSystem(sceneNodeId);
     }
 }
@@ -280,6 +294,11 @@ function setSensorText(
 ) {
     const savedPosition = vec3.create();
     const savedQuaternion = quat.create();
+    const existingTextNodeId = sensorTexts[sensorId];
+    if (existingTextNodeId && !tdEngine.hasSceneNode(existingTextNodeId)) {
+        delete sensorTexts[sensorId];
+        sensorsMissingSceneNodes.add(sensorId);
+    }
     if (sensorTexts[sensorId]) {
         if (!position || !quaternion) {
             tdEngine.getNodePose(sensorTexts[sensorId], savedPosition, savedQuaternion);
@@ -302,10 +321,14 @@ function setSensorText(
     }
 
     if (!position || !quaternion) {
-        console.error('Missing sensor position or quaternion');
+        // The previous label was removed with the scene, so there is no pose to reuse.
+        if (!sensorsMissingSceneNodes.has(sensorId)) {
+            console.error('Missing sensor position or quaternion');
+        }
         return;
     }
 
+    sensorsMissingSceneNodes.delete(sensorId);
     return tdEngine.addTextObject(
         position,
         quaternion,
@@ -323,6 +346,11 @@ function setSensorText(
 function updateSensorFromMsg(body: string, tdEngine: RenderingEngine) {
     const msg = JSON.parse(body);
     const { sensor_id: sensorId, value } = msg;
+    const particleNodeId = particleSensorVisualizations[sensorId];
+    if (particleNodeId && !tdEngine.hasSceneNode(particleNodeId)) {
+        delete particleSensorVisualizations[sensorId];
+        sensorsMissingSceneNodes.add(sensorId);
+    }
     if (particleSensorVisualizations[sensorId]) {
         let intensity;
         if (value < 0) {
@@ -369,6 +397,7 @@ function clearSensorVisualizations(tdEngine: RenderingEngine): void {
 
     // clear text sensor visualizations    
     textSensorVisualizations = {};
+    sensorsMissingSceneNodes.clear();
 
     // clear text sensor text labels
     for (const sensorId of Object.keys(sensorTexts) as SensorId[]) {

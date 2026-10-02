@@ -14,8 +14,7 @@
     import Parent from '@components/Viewer.svelte';
 
     import { fakeLocationResult2 as fakeLocationResult } from '@core/devTools';
-    import { wait } from '@core/common';
-    import { debug_showLocalAxes } from '@src/stateStore';
+    import { isLocalizedMessage, movePhoneMessage } from '@src/contentStore';
     import type webxr from '../../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import type { Geopose } from '@oarc/scd-access';
@@ -26,8 +25,7 @@
     let tdEngine: RenderingEngine;
 
     let firstPoseReceived = false;
-    let showFooter = false;
-    let isLocalized = false;
+    let frameSetupErrorLogged = false;
 
     /**
      * Verifies that AR is available as required by the provided configuration data, and starts the session.
@@ -63,41 +61,50 @@
      * @param xrViewerPose     The pose of the device as reported by the XRFrame
      */
     function onXrFrameUpdate(time: DOMHighResTimeStamp, frame: XRFrame, xrViewerPose: XRViewerPose) {
+        // Must run before mode-specific work. A throw later in this callback used to skip it,
+        // which left the tracking-lost indicator red for the whole session.
+        parentInstance.handlePoseHeartbeat();
+
         if (firstPoseReceived === false) {
             firstPoseReceived = true;
-
-            // TODO: Fails for some reason
-            // xrEngine.createRootAnchor(frame, tdEngine.getRootSceneUpdater());
-
-            if ($debug_showLocalAxes) {
-                tdEngine.addAxes();
-            }
 
             // Use the primary view (views[0]) for localImagePose and this is assumed to match the fake GeoPose
             // Using the same GeoPose for each view.transform would mis-align other eyes in rig mode.
             const imageView = xrViewerPose.views[0];
             if (imageView) {
-                console.log('fake localisation');
-                const fakeGeoPose = fakeLocationResult.geopose.geopose;
-                const t = imageView.transform;
-                const localImagePose: WebXrRigidPose = {
-                    position: { x: t.position.x, y: t.position.y, z: t.position.z },
-                    orientation: { x: t.orientation.x, y: t.orientation.y, z: t.orientation.z, w: t.orientation.w },
-                };
-                onGeoPoseLocalizationSuccess(localImagePose, fakeGeoPose);
-                isLocalized = true;
-
-                wait(1000).then(() => (showFooter = false));
-
-                let data = fakeLocationResult.scrs;
-                parentInstance.placeContent([data]);
+                try {
+                    console.log('fake localisation');
+                    const fakeGeoPose = fakeLocationResult.geopose.geopose;
+                    const t = imageView.transform;
+                    const localImagePose: WebXrRigidPose = {
+                        position: { x: t.position.x, y: t.position.y, z: t.position.z },
+                        orientation: { x: t.orientation.x, y: t.orientation.y, z: t.orientation.z, w: t.orientation.w },
+                    };
+                    onGeoPoseLocalizationSuccess(localImagePose, fakeGeoPose);
+                    parentInstance.placeContent([fakeLocationResult.scrs]);
+                } catch (error) {
+                    if (!frameSetupErrorLogged) {
+                        frameSetupErrorLogged = true;
+                        console.error('Develop mode localization failed:', error);
+                    }
+                }
             }
         }
 
-        xrEngine.handleAnchors(frame);
-        xrEngine.setViewportForView(xrViewerPose.views[0]);
-        parentInstance.handleExternalExperience(xrViewerPose.views[0]);
-        tdEngine.render(time, xrViewerPose.views[0]);
+        try {
+            xrEngine.handleAnchors(frame);
+        } catch (error) {
+            if (!frameSetupErrorLogged) {
+                frameSetupErrorLogged = true;
+                console.error('Develop mode anchor update failed:', error);
+            }
+        }
+
+        for (const view of xrViewerPose.views) {
+            xrEngine.setViewportForView(view);
+            parentInstance.handleExternalExperience(view);
+            tdEngine.render(time, view);
+        }
     }
 </script>
 
@@ -107,4 +114,20 @@
     on:broadcast
     on:worldAlignmentEstablished
     on:worldAlignmentCleared
-/>
+>
+    <svelte:fragment slot="overlay" let:firstPoseReceived let:isLocalized let:receivedContentTitles>
+        {#if !firstPoseReceived}
+            <p>{$movePhoneMessage}</p>
+        {:else if isLocalized}
+            <p>{$isLocalizedMessage}</p>
+            {#if receivedContentTitles.length > 0}
+                <div align="left">
+                    <p>Received objects(s):</p>
+                    {#each receivedContentTitles as title, i}
+                        <li>[{i}] {title}</li>
+                    {/each}
+                </div>
+            {/if}
+        {/if}
+    </svelte:fragment>
+</Parent>

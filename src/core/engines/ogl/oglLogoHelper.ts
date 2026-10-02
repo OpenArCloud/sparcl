@@ -9,7 +9,14 @@
 
 import { Program, Texture, type OGLRenderingContext } from 'ogl';
 
-export function createLogoProgram(gl: OGLRenderingContext, texture: Texture | undefined) {
+export function createLogoProgram(
+    gl: OGLRenderingContext,
+    texture: Texture | undefined,
+    options?: { alphaTest?: number; depthWrite?: boolean; unlit?: boolean },
+) {
+    const alphaTest = options?.alphaTest ?? 0;
+    const depthWrite = options?.depthWrite ?? true;
+    const unlit = options?.unlit ? 1 : 0;
     const vertex = /* glsl */ `
         attribute vec2 uv;
         attribute vec3 position;
@@ -34,28 +41,34 @@ export function createLogoProgram(gl: OGLRenderingContext, texture: Texture | un
         precision highp float;
 
         uniform sampler2D tMap;
+        uniform float uAlphaTest;
+        uniform float uUnlit;
 
         varying vec2 vUv;
         varying vec3 vNormal;
 
         void main() {
             vec3 normal = normalize(vNormal);
-            vec3 tex = texture2D(tMap, vUv).rgb;
-            float a = texture2D(tMap, vUv).a;
+            vec4 tex = texture2D(tMap, vUv);
+            if (tex.a < uAlphaTest) discard;
 
             vec3 light = normalize(vec3(0.5, 1.0, -0.3));
             float shading = dot(normal, light) * 0.15;
+            float shade = uUnlit > 0.5 ? 0.0 : shading;
 
-            gl_FragColor.rgb = tex + shading;
-            gl_FragColor.a = a;
+            gl_FragColor.rgb = tex.rgb + shade;
+            gl_FragColor.a = tex.a;
         }
     `;
     const program = new Program(gl, {
         vertex,
         fragment,
         transparent: true,
+        depthWrite,
         uniforms: {
             tMap: { value: texture },
+            uAlphaTest: { value: alphaTest },
+            uUnlit: { value: unlit },
         },
         cullFace: gl.NONE, // Don't cull faces so that plane is double sided - default is gl.BACK
     });

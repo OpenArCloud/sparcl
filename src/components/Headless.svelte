@@ -53,7 +53,7 @@
             }
 
             // set initial location for headless client given H3 index and arbitrary other values
-            initialLocation.set({h3Index:h3Index, lat:0, lon:0, countryCode: 'us', regionCode: 'us'});
+            initialLocation.set({ h3Index: h3Index, lat: 0, lon: 0, countryCode: 'us' });
 
             const portToUse = port ? parseInt(port) : null;
             p2p.connectWithExplicitUrl({

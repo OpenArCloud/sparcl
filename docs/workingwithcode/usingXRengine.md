@@ -16,3 +16,49 @@ So far, the separation is there, but there is no specific 'API' between the `Vie
 When you try this feature and run into problems, feel free to let us know.
 
 As always, please share you feedback with us. Pull requests are more than welcome.
+
+## Starting an immersive AR session
+
+WebXR requires a WebGL context with XR support (`WebGL2RenderingContext` with flag `{xrCompatible: true}`). Neither OGL nor Three.js creates that context by default, so the order of operations is fixed and easy to get wrong if callers manage each step themselves.
+
+```mermaid
+sequenceDiagram
+    participant Viewer
+    participant WebXR
+    participant Renderer
+    Viewer->>WebXR: startImmersiveAr(options)
+    WebXR->>WebXR: requestSession + createXrCompatibleContext
+    WebXR->>Viewer: onXrGlContextReady?(gl)
+    Viewer->>Renderer: tdEngine.init()
+    WebXR->>Viewer: onXrSessionSetup?(xr, session, gl)
+    WebXR->>WebXR: createXrLayerAndStartLoop
+```
+
+Use a single orchestrator instead:
+
+```ts
+await xrEngine.startImmersiveAr({
+    canvas,
+    xrSessionOptions, // XRSessionInit: features, domOverlay, trackedImages, etc.
+    onXrGlContextReady: () => tdEngine.init(), // attach renderer to xrCompatible GL context
+    onXrSessionSetup?, // optional: binding, camera capture, hit-test (after renderer attach)
+    onXrFrameUpdate?, // optional: pose frames (OSCP / experiments render from here)
+    onXrMarkerFrameUpdate?, // optional: image-tracking frames (Marker mode)
+    onXrSessionEnded?,
+    onXrNoPose?, // optional: called when getViewerPose returns null
+});
+```
+
+`webxr` runs this pipeline internally in a fixed order:
+
+1. `navigator.xr.requestSession('immersive-ar', xrSessionOptions)`
+2. Create the XR-compatible WebGL2 context and reference spaces
+3. `onXrGlContextReady?` — attach/resize the rendering engine (`tdEngine.init()`); do not call `init()` yourself outside this hook for XR startup
+4. `onXrSessionSetup?` — per-session XR feature wiring (e.g. `initCameraCapture`, hit-test)
+5. Create `XRWebGLLayer` and start the `requestAnimationFrame` loop
+
+`webxr` does not import or know about `RenderingEngine`; the viewer composes the two engines via `onXrGlContextReady`.
+
+All callbacks are optional. Omit any you do not need; `webxr` does not render 3D content itself. Callers that need graphics must pass `onXrFrameUpdate` and/or `onXrMarkerFrameUpdate` and call `tdEngine.render()` from those handlers.
+
+In Marker mode, `onXrMarkerFrameUpdate` is invoked when `getViewerPose` succeeds and image-tracking returns a pose for the configured marker. `onXrNoPose` is called when `getViewerPose` returns null (device tracking lost). Marker viewers should also use `trackedImage.trackingState` to detect when the marker is no longer visible.
