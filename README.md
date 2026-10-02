@@ -55,23 +55,39 @@ npm run build
 npm run start
 ```
 
-## Docker build
+## Docker Compose
 
-Vite reads `VITE_*` values at build time. Put them in a `.env` file in the repo root (see below). Compose passes that file into the image build; a plain `docker build` does not.
+Vite reads `VITE_*` values when the image is built. Put them in a `.env` file in the repo root (see below). Compose loads that file and passes the values into the build. A plain `docker build` does not.
 
-```
-npm run build:docker
-npm run start:docker
-```
-
-The HTTP image is `sparcl:latest` and listens on `http://localhost:8080`. WebXR on a phone needs HTTPS, so use the dev image instead. It generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3) and listens on `https://localhost:8080`.
+From the repo root, build the image and start the HTTP service in the background:
 
 ```
-npm run build:docker:https
-npm run start:docker:https
+docker compose up -d --build
 ```
 
-For CI, export the same variables in the environment before `npm run build:docker`. Compose substitutes them into the build args.
+The container is `sparcl`, image `sparcl:latest`. It listens on port 80 inside the container and is published on the host at `http://localhost:8034`. The service uses `restart: unless-stopped`, so Docker brings it back after a reboot until you stop it yourself.
+
+```
+docker compose stop
+docker compose start
+docker compose down
+```
+
+`stop` leaves the container in place. `down` removes it. The next `up` creates it again.
+
+To publish a different host port, set `SPARCL_HOST_PORT` in `.env` or in the shell before `up`:
+
+```
+SPARCL_HOST_PORT=8080 docker compose up -d --build
+```
+
+WebXR on a phone needs HTTPS. The `https` profile builds `sparcl:https`, generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3), and publishes `https://localhost:8034`. That service does not restart on its own.
+
+```
+docker compose --profile https up -d --build sparcl-https
+```
+
+The same flows are available as `npm run build:docker`, `npm run start:docker`, `npm run build:docker:https`, and `npm run start:docker:https`. For CI, export the `VITE_*` variables in the environment before `docker compose up --build`. Compose substitutes them into the build args. Changing `.env` requires a rebuild.
 
 ### Authentication:
 

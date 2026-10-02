@@ -28,7 +28,7 @@ services:
       target: deploy
       args: *build-args
     ports:
-      - "8080:80"
+      - "${SPARCL_HOST_PORT:-8034}:80"
 
   sparcl-https:
     profiles: ["https"]
@@ -39,4 +39,4 @@ services:
       target: deploy-https
       args: *build-args
     ports:
-      - "8080:443"
+      - "${SPARCL_HOST_PORT:-8034}:443"
