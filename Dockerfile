@@ -2,10 +2,7 @@
 FROM node:22.7.0 AS build
 
 WORKDIR /app
-# package-lock.json is windows-specific and "npm ci" can't be used
-#COPY package.json ./
-#RUN npm install --verbose
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 COPY . ./
 
@@ -20,10 +17,9 @@ ARG VITE_RMQ_TOPIC_GEOPOSE_UPDATE
 ARG VITE_RMQ_TOPIC_OBJECT_CREATED
 ARG VITE_RMQ_TOPIC_SENSOR_UPDATE
 ARG VITE_RMQ_TOPIC_RETICLE_UPDATE
+ARG VITE_POI_SEARCH_BASEURL
 
 ENV VITE_SSD_ROOT_URL=${VITE_SSD_ROOT_URL}
-ENV VITE_AUTH_AZURE_CLIENT_ID=${VITE_AUTH_AZURE_CLIENT_ID}
-ENV VITE_AUTH_AZURE_AUTHORITY_URL=${VITE_AUTH_AZURE_AUTHORITY_URL}
 ENV VITE_AUTH_AUTH0_DOMAIN=${VITE_AUTH_AUTH0_DOMAIN}
 ENV VITE_AUTH_AUTH0_CLIENTID=${VITE_AUTH_AUTH0_CLIENTID}
 ENV VITE_NOAUTH=${VITE_NOAUTH}
@@ -34,22 +30,29 @@ ENV VITE_RMQ_TOPIC_GEOPOSE_UPDATE=${VITE_RMQ_TOPIC_GEOPOSE_UPDATE}
 ENV VITE_RMQ_TOPIC_OBJECT_CREATED=${VITE_RMQ_TOPIC_OBJECT_CREATED}
 ENV VITE_RMQ_TOPIC_SENSOR_UPDATE=${VITE_RMQ_TOPIC_SENSOR_UPDATE}
 ENV VITE_RMQ_TOPIC_RETICLE_UPDATE=${VITE_RMQ_TOPIC_RETICLE_UPDATE}
-
+ENV VITE_POI_SEARCH_BASEURL=${VITE_POI_SEARCH_BASEURL}
 
 RUN npm run build
 
-
-
-FROM nginx:stable-alpine AS deploy
-
-ARG NGINX_CONFIG
-
-COPY ${NGINX_CONFIG} /etc/nginx/templates/default.conf.template
-COPY cert.pem /etc/nginx/ssl/cert.pem
-COPY key.pem /etc/nginx/ssl/key.pem
+# Shared static files. `ENV a=` lets nginx templates escape `$uri` as `$${a}uri`.
+FROM nginx:stable-alpine AS nginx-base
 COPY --from=build /app/dist /usr/share/nginx/html
-
-# workaround for escaping the $ sign in the nginx config
 ENV a=
 
-EXPOSE 80 443
+# HTTPS dev image. Cert is generated here so a private key is not stored in the repo or the HTTP image.
+FROM nginx-base AS deploy-https
+COPY nginx.dev.conf /etc/nginx/templates/default.conf.template
+RUN apk add --no-cache --virtual .cert-build openssl \
+    && mkdir -p /etc/nginx/ssl \
+    && openssl req -x509 -nodes -newkey rsa:2048 -days 825 \
+        -keyout /etc/nginx/ssl/key.pem \
+        -out /etc/nginx/ssl/cert.pem \
+        -subj "/CN=localhost" \
+        -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+    && apk del .cert-build
+EXPOSE 443
+
+# Default image: HTTP on port 80. `docker build` without `--target` lands here.
+FROM nginx-base AS deploy
+COPY nginx.prod.conf /etc/nginx/templates/default.conf.template
+EXPOSE 80

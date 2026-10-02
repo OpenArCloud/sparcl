@@ -1,22 +1,40 @@
 name: sparcl
 
+x-build-args: &build-args
+  - VITE_SSD_ROOT_URL=${VITE_SSD_ROOT_URL:-}
+  - VITE_AUTH_AUTH0_DOMAIN=${VITE_AUTH_AUTH0_DOMAIN:-}
+  - VITE_AUTH_AUTH0_CLIENTID=${VITE_AUTH_AUTH0_CLIENTID:-}
+  - VITE_NOAUTH=${VITE_NOAUTH:-}
+  - VITE_NOAUTH_USER_NAME=${VITE_NOAUTH_USER_NAME:-}
+  - VITE_NOAUTH_USER_EMAIL=${VITE_NOAUTH_USER_EMAIL:-}
+  - VITE_AUTH_REDIRECT_URI=${VITE_AUTH_REDIRECT_URI:-}
+  - VITE_RMQ_TOPIC_GEOPOSE_UPDATE=${VITE_RMQ_TOPIC_GEOPOSE_UPDATE:-}
+  - VITE_RMQ_TOPIC_OBJECT_CREATED=${VITE_RMQ_TOPIC_OBJECT_CREATED:-}
+  - VITE_RMQ_TOPIC_SENSOR_UPDATE=${VITE_RMQ_TOPIC_SENSOR_UPDATE:-}
+  - VITE_RMQ_TOPIC_RETICLE_UPDATE=${VITE_RMQ_TOPIC_RETICLE_UPDATE:-}
+  - VITE_POI_SEARCH_BASEURL=${VITE_POI_SEARCH_BASEURL:-}
+
 services:
   sparcl:
-    image: frontend
+    image: oscp/sparcl
+    container_name: oscp-sparcl
+    restart: unless-stopped
     build:
-      dockerfile: ./Dockerfile
-      args:
-        - VITE_SSD_ROOT_URL=${VITE_SSD_ROOT_URL}
-        - VITE_AUTH_AUTH0_DOMAIN=${VITE_AUTH_AUTH0_DOMAIN}
-        - VITE_AUTH_AUTH0_CLIENTID=${VITE_AUTH_AUTH0_CLIENTID}
-        - VITE_NOAUTH=${VITE_NOAUTH}
-        - VITE_NOAUTH_USER_NAME=${VITE_NOAUTH_USER_NAME}
-        - VITE_NOAUTH_USER_EMAIL=${VITE_NOAUTH_USER_EMAIL}
-        - VITE_AUTH_REDIRECT_URI=${VITE_AUTH_REDIRECT_URI}
-        - VITE_RMQ_TOPIC_GEOPOSE_UPDATE=${VITE_RMQ_TOPIC_GEOPOSE_UPDATE}
-        - VITE_RMQ_TOPIC_OBJECT_CREATED=${VITE_RMQ_TOPIC_OBJECT_CREATED}
-        - VITE_RMQ_TOPIC_SENSOR_UPDATE=${VITE_RMQ_TOPIC_SENSOR_UPDATE}
-        - VITE_RMQ_TOPIC_RETICLE_UPDATE=${VITE_RMQ_TOPIC_RETICLE_UPDATE}
-        - NGINX_CONFIG=nginx.prod.conf
+      context: .
+      dockerfile: Dockerfile
+      target: deploy
+      args: *build-args
     ports:
-      - 8080:80
+      - "${SPARCL_HOST_PORT:-8034}:80"
+
+  sparcl-https:
+    profiles: ["https"]
+    image: oscp/sparcl:https
+    container_name: oscp-sparcl-https
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: deploy-https
+      args: *build-args
+    ports:
+      - "${SPARCL_HOST_PORT:-8034}:443"
