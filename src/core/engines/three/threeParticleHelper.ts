@@ -21,11 +21,11 @@ export interface ThreeParticleSystemState {
     shape: ParticleShape;
     systemSize: number;
     speed: number;
+    /** Seconds since this system was registered. Not shared across systems or sessions. */
+    animationTime: number;
 }
 
 const particleSystemStateBySceneNodeId = new Map<SceneNodeId, ThreeParticleSystemState>();
-
-let particleAnimationTime = 0;
 
 const particleVertexShader = /* glsl */ `
 attribute vec3 velocity;
@@ -33,7 +33,10 @@ uniform float uTime;
 uniform float uPointSize;
 
 void main() {
-    vec3 pos = position + velocity * uTime;
+    // Same wrap as OGL particlevertex.glsl. Without it, pos = position + velocity * uTime
+    // sends every point to infinity as uTime grows, including a clock left over from the previous session.
+    vec3 distance = velocity * uTime;
+    vec3 pos = mod(position + distance, position);
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_PointSize = uPointSize / max(length(mvPosition.xyz), 1e-4);
     gl_Position = projectionMatrix * mvPosition;
@@ -118,11 +121,14 @@ export function createThreeParticlePoints(particleSystem: ParticleSystem): THREE
     return new THREE.Points(geometry, material);
 }
 
-export function registerThreeParticleSystem(sceneNodeId: SceneNodeId, state: ThreeParticleSystemState): void {
+export function registerThreeParticleSystem(
+    sceneNodeId: SceneNodeId,
+    state: Omit<ThreeParticleSystemState, 'animationTime'>,
+): void {
     if (particleSystemStateBySceneNodeId.has(sceneNodeId)) {
         throw new Error(`Three particles: particle system already registered for scene node ${sceneNodeId}`);
     }
-    particleSystemStateBySceneNodeId.set(sceneNodeId, state);
+    particleSystemStateBySceneNodeId.set(sceneNodeId, { ...state, animationTime: 0 });
 }
 
 export function unregisterThreeParticleSystem(sceneNodeId: SceneNodeId): void {
@@ -195,8 +201,8 @@ export function setThreeParticleIntensity(sceneNodeId: SceneNodeId, newIntensity
 }
 
 export function updateThreeParticles(sceneNodeId: SceneNodeId): void {
-    particleAnimationTime += 1 / 60;
     const state = getParticleSystemState(sceneNodeId);
+    state.animationTime += 1 / 60;
     const material = state.points.material as THREE.ShaderMaterial;
-    material.uniforms.uTime.value = particleAnimationTime;
+    material.uniforms.uTime.value = state.animationTime;
 }
