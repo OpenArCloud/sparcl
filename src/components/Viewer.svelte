@@ -1131,9 +1131,10 @@
                             console.log(`A TEXT content ${record.content.title} was received but this type is disabled`);
                             break;
                         }
+                        const textScale = uniformScaleVec3FromScrContentSize(record.content.size);
                         const inlineText = record.content.description?.trim();
                         if (inlineText) {
-                            void tdEngine.addTextObject(localPosition, localQuaternion, inlineText, [1, 1, 1], [1, 1, 1]);
+                            void tdEngine.addTextObject(localPosition, localQuaternion, inlineText, [1, 1, 1], textScale);
                             break;
                         }
                         const url = record.content.refs ? record.content.refs[0].url : '';
@@ -1147,7 +1148,7 @@
                                 }
                             })
                             .then((textdata) => {
-                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!, [1, 1, 1], [1, 1, 1]);
+                                tdEngine.addTextObject(localPosition, localQuaternion, textdata!, [1, 1, 1], textScale);
                             })
                             .catch((error) => {
                                 console.error('Error while processing TEXT: ' + error);

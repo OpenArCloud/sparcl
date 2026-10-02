@@ -3,10 +3,11 @@
     import { writable, type Writable } from 'svelte/store';
     import { v4 as uuidv4 } from 'uuid';
     import { quat, vec3 } from 'gl-matrix';
+    import type { QuatLike, Vec3Like } from '@core/spatial';
     import Parent from '@components/Viewer.svelte';
     import ArCloudOverlay from '@components/dom-overlays/ArCloudOverlay.svelte';
     import Overlay, { type ModelCatalogEntry } from './Overlay.svelte';
-    import { uniformScaleVec3FromScrContentSize } from '@core/contents/contentDefinitions';
+    import { uniformScaleFromScrContentSize, uniformScaleVec3FromScrContentSize } from '@core/contents/contentDefinitions';
     import { applyMementoSettingsDefaults, type MementoExperimentSettings } from './Settings.svelte';
     import type webxr from '../../../core/engines/webxr';
     import type { RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
@@ -16,9 +17,16 @@
     import scdAuth0 from './scdAuth0Service';
     import { currentScdLoggedInUser, isAuthenticatedScdAuth0 } from './mementoState';
 
-    /** Matches `content.size` on posted MODEL_3D SCRs (50 = half of default GLB scale). */
-    const kMementoModelSizePercent = 50;
+    /** Matches `content.size` on posted MODEL_3D SCRs (25 = quarter of default GLB scale). */
+    const kMementoModelSizePercent = 25;
     const kPreviewScale = uniformScaleVec3FromScrContentSize(kMementoModelSizePercent);
+    /** Matches `content.size` on posted TEXT SCRs (20 = one-fifth of default label scale). */
+    const kMementoTextSizePercent = 20;
+    /**
+     * All memento emoji GLBs share the same layout: origin at mesh center, AABB min Y below origin.
+     * Distance from origin to bounding-box bottom at SCR size 100%; geopose `h` is boosted by this × `content.size` scale on place.
+     */
+    const kMementoModelOriginToBottomModelUnits = 3.512132;
     // Non-standard: TEXT SCRs usually point at real text assets on CDN; 
     // this local placeholder ref is only used in the Memento demo.
     const kInlineTextRefUrl = '/media/texts/inline.txt';
@@ -46,6 +54,38 @@
     setContext('state', parentState);
 
     $: scdAuthReady = !scdAuth0.isScdAuthConfigured() || $isAuthenticatedScdAuth0;
+
+    function mementoOriginToBottomHeightBoost(sizePercent: number): number {
+        return kMementoModelOriginToBottomModelUnits * uniformScaleFromScrContentSize(sizePercent);
+    }
+
+    function geoposeWithRaisedH(base: Geopose, deltaH: number): Geopose {
+        return {
+            ...base,
+            position: {
+                ...base.position,
+                h: base.position.h + deltaH,
+            },
+        };
+    }
+
+    function mementoModelGeoposeFromScenePose(position: Vec3Like, orientation: QuatLike): Geopose {
+        const base = worldAlignment.convertScenePoseToGeoposeFromActive(position, orientation);
+        return geoposeWithRaisedH(base, mementoOriginToBottomHeightBoost(kMementoModelSizePercent));
+    }
+
+    function scenePoseFromMementoModelGeopose(modelGeopose: Geopose): { position: vec3; orientation: quat } {
+        const rigid = worldAlignment.convertGeoPoseToLocalPose(modelGeopose);
+        return {
+            position: vec3.fromValues(rigid.position.x, rigid.position.y, rigid.position.z),
+            orientation: quat.fromValues(
+                rigid.orientation.x,
+                rigid.orientation.y,
+                rigid.orientation.z,
+                rigid.orientation.w,
+            ),
+        };
+    }
 
     $: canPlace =
         !persisting &&
@@ -190,7 +230,17 @@
         const position = vec3.create();
         const orientation = quat.create();
         tdEngine.getNodePose(reticleNodeId, position, orientation);
-        previewNodeId = tdEngine.addModel(modelUrl, position, orientation, kPreviewScale);
+        const modelGeopose = mementoModelGeoposeFromScenePose(
+            { x: position[0], y: position[1], z: position[2] },
+            { x: orientation[0], y: orientation[1], z: orientation[2], w: orientation[3] },
+        );
+        const modelScenePose = scenePoseFromMementoModelGeopose(modelGeopose);
+        previewNodeId = tdEngine.addModel(
+            modelUrl,
+            modelScenePose.position,
+            modelScenePose.orientation,
+            kPreviewScale,
+        );
     }
 
     function updateReticleGeoPose() {
@@ -233,11 +283,12 @@
                 );
                 updateReticleGeoPose();
                 if (!persisting && previewNodeId !== null) {
-                    tdEngine.setNodePose(
-                        previewNodeId,
-                        vec3.fromValues(position.x, position.y, position.z),
-                        quat.fromValues(orientation.x, orientation.y, orientation.z, orientation.w),
+                    const modelGeopose = mementoModelGeoposeFromScenePose(
+                        { x: position.x, y: position.y, z: position.z },
+                        { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w },
                     );
+                    const modelScenePose = scenePoseFromMementoModelGeopose(modelGeopose);
+                    tdEngine.setNodePose(previewNodeId, modelScenePose.position, modelScenePose.orientation);
                 } else if (!persisting) {
                     syncPreviewModel();
                 }
@@ -329,7 +380,10 @@
         const name = displayName();
         const modelLabel = catalogLabel(selectedFile);
         const modelUrl = `${kMementoModelsBasePath}${selectedFile}`;
-        const geopose = reticleGeoPose;
+        const geopose = geoposeWithRaisedH(
+            reticleGeoPose,
+            mementoOriginToBottomHeightBoost(kMementoModelSizePercent),
+        );
 
         let token: string | undefined;
         try {
@@ -377,6 +431,7 @@
                 description: name,
                 keywords: ['memento', name],
                 refs: [{ url: kInlineTextRefUrl, contentType: 'text/plain' }],
+                size: kMementoTextSizePercent,
                 geopose: textGeoposeAboveModel(geopose),
             },
         };
