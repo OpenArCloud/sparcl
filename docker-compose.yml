@@ -21,6 +21,7 @@ x-build-args: &build-args
 services:
   sparcl:
     image: sparcl:latest
+    restart: unless-stopped
     build:
       context: .
       dockerfile: Dockerfile
