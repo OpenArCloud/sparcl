@@ -810,7 +810,12 @@
                         return scrs;
                     }
                     // do not add streams to the received SCRs because we want to keep receiving them
-                    if (record.content.type === 'sensor_stream' || record.content.type === 'geopose_stream') {
+                    if (
+                        record.content.type === 'sensor_stream' ||
+                        record.content.type === 'SENSOR_STREAM' ||
+                        record.content.type === 'geopose_stream' ||
+                        record.content.type === 'GEOPOSE_STREAM'
+                    ) {
                         return scrs;
                     }
                     return [...scrs, record];
@@ -819,7 +824,12 @@
                     return;
                 }
 
-                if (record.content.type !== 'sensor_stream' && record.content.type !== 'geopose_stream') {
+                if (
+                    record.content.type !== 'sensor_stream' &&
+                    record.content.type !== 'SENSOR_STREAM' &&
+                    record.content.type !== 'geopose_stream' &&
+                    record.content.type !== 'GEOPOSE_STREAM'
+                ) {
                     if (debugScrs) {
                         // DEBUG
                         console.log('New SCR received:');
@@ -960,6 +970,7 @@
                         break;
                     }
 
+                    case 'EPHEMERAL':
                     case 'ephemeral': {
                         // ISMAR2021 demo
                         if (record.tenant === 'ISMAR2021demo') {
@@ -971,6 +982,7 @@
                         break;
                     }
 
+                    case 'GEOPOSE_STREAM':
                     case 'geopose_stream': {
                         // NGI Search 2025 demo on agent pose sharing
                         if (record.tenant === 'NGISearch2025' && $showOtherCameras) {
