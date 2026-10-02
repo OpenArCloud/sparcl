@@ -57,16 +57,21 @@ npm run start
 
 ## Docker build
 
-To build a docker image run the `npm run build:docker` script. Make sure you have your `.env` file correctly set up before building. If you are unwilling or unable to create a `.env` file (eg.: because the build is happening in a CI pipeline), then an alternate solution is to add the following lines to the Dockerfile:
+Vite reads `VITE_*` values at build time. Put them in a `.env` file in the repo root (see below). Compose passes that file into the image build; a plain `docker build` does not.
 
-```Dockerfile
-ARG VITE_SSD_ROOT_URL
-ENV VITE_SSD_ROOT_URL=$VITE_SSD_ROOT_URL
-# Optional, if you use FrameTransformsClient with HTTP baseUrl:
-# ARG VITE_FRAME_TRANSFORMS_URL
-# ENV VITE_FRAME_TRANSFORMS_URL=$VITE_FRAME_TRANSFORMS_URL
 ```
-and to run the docker build script with the following command line argument: `docker build --build-arg VITE_SSD_ROOT_URL=https://your-ssd-url-domain.com . -t sparcl`
+npm run build:docker
+npm run start:docker
+```
+
+The HTTP image is `sparcl:latest` and listens on `http://localhost:8080`. WebXR on a phone needs HTTPS, so use the dev image instead. It generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3) and listens on `https://localhost:8080`.
+
+```
+npm run build:docker:https
+npm run start:docker:https
+```
+
+For CI, export the same variables in the environment before `npm run build:docker`. Compose substitutes them into the build args.
 
 ### Authentication:
 
@@ -100,6 +105,7 @@ VITE_NOAUTH_USER_EMAIL="DUMMY_EMAIL"
 VITE_RMQ_TOPIC_GEOPOSE_UPDATE="/exchange/ngi_search/geopose_update"
 VITE_RMQ_TOPIC_RETICLE_UPDATE="/exchange/ngi_search/reticle_update"
 VITE_RMQ_TOPIC_OBJECT_CREATED="/exchange/ngi_search/object_created"
+VITE_RMQ_TOPIC_SENSOR_UPDATE="/exchange/ngi_search/sensor_update"
 
 ## PoI Search (optional, see OSCP PoI search service)
 VITE_POI_SEARCH_BASEURL=""
