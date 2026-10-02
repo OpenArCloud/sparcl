@@ -20,7 +20,8 @@ x-build-args: &build-args
 
 services:
   sparcl:
-    image: sparcl:latest
+    image: oscp/sparcl
+    container_name: oscp-sparcl
     restart: unless-stopped
     build:
       context: .
@@ -32,7 +33,8 @@ services:
 
   sparcl-https:
     profiles: ["https"]
-    image: sparcl:https
+    image: oscp/sparcl:https
+    container_name: oscp-sparcl-https
     build:
       context: .
       dockerfile: Dockerfile

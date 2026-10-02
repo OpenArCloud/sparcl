@@ -65,7 +65,7 @@ From the repo root, build the image and start the HTTP service in the background
 docker compose up -d --build
 ```
 
-The container is `sparcl`, image `sparcl:latest`. It listens on port 80 inside the container and is published on the host at `http://localhost:8034`. The service uses `restart: unless-stopped`, so Docker brings it back after a reboot until you stop it yourself.
+The image is `oscp/sparcl`. The container is `oscp-sparcl` (container names cannot contain `/`). It listens on port 80 inside the container and is published on the host at `http://localhost:8034`. The service uses `restart: unless-stopped`, so Docker brings it back after a reboot until you stop it yourself.
 
 ```
 docker compose stop
@@ -81,7 +81,7 @@ To publish a different host port, set `SPARCL_HOST_PORT` in `.env` or in the she
 SPARCL_HOST_PORT=8080 docker compose up -d --build
 ```
 
-WebXR on a phone needs HTTPS. The `https` profile builds `sparcl:https`, generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3), and publishes `https://localhost:8034`. That service does not restart on its own.
+WebXR on a phone needs HTTPS. The `https` profile builds `oscp/sparcl:https`, runs it as `oscp-sparcl-https`, generates a self-signed certificate for `localhost` (TLS 1.2 and 1.3), and publishes `https://localhost:8034`. That service does not restart on its own.
 
 ```
 docker compose --profile https up -d --build sparcl-https
