@@ -73,6 +73,7 @@
     import type webxr from '../core/engines/webxr';
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
+    import { infostickerLabel } from '@core/contents/infosticker';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
@@ -854,7 +855,8 @@
                     record.content.type === 'ICON' ||
                     record.content.type === 'VIDEO' ||
                     record.content.type === 'POINT_CLOUD' ||
-                    record.content.type === 'POINTCLOUD'
+                    record.content.type === 'POINTCLOUD' ||
+                    record.content.type === 'INFOSTICKER'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
@@ -1157,6 +1159,15 @@
                         const videoUrl = record.content.refs ? record.content.refs[0].url : '';
                         tdEngine.addVideoObject(localPosition, localQuaternion, videoUrl);
                         break;
+
+                    case 'INFOSTICKER': {
+                        // Proprietary Augmented City sticker. sticker_type would select a specific
+                        // icon; we draw one generic information icon and the sticker_text caption.
+                        // refs[0].url is an external link and is intentionally not opened.
+                        const label = infostickerLabel(record.content);
+                        void tdEngine.addInfoSticker(localPosition, localQuaternion, label);
+                        break;
+                    }
 
                     default: {
                         console.log(record.content.title + ' has unexpected content type: ' + record.content.type);

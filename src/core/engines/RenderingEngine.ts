@@ -242,6 +242,16 @@ export interface RenderingEngine {
         height?: number,
     ): Promise<SceneNodeId | null>;
 
+    /**
+     * Augmented City INFOSTICKER: a 0.2 m camera-facing icon with an optional tiny caption underneath.
+     * The sticker link is not opened.
+     */
+    addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null>;
+
     addTextObject(
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,

@@ -38,6 +38,12 @@ import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { createPlyMeshProgram, createPlyPointsProgram, MyPLYLoader } from '@core/engines/ogl/oglPlyHelper';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
+import {
+    INFOSTICKER_ICON_SIZE_M,
+    INFOSTICKER_ICON_URL,
+    INFOSTICKER_LABEL_SCALE,
+    INFOSTICKER_LABEL_TOP_M,
+} from '@core/contents/infosticker';
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from '@core/engines/ogl/oglVideoHelper';
@@ -925,6 +931,69 @@ export default class ogl implements RenderingEngine {
             console.error('OGL addLogoObject failed', error);
             return null;
         }
+    }
+
+    /**
+     * Augmented City INFOSTICKER: camera-facing icon with an optional tiny caption.
+     * The external link is not opened.
+     */
+    async addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null> {
+        if (!gl) {
+            console.error('OGL addInfoSticker: GL is not initialized');
+            return null;
+        }
+        const root = new Transform();
+        root.position.copy(oglVec3(position));
+        root.quaternion.copy(oglQuat(quaternion));
+
+        let hasVisual = false;
+        try {
+            const texture = await loadLogoTexture(gl, INFOSTICKER_ICON_URL);
+            if (texture) {
+                const logoProgram = createLogoProgram(gl, texture, {
+                    alphaTest: 0.05,
+                    depthWrite: false,
+                    unlit: true,
+                });
+                const plane = new Mesh(gl, {
+                    geometry: new Plane(gl, { width: INFOSTICKER_ICON_SIZE_M, height: INFOSTICKER_ICON_SIZE_M }),
+                    program: logoProgram,
+                    frustumCulled: false,
+                });
+                plane.setParent(root);
+                hasVisual = true;
+            }
+        } catch (error) {
+            console.error('OGL addInfoSticker icon failed', error);
+        }
+
+        const text = label.trim();
+        if (text) {
+            try {
+                const textMesh = await loadTextMesh(gl, 'MgOpenModernaRegular', text, new Vec3(1, 1, 1));
+                const scale = INFOSTICKER_LABEL_SCALE;
+                textMesh.scale.set(scale, scale, scale);
+                // Glyphs extend downward from local y = 0, so the caption hangs under the icon.
+                textMesh.position.set(0, INFOSTICKER_LABEL_TOP_M, 0);
+                textMesh.setParent(root);
+                hasVisual = true;
+            } catch (error) {
+                console.error('OGL addInfoSticker label failed', error);
+            }
+        }
+
+        if (!hasVisual) {
+            return null;
+        }
+
+        root.setParent(scene);
+        const nodeId = this.sceneNodes.add(root);
+        this.setTowardsCameraRotating(nodeId);
+        return nodeId;
     }
 
     /**

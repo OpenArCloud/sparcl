@@ -18,6 +18,12 @@ import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVe
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
+import {
+    INFOSTICKER_ICON_SIZE_M,
+    INFOSTICKER_ICON_URL,
+    INFOSTICKER_LABEL_SCALE,
+    INFOSTICKER_LABEL_TOP_M,
+} from '@core/contents/infosticker';
 import { createRandomObjectDescription, type ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { ModelName, RenderingEngine, SceneNodeId } from '@core/engines/RenderingEngine';
@@ -722,6 +728,61 @@ export default class ThreeEngine implements RenderingEngine {
             console.error('ThreeEngine: addLogoObject failed', error);
             return null;
         }
+    }
+
+    async addInfoSticker(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        label: string,
+    ): Promise<SceneNodeId | null> {
+        const group = new THREE.Group();
+        group.frustumCulled = false;
+        group.position.set(position[0], position[1], position[2]);
+        group.quaternion.set(quaternion[0], quaternion[1], quaternion[2], quaternion[3]);
+
+        let hasVisual = false;
+        try {
+            const texture = await new THREE.TextureLoader().loadAsync(INFOSTICKER_ICON_URL);
+            texture.colorSpace = THREE.SRGBColorSpace;
+            const geometry = new THREE.PlaneGeometry(INFOSTICKER_ICON_SIZE_M, INFOSTICKER_ICON_SIZE_M);
+            const material = new THREE.MeshBasicMaterial({
+                map: texture,
+                transparent: true,
+                alphaTest: 0.05,
+                depthWrite: false,
+                side: THREE.DoubleSide,
+            });
+            const plane = new THREE.Mesh(geometry, material);
+            plane.frustumCulled = false;
+            group.add(plane);
+            hasVisual = true;
+        } catch (error) {
+            console.error('ThreeEngine: addInfoSticker icon failed', error);
+        }
+
+        const text = label.trim();
+        if (text) {
+            try {
+                const mesh = await createThreeTextMesh(text, [1, 1, 1]);
+                const scale = INFOSTICKER_LABEL_SCALE;
+                mesh.scale.set(scale, scale, scale);
+                // Glyphs extend downward from local y = 0, so the caption hangs under the icon.
+                mesh.position.set(0, INFOSTICKER_LABEL_TOP_M, 0);
+                group.add(mesh);
+                hasVisual = true;
+            } catch (error) {
+                console.error('ThreeEngine: addInfoSticker label failed', error);
+            }
+        }
+
+        if (!hasVisual) {
+            return null;
+        }
+
+        this.rootEntry.three.add(group);
+        const nodeId = this.track(this.sceneNodes.register(group));
+        this.setTowardsCameraRotating(nodeId);
+        return nodeId;
     }
 
     async addTextObject(
