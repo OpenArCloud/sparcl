@@ -515,8 +515,9 @@
         worldAlignment.clearActiveFramedPoseAlignment();
         dispatch('worldAlignmentCleared');
 
-        // cleanup rendering
+        // cleanup rendering (stop before cleanup so Spark/Three are not mid-frame)
         sensorVisualizer?.clearAllSensors();
+        tdEngine.stop();
         tdEngine.cleanup();
 
         // broadcast event to parent

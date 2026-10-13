@@ -33,6 +33,9 @@ function loadSparkModule(): Promise<SparkModule> {
 let sparkRenderer: SparkRendererInstance | null = null;
 let sparkRendererScene: THREE.Scene | null = null;
 
+/** Spark rejects in-flight worker/sort promises during dispose; ignore during our teardown window. */
+const SPARK_TEARDOWN_REJECTION_MESSAGES = new Set(['Worker terminate', 'No target', 'No renderer']);
+
 function sparkFileTypeForFormat(
     spark: SparkModule,
     format: GaussianSplatsSourceFormat,
@@ -62,12 +65,19 @@ function sparkFileTypeForFormat(
 /**
  * Ensures a single {@link SparkRenderer} exists on `scene` for the given Three `WebGLRenderer`.
  */
+function isSparkRendererInstanceUsable(instance: SparkRendererInstance): boolean {
+    return (instance as { isDisposed?: boolean }).isDisposed !== true;
+}
+
 export async function ensureSparkRenderer(
     renderer: THREE.WebGLRenderer,
     scene: THREE.Scene,
 ): Promise<SparkRendererInstance> {
     const spark = await loadSparkModule();
-    if (sparkRenderer && sparkRendererScene === scene) {
+    if (sparkRenderer && sparkRendererScene === scene && isSparkRendererInstanceUsable(sparkRenderer)) {
+        if (sparkRenderer.parent !== scene) {
+            scene.add(sparkRenderer);
+        }
         return sparkRenderer;
     }
     disposeSparkRenderer();
@@ -77,13 +87,68 @@ export async function ensureSparkRenderer(
     return sparkRenderer;
 }
 
+export function disposeAllGaussianSplatsInScene(scene: THREE.Scene): void {
+    const splatMeshes: THREE.Object3D[] = [];
+    scene.traverse((node) => {
+        if (isSparkSplatMesh(node)) {
+            splatMeshes.push(node);
+        }
+    });
+    for (const mesh of splatMeshes) {
+        disposeGaussianSplatsMesh(mesh);
+        mesh.removeFromParent();
+    }
+}
+
+function withSparkTeardownRejectionGuard(run: () => void): void {
+    const onRejection = (event: PromiseRejectionEvent) => {
+        const message =
+            event.reason instanceof Error ? event.reason.message : String(event.reason ?? '');
+        if (SPARK_TEARDOWN_REJECTION_MESSAGES.has(message)) {
+            event.preventDefault();
+        }
+    };
+    window.addEventListener('unhandledrejection', onRejection);
+    try {
+        run();
+    } finally {
+        window.setTimeout(() => window.removeEventListener('unhandledrejection', onRejection), 500);
+    }
+}
+
+/** Relocalize / engine reinitialize: drop splat meshes, keep Spark alive for the same WebGL session. */
+export function resetGaussianSplatsForRelocalize(scene: THREE.Scene): void {
+    sparkRenderer?.removeFromParent();
+    disposeAllGaussianSplatsInScene(scene);
+}
+
+/**
+ * XR session end: dispose Spark (clears pending sort workers) then splat meshes. Spark schedules
+ * updates with `setTimeout` while presenting; do not dispose splat GPU targets before this runs.
+ */
+export function disposeGaussianSplatsAtSessionEnd(scene: THREE.Scene): void {
+    disposeSparkRenderer();
+    disposeAllGaussianSplatsInScene(scene);
+}
+
 export function disposeSparkRenderer(): void {
-    if (sparkRenderer) {
-        sparkRenderer.dispose();
-        sparkRenderer.removeFromParent();
+    if (!sparkRenderer) {
+        return;
+    }
+    withSparkTeardownRejectionGuard(() => {
+        const renderer = sparkRenderer;
+        if (!renderer) {
+            return;
+        }
         sparkRenderer = null;
         sparkRendererScene = null;
-    }
+        renderer.removeFromParent();
+        try {
+            renderer.dispose();
+        } catch (error) {
+            console.warn('SparkRenderer.dispose failed', error);
+        }
+    });
 }
 
 export function isSparkSplatMesh(object: THREE.Object3D): object is SparkSplatMesh {
@@ -91,8 +156,13 @@ export function isSparkSplatMesh(object: THREE.Object3D): object is SparkSplatMe
 }
 
 export function disposeGaussianSplatsMesh(mesh: THREE.Object3D): void {
-    if (isSparkSplatMesh(mesh)) {
+    if (!isSparkSplatMesh(mesh)) {
+        return;
+    }
+    try {
         mesh.dispose();
+    } catch (error) {
+        console.warn('SplatMesh.dispose failed', error);
     }
 }
 

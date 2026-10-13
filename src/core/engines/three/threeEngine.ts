@@ -47,8 +47,10 @@ import {
 import { loadThreePlyFromUrl } from './threePlyHelper';
 import {
     disposeGaussianSplatsMesh,
+    disposeGaussianSplatsAtSessionEnd,
     disposeSparkRenderer,
     isSparkSplatMesh,
+    resetGaussianSplatsForRelocalize,
     loadGaussianSplatsMesh,
 } from './threeGaussianSplatsHelper';
 import { gaussianSplatsFormatFromRef, type GaussianSplatsSourceFormat } from '@core/contents/gaussianSplats';
@@ -283,6 +285,7 @@ export default class ThreeEngine implements RenderingEngine {
         const contextLost = gl.isContextLost();
         const canvasChanged = !!this.renderer && this.renderer.domElement !== canvas;
         if (!this.renderer || contextLost || canvasChanged) {
+            disposeSparkRenderer();
             this.xrRenderTarget?.dispose();
             this.xrRenderTarget = null;
             this.renderer?.dispose();
@@ -974,14 +977,20 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     reinitialize(): void {
-        this.cleanup();
+        resetGaussianSplatsForRelocalize(this.scene);
+        this.clearSceneContent();
         this.initScene();
     }
 
     cleanup(): void {
+        disposeGaussianSplatsAtSessionEnd(this.scene);
+        this.clearSceneContent();
+    }
+
+    /** Removes placed SCR nodes and engine-owned scene objects (not the WebGL / Spark session). */
+    private clearSceneContent(): void {
         clearRegisteredThreeParticleSystems();
         disposeAllVideoResources();
-        disposeSparkRenderer();
         for (const key of Object.keys(this.updateHandlers)) {
             delete this.updateHandlers[key];
         }
