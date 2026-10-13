@@ -38,6 +38,7 @@
         debug_saveCameraImage,
         debug_loadCameraImage,
         debug_enablePointCloudContents,
+        debug_enableGaussianSplatsContents,
         debug_enableOGCPoIContents,
         initialLocation,
         receivedScrs,
@@ -74,6 +75,7 @@
     import type { RenderingEngine } from '@core/engines/RenderingEngine';
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import { infostickerLabel } from '@core/contents/infosticker';
+    import { gaussianSplatsFormatFromRef } from '@core/contents/gaussianSplats';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
@@ -856,7 +858,8 @@
                     record.content.type === 'VIDEO' ||
                     record.content.type === 'POINT_CLOUD' ||
                     record.content.type === 'POINTCLOUD' ||
-                    record.content.type === 'INFOSTICKER'
+                    record.content.type === 'INFOSTICKER' ||
+                    record.content.type === 'GAUSSIAN_SPLATS'
                 ) {
                     $context.receivedContentTitles.push(record.content.title);
                 }
@@ -1160,6 +1163,44 @@
                             .catch((error) => {
                                 console.error('Error while processing TEXT: ' + error);
                             });
+                        break;
+                    }
+
+                    case 'GAUSSIAN_SPLATS': {
+                        if (!$debug_enableGaussianSplatsContents) {
+                            console.log(
+                                `A 3D Gaussian splats content ${record.content.title} was received but this type is disabled`,
+                            );
+                            break;
+                        }
+                        if (!tdEngine.supportsGaussianSplats) {
+                            console.log(
+                                `A 3D Gaussian splat ${record.content.title} was received but the active renderer does not support it (use ?engine=three)`,
+                            );
+                            break;
+                        }
+                        let gsUrl = '';
+                        if (content_definitions['url'] != undefined) {
+                            gsUrl = content_definitions['url'];
+                        } else {
+                            gsUrl = record.content.refs?.[0]?.url ?? '';
+                        }
+                        if (gsUrl === '') {
+                            console.warn(`GAUSSIAN_SPLATS SCR ${record.content.id} has no ref URL`);
+                            break;
+                        }
+                        const gsContentType = record.content.refs?.[0]?.contentType ?? '';
+                        const gsFormat = gaussianSplatsFormatFromRef(gsUrl, gsContentType);
+                        if (gsFormat == null) {
+                            console.warn(
+                                `GAUSSIAN_SPLATS ${record.content.title}: unsupported ref format for ${gsUrl} (MIME: ${gsContentType || 'none'})`,
+                            );
+                            break;
+                        }
+                        void tdEngine.addGaussianSplatsObject(gsUrl, localPosition, localQuaternion, {
+                            contentType: gsContentType,
+                            format: gsFormat,
+                        });
                         break;
                     }
 

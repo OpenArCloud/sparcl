@@ -90,3 +90,9 @@ export function model3DFormatFromRef(
     }
     return null;
 }
+
+export {
+    gaussianSplatsFormatFromRef,
+    isScrGaussianSplatsContentType,
+    type GaussianSplatsSourceFormat,
+} from '@core/contents/gaussianSplats';

@@ -45,6 +45,13 @@ import {
     updateThreeParticles,
 } from './threeParticleHelper';
 import { loadThreePlyFromUrl } from './threePlyHelper';
+import {
+    disposeGaussianSplatsMesh,
+    disposeSparkRenderer,
+    isSparkSplatMesh,
+    loadGaussianSplatsMesh,
+} from './threeGaussianSplatsHelper';
+import { gaussianSplatsFormatFromRef, type GaussianSplatsSourceFormat } from '@core/contents/gaussianSplats';
 import { createThreeTextMesh } from './threeTextHelper';
 import { createPlaceholderMesh } from './threePlaceholderHelper';
 import { createPolyline } from './threePolylineHelper';
@@ -174,6 +181,8 @@ function unregisterTrackedEngineMaterials(
 }
 
 export default class ThreeEngine implements RenderingEngine {
+    readonly supportsGaussianSplats = true;
+
     private renderer: THREE.WebGLRenderer | null = null;
     /** Dummy target used to keep Three drawing into the currently bound XR layer FBO. */
     private xrRenderTarget: THREE.WebGLRenderTarget | null = null;
@@ -706,6 +715,39 @@ export default class ThreeEngine implements RenderingEngine {
         return null;
     }
 
+    async addGaussianSplatsObject(
+        url: string,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        options?: { contentType?: string; format?: GaussianSplatsSourceFormat },
+    ): Promise<SceneNodeId | null> {
+        if (!this.renderer) {
+            console.error('ThreeEngine addGaussianSplatsObject: renderer not initialized');
+            return null;
+        }
+        const contentType = options?.contentType ?? '';
+        const format = options?.format ?? gaussianSplatsFormatFromRef(url, contentType);
+        if (format == null) {
+            console.warn(
+                `ThreeEngine addGaussianSplatsObject: unsupported format for ${url} (MIME: ${contentType || 'none'})`,
+            );
+            return null;
+        }
+        const splatMesh = await loadGaussianSplatsMesh({
+            url,
+            format,
+            position,
+            orientation: quaternion,
+            renderer: this.renderer,
+            scene: this.scene,
+        });
+        if (splatMesh == null) {
+            return null;
+        }
+        const entry = this.sceneNodes.register(splatMesh);
+        return this.track(entry);
+    }
+
     async addLogoObject(
         url: string,
         position: ReadonlyVec3,
@@ -939,6 +981,7 @@ export default class ThreeEngine implements RenderingEngine {
     cleanup(): void {
         clearRegisteredThreeParticleSystems();
         disposeAllVideoResources();
+        disposeSparkRenderer();
         for (const key of Object.keys(this.updateHandlers)) {
             delete this.updateHandlers[key];
         }
@@ -973,6 +1016,9 @@ export default class ThreeEngine implements RenderingEngine {
             disposeVideo(videoId);
         }
         unregisterTrackedEngineMaterials(entry.three, this.timedShaderMaterials, this.lineMaterials);
+        if (isSparkSplatMesh(entry.three)) {
+            disposeGaussianSplatsMesh(entry.three);
+        }
         disposeThreeSubtree(entry.three, this.scene);
         entry.three.removeFromParent();
         this.objectsById.delete(modelId);
