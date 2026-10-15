@@ -17,6 +17,7 @@ import type { ExternalCameraParameters } from './externalCameraPose';
 import type { ObjectDescription } from '@core/contents/objectDescription';
 import type { RigidPose } from '@core/frameTransforms';
 import type { PlyLoadOptions } from '@core/contents/pointcloud';
+import type { GaussianSplatsSourceFormat } from '@core/contents/gaussianSplats';
 import type { ParticleSystem } from '@core/contents/particleSystem';
 import type { PrimitiveShape } from '@core/contents/primitives';
 
@@ -33,6 +34,9 @@ export type SceneNodeId = string;
 export type ModelName = string;
 
 export interface RenderingEngine {
+    /** Whether this engine can load SCR 3D Gaussian splat content. */
+    readonly supportsGaussianSplats: boolean;
+
     /**
      * Attach to an existing WebGL2 context created by WebXR
      * (`getContext('webgl2', { xrCompatible: true })`). Must not create a new context
@@ -232,6 +236,13 @@ export interface RenderingEngine {
         position: ReadonlyVec3,
         quaternion: ReadonlyQuat,
         options?: PlyLoadOptions & { contentType?: string; scrContentType?: string },
+    ): Promise<SceneNodeId | null>;
+
+    addGaussianSplatsObject(
+        url: string,
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        options?: { contentType?: string; format?: GaussianSplatsSourceFormat },
     ): Promise<SceneNodeId | null>;
 
     addLogoObject(

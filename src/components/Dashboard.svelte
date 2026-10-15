@@ -40,6 +40,7 @@
         debug_saveCameraImage,
         debug_loadCameraImage,
         debug_enablePointCloudContents,
+        debug_enableGaussianSplatsContents,
         debug_enableOGCPoIContents,
         myAgentColor,
         myAgentName,
@@ -572,6 +573,11 @@
         <div>
             <input id="enablePointCloudContents" type="checkbox" bind:checked={$debug_enablePointCloudContents} />
             <label for="enablePointCloudContents">Enable point cloud contents</label>
+        </div>
+
+        <div>
+            <input id="enableGaussianSplatsContents" type="checkbox" bind:checked={$debug_enableGaussianSplatsContents} />
+            <label for="enableGaussianSplatsContents">Enable 3D Gaussian splat contents (Three.js engine)</label>
         </div>
 
         <div>

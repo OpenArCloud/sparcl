@@ -162,6 +162,8 @@ function oglQuat(q: ReadonlyQuat): Quat {
  * https://github.com/oframe/ogl
  */
 export default class ogl implements RenderingEngine {
+    readonly supportsGaussianSplats = false;
+
     private readonly sceneNodes = new OglSceneNodeRegistry();
 
     private readonly boundResize = () => this.resize();
@@ -890,6 +892,16 @@ export default class ogl implements RenderingEngine {
         console.warn(
             `OGL addPointCloudObject: no point-cloud loader for this ref (supported: .ply path or MIME containing "ply"): ${url} (MIME: ${contentType || 'none'}, SCR type: ${scrContentType ?? 'unspecified'})`,
         );
+        return null;
+    }
+
+    async addGaussianSplatsObject(
+        url: string,
+        _position: ReadonlyVec3,
+        _quaternion: ReadonlyQuat,
+        _options?: { contentType?: string; format?: import('@core/contents/gaussianSplats').GaussianSplatsSourceFormat },
+    ): Promise<SceneNodeId | null> {
+        console.log(`OGL: skipping 3D Gaussian splats content type (unsupported engine): ${url}`);
         return null;
     }
 

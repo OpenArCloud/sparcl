@@ -512,6 +512,18 @@ debug_enablePointCloudContents.subscribe((value) => {
 });
 
 /**
+ * Enable/disable 3D Gaussian splats contents (usually large files; Three.js engine only)
+ *
+ * @type {Writable<boolean>}
+ */
+const storedDebug_enableGaussianSplatsContents =
+    localStorage.getItem('debug_enableGaussianSplatsContents') === 'true';
+export const debug_enableGaussianSplatsContents = writable(storedDebug_enableGaussianSplatsContents);
+debug_enableGaussianSplatsContents.subscribe((value) => {
+    localStorage.setItem('debug_enableGaussianSplatsContents', value === true ? 'true' : 'false');
+});
+
+/**
  * Enable/disable OGC Point of Interest contents
  *
  * @type {Writable<boolean>}

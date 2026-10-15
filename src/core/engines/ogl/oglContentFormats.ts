@@ -14,6 +14,8 @@ export {
     model3DFormatFromRef,
     isScrPointCloudContentType,
     isScrModel3dContentType,
+    isScrGaussianSplatsContentType,
     type PointCloudSourceFormat,
     type Model3dSourceFormat,
+    type GaussianSplatsSourceFormat,
 } from '@core/contents/contentFormats';
