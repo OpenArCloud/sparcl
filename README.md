@@ -106,6 +106,12 @@ VITE_AUTH_REDIRECT_URI="YOUR_APP_REDIRECTION_URI"
 VITE_AUTH_AUTH0_DOMAIN="your-sparcl-auth0-domain.auth0.com"
 VITE_AUTH_AUTH0_CLIENTID="your-sparcl-app-client-id-from-auth0"
 
+## Auth0 Login (SCD / Memento experiment only — separate Auth0 application)
+VITE_SCD_AUTH_AUTH0_DOMAIN="your-scd-auth0-domain.auth0.com"
+VITE_SCD_AUTH_AUTH0_CLIENTID="your-scd-client-id-from-auth0"
+VITE_SCD_AUTH_AUTH0_AUDIENCE="https://your-scd.your-domain.com"
+VITE_SCD_AUTH_AUTH0_SCOPE="openid profile email create:scrs"
+
 ## Here you can disable authentication (for development)
 VITE_NOAUTH=false // false if you want Auth0 authentication
 VITE_NOAUTH_USER_NAME="DUMMY_USERNAME"

@@ -11,5 +11,11 @@ import type Ismar2021SignPostViewer from '@experiments/oarc/ismar2021signpost/Vi
 import type Ismar2021MultiViewer from '@experiments/oarc/ismar2021multi/Viewer.svelte';
 import type Ismar2021PerformanceViewer from '@experiments/oarc/performance/Viewer.svelte';
 import type SearchByTextViewer from '@experiments/oarc/searchbytext/Viewer.svelte';
+import type MementoViewer from '@experiments/oarc/memento/Viewer.svelte';
 
-export type ExperimentsViewers = Ismar2021SignPostViewer | Ismar2021MultiViewer | Ismar2021PerformanceViewer | SearchByTextViewer;
+export type ExperimentsViewers =
+    | Ismar2021SignPostViewer
+    | Ismar2021MultiViewer
+    | Ismar2021PerformanceViewer
+    | SearchByTextViewer
+    | MementoViewer;
