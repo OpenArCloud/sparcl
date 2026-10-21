@@ -590,6 +590,29 @@ export function buildFakeLocalizationResponse(
 }
 
 /** Dev-only SCR using **framedPose** in {@link SPARCL_WEBXR_SCENE_FRAME_REF} (requires framed alignment for that frame, e.g. override localization). */
+/** Dev-only SCR: spatial **SOUND** at SCENE frame origin (requires framed alignment). */
+export const fakeContentWithFramedPoseSound: SCRExtended = {
+    content: {
+        description: 'Continuous mosquito buzz for spatial audio testing',
+        id: 'framed-sound-demo-1',
+        keywords: ['framed', 'sound'],
+        refs: [{ url: '/media/audio/mosquito.mp3', contentType: 'audio/mpeg' }],
+        title: 'Framed SOUND demo',
+        type: 'SOUND',
+        framedPose: {
+            frame_ref: SPARCL_WEBXR_SCENE_FRAME_REF,
+            pose: {
+                t: { x: 0, y: 0, z: -1 },
+                q: { x: 0, y: 0, z: 0, w: 1 },
+            },
+        },
+    },
+    id: 'framed-sound-demo-scr-1',
+    tenant: 'public',
+    timestamp: 1726751197500,
+    type: 'scr',
+};
+
 export const fakeContentWithFramedPoseScene: SCRExtended = {
     content: {
         description: '',

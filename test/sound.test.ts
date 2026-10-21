@@ -34,8 +34,24 @@ describe('sound SCR helpers', () => {
     });
 });
 
-/** Mirrors {@link audio.ts} WebXR → Resonance pose math (not imported: resonance-audio needs `window`). */
+/** Mirrors sound experiment orbit + {@link audio.ts} pose math (not imported from Svelte / resonance-audio). */
 describe('audio listener pose (WebXR / Resonance axes)', () => {
+    const WORLD_ORBIT_CENTER = vec3.fromValues(0, 2, 0);
+    const WORLD_ORBIT_RADIUS_M = 2;
+    const WORLD_ORBIT_INITIAL_ANGLE_RAD = Math.PI / 2;
+    const WORLD_ORBIT_START_POSITION = vec3.fromValues(2, 2, 0);
+
+    function setWorldCwOrbitPosition(
+        center: vec3,
+        radiusM: number,
+        angleRad: number,
+        out: vec3,
+    ): void {
+        out[0] = center[0] + radiusM * Math.sin(angleRad);
+        out[1] = center[1];
+        out[2] = center[2] + radiusM * Math.cos(angleRad);
+    }
+
     const viewerForward = vec3.fromValues(0, 0, -1);
     const viewerUp = vec3.fromValues(0, 1, 0);
 
@@ -55,6 +71,34 @@ describe('audio listener pose (WebXR / Resonance axes)', () => {
         vec3.transformQuat(up, viewerUp, quat.create());
         assert.ok(vec3.equals(forward, viewerForward));
         assert.ok(vec3.equals(up, viewerUp));
+    });
+
+    it('world orbit θ=0 is +Z side; fixed start (2,2,0) is θ=π/2', () => {
+        const atZero = vec3.create();
+        setWorldCwOrbitPosition(WORLD_ORBIT_CENTER, WORLD_ORBIT_RADIUS_M, 0, atZero);
+        assert.equal(atZero[0], 0);
+        assert.equal(atZero[1], 2);
+        assert.equal(atZero[2], 2);
+
+        const atStart = vec3.create();
+        setWorldCwOrbitPosition(
+            WORLD_ORBIT_CENTER,
+            WORLD_ORBIT_RADIUS_M,
+            WORLD_ORBIT_INITIAL_ANGLE_RAD,
+            atStart,
+        );
+        assert.ok(vec3.equals(atStart, WORLD_ORBIT_START_POSITION));
+    });
+
+    it('world clockwise orbit: increasing θ moves +Z toward +X', () => {
+        const R = 2;
+        const p0 = vec3.create();
+        const p1 = vec3.create();
+        setWorldCwOrbitPosition(WORLD_ORBIT_CENTER, R, 0, p0);
+        setWorldCwOrbitPosition(WORLD_ORBIT_CENTER, R, 0.01, p1);
+        assert.equal(p0[2], 2);
+        assert.ok(p1[0] > p0[0]);
+        assert.ok(p1[2] < p0[2]);
     });
 
     it('forward/up stay orthonormal under yaw', () => {

@@ -12,10 +12,12 @@ import type Ismar2021MultiViewer from '@experiments/oarc/ismar2021multi/Viewer.s
 import type Ismar2021PerformanceViewer from '@experiments/oarc/performance/Viewer.svelte';
 import type SearchByTextViewer from '@experiments/oarc/searchbytext/Viewer.svelte';
 import type MementoViewer from '@experiments/oarc/memento/Viewer.svelte';
+import type SoundViewer from '@experiments/oarc/sound/Viewer.svelte';
 
 export type ExperimentsViewers =
     | Ismar2021SignPostViewer
     | Ismar2021MultiViewer
     | Ismar2021PerformanceViewer
     | SearchByTextViewer
-    | MementoViewer;
+    | MementoViewer
+    | SoundViewer;
