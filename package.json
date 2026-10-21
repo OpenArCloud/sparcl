@@ -1,6 +1,6 @@
 {
     "name": "spARcl",
-    "version": "0.6.1",
+    "version": "0.6.2",
     "description": "spARcl (spatial AR cloud client) - Open Spatial Cloud Platform (OSCP) client with WebXR",
     "type": "module",
     "scripts": {
@@ -13,7 +13,7 @@
         "build:docker:https": "docker compose --profile https build sparcl-https",
         "start:docker:https": "docker compose --profile https up -d sparcl-https",
         "preview": "vite preview --port 8080",
-        "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/worldAlignment.test.ts test/frameTransforms.test.ts test/geoPoseProtocolExtended.test.ts test/scrPlacement.test.ts test/cameraFrameBridge.test.ts",
+        "test": "node --import ./test/node-polyfills.mjs --import tsx --test test/worldAlignment.test.ts test/frameTransforms.test.ts test/geoPoseProtocolExtended.test.ts test/scrPlacement.test.ts test/cameraFrameBridge.test.ts test/sound.test.ts",
         "lint": "eslint .",
         "format": "prettier --write ."
     },
@@ -85,6 +85,7 @@
         "leaflet": "^1.7.1",
         "ogl": "1.0.3",
         "peerjs": "^1.5.5",
+        "resonance-audio": "^1.0.0",
         "svelte-awesome-color-picker": "^3.0.4",
         "svelte-routing": "^2.13.0",
         "three": "^0.184.0",

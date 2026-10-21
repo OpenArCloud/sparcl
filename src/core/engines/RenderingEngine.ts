@@ -287,6 +287,20 @@ export interface RenderingEngine {
         videoUrl: string,
     ): Promise<SceneNodeId | null>;
 
+    /**
+     * Spatial SCR audio (Resonance). Returns a logical {@link SceneNodeId} (`sound:*`) for {@link remove};
+     * there is no visible mesh.
+     */
+    addSoundObject(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        audioUrl: string,
+        options?: { loop?: boolean; label?: string },
+    ): Promise<SceneNodeId | null>;
+
+    /** Updates world position of a logical `sound:*` node from {@link addSoundObject}. */
+    setSoundObjectPosition(nodeId: SceneNodeId, position: ReadonlyVec3): void;
+
     setVerticallyRotating(node: SceneNodeId): void;
     setTowardsCameraRotating(node: SceneNodeId): void;
 

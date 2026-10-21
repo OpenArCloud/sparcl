@@ -1,6 +1,7 @@
 {
     "extends": "@tsconfig/svelte/tsconfig.json",
     "compilerOptions": {
+        "baseUrl": ".",
         "noImplicitAny": true,
         "strictPropertyInitialization": true,
         "paths": {

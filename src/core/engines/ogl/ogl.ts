@@ -47,6 +47,7 @@ import {
 import { loadLogoTexture, createLogoProgram } from '@core/engines/ogl/oglLogoHelper';
 import { loadTextMesh } from '@core/engines/ogl/oglTextHelper';
 import * as videoHelper from '@core/engines/ogl/oglVideoHelper';
+import * as spatialAudio from '@core/engines/audio';
 import { disposeOglGpuResourcesForDetachedSubtree, disposeOglGpuResourcesUnder } from '@core/engines/ogl/oglDisposeHelper';
 
 import {
@@ -1096,6 +1097,28 @@ export default class ogl implements RenderingEngine {
         }
     }
 
+    async addSoundObject(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        audioUrl: string,
+        options?: { loop?: boolean; label?: string },
+    ): Promise<SceneNodeId | null> {
+        if (audioUrl === '') {
+            return null;
+        }
+        try {
+            const nodeId = await spatialAudio.addSoundObject(position, quaternion, audioUrl, options);
+            return nodeId;
+        } catch (error) {
+            console.error('OGL addSoundObject failed', error);
+            return null;
+        }
+    }
+
+    setSoundObjectPosition(nodeId: SceneNodeId, position: ReadonlyVec3): void {
+        spatialAudio.setSoundObjectPosition(nodeId, position);
+    }
+
     setVerticallyRotating(node: SceneNodeId) {
         verticallyRotatingNodes.push(this.sceneNodes.get(node));
     }
@@ -1243,6 +1266,7 @@ export default class ogl implements RenderingEngine {
         verticallyRotatingNodes = [];
 
         videoHelper.disposeAllVideoResources();
+        spatialAudio.disposeAllSounds();
 
         disposeOglGpuResourcesUnder(scene);
 
@@ -1272,6 +1296,11 @@ export default class ogl implements RenderingEngine {
      * @param modelId - {@link SceneNodeId} to remove
      */
     remove(modelId: SceneNodeId) {
+        if (spatialAudio.isSoundNodeId(modelId)) {
+            spatialAudio.removeSoundObject(modelId);
+            return;
+        }
+
         if (isRegisteredParticleSystem(modelId)) {
             unregisterParticleSystem(modelId);
         }
@@ -1345,6 +1374,7 @@ export default class ogl implements RenderingEngine {
         });
 
         videoHelper.onPreRender(time);
+        spatialAudio.updateListenerFromXrView(view);
         // Keep drawing on the XR layer framebuffer. OGL's default render() binds framebuffer null
         // (the canvas default FBO), which is invalid during an immersive session and also fights
         // the XRWebGLLayer that webxr bound for this animation frame.

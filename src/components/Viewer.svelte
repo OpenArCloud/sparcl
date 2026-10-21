@@ -76,6 +76,7 @@
     import { model3DFormatFromRef } from '@core/contents/contentFormats';
     import { infostickerLabel } from '@core/contents/infosticker';
     import { gaussianSplatsFormatFromRef } from '@core/contents/gaussianSplats';
+    import { isLikelyAudioRef } from '@core/contents/sound';
     import type { SceneNodeId } from '@core/engines/RenderingEngine';
     import { SensorVisualizer } from '@src/features/sensor-visualizer';
 
@@ -857,6 +858,7 @@
                     record.content.type === 'MODEL_3D' ||
                     record.content.type === 'ICON' ||
                     record.content.type === 'VIDEO' ||
+                    record.content.type === 'SOUND' ||
                     record.content.type === 'POINT_CLOUD' ||
                     record.content.type === 'POINTCLOUD' ||
                     record.content.type === 'INFOSTICKER' ||
@@ -1209,6 +1211,25 @@
                         const videoUrl = record.content.refs ? record.content.refs[0].url : '';
                         tdEngine.addVideoObject(localPosition, localQuaternion, videoUrl);
                         break;
+
+                    case 'SOUND': {
+                        const soundRef = record.content.refs?.[0];
+                        const soundUrl = soundRef?.url?.trim() ?? '';
+                        if (soundUrl === '') {
+                            console.warn(`SOUND SCR ${record.content.id} has no ref URL`);
+                            break;
+                        }
+                        const soundContentType = soundRef?.contentType ?? '';
+                        if (!isLikelyAudioRef(soundUrl, soundContentType)) {
+                            console.warn(
+                                `SOUND ${record.content.title}: ref may not be audio (${soundUrl}, MIME: ${soundContentType || 'none'})`,
+                            );
+                        }
+                        void tdEngine.addSoundObject(localPosition, localQuaternion, soundUrl, {
+                            label: record.content.title || record.content.id,
+                        });
+                        break;
+                    }
 
                     case 'INFOSTICKER': {
                         // Proprietary Augmented City sticker. sticker_type would select a specific

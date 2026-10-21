@@ -14,3 +14,5 @@ The simplest content type are the **placeholders**. So called because the record
 The next step up in terms of visual quality are 3D models in **gltf** format. They loose interactivity, though.
 
 Imported **3D scenes** can have any functionality possible with the 3D framework they're created, as long as it is possible within a sandboxed iframe element.
+
+**SOUND** SCRs play geo-anchored spatial audio from `refs[0].url` (for example `audio/wav`). There is no in-scene mesh. Browsers may block unmuted playback until the user has started an immersive session or otherwise unlocked audio; see the video autoplay notes in the engine video helpers.

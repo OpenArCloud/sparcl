@@ -15,6 +15,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mat4, quat, vec3, type ReadonlyMat4, type ReadonlyQuat, type ReadonlyVec3 } from 'gl-matrix';
 
+import * as spatialAudio from '@core/engines/audio';
 import { getExternalCameraParametersForExperience, type ExternalCameraParameters } from '@core/engines/externalCameraPose';
 import { XR_DEPTH_FAR, XR_DEPTH_NEAR } from '@core/common';
 import { pointCloudFormatFromRef } from '@core/contents/contentFormats';
@@ -891,6 +892,28 @@ export default class ThreeEngine implements RenderingEngine {
         }
     }
 
+    async addSoundObject(
+        position: ReadonlyVec3,
+        quaternion: ReadonlyQuat,
+        audioUrl: string,
+        options?: { loop?: boolean; label?: string },
+    ): Promise<SceneNodeId | null> {
+        if (audioUrl === '') {
+            return null;
+        }
+        try {
+            const nodeId = await spatialAudio.addSoundObject(position, quaternion, audioUrl, options);
+            return nodeId;
+        } catch (error) {
+            console.error('ThreeEngine: addSoundObject failed', error);
+            return null;
+        }
+    }
+
+    setSoundObjectPosition(nodeId: SceneNodeId, position: ReadonlyVec3): void {
+        spatialAudio.setSoundObjectPosition(nodeId, position);
+    }
+
     setVerticallyRotating(node: SceneNodeId): void {
         this.verticallyRotatingNodes.push(this.resolve(node));
     }
@@ -991,6 +1014,7 @@ export default class ThreeEngine implements RenderingEngine {
     private clearSceneContent(): void {
         clearRegisteredThreeParticleSystems();
         disposeAllVideoResources();
+        spatialAudio.disposeAllSounds();
         for (const key of Object.keys(this.updateHandlers)) {
             delete this.updateHandlers[key];
         }
@@ -1016,6 +1040,11 @@ export default class ThreeEngine implements RenderingEngine {
     }
 
     remove(modelId: SceneNodeId): void {
+        if (spatialAudio.isSoundNodeId(modelId)) {
+            spatialAudio.removeSoundObject(modelId);
+            return;
+        }
+
         if (isRegisteredThreeParticleSystem(modelId)) {
             unregisterThreeParticleSystem(modelId);
         }
@@ -1087,6 +1116,7 @@ export default class ThreeEngine implements RenderingEngine {
         }
 
         onThreeVideoPreRender();
+        spatialAudio.updateListenerFromXrView(view);
 
         // Keep drawing on the XR layer framebuffer. Three's default render() binds
         // the canvas default FBO (setRenderTarget(null)), which is invalid during an
