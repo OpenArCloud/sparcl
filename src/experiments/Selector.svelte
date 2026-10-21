@@ -23,6 +23,7 @@
         ismar2021multi: 'ISMAR 2021 Multi',
         ismar2021signpost: 'ISMAR 2021 Signpost',
         memento: 'Memento',
+        sound: 'Sound',
     };
 
     export function importExperiment(key: string): { settings: Promise<{ default: ComponentType }> | null; viewer: Promise<{ default: ComponentType<ExperimentsViewers> }> | null; key: string } {
@@ -53,6 +54,10 @@
             case 'memento':
                 settings = import('@experiments/oarc/memento/Settings.svelte');
                 viewer = import('@experiments/oarc/memento/Viewer.svelte');
+                break;
+            case 'sound':
+                settings = import('@experiments/oarc/sound/Settings.svelte');
+                viewer = import('@experiments/oarc/sound/Viewer.svelte');
                 break;
             default:
                 settings = null;
